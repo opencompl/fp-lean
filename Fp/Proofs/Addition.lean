@@ -9,20 +9,20 @@ class HExOffset (e : Nat) (m : Nat) where
 
 
 instance HExOffsetSucc [hex : HExOffset e m] : HExOffset e (m + 1) where
-  h := by 
+  h := by
     have := hex.h
     omega
-    
+
 
 def FixedPoint.ofInt (i : Int) [HExOffset e m] : FixedPoint m e :=
   {
     sign := i ≥ 0
     val := BitVec.ofNat m (i.natAbs)
-    hExOffset := HExOffset.h 
+    hExOffset := HExOffset.h
   }
 
 def FixedPoint.ofDyadic (d : Dyadic) [HExOffset e m]  : FixedPoint m e :=
-  FixedPoint.ofInt (d.toRat.ceil) 
+  FixedPoint.ofInt (d.toRat.ceil)
 
 
 /-- Show that a dyadic number corresponds to a fixed-point number. -/
