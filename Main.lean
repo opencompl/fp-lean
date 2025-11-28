@@ -148,7 +148,7 @@ def test_unop (f : RoundingMode → BitVec 8 → OpResult) : Thunk (List OpResul
 def test_unop_multi (f : RoundingMode → BitVec 8 → OpResult) : Thunk (List OpResult) :=
   allRoundingModes.flatMap (fun m =>
     (List.range (2 ^ 8)).flatMap (fun a =>
-      (List.range (2 ^ 8)).map (fun b =>
+      (List.range (2 ^ 8)).map (fun _b =>
         f m (BitVec.ofNat 8 a)
       )
     )

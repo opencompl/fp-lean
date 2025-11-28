@@ -113,7 +113,7 @@ theorem Rat.mkRat_eq_iff_numerator {n₁ n₂ : Int} {d : Nat} (hd : d ≠ 0):
     subst heq
     rfl
 
-t theorem fp_add_dyadic [HExOffset e m] (da db : Dyadic) (fa fb : FixedPoint m e)
+theorem fp_add_dyadic [HExOffset e m] (da db : Dyadic) (fa fb : FixedPoint m e)
  (ha : fa ∼d da) (hb : fb ∼d db) (mode : RoundingMode)
   : (f_add mode fa fb) ∼d  (da + db) := by
   apply DyadicEqualsFixedPoint_of_eq
