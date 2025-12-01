@@ -251,3 +251,13 @@ theorem fp_add_dyadic [HExOffset e m] (da db : Dyadic) (fa fb : FixedPoint m e)
 
 /-- info: 'fp_add_dyadic' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms fp_add_dyadic
+
+
+
+/-
+
+Now, we need a mechanization of rounding. This needs us to talk about the closest
+floating point number to a given dyadic rational.
+For now, let's pick RNE (round to nearest even) as our canonical rounding mode,
+and just perform proofs on this.
+-/
