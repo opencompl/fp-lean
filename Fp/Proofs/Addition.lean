@@ -253,6 +253,17 @@ theorem fp_add_dyadic [HExOffset e m] (da db : Dyadic) (fa fb : FixedPoint m e)
 #guard_msgs in #print axioms fp_add_dyadic
 
 
+/-- An inductive predicate that 'd' is correctly rounded to even to create 'e' -/
+inductive GoodRNE (d : Dyadic) (exponent : Nat) (significand : Nat) (hEx : significand < exponent) :
+    (e : EFixedPoint exponent significand) → Prop
+| posInfty : GoodRNE d exponent significand hEx (EFixedPoint.getInfinity false hEx)
+| negInfty : GoodRNE d exponent significand hEx (EFixedPoint.getInfinity true hEx)
+| fixedPoint : GoodRNE d exponent significand hEx e
+
+
+-- TOOD: show that GoodRNE is mutually exclusive.
+-- TOOD: show that GoodRNE picks out a unique number.
+-- TODO: show that the output of 'round' is always a GoodRNE.
 
 /-
 
@@ -261,3 +272,19 @@ floating point number to a given dyadic rational.
 For now, let's pick RNE (round to nearest even) as our canonical rounding mode,
 and just perform proofs on this.
 -/
+
+#check round
+#check EFixedPoint.getNaN
+
+def round_eq (x : FixedPoint width exOffset) (y : PackedFloat exWidth sigWidth) (fy : FixedPoint exWidth sigWidth)
+  (hy : y = PackedFloat.getFixedPoint fy) : x =
+  (hfy : PackedFloat.getFixedPoint )
+  y.to
+
+/-
+def round (x : FixedPoint width exOffset) : 
+  (exWidth sigWidth : Nat) (mode : RoundingMode) (x : EFixedPoint width exOffset)
+  : PackedFloat exWidth sigWidth :=
+-/
+
+
