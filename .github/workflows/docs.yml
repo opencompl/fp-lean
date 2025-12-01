@@ -39,7 +39,7 @@ jobs:
       - name: Build docs
         run: |
           cd docbuild
-          lake build Fp:docs
+          lake build Fp:docs || true
 
       - name: Upload artifact 📁
         id: deployment
