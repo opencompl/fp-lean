@@ -253,12 +253,28 @@ theorem fp_add_dyadic [HExOffset e m] (da db : Dyadic) (fa fb : FixedPoint m e)
 #guard_msgs in #print axioms fp_add_dyadic
 
 
+/-- absolute value of a dyadic number -/
+def Dyadic.abs (d : Dyadic) : Dyadic :=
+  if d < 0 then -d else d
+
+/-- Distance between two dyadic numbers -/
+def Dyadic.distance (d1 d2 : Dyadic) : Dyadic := (d1 - d2).abs
+
+def ClosestRNE [HExOffset e m] (d : Dyadic) (x : FixedPoint e m) : Prop :=
+    ∀ (y : FixedPoint e m),
+     -- either x is closer
+      d.distance x.toDyadic < d.distance y.toDyadic  ∨
+      -- or they are equidistant but x is nearest even
+      (d.distance x.toDyadic = d.distance y.toDyadic ∧
+        -- nearest even
+        x.toDyadic.num % 2 = 0 ∧ y.toDyadic.num % 2 ≠ 0)
+
 /-- An inductive predicate that 'd' is correctly rounded to even to create 'e' -/
-inductive GoodRNE (d : Dyadic) (exponent : Nat) (significand : Nat) (hEx : significand < exponent) :
-    (e : EFixedPoint exponent significand) → Prop
-| posInfty : GoodRNE d exponent significand hEx (EFixedPoint.getInfinity false hEx)
-| negInfty : GoodRNE d exponent significand hEx (EFixedPoint.getInfinity true hEx)
-| fixedPoint : GoodRNE d exponent significand hEx e
+inductive GoodRNE (d : Dyadic) (e : Nat) (m : Nat) [hEx : HExOffset exponent m] :
+    (e : EFixedPoint e m) → Prop
+| posInfty : GoodRNE d e m (EFixedPoint.getInfinity false hEx.h)
+| negInfty : GoodRNE d e m (EFixedPoint.getInfinity true hEx.h)
+| fixedPoint (hx : ClosestRNE d x) : GoodRNE d e m (EFixedPoint.getFixedPoint x)
 
 
 -- TOOD: show that GoodRNE is mutually exclusive.
@@ -276,10 +292,6 @@ and just perform proofs on this.
 #check round
 #check EFixedPoint.getNaN
 
-def round_eq (x : FixedPoint width exOffset) (y : PackedFloat exWidth sigWidth) (fy : FixedPoint exWidth sigWidth)
-  (hy : y = PackedFloat.getFixedPoint fy) : x =
-  (hfy : PackedFloat.getFixedPoint )
-  y.to
 
 /-
 def round (x : FixedPoint width exOffset) : 
