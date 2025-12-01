@@ -260,17 +260,36 @@ def Dyadic.abs (d : Dyadic) : Dyadic :=
 /-- Distance between two dyadic numbers -/
 def Dyadic.distance (d1 d2 : Dyadic) : Dyadic := (d1 - d2).abs
 
-def ClosestRNE [HExOffset e m] (d : Dyadic) (x : FixedPoint e m) : Prop :=
+
+def Dyadic.numerator (d : Dyadic) : Int :=
+  d.toRat.num
+
+/--
+Either 'fx' is closer to 'd' than y,
+or 'fx' is and 'y' are equidistant, but
+then 'fx' is even, and 'y' is odd.
+-/
+inductive CloseOrRounded [HExOffset m e]
+    (d : Dyadic)
+    (lim y : FixedPoint e m) : Prop
+| close : (d.distance lim.toDyadic < d.distance y.toDyadic) → CloseOrRounded d lim y
+| rounded
+    (hdeq : d.distance lim.toDyadic = d.distance y.toDyadic)
+    (hxEven: lim.toDyadic.numerator.natAbs % 2 = 0)
+    (hyOdd : y.toDyadic.numerator.natAbs % 2 ≠ 0) :
+    CloseOrRounded d lim y
+
+/-- ClosestRNE means that 'x' is the closest to 'd' according to round to nearest even -/
+def ClosestRNE [HExOffset m e] (d : Dyadic) (lim : FixedPoint e m) : Prop :=
     ∀ (y : FixedPoint e m),
-     -- either x is closer
-      d.distance x.toDyadic < d.distance y.toDyadic  ∨
-      -- or they are equidistant but x is nearest even
-      (d.distance x.toDyadic = d.distance y.toDyadic ∧
-        -- nearest even
-        x.toDyadic.num % 2 = 0 ∧ y.toDyadic.num % 2 ≠ 0)
+     CloseOrRounded d lim y
 
 /-- An inductive predicate that 'd' is correctly rounded to even to create 'e' -/
-inductive GoodRNE (d : Dyadic) (e : Nat) (m : Nat) [hEx : HExOffset exponent m] :
+inductive GoodRNE
+    (d : Dyadic)
+    (e : Nat)
+    (m : Nat)
+    [hEx : HExOffset m e] :
     (e : EFixedPoint e m) → Prop
 | posInfty : GoodRNE d e m (EFixedPoint.getInfinity false hEx.h)
 | negInfty : GoodRNE d e m (EFixedPoint.getInfinity true hEx.h)
@@ -294,9 +313,7 @@ and just perform proofs on this.
 
 
 /-
-def round (x : FixedPoint width exOffset) : 
+def round (x : FixedPoint width exOffset) :
   (exWidth sigWidth : Nat) (mode : RoundingMode) (x : EFixedPoint width exOffset)
   : PackedFloat exWidth sigWidth :=
 -/
-
-
