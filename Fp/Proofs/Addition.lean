@@ -305,7 +305,7 @@ floating point number to a given dyadic rational.
 For now, let's pick RNE (round to nearest even) as our canonical rounding mode,
 and just perform proofs on this.
 -/
-#check round_to_packedFloat
+-- #check round_to_packedFloat
 #check EFixedPoint.getNaN
 
 
@@ -327,13 +327,6 @@ theorem round_rne_infty_eq_infty (s : Bool) :
   PackedFloat.getInfinity exWidth sigWidth s := by
   simp [round_to_packedFloat]
 
-theorem round_rne_eq_infty_of_overflow
-
-/-
-def round (x : FixedPoint width exOffset) :
-  (exWidth sigWidth : Nat) (mode : RoundingMode) (x : EFixedPoint width exOffset)
-  : PackedFloat exWidth sigWidth :=
--/
-
+-- theorem round_rne_eq_infty_of_overflow
 
 end Rounding

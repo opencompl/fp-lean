@@ -203,6 +203,19 @@ def expand (a : EFixedPoint w e) (w' e' : Nat)
   state := a.state
   num := a.num.expand w' e' he hw
 
+/--
+Returns the maximum (magnitude) value for the given sign.
+-/
+@[simp, bv_float_normalize]
+def getMax (w e : Nat) (sign : Bool) (he : e < w)
+  : EFixedPoint w e where
+  state := .Number
+  num := FixedPoint.mk
+    sign
+    (BitVec.allOnes w)
+    (by omega)
+
+
 end EFixedPoint
 
 namespace PackedFloat
