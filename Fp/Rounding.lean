@@ -100,6 +100,7 @@ def shouldRoundAway (m : RoundingMode)
   | .RTZ => False
 
 
+/-- Check if number overflows, when made to fit into 'exWidth'. -/
 def is_over (x : EFixedPoint width exOffset) (exWidth : Nat) : Bool :=
   let over := x.num.val >>> (exOffset + 2^(exWidth-1))
   over != 0

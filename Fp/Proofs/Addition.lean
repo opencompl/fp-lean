@@ -327,6 +327,25 @@ theorem round_rne_infty_eq_infty (s : Bool) :
   PackedFloat.getInfinity exWidth sigWidth s := by
   simp [round_to_packedFloat]
 
+
+omit hExOffset in
+/--
+If we are 'is_over' (i.e. the value overflows), the rounding gives infinity.
+-/
+@[simp]
+theorem round_eq_infty_of_is_over {x : EFixedPoint width exOffset}
+  (hover : is_over x exWidth = true) (hstate : x.state = .Number):
+  round_to_packedFloat exWidth sigWidth RoundingMode.RNE x  =
+  PackedFloat.getInfinity exWidth sigWidth x.num.sign := by
+  simp only [round_to_packedFloat]
+  simp only [hstate]
+  simp only [reduceCtorEq, ↓reduceIte, bne_iff_ne, ne_eq, Bool.not_eq_true,
+    false_and, or_self]
+  simp [is_over] at hover
+  simp [hover]
+
+
+
 -- theorem round_rne_eq_infty_of_overflow
 
 end Rounding
