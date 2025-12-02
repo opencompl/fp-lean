@@ -352,6 +352,52 @@ def toEFixed (pf : PackedFloat e s)
     }
   }
 
+/--
+Build a PackedFloat from an EFixedPoint.
+NOTE: This does not play well with bv_decide,
+but is purely for reasoning.
+Hence, we mark this noncomputable.
+-/
+noncomputable def ofEFixed (x : EFixedPoint (2 ^ e + s) (2 ^ (e - 1) + s - 2))
+  : PackedFloat e s :=
+  match x.state with
+  | .NaN => PackedFloat.getNaN e s
+  | .Infinity => PackedFloat.getInfinity e s x.num.sign
+  | .Number =>
+    let exOffset := 2 ^ (e - 1) + s - 2
+    let ex : BitVec e :=
+      if x.num.val == 0 then 0
+      else
+        let leading := fls (x.num.val)
+        let exp := leading.toNat - (s)
+        BitVec.ofNat e exp
+    let sig : BitVec s :=
+      if x.num.val == 0 then 0
+      else
+        let leading := fls (x.num.val)
+        let sigShift := leading.toNat - 1 - s
+        truncateRight _ x.num.val -- TODO: is this correct?
+    {
+      sign := x.num.sign
+      ex
+      sig
+    }
+
+theorem toEFixed_ofEFixed (x : EFixedPoint (2 ^ e + s) (2 ^ (e - 1) + s - 2))
+  : (ofEFixed x).toEFixed = x := by
+  cases x
+  case mk state num =>
+    cases state
+    case NaN =>
+      simp [ofEFixed, toEFixed]
+      sorry
+    case Infinity =>
+      simp [ofEFixed, toEFixed]
+      sorry
+    case Number =>
+      simp [ofEFixed, toEFixed]
+      sorry
+
 @[simp, bv_float_normalize]
 def equal_denotation (a b : PackedFloat e s) : Bool :=
   (a.sign == b.sign && a.ex == b.ex && a.sig == b.sig) ||

@@ -13,6 +13,18 @@ instance HExOffsetSucc [hex : HExOffset e m] :
     have := hex.h
     omega
 
+instance HExOffsetPow [h : HExOffset exWidth sigWidth] :
+   HExOffset (2 ^ (exWidth - 1) + sigWidth - 2) (2 ^ exWidth + sigWidth) where
+  h := by
+    have := h.h
+    simp
+    rcases exWidth with rfl | exWidth
+    · simp
+      omega
+    · simp
+      rw [Nat.pow_succ]
+      omega
+
 /-- Build a fixed point number from an integer. -/
 def FixedPoint.ofInt (i : Int) [HExOffset e m] : FixedPoint m e :=
   {
@@ -28,6 +40,12 @@ def FixedPoint.toInt [HExOffset e m] (f : FixedPoint m e) : Int :=
     -Int.ofNat n
   else
     Int.ofNat n
+
+@[simp]
+def FixedPoint.natAbs_toInt_eq_toNat [HExOffset e m] (f : FixedPoint m e) :
+    (f.toInt).natAbs = f.val.toNat := by
+  simp [FixedPoint.toInt]
+  by_cases hsign : f.sign <;> simp [hsign]
 
 /-- convert the sign bit to an integer value. Morally, this is (-1)^s -/
 def signToInt (s : Bool) : Int :=
@@ -257,6 +275,18 @@ theorem fp_add_dyadic [HExOffset e m] (da db : Dyadic) (fa fb : FixedPoint m e)
 def Dyadic.abs (d : Dyadic) : Dyadic :=
   if d < 0 then -d else d
 
+def Rat.abs (r : Rat) : Rat :=
+  if r < 0 then -r else r
+
+/-- Pushes 'Dyadic.toRat' into a 'Dyadic.abs'. -/
+@[simp]
+theorem Dyadic.toRat_abs_eq_abs_toRat (d : Dyadic) :
+    d.abs.toRat = d.toRat.abs := by
+  simp [Dyadic.abs]
+  have := Dyadic.toRat_lt_toRat_iff (x := d) (y := 0)
+  simp at this
+  by_cases hlt : d < 0 <;> simp [Rat.abs, hlt] <;> grind
+
 /-- Distance between two dyadic numbers -/
 def Dyadic.distance (d1 d2 : Dyadic) : Dyadic := (d1 - d2).abs
 
@@ -285,19 +315,20 @@ def ClosestRNE [HExOffset m e] (d : Dyadic) (lim : FixedPoint e m) : Prop :=
      CloseOrRounded d lim y
 
 /-- An inductive predicate that 'd' is correctly rounded to even to create 'e' -/
-inductive GoodRNE
+inductive GoodRNEDyadic
     (d : Dyadic)
     (e : Nat)
     (m : Nat)
     [hEx : HExOffset m e] :
     (e : EFixedPoint e m) → Prop
-| posInfty : GoodRNE d e m (EFixedPoint.getInfinity false hEx.h)
-| negInfty : GoodRNE d e m (EFixedPoint.getInfinity true hEx.h)
-| fixedPoint (hx : ClosestRNE d x) : GoodRNE d e m (EFixedPoint.getFixedPoint x)
+| posInfty : GoodRNEDyadic   d e m (EFixedPoint.getInfinity false hEx.h)
+| negInfty : GoodRNEDyadic   d e m (EFixedPoint.getInfinity true hEx.h)
+| fixedPoint (hx : ClosestRNE d x) : GoodRNEDyadic d e m (EFixedPoint.getFixedPoint x)
 
--- TOOD: show that GoodRNE is mutually exclusive.
--- TOOD: show that GoodRNE picks out a unique number.
--- TODO: show that the output of 'round' is always a GoodRNE.
+-- TOOD: show that GoodRNEDyadic is mutually exclusive.
+-- TOOD: show that GoodRNEDyadic picks out a unique number.
+-- TODO: show that the output of 'round' is always a GoodRNEDyadic.
+
 
 /-
 Now, we need a mechanization of rounding. This needs us to talk about the closest
@@ -326,6 +357,287 @@ theorem round_rne_infty_eq_infty (s : Bool) :
     (EFixedPoint.getInfinity s hExOffset.h) =
   PackedFloat.getInfinity exWidth sigWidth s := by
   simp [round_to_packedFloat]
+
+
+/-- the is_over condition checks a bitvector right shift being not equal to zero. -/
+theorem is_over_eq_decide (x : EFixedPoint width exOffset) (exWidth : Nat) :
+    is_over x exWidth =
+    decide (x.num.val >>> (exOffset + 2^(exWidth-1)) ≠ 0) := by
+  simp [is_over]
+  by_cases hx : ((x.num.val >>> (exOffset + 2^(exWidth-1))) = (BitVec.ofNat width 0))
+  · simp [hx]
+  · simp [hx]
+
+
+/-- The 'is_over' condition checks that the absolute value of the number in the fixed point interpretation
+is larger than the width times the largest representable number in exWidth bits. -/
+theorem is_over_iff_decide_le_toNat
+    (x : EFixedPoint width exOffset) (exWidth : Nat) :
+    is_over x exWidth =
+    decide (2^(exOffset + (2^(exWidth - 1))) ≤ x.num.val.toNat) := by
+  rw [is_over_eq_decide]
+  simp only [BitVec.ofNat_eq_ofNat, ne_eq, decide_not, Bool.not_eq_eq_eq_not]
+  rw [← decide_not]
+  simp only [decide_eq_decide]
+  rw [← BitVec.toNat_inj]
+  simp
+  constructor
+  · intros h
+    rw [Nat.shiftRight_eq_div_pow] at h
+    apply Nat.lt_of_div_eq_zero
+    · apply Nat.two_pow_pos
+    · exact h
+  · intros h
+    apply Nat.shiftRight_eq_zero
+    exact h
+
+/-- The 'is_over' condition checks that the absolute value of the number in the fixed point interpretation
+is larger than the width times the largest representable number in exWidth bits. -/
+theorem is_over_iff_decide_le_toDyadic [HExOffset exOffset width]
+    (x : EFixedPoint width exOffset) (exWidth : Nat) :
+    is_over x exWidth =
+    decide (2^(exOffset + (2^(exWidth - 1))) ≤ x.num.toDyadic.abs) := by
+  rw [is_over_iff_decide_le_toNat]
+  simp
+  rw [FixedPoint.toDyadic]
+  rw [← Dyadic.toRat_le_toRat_iff]
+  simp
+  rw [Dyadic.toRat_ofIntWithPrec_eq_mul_two_pow]
+  simp
+  norm_cast
+  sorry
+
+
+
+def PackedFloat.toDyadic [h : HExOffset (2 ^ (exWidth - 1) + sigWidth - 2) (2 ^ exWidth + sigWidth)]
+    (pf : PackedFloat exWidth sigWidth) : Dyadic :=
+  PackedFloat.toEFixed pf |>.num.toDyadic
+
+-- @[bv_float_normalize]
+-- def round_to_efixedpoint [HExOffset exWidth sigWidth] [h : HExOffset exWidth sigWidth] [HExOffset exWidth sigWidth] [HExOffset exOffset width]
+--   (exWidth sigWidth : Nat) (mode : RoundingMode) (x : EFixedPoint width exOffset)
+--   : EFixedPoint (2 ^ exWidth + sigWidth) (2 ^ (exWidth - 1) + sigWidth - 2) :=
+--   if hNaN: x.state = .NaN then
+--     EFixedPoint.getNaN sorry
+--   else if hInfty : x.state = .Infinity then
+--     -- +infty ↦ +infty
+--     -- infty ↦ -infty
+--     EFixedPoint.getInfinity x.num.sign (by sorry)
+--   else
+--     let exOffset' := 2^(exWidth - 1) + sigWidth - 2 -- new offset corresponding to EFixedPoint ~= output packedFloat.
+--     -- trim bitvector
+--     -- 'over' is x/2^(exOffset + 2^(exWidth-1)), but this is the following:
+--     -- we take the EFixedpoint value, and interpret it as a rational, giving us
+--     -- 'x / 2^exOffset'.
+--     -- Then, we consider the largest exponent we can represent in the floating point format,
+--     -- which is 'e := 2^(exWidth-1) - 1' (since ex is stored with a bias of '2^(exWidth-1) - 1').
+--     -- Now, the largest FP number has exponent 'e', which means its value is
+--     -- 'sig * 2^e' (where 'sig' is the significand interpreted as a rational).
+--     -- So, this means that the largest FP number represents values up to
+--     -- 'sig * 2^(2^(exWidth-1) - 1)'
+--     -- Therefore, to check if 'x' overflows, we check if
+--     -- 'x / 2^exOffset >= 2^(2^(exWidth-1) - 1)', or equivalently,
+--     -- 'x >= 2^(exOffset + 2^(exWidth-1) - 1)'.
+--     let xhi := x.num.val >>> exOffset
+--     let xlo := x.num.val.truncate exOffset
+
+--     -- | a := truncate high bits, keeping 2^(exWidth-1) bits
+--     let a := (xhi).truncate (2^(exWidth-1))
+--     -- | b := truncate low bits, keeping exOffset' bits
+--     let b := truncateRight exOffset' xlo
+--     let trimmed := a ++ b
+--     -- largest output value.
+--     let over := xhi >>> 2^(exWidth-1) -- over := does it overflow?
+--     if hOverflow : over != 0 then
+--       -- Overflow to Infinity
+--       -- Unless we're rounding RTN/RTP to the opposite sign, or RTZ
+--       -- in which case we overflow to MAX
+--       if hround : (mode = .RTN ∧ ¬x.num.sign) ∨ (mode = .RTP ∧ x.num.sign) ∨ mode = .RTZ then
+--         EFixedPoint.getMax _ _ x.num.sign (by sorry)
+--         -- EFixedPoint.getMax _ _ x.num.sign
+--       else
+--         EFixedPoint.getInfinity x.num.sign (by sorry)
+--         -- have : HExOffset (2 ^ (exWidth - 1) + sigWidth - 2) (2 ^ exWidth + sigWidth):= sorry
+--         -- have : hMaxOut.toDyadic.abs < x.num.toDyadic.abs := sorry
+--         -- PackedFloat.getInfinity _ _ x.num.sign
+--     else
+--       -- | This tells us the largest power of 2 we need to fit 'trimmed'.
+--       let index := fls trimmed -- index of first 1 bit (most significant)
+--       let sigWidthB := BitVec.ofNat _ sigWidth -- bitvec of sigWidth
+--       let ex : BitVec exWidth := -- exponent
+--         if index ≤ sigWidthB then
+--           0
+--         else
+--           (index - sigWidthB).truncate _
+--       let truncSig : BitVec sigWidth :=
+--         if ex = 0 then
+--           trimmed.truncate _
+--         else
+--           (trimmed >>> (ex - 1)).truncate _
+--       -- under = stuff that's left over?
+--       let underWidth := exOffset - exOffset'
+--       let under := x.num.val.truncate underWidth
+--       let rem : BitVec (2^exWidth + underWidth) :=
+--         if ex = 0 then
+--           under.truncate _ <<< (1 <<< exWidth)
+--         else
+--           let totalShift : BitVec (exWidth+1) := ex.truncate _ - 1
+--           truncateRight _ (trimmed <<< ((1 <<< exWidth) + sigWidth - 2 - totalShift)) |||
+--           (under.truncate _ <<< ((1 <<< exWidth) - totalShift))
+--       if shouldRoundAway mode x.num.sign (truncSig.getLsbD 0) rem then
+--         if truncSig = BitVec.allOnes _ then
+--           -- overflow to next exponent
+--           {
+--             sign := x.num.sign
+--             ex := ex+1
+--             sig := 0
+--           }
+--         else
+--           -- add 1 to significand
+--           {
+--             sign := x.num.sign
+--             ex
+--             sig := truncSig + 1
+--           }
+--       else
+--       -- leave everything the same
+--       {
+--         sign := x.num.sign
+--         ex
+--         sig := truncSig
+--       }
+
+
+
+/-#
+output:>-------------------exwidth----<|>-------sigwidth-------<
+                                            @<====================index
+                                            @
+                                            @
+:                  (---2^(exWidth-1)---||---@outputExOffset--)
+   (--------over--](---a---------------][---------b----------) [-under-)
+   (--------------xhi------------------][----------------xlo-----------]
+x: (-----------------------------------@-------------------------------] WIDTH size. [Implicit * 2^-exOffset]
+                                       @
+                                       @
+                                       @<==============exOffset
+
+
+-/
+@[bv_float_normalize]
+def round_to_packedfloat' [HExOffset exWidth sigWidth] [h : HExOffset exWidth sigWidth] [HExOffset exWidth sigWidth] [HExOffset exOffset width]
+  (exWidth sigWidth : Nat) (mode : RoundingMode) (x : EFixedPoint width exOffset)
+  : PackedFloat exWidth sigWidth :=
+  if hNaN: x.state = .NaN then
+    PackedFloat.getNaN _ _ -- nan is propagated.
+  else if hInfty : x.state = .Infinity then
+    -- +infty ↦ +infty
+    -- infty ↦ -infty
+    PackedFloat.getInfinity _ _ x.num.sign
+  else
+    let outputExOffset := 2^(exWidth - 1) + sigWidth - 2 -- new EFixedPoint offset corresponding to EFixedPoint ~= output packedFloat.
+    -- trim bitvector
+    -- 'over' is x/2^(exOffset + 2^(exWidth-1)), but this is the following:
+    -- we take the EFixedpoint value, and interpret it as a rational, giving us
+    -- 'x / 2^exOffset'.
+    -- Then, we consider the largest exponent we can represent in the floating point format,
+    -- which is 'e := 2^(exWidth-1) - 1' (since ex is stored with a bias of '2^(exWidth-1) - 1').
+    -- Now, the largest FP number has exponent 'e', which means its value is
+    -- 'sig * 2^e' (where 'sig' is the significand interpreted as a rational).
+    -- So, this means that the largest FP number represents values up to
+    -- 'sig * 2^(2^(exWidth-1) - 1)'
+    -- Therefore, to check if 'x' overflows, we check if
+    -- 'x / 2^exOffset >= 2^(2^(exWidth-1) - 1)', or equivalently,
+    -- 'x >= 2^(exOffset + 2^(exWidth-1) - 1)'.
+    let xhi := x.num.val >>> exOffset
+    let xlo := x.num.val.truncate exOffset
+    have : x.num.val = (xhi <<< exOffset) ||| (xlo.zeroExtend _) := by
+      ext i
+      simp [xhi, xlo]
+      by_cases hi : i < exOffset
+      · simp [hi]
+        rfl
+      · simp [hi]
+        simp [show exOffset + (i - exOffset) = i by omega]
+        rfl
+    -- | trimmedHi := truncate high bits, keeping 2^(exWidth-1) bits
+    let trimmedHi := (xhi).truncate (2^(exWidth-1))
+    -- | trimmedLo := truncate low bits, keeping exOffset' bits
+    let trimmedLo := truncateRight outputExOffset xlo
+    let trimmed := trimmedHi ++ trimmedLo
+    -- largest output value.
+    let hMaxOut := PackedFloat.getMax exWidth sigWidth x.num.sign
+    let over := xhi >>> 2^(exWidth-1) -- over := does it overflow?
+    if hOverflow : over != 0 then
+      -- Overflow to Infinity
+      -- Unless we're rounding RTN/RTP to the opposite sign, or RTZ
+      -- in which case we overflow to MAX
+      if hround : (mode = .RTN ∧ ¬x.num.sign) ∨ (mode = .RTP ∧ x.num.sign) ∨ mode = .RTZ then
+        PackedFloat.getMax _ _ x.num.sign
+      else
+        have : HExOffset (2 ^ (exWidth - 1) + sigWidth - 2) (2 ^ exWidth + sigWidth):= sorry
+        have : hMaxOut.toDyadic.abs < x.num.toDyadic.abs := sorry
+        PackedFloat.getInfinity _ _ x.num.sign
+    else
+      -- | This tells us the largest power of 2 we need to fit 'trimmed'.
+      let index := fls trimmed -- index of first 1 bit (most significant)
+      let sigWidthB := BitVec.ofNat _ sigWidth -- bitvec of sigWidth
+      -- outExponent : BitVec exWidth :=  (BitVec.monus index sigWidthB).truncate _
+      let outExponent : BitVec exWidth := -- new exponent.
+        if index ≤ sigWidthB then -- if our number is entirely contained in the significand, then exponent is zero.
+          0
+        else
+          -- else, we need (index - sigWidthB) bits of exponent.
+          -- Interesting, TODO: if we had BitVec.monus, then this would be cleaner.
+          (index - sigWidthB).truncate _
+      -- truncated significand, morally equal to
+      -- trunSig = trimmed >>> max(0, outExponent - 1)
+      let truncSig : BitVec sigWidth :=
+        -- if the output exponent is zero, then we have enough space
+        -- in the significand to hold everything.
+        -- So we just take it.
+        if outExponent = 0 then
+          trimmed.truncate _
+        else
+          -- drop the stuff that's in the exponent,
+          -- TODO: (why outExponent - 1?)
+          --   Is it because we have a leading 1?
+          -- and then truncate.
+          (trimmed >>> (outExponent - 1)).truncate _
+      -- under = stuff that's left over?
+      let underWidth := exOffset - outputExOffset
+
+      let under := x.num.val.truncate underWidth
+      --- ???
+      let rem : BitVec (2^exWidth + underWidth) :=
+        if outExponent = 0 then
+          under.truncate _ <<< (1 <<< exWidth)
+        else
+          let totalShift : BitVec (exWidth+1) := outExponent.truncate _ - 1
+          truncateRight _ (trimmed <<< ((1<<<exWidth) + sigWidth - 2 - totalShift)) |||
+          (under.truncate _ <<< ((1<<<exWidth) - totalShift))
+      if shouldRoundAway mode x.num.sign (truncSig.getLsbD 0) rem then
+        if truncSig = BitVec.allOnes _ then
+          -- overflow to next exponent
+          {
+            sign := x.num.sign
+            ex := outExponent+1
+            sig := 0
+          }
+        else
+          -- add 1 to significand
+          {
+            sign := x.num.sign
+            ex := outExponent
+            sig := truncSig + 1
+          }
+      else
+      -- leave everything the same
+      {
+        sign := x.num.sign
+        ex := outExponent
+        sig := truncSig
+      }
 
 
 omit hExOffset in
