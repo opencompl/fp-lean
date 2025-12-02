@@ -251,3 +251,69 @@ theorem fp_add_dyadic [HExOffset e m] (da db : Dyadic) (fa fb : FixedPoint m e)
 
 /-- info: 'fp_add_dyadic' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms fp_add_dyadic
+
+
+/-- absolute value of a dyadic number -/
+def Dyadic.abs (d : Dyadic) : Dyadic :=
+  if d < 0 then -d else d
+
+/-- Distance between two dyadic numbers -/
+def Dyadic.distance (d1 d2 : Dyadic) : Dyadic := (d1 - d2).abs
+
+
+def Dyadic.numerator (d : Dyadic) : Int :=
+  d.toRat.num
+
+/--
+Either 'fx' is closer to 'd' than y,
+or 'fx' is and 'y' are equidistant, but
+then 'fx' is even, and 'y' is odd.
+-/
+inductive CloseOrRounded [HExOffset m e]
+    (d : Dyadic)
+    (lim y : FixedPoint e m) : Prop
+| close : (d.distance lim.toDyadic < d.distance y.toDyadic) → CloseOrRounded d lim y
+| rounded
+    (hdeq : d.distance lim.toDyadic = d.distance y.toDyadic)
+    (hxEven: lim.toDyadic.numerator.natAbs % 2 = 0)
+    (hyOdd : y.toDyadic.numerator.natAbs % 2 ≠ 0) :
+    CloseOrRounded d lim y
+
+/-- ClosestRNE means that 'x' is the closest to 'd' according to round to nearest even -/
+def ClosestRNE [HExOffset m e] (d : Dyadic) (lim : FixedPoint e m) : Prop :=
+    ∀ (y : FixedPoint e m),
+     CloseOrRounded d lim y
+
+/-- An inductive predicate that 'd' is correctly rounded to even to create 'e' -/
+inductive GoodRNE
+    (d : Dyadic)
+    (e : Nat)
+    (m : Nat)
+    [hEx : HExOffset m e] :
+    (e : EFixedPoint e m) → Prop
+| posInfty : GoodRNE d e m (EFixedPoint.getInfinity false hEx.h)
+| negInfty : GoodRNE d e m (EFixedPoint.getInfinity true hEx.h)
+| fixedPoint (hx : ClosestRNE d x) : GoodRNE d e m (EFixedPoint.getFixedPoint x)
+
+
+-- TOOD: show that GoodRNE is mutually exclusive.
+-- TOOD: show that GoodRNE picks out a unique number.
+-- TODO: show that the output of 'round' is always a GoodRNE.
+
+/-
+
+Now, we need a mechanization of rounding. This needs us to talk about the closest
+floating point number to a given dyadic rational.
+For now, let's pick RNE (round to nearest even) as our canonical rounding mode,
+and just perform proofs on this.
+-/
+
+#check round
+#check EFixedPoint.getNaN
+
+
+/-
+def round (x : FixedPoint width exOffset) :
+  (exWidth sigWidth : Nat) (mode : RoundingMode) (x : EFixedPoint width exOffset)
+  : PackedFloat exWidth sigWidth :=
+-/

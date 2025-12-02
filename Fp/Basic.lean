@@ -135,6 +135,12 @@ def getNaN (hExOffset : sigWidth < exWidth)
     hExOffset
   }
 
+/-- Get a fixed-point number from the extended format. -/
+def getFixedPoint (fixed : FixedPoint exWidth sigWidth) : EFixedPoint exWidth sigWidth where
+  state := .Number
+  num := fixed
+
+-- Sign = true ↔ negative
 @[simp, bv_float_normalize]
 def getInfinity (sign : Bool) (hExOffset : sigWidth < exWidth)
   : EFixedPoint exWidth sigWidth where
