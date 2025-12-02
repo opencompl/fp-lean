@@ -51,7 +51,7 @@ def sqrt_impl (x : PackedFloat e s) (m : RoundingMode) : PackedFloat e s :=
           omega
       }
     }
-  round e s m result
+  round_to_packedFloat e s m result
 
 @[bv_float_normalize]
 def sqrt (x : PackedFloat e s) (m : RoundingMode) : PackedFloat e s :=

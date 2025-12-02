@@ -99,13 +99,18 @@ def shouldRoundAway (m : RoundingMode)
   | .RTN => (guard ∨ sticky) ∧ sign
   | .RTZ => False
 
+
+def is_over (x : EFixedPoint width exOffset) (exWidth : Nat) : Bool :=
+  let over := x.num.val >>> (exOffset + 2^(exWidth-1))
+  over != 0
+
 -- Round is less well-behaved when exWidth = 0. This shouldn't be an issue?
 /--
 Round an extended fixed-point number to its nearest floating point number of
 the specified format, with the specified rounding mode.
 -/
 @[bv_float_normalize]
-def round
+def round_to_packedFloat
   (exWidth sigWidth : Nat) (mode : RoundingMode) (x : EFixedPoint width exOffset)
   : PackedFloat exWidth sigWidth :=
   if x.state = .NaN then
@@ -228,7 +233,7 @@ def roundToInt (mode : RoundingMode) (x : PackedFloat e s) : PackedFloat e s :=
           omega
       }
     }
-    round e s mode res
+    round_to_packedFloat e s mode res
 
 namespace PackedFloat
 def ofRat (e s : Nat) (mode : RoundingMode) (num : Int) (den : Nat) : PackedFloat e s :=
@@ -251,7 +256,7 @@ def ofRat (e s : Nat) (mode : RoundingMode) (num : Int) (den : Nat) : PackedFloa
           omega
       }
     }
-    round e s mode result
+    round_to_packedFloat e s mode result
 end PackedFloat
 
 theorem ofRat_one_is_oneE5M2 : PackedFloat.ofRat 5 2 .RNE 1 1 = oneE5M2 := by

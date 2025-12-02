@@ -22,7 +22,7 @@ def e_neg (a : EFixedPoint w e) : EFixedPoint w e :=
 /-- Negate a floating-point number, by conversion to a fixed-point number. -/
 @[bv_float_normalize]
 def negfixed (a : PackedFloat e s) (mode : RoundingMode) : PackedFloat e s :=
-  round _ _ mode (e_neg a.toEFixed)
+  round_to_packedFloat _ _ mode (e_neg a.toEFixed)
 
 /--
 Negate a floating-point number, by flipping the sign bit.

@@ -28,7 +28,7 @@ def div_impl (a b : PackedFloat e s) (mode : RoundingMode) : PackedFloat e s :=
           omega
       }
     }
-    round _ _ mode quot_lshift
+    round_to_packedFloat _ _ mode quot_lshift
   else
     let quot_rshift : EFixedPoint (2^e+div_len+1) (2^e+unit_pos+1) := {
       state := .Number
@@ -40,7 +40,7 @@ def div_impl (a b : PackedFloat e s) (mode : RoundingMode) : PackedFloat e s :=
           omega
       }
     }
-    round _ _ mode quot_rshift
+    round_to_packedFloat _ _ mode quot_rshift
 
 /--
 Division of two floating-point numbers, rounded to a floating point number

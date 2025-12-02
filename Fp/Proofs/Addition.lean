@@ -295,25 +295,45 @@ inductive GoodRNE
 | negInfty : GoodRNE d e m (EFixedPoint.getInfinity true hEx.h)
 | fixedPoint (hx : ClosestRNE d x) : GoodRNE d e m (EFixedPoint.getFixedPoint x)
 
-
 -- TOOD: show that GoodRNE is mutually exclusive.
 -- TOOD: show that GoodRNE picks out a unique number.
 -- TODO: show that the output of 'round' is always a GoodRNE.
 
 /-
-
 Now, we need a mechanization of rounding. This needs us to talk about the closest
 floating point number to a given dyadic rational.
 For now, let's pick RNE (round to nearest even) as our canonical rounding mode,
 and just perform proofs on this.
 -/
-
-#check round
+#check round_to_packedFloat
 #check EFixedPoint.getNaN
 
+
+section Rounding
+
+variable {exWidth sigWidth : Nat} [hExOffset : HExOffset exWidth sigWidth]
+
+
+@[simp]
+theorem round_rne_nan_eq_nan : round_to_packedFloat exWidth sigWidth RoundingMode.RNE
+    (EFixedPoint.getNaN hExOffset.h) =
+  PackedFloat.getNaN exWidth sigWidth := by
+  simp [round_to_packedFloat]
+
+@[simp]
+theorem round_rne_infty_eq_infty (s : Bool) :
+  round_to_packedFloat exWidth sigWidth RoundingMode.RNE
+    (EFixedPoint.getInfinity s hExOffset.h) =
+  PackedFloat.getInfinity exWidth sigWidth s := by
+  simp [round_to_packedFloat]
+
+theorem round_rne_eq_infty_of_overflow
 
 /-
 def round (x : FixedPoint width exOffset) :
   (exWidth sigWidth : Nat) (mode : RoundingMode) (x : EFixedPoint width exOffset)
   : PackedFloat exWidth sigWidth :=
 -/
+
+
+end Rounding

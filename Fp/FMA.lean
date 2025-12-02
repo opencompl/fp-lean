@@ -36,4 +36,4 @@ def fma (a b c : PackedFloat e s) (m : RoundingMode)
     -- Used for proving bounds
     have hexp1 : 2^(e-1) ≤ 2^e := two_pow_sub_one_le_two_pow e
     let added_result := e_add m result (c.toEFixed.expand _ _ (by omega) (by omega))
-    round _ _ m added_result
+    round_to_packedFloat _ _ m added_result
