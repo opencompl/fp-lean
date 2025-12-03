@@ -47,6 +47,57 @@ def fls' (m : Nat) (b : BitVec n) (hm : n ≤ m) : BitVec m := match n with
     else fls' m (BitVec.truncate n' b) (by omega)
 
 
+theorem fls'_eq_zero_iff (b : BitVec n) (m : Nat) (hm : n ≤ m) :
+  fls' m b hm = 0 ↔ b = 0 := by
+  induction n generalizing m with
+  | zero =>
+    simp [fls']
+    exact BitVec.of_length_zero
+  | succ n ih =>
+    simp only [fls']
+    split
+    case succ.isTrue h =>
+      constructor
+      · intros contra
+        simp at contra
+        rw [← BitVec.toNat_inj] at contra
+        simp at contra
+        rw [Nat.mod_eq_of_lt] at contra
+        · omega
+        · apply Nat.lt_of_le_of_lt hm
+          exact Nat.lt_two_pow_self
+      · intros h
+        subst h
+        simp at h
+    case succ.isFalse h =>
+      constructor
+      · intros hfls
+        simp at hfls
+        specialize ih (BitVec.setWidth n b) m (by omega)
+        have ih := ih.mp hfls
+        ext i hi
+        by_cases hiEq : i = n
+        · subst hiEq
+          simp
+          simp at h
+          rw [BitVec.msb_eq_getLsbD_last] at h
+          simpa using h
+        · have : i < n := by
+            omega
+          have : (BitVec.setWidth n b)[i] = false := by
+            rw [ih]
+            simp
+          simp at this
+          rw [BitVec.getLsbD_eq_getElem] at this
+          simpa using this
+      · intros hb
+        specialize ih (0#n) m (by omega)
+        rw [hb]
+        simp only [BitVec.ofNat_eq_ofNat, BitVec.truncate_eq_setWidth, Nat.le_add_right,
+          BitVec.setWidth_ofNat_of_le]
+        apply ih.mpr
+        simp only [BitVec.ofNat_eq_ofNat]
+
 @[simp, bv_float_normalize]
 def fls_log (m : Nat) (b : BitVec n) : BitVec n :=
   if m = 0 then
@@ -67,6 +118,12 @@ Implemented naively using a fold with $O(n)$ steps.
 @[simp, bv_float_normalize]
 def fls (b : BitVec n) : BitVec n :=
   fls' n b (n.le_refl)
+
+@[simp]
+theorem fls_eq_zero_iff (b : BitVec n) :
+  fls b = 0 ↔ b = 0 := by
+  simp [fls]
+  apply fls'_eq_zero_iff
 
 /--
 Find the position of the last (most significant) set bit in a BitVec.

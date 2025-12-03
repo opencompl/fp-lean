@@ -620,6 +620,8 @@ def round_to_packedfloat' [h : HExOffset exWidth sigWidth] [HExOffset exOffset w
       -- | This is a bit counter-intuitive, I would have assumed we would have looked for 'fls' inside 'trimmedHi'??
       -- | This tells us the largest power of 2 we need to fit 'trimmed'.
       let index := fls trimmed -- index of first 1 bit (most significant)
+      have : trimmed.getLsbD index.toNat = true ∧ ∀ i : Nat, i > index.toNat → trimmed.getLsbD i = false := by
+        sorry
       let sigWidthB := BitVec.ofNat _ sigWidth -- bitvec of sigWidth
       -- outExponent : BitVec exWidth :=  (BitVec.monus index sigWidthB).truncate _
       let outExponent : BitVec exWidth := -- new exponent.
