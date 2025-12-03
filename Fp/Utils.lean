@@ -88,7 +88,7 @@ theorem flsIter_eq_fls (b : BitVec 8)
 /--
 Gets the first `w` bits of the bitvector `v`.
 -/
-@[simp, bv_float_normalize]
+@[bv_float_normalize]
 def truncateRight (w : Nat) (v : BitVec n) : BitVec w :=
   if hw : n ≤ w then
     -- Have to show that hw ⊢ n + (w - n) = w
@@ -98,22 +98,48 @@ def truncateRight (w : Nat) (v : BitVec n) : BitVec w :=
   else
     BitVec.truncate w (v >>> (n-w))
 
+
+@[simp]
+theorem toNat_truncateRight (x : BitVec w) :
+  (truncateRight w' x).toNat =
+  if w ≤ w' then
+      x.toNat * (2 ^ (w' - w))
+    else
+      x.toNat / 2 ^ (w - w') := by
+  by_cases hw : w ≤ w'
+  · simp [truncateRight, hw]
+    rw [Nat.shiftLeft_eq]
+  · simp only [Nat.not_le] at hw
+    simp only [truncateRight, BitVec.truncate_eq_setWidth]
+    simp only [show ¬w ≤ w' by omega, ↓reduceDIte, BitVec.toNat_setWidth, BitVec.toNat_ushiftRight,
+      ↓reduceIte]
+    have : x.toNat < 2^w := by omega
+    rw [Nat.shiftRight_eq_div_pow]
+    rw [Nat.mod_eq_of_lt]
+    apply Nat.div_lt_of_lt_mul
+    rw [← Nat.pow_add]
+    simp [show w - w' + w' = w by omega, this]
+
 theorem getMsbD_truncateRight (x : BitVec w)
   : (truncateRight w' x).getMsbD i = ((x.getMsbD i && (decide (i < w')))) := by
   by_cases hw : w ≤ w'
-  · simp [truncateRight, hw]
+  · simp only [truncateRight, hw, ↓reduceDIte, BitVec.getMsbD_cast, BitVec.getMsbD_append,
+    BitVec.getMsbD_zero, Bool.if_false_left]
     by_cases hi : i < w'
-    · simp [hi]
+    · simp only [hi, decide_true, Bool.and_true, Bool.and_eq_right_iff_imp, Bool.not_eq_eq_eq_not,
+      Bool.not_true, decide_eq_false_iff_not, Nat.not_le]
       apply BitVec.lt_of_getMsbD
-    · simp [hi]
+    · simp only [hi, decide_false, Bool.and_false, Bool.and_eq_false_imp, Bool.not_eq_eq_eq_not,
+      Bool.not_true, decide_eq_false_iff_not, Nat.not_le]
       omega
-  · simp [truncateRight, hw]
-    simp at hw
-    simp [show w' ≤ i + w by omega]
+  · simp only [truncateRight, hw, ↓reduceDIte, BitVec.truncate_eq_setWidth,
+    BitVec.getMsbD_setWidth, Nat.sub_le_iff_le_add, BitVec.getMsbD_ushiftRight]
+    simp only [Nat.not_le] at hw
+    simp only [show w' ≤ i + w by omega, decide_true, Bool.true_and]
     by_cases hi : i < w'
-    · simp [hi]
-      simp [show i + w - w' < w by omega]
-      simp [show ¬ i + w - w' < w - w' by omega]
-      simp [show i + w - w' - (w - w') = i by omega]
+    · simp only [hi, decide_true, Bool.and_true]
+      simp only [show i + w - w' < w by omega, decide_true, Bool.true_and]
+      simp only [show ¬i + w - w' < w - w' by omega, decide_false, Bool.not_false, Bool.true_and]
+      simp only [show i + w - w' - (w - w') = i by omega]
     · simp [hi]
       omega
