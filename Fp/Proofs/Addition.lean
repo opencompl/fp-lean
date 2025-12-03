@@ -515,7 +515,7 @@ output:>-------------------exwidth----<|>-------sigwidth-------<
                                             @
                                             @
 :                  (---2^(exWidth-1)---||---@outputExOffset--)
-   (--------over--](---a---------------][---------b----------) [-under-)
+   (--------over--](---trimmedHi-------][-----trimmedLo-------)[-under-)
    (--------------xhi------------------][----------------xlo-----------]
 x: (-----------------------------------@-------------------------------] WIDTH size. [Implicit * 2^-exOffset]
                                        @
@@ -604,11 +604,10 @@ def round_to_packedfloat' [HExOffset exWidth sigWidth] [h : HExOffset exWidth si
           --   Is it because we have a leading 1?
           -- and then truncate.
           (trimmed >>> (outExponent - 1)).truncate _
-      -- under = stuff that's left over?
+      -- under = stuff that's left over below the trimmed.
       let underWidth := exOffset - outputExOffset
-
       let under := x.num.val.truncate underWidth
-      --- ???
+      --- TODO: think about 'rem' tomorrow.
       let rem : BitVec (2^exWidth + underWidth) :=
         if outExponent = 0 then
           under.truncate _ <<< (1 <<< exWidth)
