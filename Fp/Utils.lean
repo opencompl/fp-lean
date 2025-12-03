@@ -46,6 +46,26 @@ def fls' (m : Nat) (b : BitVec n) (hm : n ≤ m) : BitVec m := match n with
     if b.msb then n
     else fls' m (BitVec.truncate n' b) (by omega)
 
+theorem toNat_fls'_le (m : Nat) (b : BitVec n) (hm : n ≤ m) :
+    (fls' m b hm).toNat ≤ n := by
+  induction n with
+  | zero =>
+    simp [fls']
+  | succ n ih =>
+    simp only [fls']
+    split
+    case isTrue h =>
+      simp
+      rw [Nat.mod_eq_of_lt]
+      · omega
+      · apply Nat.lt_of_le_of_lt hm
+        exact Nat.lt_two_pow_self
+    case isFalse h =>
+      specialize ih (b := b.truncate _) (by omega)
+      simp at ih
+      apply Nat.le_trans ih
+      omega
+
 /-- If fls' returns an index 'i', then b.getLsbD at this index is true. -/
 theorem getLsbD_eq_true_of_fls'_eq_of_ne_zero (m : Nat) (b : BitVec n) (hm : n ≤ m) (hi : i ≠ 0) (hi' : i ≤ m) :
     fls' m b hm = i → b.getLsbD (i - 1) = true := by
@@ -202,6 +222,18 @@ theorem fls_eq_zero_iff (b : BitVec n) :
   fls b = 0 ↔ b = 0 := by
   simp [fls]
   apply fls'_eq_zero_iff
+
+theorem getLsbD_eq_false_of_ge_fls (b : BitVec n) :
+    (∀ (j : Nat), (fls b).toNat ≤ j → b.getLsbD j = false) := by
+  simp [fls]
+  intros j hj
+  let i := (fls' n b n.le_refl).toNat
+  have : i ≤ n := by
+    apply toNat_fls'_le n b (n.le_refl)
+  apply getLsbD_eq_false_of_fls'_eq_of_ne_zero n b (n.le_refl) (i := i) (by omega)
+  · simp [i]
+  · simp only [i]
+    exact hj
 
 /--
 Find the position of the last (most significant) set bit in a BitVec.

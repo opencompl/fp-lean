@@ -619,18 +619,19 @@ def round_to_packedfloat' [h : HExOffset exWidth sigWidth] [HExOffset exOffset w
       -- Great, we are within range.
       -- | This is a bit counter-intuitive, I would have assumed we would have looked for 'fls' inside 'trimmedHi'??
       -- | This tells us the largest power of 2 we need to fit 'trimmed'.
-      let index := fls trimmed -- index of first 1 bit (most significant)
-      have : trimmed.getLsbD index.toNat = true ∧ ∀ i : Nat, i > index.toNat → trimmed.getLsbD i = false := by
-        sorry
+      let firstNonzeroIndex := fls trimmed -- index of first 1 bit (most significant)
+      -- all bits at and above 'index' are zero.
+      have hIndexGe : ∀ i, firstNonzeroIndex.toNat ≤ i → trimmed.getLsbD i = false := by
+        apply getLsbD_eq_false_of_ge_fls
       let sigWidthB := BitVec.ofNat _ sigWidth -- bitvec of sigWidth
       -- outExponent : BitVec exWidth :=  (BitVec.monus index sigWidthB).truncate _
       let outExponent : BitVec exWidth := -- new exponent.
-        if index ≤ sigWidthB then -- if our number is entirely contained in the significand, then exponent is zero.
+        if firstNonzeroIndex ≤ sigWidthB then -- if our number is entirely contained in the significand, then exponent is zero.
           0
         else
           -- else, we need (index - sigWidthB) bits of exponent.
           -- Interesting, TODO: if we had BitVec.monus, then this would be cleaner.
-          (index - sigWidthB).truncate _
+          (firstNonzeroIndex - sigWidthB).truncate _
       -- truncated significand, morally equal to
       -- trunSig = trimmed >>> max(0, outExponent - 1)
       let truncSig : BitVec sigWidth :=
