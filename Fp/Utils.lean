@@ -253,7 +253,7 @@ theorem flsIter_eq_fls (b : BitVec 8)
   bv_decide
 
 /--
-Gets the first `w` bits of the bitvector `v`.
+Gets the first high `w` bits of the bitvector `v`. This keeps the `getMsbD` bits from `v`.
 -/
 @[bv_float_normalize]
 def truncateRight (w : Nat) (v : BitVec n) : BitVec w :=
@@ -310,3 +310,23 @@ theorem getMsbD_truncateRight (x : BitVec w)
       simp only [show i + w - w' - (w - w') = i by omega]
     · simp [hi]
       omega
+
+theorem getLsbD_truncateRight_of_le (x : BitVec w) (hww' : w' ≤ w)
+  : (truncateRight w' x).getLsbD i = ((x.getLsbD (i + (w - w'))))  := by
+  by_cases hw' : w' = 0
+  · subst hw'
+    simp [truncateRight]
+  · have := getMsbD_truncateRight (x := x) (w' := w') (i := w' - 1 - i)
+    rw [BitVec.getMsbD_eq_getLsbD, BitVec.getMsbD_eq_getLsbD] at this
+    simp [show w' - 1 - i  < w' by omega] at this
+    by_cases hi : i ≤ w' - 1
+    · simp [show w' - 1 - (w' - 1 - i) = i by omega] at this
+      simp [show w' - 1 - i < w by omega] at this
+      rw [this]
+      congr
+      omega
+    · simp at hi
+      rw [BitVec.getLsbD_of_ge]
+      · rw [BitVec.getLsbD_of_ge]
+        omega
+      · omega

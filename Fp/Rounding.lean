@@ -29,9 +29,9 @@ instance : Repr RoundingMode where
 
 @[simp, bv_float_normalize]
 def shouldRoundAway (m : RoundingMode)
-  (sign : Bool) (odd : Bool) (v : BitVec n) : Bool :=
-  let guard := v.msb
-  let sticky := v.truncate (n-1) ≠ 0
+  (sign : Bool) (odd : Bool) (rem : BitVec n) : Bool :=
+  let guard := rem.msb
+  let sticky := rem.truncate (n-1) ≠ 0
   match m with
   | .RNE => guard ∧ (sticky ∨ odd)
   | .RNA => guard
