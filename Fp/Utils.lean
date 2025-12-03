@@ -46,6 +46,84 @@ def fls' (m : Nat) (b : BitVec n) (hm : n ≤ m) : BitVec m := match n with
     if b.msb then n
     else fls' m (BitVec.truncate n' b) (by omega)
 
+/-- If fls' returns an index 'i', then b.getLsbD at this index is true. -/
+theorem getLsbD_eq_true_of_fls'_eq_of_ne_zero (m : Nat) (b : BitVec n) (hm : n ≤ m) (hi : i ≠ 0) (hi' : i ≤ m) :
+    fls' m b hm = i → b.getLsbD (i - 1) = true := by
+  induction n generalizing m i
+  case zero =>
+    simp [fls']
+    intros h
+    rw [← BitVec.toNat_inj] at h
+    simp only [BitVec.toNat_ofNat, Nat.zero_mod] at h
+    rw [Nat.mod_eq_of_lt] at h
+    · omega
+    · apply Nat.lt_of_le_of_lt hi'
+      exact Nat.lt_two_pow_self
+  case succ n ih =>
+    simp only [fls']
+    split
+    case isTrue h =>
+      simp
+      · intros hfls
+        rw [← BitVec.toNat_inj] at hfls
+        simp only [BitVec.toNat_ofNat] at hfls
+        rw [Nat.mod_eq_of_lt] at hfls
+        · rw [Nat.mod_eq_of_lt] at hfls
+          · rw [BitVec.msb_eq_getLsbD_last] at h
+            rw [← hfls]
+            simp at h
+            simp [h]
+          · apply Nat.lt_of_le_of_lt hi'
+            exact Nat.lt_two_pow_self
+        · apply Nat.lt_of_le_of_lt hm
+          exact Nat.lt_two_pow_self
+    case isFalse h =>
+      intros h
+      have := ih (b := b.truncate _) (i := i) (by omega) (by omega) (by omega) (by omega) h
+      simp at this
+      simp [this]
+
+theorem getLsbD_eq_false_of_fls'_eq_of_ne_zero (m : Nat) (b : BitVec n) (hm : n ≤ m) (hi' : i ≤ m) :
+      fls' m b hm = i → (∀ (j : Nat), i ≤ j → b.getLsbD j = false) := by
+  induction n generalizing m i
+  case zero =>
+    simp [fls']
+  case succ n ih =>
+    simp only [fls']
+    split
+    case isTrue h =>
+      simp
+      · intros hfls
+        rw [← BitVec.toNat_inj] at hfls
+        simp only [BitVec.toNat_ofNat] at hfls
+        rw [Nat.mod_eq_of_lt] at hfls
+        · rw [Nat.mod_eq_of_lt] at hfls
+          · rw [BitVec.msb_eq_getLsbD_last] at h
+            rw [← hfls]
+            simp at h
+            intros j hj
+            apply BitVec.getLsbD_of_ge
+            omega
+          · apply Nat.lt_of_le_of_lt hi'
+            exact Nat.lt_two_pow_self
+        · apply Nat.lt_of_le_of_lt hm
+          exact Nat.lt_two_pow_self
+    case isFalse hmsb =>
+      intros h
+      intros j hj
+      have := ih (b := b.truncate _) (i := i) (m := m) (by omega) (by omega) h
+      simp at this
+      specialize this j (by omega)
+      by_cases hj : j < n
+      · apply this hj
+      · simp at hj
+        rw [BitVec.msb_eq_getLsbD_last] at hmsb
+        simp at hmsb
+        by_cases hj' : j = n
+        · subst hj'
+          simp [hmsb]
+        · apply BitVec.getLsbD_of_ge
+          omega
 
 theorem fls'_eq_zero_iff (b : BitVec n) (m : Nat) (hm : n ≤ m) :
   fls' m b hm = 0 ↔ b = 0 := by
