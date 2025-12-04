@@ -587,7 +587,9 @@ def round_to_packedfloat' [h : HExOffset exWidth sigWidth] [HExOffset inFixedOff
     PackedFloat.getInfinity _ _ x.num.sign
   else
     let ratX := BitVec.toUnsignedFixedPointRat x.num.val inFixedOffset
-    let outFixedOffset := 2^(outFloatingExpWidth - 1) + outFloatingSigWidth - 2 -- new EFixedPoint offset corresponding to EFixedPoint ~= output packedFloat.
+    -- new EFixedPoint offset corresponding to EFixedPoint ~= output packedFloat.
+    -- outFixedOffset < inFixedOffset
+    let outFixedOffset : Nat := 2^(outFloatingExpWidth - 1) + outFloatingSigWidth - 2
     -- trim bitvector
     -- 'over' is x/2^(exOffset + 2^(exWidth-1)), but this is the following:
     -- we take the EFixedpoint value, and interpret it as a rational, giving us
@@ -655,7 +657,7 @@ def round_to_packedfloat' [h : HExOffset exWidth sigWidth] [HExOffset inFixedOff
       let trimmedLo : BitVec outFixedOffset := truncateRight outFixedOffset xlo
       -- Drop the excess low bits, which are not representable given outFixedOffset number of low bits.
       have hTrimmedLo : trimmedLo.toNat = (x.num.val.toNat % 2 ^ inFixedOffset) >>> (inFixedOffset - outFixedOffset) := by
-        simp only [truncateRight.eq_1, eq_mp_eq_cast, BitVec.truncate_eq_setWidth, trimmedLo]
+        simp only [truncateRight.eq_1, BitVec.truncate_eq_setWidth, trimmedLo]
         have : ¬ inFixedOffset ≤ outFixedOffset := by
           simp [outFixedOffset]
           omega
