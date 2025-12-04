@@ -72,6 +72,11 @@ structure EFixedPoint (width exOffset : Nat) where
 deriving DecidableEq, Repr
 
 namespace FixedPoint
+
+def toRat (a : FixedPoint w e) : Rat :=
+  let n := a.val.toNat
+  (-1)^(a.sign.toNat) * (n : Rat) / (2 ^ e : Rat)
+
 @[simp, bv_float_normalize]
 def equal (a b : FixedPoint w e) : Bool :=
   (a.val == 0#_ && b.val == 0#_)
@@ -342,12 +347,14 @@ def toEFixed (pf : PackedFloat e s)
     num := {
       sign := pf.sign
       val :=
+        -- If zero or subnormal, then we add the implicit leading zero.
+        -- Otherwise, we do not have it.
         let unshifted : BitVec (1+s) :=
           (BitVec.ofBool !pf.isZeroOrSubnorm) ++ pf.sig;
-        let shift : BitVec e := if pf.ex = 0 then 0 else pf.ex - 1
+        let shiftAmt : BitVec e := if pf.ex = 0 then 0 else pf.ex - 1 -- why pf.ex - 1?
         let hs : 1 + s <= 2^e + s := by
           exact Nat.add_le_add_right Nat.one_le_two_pow s
-        let out := (BitVec.setWidth' hs (unshifted)) <<< shift
+        let out : BitVec (2^e + s) := (BitVec.setWidth' (w := 2^e + s) hs (unshifted)) <<< shiftAmt -- could shift by 2^e.
         out
       hExOffset := hExOffset
     }
@@ -378,11 +385,14 @@ theorem isNumber_of_isNormOrSubnorm (a : PackedFloat e s)
 
 end PackedFloat
 
+namespace ExamplesE5M2
 -- Constants
 
 /-- E5M2 floating point representation of 1.0 -/
 @[bv_float_normalize]
-def oneE5M2       := PackedFloat.ofBits 5 2 0b00111100#8
+def oneE5M2       : PackedFloat 5 2 := PackedFloat.ofBits 5 2 0b00111100#8
+
+def oneE5M2Fixed  : EFixedPoint 34 16 := oneE5M2.toEFixed
 /-- E5M2 floating point representation of 2.0 -/
 @[bv_float_normalize]
 def twoE5M2       := PackedFloat.ofBits 5 2 0b01000000#8
@@ -395,6 +405,15 @@ def minSubnormE5M2 := PackedFloat.ofBits 5 2 0b00000001#8
 
 /-- info: { sign := +, ex := 0x0f#5, sig := 0x0#2 } -/
 #guard_msgs in #eval (repr oneE5M2)
+
+/-- info: 65536#34 -/ -- 1 << 16
+#guard_msgs in #eval (oneE5M2Fixed.num.val)
+
+
+
+/-- info: { state := num, num := + 0x000010000#34 } -/
+#guard_msgs in #eval (repr oneE5M2Fixed)
+
 /-- info: { sign := +, ex := 0x1f#5, sig := 0x2#2 } -/
 #guard_msgs in #eval (PackedFloat.getNaN 5 2)
 /-- info: { state := num, num := + 0x000010000#34 } -/
@@ -408,3 +427,271 @@ def minSubnormE5M2 := PackedFloat.ofBits 5 2 0b00000001#8
 - (@bollu's thought): We may like to have `FixedPoint.toRat : FixedPoint → ℚ`, which
   interprets the FP as a rational.
 -/
+
+end ExamplesE5M2
+
+namespace ExamplesE3M2
+
+-- 3 + 2 = 5 bits = 2^5 = 32 values.
+-- Make sign bit zero for all of the examples.
+
+def pf0 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b000000#6)
+/-- info: { sign := +, ex := 0x0#3, sig := 0x0#2 } -/
+#guard_msgs in #eval (repr pf0)
+/-- info: { state := num, num := + 0x000#10 } -/
+#guard_msgs in #eval pf0.toEFixed
+/-- info: 0 -/
+#guard_msgs in #eval pf0.toEFixed.num.toRat
+
+def pf1 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b000001#6)
+/-- info: { sign := +, ex := 0x0#3, sig := 0x1#2 } -/
+#guard_msgs in #eval (repr pf1)
+/-- info: { state := num, num := + 0x001#10 } -/
+#guard_msgs in #eval pf1.toEFixed
+/-- info: 1 / 16 -/
+#guard_msgs in #eval pf1.toEFixed.num.toRat
+
+def pf2 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b000010#6)
+/-- info: { sign := +, ex := 0x0#3, sig := 0x2#2 } -/
+#guard_msgs in #eval (repr pf2)
+/-- info: { state := num, num := + 0x002#10 } -/
+#guard_msgs in #eval pf2.toEFixed
+
+def pf3 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b000011#6)
+/-- info: { sign := +, ex := 0x0#3, sig := 0x3#2 } -/
+#guard_msgs in #eval (repr pf3)
+/-- info: { state := num, num := + 0x003#10 } -/
+#guard_msgs in #eval pf3.toEFixed
+/-- info: 3 / 16 -/
+#guard_msgs in #eval pf3.toEFixed.num.toRat
+
+
+def pf4 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b000100#6)
+/-- info: { sign := +, ex := 0x1#3, sig := 0x0#2 } -/
+#guard_msgs in #eval (repr pf4)
+/-- info: { state := num, num := + 0x004#10 } -/
+#guard_msgs in #eval pf4.toEFixed
+/-- info: 1 / 4 -/
+#guard_msgs in #eval pf4.toEFixed.num.toRat
+
+def pf5 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b000101#6)
+/-- info: { sign := +, ex := 0x1#3, sig := 0x1#2 } -/
+#guard_msgs in #eval (repr pf5)
+/-- info: { state := num, num := + 0x005#10 } -/
+#guard_msgs in #eval pf5.toEFixed
+/-- info: 5 / 16 -/
+#guard_msgs in #eval pf5.toEFixed.num.toRat
+
+def pf6 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b000110#6)
+/-- info: { sign := +, ex := 0x1#3, sig := 0x2#2 } -/
+#guard_msgs in #eval (repr pf6)
+/-- info: { state := num, num := + 0x006#10 } -/
+#guard_msgs in #eval pf6.toEFixed
+/-- info: 3 / 8 -/
+#guard_msgs in #eval pf6.toEFixed.num.toRat
+
+def pf7 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b000111#6)
+/-- info: { sign := +, ex := 0x1#3, sig := 0x3#2 } -/
+#guard_msgs in #eval (repr pf7)
+/-- info: { state := num, num := + 0x007#10 } -/
+#guard_msgs in #eval pf7.toEFixed
+/-- info: 7 / 16 -/
+#guard_msgs in #eval pf7.toEFixed.num.toRat
+
+def pf8 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b001000#6)
+/-- info: { sign := +, ex := 0x2#3, sig := 0x0#2 } -/
+#guard_msgs in #eval (repr pf8)
+/-- info: { state := num, num := + 0x008#10 } -/
+#guard_msgs in #eval pf8.toEFixed
+/-- info: 1 / 2 -/
+#guard_msgs in #eval pf8.toEFixed.num.toRat
+
+def pf9 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b001001#6)
+/-- info: { sign := +, ex := 0x2#3, sig := 0x1#2 } -/
+#guard_msgs in #eval (repr pf9)
+/-- info: { state := num, num := + 0x00a#10 } -/
+#guard_msgs in #eval pf9.toEFixed
+/-- info: 5 / 8 -/
+#guard_msgs in #eval pf9.toEFixed.num.toRat
+
+def pf10 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b001010#6)
+/-- info: { sign := +, ex := 0x2#3, sig := 0x2#2 } -/
+#guard_msgs in #eval (repr pf10)
+/-- info: { state := num, num := + 0x00c#10 } -/
+#guard_msgs in #eval pf10.toEFixed
+/-- info: 3 / 4 -/
+#guard_msgs in #eval pf10.toEFixed.num.toRat
+
+def pf11 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b001011#6)
+/-- info: { sign := +, ex := 0x2#3, sig := 0x3#2 } -/
+#guard_msgs in #eval (repr pf11)
+/-- info: { state := num, num := + 0x00e#10 } -/
+#guard_msgs in #eval pf11.toEFixed
+/-- info: 7 / 8 -/
+#guard_msgs in #eval pf11.toEFixed.num.toRat
+
+def pf12 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b001100#6)
+/-- info: { sign := +, ex := 0x3#3, sig := 0x0#2 } -/
+#guard_msgs in #eval (repr pf12)
+/-- info: { state := num, num := + 0x010#10 } -/
+#guard_msgs in #eval pf12.toEFixed
+/-- info: 1 -/
+#guard_msgs in #eval pf12.toEFixed.num.toRat
+
+def pf13 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b001101#6)
+/-- info: { sign := +, ex := 0x3#3, sig := 0x1#2 } -/
+#guard_msgs in #eval (repr pf13)
+/-- info: { state := num, num := + 0x014#10 } -/
+#guard_msgs in #eval pf13.toEFixed
+/-- info: 5 / 4 -/
+#guard_msgs in #eval pf13.toEFixed.num.toRat
+
+def pf14 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b001110#6)
+/-- info: { sign := +, ex := 0x3#3, sig := 0x2#2 } -/
+#guard_msgs in #eval (repr pf14)
+/-- info: { state := num, num := + 0x018#10 } -/
+#guard_msgs in #eval pf14.toEFixed
+/-- info: 3 / 2 -/
+#guard_msgs in #eval pf14.toEFixed.num.toRat
+
+
+def pf15 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b001111#6)
+/-- info: { sign := +, ex := 0x3#3, sig := 0x3#2 } -/
+#guard_msgs in #eval (repr pf15)
+/-- info: { state := num, num := + 0x01c#10 } -/
+#guard_msgs in #eval pf15.toEFixed
+/-- info: 7 / 4 -/
+#guard_msgs in #eval pf15.toEFixed.num.toRat
+
+def pf16 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b010000#6)
+/-- info: { sign := +, ex := 0x4#3, sig := 0x0#2 } -/
+#guard_msgs in #eval (repr pf16)
+/-- info: { state := num, num := + 0x020#10 } -/
+#guard_msgs in #eval pf16.toEFixed
+/-- info: 2 -/
+#guard_msgs in #eval pf16.toEFixed.num.toRat
+
+def pf17 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b010001#6)
+/-- info: { sign := +, ex := 0x4#3, sig := 0x1#2 } -/
+#guard_msgs in #eval (repr pf17)
+/-- info: { state := num, num := + 0x028#10 } -/
+#guard_msgs in #eval pf17.toEFixed
+/-- info: 5 / 2 -/
+#guard_msgs in #eval pf17.toEFixed.num.toRat
+
+def pf18 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b010010#6)
+/-- info: { sign := +, ex := 0x4#3, sig := 0x2#2 } -/
+#guard_msgs in #eval (repr pf18)
+/-- info: { state := num, num := + 0x030#10 } -/
+#guard_msgs in #eval pf18.toEFixed
+/-- info: 3 -/
+#guard_msgs in #eval pf18.toEFixed.num.toRat
+
+def pf19 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b010011#6)
+/-- info: { sign := +, ex := 0x4#3, sig := 0x3#2 } -/
+#guard_msgs in #eval (repr pf19)
+/-- info: { state := num, num := + 0x038#10 } -/
+#guard_msgs in #eval pf19.toEFixed
+/-- info: 7 / 2 -/
+#guard_msgs in #eval pf19.toEFixed.num.toRat
+
+def pf20 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b010100#6)
+/-- info: { sign := +, ex := 0x5#3, sig := 0x0#2 } -/
+#guard_msgs in #eval (repr pf20)
+/-- info: { state := num, num := + 0x040#10 } -/
+#guard_msgs in #eval pf20.toEFixed
+/-- info: 4 -/
+#guard_msgs in #eval pf20.toEFixed.num.toRat
+
+def pf21 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b010101#6)
+/-- info: { sign := +, ex := 0x5#3, sig := 0x1#2 } -/
+#guard_msgs in #eval (repr pf21)
+/-- info: { state := num, num := + 0x050#10 } -/
+#guard_msgs in #eval pf21.toEFixed
+/-- info: 5 -/
+#guard_msgs in #eval pf21.toEFixed.num.toRat
+
+def pf22 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b010110#6)
+/-- info: { sign := +, ex := 0x5#3, sig := 0x2#2 } -/
+#guard_msgs in #eval (repr pf22)
+/-- info: { state := num, num := + 0x060#10 } -/
+#guard_msgs in #eval pf22.toEFixed
+/-- info: 6 -/
+#guard_msgs in #eval pf22.toEFixed.num.toRat
+
+def pf23 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b010111#6)
+/-- info: { sign := +, ex := 0x5#3, sig := 0x3#2 } -/
+#guard_msgs in #eval (repr pf23)
+/-- info: { state := num, num := + 0x070#10 } -/
+#guard_msgs in #eval pf23.toEFixed
+/-- info: 7 -/
+#guard_msgs in #eval pf23.toEFixed.num.toRat
+
+def pf24 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b011000#6)
+/-- info: { sign := +, ex := 0x6#3, sig := 0x0#2 } -/
+#guard_msgs in #eval (repr pf24)
+/-- info: { state := num, num := + 0x080#10 } -/
+#guard_msgs in #eval pf24.toEFixed
+/-- info: 8 -/
+#guard_msgs in #eval pf24.toEFixed.num.toRat
+
+
+def pf25 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b011001#6)
+/-- info: { sign := +, ex := 0x6#3, sig := 0x1#2 } -/
+#guard_msgs in #eval (repr pf25)
+/-- info: { state := num, num := + 0x0a0#10 } -/
+#guard_msgs in #eval pf25.toEFixed
+/-- info: 10 -/
+#guard_msgs in #eval pf25.toEFixed.num.toRat
+
+def pf26 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b011010#6)
+/-- info: { sign := +, ex := 0x6#3, sig := 0x2#2 } -/
+#guard_msgs in #eval (repr pf26)
+/-- info: { state := num, num := + 0x0c0#10 } -/
+#guard_msgs in #eval pf26.toEFixed
+/-- info: 12 -/
+#guard_msgs in #eval pf26.toEFixed.num.toRat
+
+def pf27 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b011011#6)
+/-- info: { sign := +, ex := 0x6#3, sig := 0x3#2 } -/
+#guard_msgs in #eval (repr pf27)
+/-- info: { state := num, num := + 0x0e0#10 } -/
+#guard_msgs in #eval pf27.toEFixed
+/-- info: 14 -/
+#guard_msgs in #eval pf27.toEFixed.num.toRat
+
+def pf28 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b011100#6)
+/-- info: { sign := +, ex := 0x7#3, sig := 0x0#2 } -/
+#guard_msgs in #eval (repr pf28)
+/-- info: { state := ∞, num := + 0x000#10 } -/
+#guard_msgs in #eval pf28.toEFixed
+/-- info: 0 -/
+#guard_msgs in #eval pf28.toEFixed.num.toRat
+
+
+def pf29 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b011101#6)
+/-- info: { sign := +, ex := 0x7#3, sig := 0x1#2 } -/
+#guard_msgs in #eval (repr pf29)
+/-- info: { state := NaN, num := + 0x000#10 } -/
+#guard_msgs in #eval pf29.toEFixed
+/-- info: 0 -/
+#guard_msgs in #eval pf29.toEFixed.num.toRat
+
+def pf30 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b011110#6)
+/-- info: { sign := +, ex := 0x7#3, sig := 0x2#2 } -/
+#guard_msgs in #eval (repr pf30)
+/-- info: { state := NaN, num := + 0x000#10 } -/
+#guard_msgs in #eval pf30.toEFixed
+/-- info: 0 -/
+#guard_msgs in #eval pf30.toEFixed.num.toRat
+
+
+def pf31 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b011111#6)
+/-- info: { sign := +, ex := 0x7#3, sig := 0x3#2 } -/
+#guard_msgs in #eval (repr pf31)
+/-- info: { state := NaN, num := + 0x000#10 } -/
+#guard_msgs in #eval pf31.toEFixed
+/-- info: 0 -/
+#guard_msgs in #eval pf31.toEFixed.num.toRat
+
+end ExamplesE3M2
