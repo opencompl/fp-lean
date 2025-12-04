@@ -335,8 +335,8 @@ cover the entire range of representable values.
 def toEFixed (pf : PackedFloat e s)
   : EFixedPoint (2 ^ e + s) (2 ^ (e - 1) + s - 2) :=
   let hExOffset := toEFixed_hExOffset e s
-  if pf.isNaN then EFixedPoint.getNaN hExOffset
-  else if pf.isInfinite then EFixedPoint.getInfinity pf.sign hExOffset
+  if pf.isNaN then EFixedPoint.getNaN hExOffset --   pf.ex == BitVec.allOnes e && pf.sig != 0 (pf.sign can be anything.)
+  else if pf.isInfinite then EFixedPoint.getInfinity pf.sign hExOffset -- pf.ex == BitVec.allOnes e && pf.sig == 0
   else {
     state := .Number
     num := {
@@ -347,8 +347,9 @@ def toEFixed (pf : PackedFloat e s)
         let shift : BitVec e := if pf.ex = 0 then 0 else pf.ex - 1
         let hs : 1 + s <= 2^e + s := by
           exact Nat.add_le_add_right Nat.one_le_two_pow s
-        (BitVec.setWidth' hs (unshifted)) <<< shift
-      hExOffset
+        let out := (BitVec.setWidth' hs (unshifted)) <<< shift
+        out
+      hExOffset := hExOffset
     }
   }
 
@@ -360,43 +361,11 @@ Hence, we mark this noncomputable.
 -/
 noncomputable def ofEFixed (x : EFixedPoint (2 ^ e + s) (2 ^ (e - 1) + s - 2))
   : PackedFloat e s :=
-  match x.state with
-  | .NaN => PackedFloat.getNaN e s
-  | .Infinity => PackedFloat.getInfinity e s x.num.sign
-  | .Number =>
-    let exOffset := 2 ^ (e - 1) + s - 2
-    let ex : BitVec e :=
-      if x.num.val == 0 then 0
-      else
-        let leading := fls (x.num.val)
-        let exp := leading.toNat - (s)
-        BitVec.ofNat e exp
-    let sig : BitVec s :=
-      if x.num.val == 0 then 0
-      else
-        let leading := fls (x.num.val)
-        let sigShift := leading.toNat - 1 - s
-        truncateRight _ x.num.val -- TODO: is this correct?
-    {
-      sign := x.num.sign
-      ex
-      sig
-    }
+  sorry
 
 theorem toEFixed_ofEFixed (x : EFixedPoint (2 ^ e + s) (2 ^ (e - 1) + s - 2))
   : (ofEFixed x).toEFixed = x := by
-  cases x
-  case mk state num =>
-    cases state
-    case NaN =>
-      simp [ofEFixed, toEFixed]
-      sorry
-    case Infinity =>
-      simp [ofEFixed, toEFixed]
-      sorry
-    case Number =>
-      simp [ofEFixed, toEFixed]
-      sorry
+  sorry
 
 @[simp, bv_float_normalize]
 def equal_denotation (a b : PackedFloat e s) : Bool :=
