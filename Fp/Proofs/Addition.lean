@@ -546,6 +546,12 @@ theorem BitVec.monus_eq_minus_of_lt (n : Nat) (a b : BitVec n) (hlt : b < a) :
   rw [BitVec.sub_eq_iff_eq_add]
   simp
   bv_omega
+
+
+/-- Convert a bitvector to a fixed-point rational number with a given exponent. -/
+def BitVec.toUnsignedFixedPointRat {n : Nat} (b : BitVec n) (exp : Nat) : Rat :=
+  mkRat (b.toNat) (2 ^ exp)
+
 /-#
 
 rem: 2^exWidth + underWidth width
@@ -580,6 +586,7 @@ def round_to_packedfloat' [h : HExOffset exWidth sigWidth] [HExOffset exOffset w
     -- infty ↦ -infty
     PackedFloat.getInfinity _ _ x.num.sign
   else
+    let ratX := BitVec.toUnsignedFixedPointRat x.num.val exOffset
     let outputExOffset := 2^(exWidth - 1) + sigWidth - 2 -- new EFixedPoint offset corresponding to EFixedPoint ~= output packedFloat.
     -- trim bitvector
     -- 'over' is x/2^(exOffset + 2^(exWidth-1)), but this is the following:
@@ -614,29 +621,6 @@ def round_to_packedfloat' [h : HExOffset exWidth sigWidth] [HExOffset exOffset w
       simp [over, hXhi, Nat.shiftRight_eq_div_pow]
       rw [Nat.div_div_eq_div_mul]
       rw [Nat.pow_add]
-    -- | trimmedHi := truncate high bits, keeping 2^(exWidth-1) bits
-    let trimmedHi := (xhi).truncate (2^(exWidth-1))
-    have hTrimmedHi :
-        trimmedHi.toNat = (x.num.val.toNat / (2 ^ (exOffset ))) % (2 ^ (2^(exWidth-1))) := by
-      simp [trimmedHi, hXhi]
-    -- | trimmedLo := truncate low bits, keeping exOffset' bits
-    let trimmedLo := truncateRight outputExOffset xlo
-    -- Drop the excess low bits, which are not representable given outputExOffset number of low bits.
-    have hTrimmedLo : trimmedLo.toNat = (x.num.val.toNat % 2 ^ exOffset) >>> (exOffset - outputExOffset) := by
-      simp only [truncateRight.eq_1, eq_mp_eq_cast, BitVec.truncate_eq_setWidth, trimmedLo]
-      have : ¬ exOffset ≤ outputExOffset := by
-        simp [outputExOffset]
-        omega
-      simp [this]
-      simp [xlo]
-      rw [Nat.mod_eq_of_lt]
-      rw [Nat.shiftRight_eq_div_pow]
-      have := Nat.mod_lt (x := x.num.val.toNat) (y := 2 ^ exOffset) (by omega)
-      apply Nat.div_lt_of_lt_mul
-      rw [← Nat.pow_add]
-      rw [show exOffset - outputExOffset + outputExOffset = exOffset by omega]
-      omega
-    let trimmed := trimmedHi ++ trimmedLo
     -- at this point, trimmed represents an EFixedPoint with offset 'outputExOffset'.
     -- of the original number 'x'.
     -- We can precisely quantify how many bits we have lost in the precision at this stage if we want to.
@@ -652,6 +636,41 @@ def round_to_packedfloat' [h : HExOffset exWidth sigWidth] [HExOffset exOffset w
       else
         PackedFloat.getInfinity _ _ x.num.sign
     else
+      -- | trimmedHi := truncate high bits, keeping 2^(exWidth-1) bits.
+      -- But note that this is equal to 'xhi' as a value, since we are not overflowing.
+      let trimmedHi := (xhi).truncate (2^(exWidth-1))
+      have hTrimmedHi :
+          trimmedHi.toNat = (x.num.val.toNat / (2 ^ (exOffset ))) := by
+        simp [trimmedHi, hXhi]
+        rw [Nat.mod_eq_of_lt]
+        simp only [BitVec.ofNat_eq_ofNat, bne_iff_ne, ne_eq, Decidable.not_not] at hOverflow
+        simp [over] at hOverflow
+        rw [← BitVec.toNat_inj] at hOverflow
+        simp at hOverflow
+        rw [Nat.shiftRight_eq_div_pow] at hOverflow
+        have hOverflow := Nat.lt_of_div_eq_zero (x := xhi.toNat) (k := 2 ^ (2^(exWidth-1))) (by apply Nat.two_pow_pos) hOverflow
+        rw [hXhi] at hOverflow
+        exact hOverflow
+      -- | trimmedLo := truncate low bits, keeping exOffset' bits
+      let trimmedLo := truncateRight outputExOffset xlo
+      -- Drop the excess low bits, which are not representable given outputExOffset number of low bits.
+      have hTrimmedLo : trimmedLo.toNat = (x.num.val.toNat % 2 ^ exOffset) >>> (exOffset - outputExOffset) := by
+        simp only [truncateRight.eq_1, eq_mp_eq_cast, BitVec.truncate_eq_setWidth, trimmedLo]
+        have : ¬ exOffset ≤ outputExOffset := by
+          simp [outputExOffset]
+          omega
+        simp [this]
+        simp [xlo]
+        rw [Nat.mod_eq_of_lt]
+        rw [Nat.shiftRight_eq_div_pow]
+        have := Nat.mod_lt (x := x.num.val.toNat) (y := 2 ^ exOffset) (by omega)
+        apply Nat.div_lt_of_lt_mul
+        rw [← Nat.pow_add]
+        rw [show exOffset - outputExOffset + outputExOffset = exOffset by omega]
+        omega
+      let trimmed := trimmedHi ++ trimmedLo
+
+
       have : x.num.toDyadic.abs ≤ hMaxOut.toDyadic.abs := sorry
       -- Great, we are within range.
       -- | This is a bit counter-intuitive, I would have assumed we would have looked for 'fls' inside 'trimmedHi'??
