@@ -432,8 +432,36 @@ end ExamplesE5M2
 
 namespace ExamplesE3M2
 
--- 3 + 2 = 5 bits = 2^5 = 32 values.
--- Make sign bit zero for all of the examples.
+/-#
+https://en.wikipedia.org/wiki/Single-precision_floating-point_format
+
+MAXEXP = 2^8 - 1 = 256 - 1 = 255
+MAXEXP//2 = 127
+
+
+0 is reserved for subnomrmals, 255 is reserved for inf and NaNs.
+range is [1-127, 254-127] =  [-126, 127].
+
+exponent all zeroes = subnormal numbers and zero.
+exponent all ones = infinities and NaNs.
+
+When exponent is 0, equation is:           (-1)^sign * 2^(-MAXEXP//2+1)) * 0.fraction
+When exponent is nonzero, equation is:     (-1)^sign * 2^(exponent-MAXEXP//2) * 1.fraction
+When exponent is all1s:                    if fraction is zero, then infinity, else NaN.
+-/
+
+/-#
+
+In E3M2, we have:
+MAXEXP = 2^3 - 1 = 8 - 1 = 7
+MAXEXP//2 = 7 // 2 = 3
+
+0 is reserved for subnomrmals, 7 is reserved for inf and NaNs.
+range is [1-3, 6-3] =  [-2, 3].
+
+exponent all zeroes = subnormal numbers and zero.
+exponent all ones = infinities and NaNs.
+-/
 
 def pf0 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b000000#6)
 /-- info: { sign := +, ex := 0x0#3, sig := 0x0#2 } -/
@@ -450,12 +478,17 @@ def pf1 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b000001#6)
 #guard_msgs in #eval pf1.toEFixed
 /-- info: 1 / 16 -/
 #guard_msgs in #eval pf1.toEFixed.num.toRat
+-- pf1: since exponent is zero, value is subnormal. Value is 2^-2 * 0.01 = 1/16.
+
 
 def pf2 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b000010#6)
 /-- info: { sign := +, ex := 0x0#3, sig := 0x2#2 } -/
 #guard_msgs in #eval (repr pf2)
 /-- info: { state := num, num := + 0x002#10 } -/
 #guard_msgs in #eval pf2.toEFixed
+/-- info: 1 / 8 -/
+#guard_msgs in #eval pf2.toEFixed.num.toRat
+-- pf2: since exponent is zero, value is subnormal. Value is 2^-2 * 0.10 = 2/16 = 1/8.
 
 def pf3 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b000011#6)
 /-- info: { sign := +, ex := 0x0#3, sig := 0x3#2 } -/
@@ -464,6 +497,7 @@ def pf3 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b000011#6)
 #guard_msgs in #eval pf3.toEFixed
 /-- info: 3 / 16 -/
 #guard_msgs in #eval pf3.toEFixed.num.toRat
+-- pf3: since exponent is zero, value is subnormal. Value is 2^-2 * 0.11 = 3/16.
 
 
 def pf4 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b000100#6)
@@ -473,6 +507,7 @@ def pf4 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b000100#6)
 #guard_msgs in #eval pf4.toEFixed
 /-- info: 1 / 4 -/
 #guard_msgs in #eval pf4.toEFixed.num.toRat
+-- pf4: since exponent is nonzero, value is normal. Value is 2^(1-3) * 1.00 = 1/4.
 
 def pf5 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b000101#6)
 /-- info: { sign := +, ex := 0x1#3, sig := 0x1#2 } -/
@@ -481,6 +516,7 @@ def pf5 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b000101#6)
 #guard_msgs in #eval pf5.toEFixed
 /-- info: 5 / 16 -/
 #guard_msgs in #eval pf5.toEFixed.num.toRat
+-- pf5: since exponent is nonzero, value is normal. Value is 2^(1-3) * 1.01 = 5/16.
 
 def pf6 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b000110#6)
 /-- info: { sign := +, ex := 0x1#3, sig := 0x2#2 } -/
@@ -489,6 +525,7 @@ def pf6 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b000110#6)
 #guard_msgs in #eval pf6.toEFixed
 /-- info: 3 / 8 -/
 #guard_msgs in #eval pf6.toEFixed.num.toRat
+-- pf6: since exponent is nonzero, value is normal. Value is 2^(1-3) * 1.10 = 6/16 = 3/8.
 
 def pf7 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b000111#6)
 /-- info: { sign := +, ex := 0x1#3, sig := 0x3#2 } -/
@@ -497,6 +534,7 @@ def pf7 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b000111#6)
 #guard_msgs in #eval pf7.toEFixed
 /-- info: 7 / 16 -/
 #guard_msgs in #eval pf7.toEFixed.num.toRat
+-- pf7: since exponent is nonzero, value is normal. Value is 2^(1-3) * 1.11 = 7/16.
 
 def pf8 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b001000#6)
 /-- info: { sign := +, ex := 0x2#3, sig := 0x0#2 } -/
@@ -505,6 +543,7 @@ def pf8 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b001000#6)
 #guard_msgs in #eval pf8.toEFixed
 /-- info: 1 / 2 -/
 #guard_msgs in #eval pf8.toEFixed.num.toRat
+-- pf8: since exponent is nonzero, value is normal. Value is 2^(2-3) * 1.00 = 1/2.
 
 def pf9 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b001001#6)
 /-- info: { sign := +, ex := 0x2#3, sig := 0x1#2 } -/
@@ -513,6 +552,7 @@ def pf9 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b001001#6)
 #guard_msgs in #eval pf9.toEFixed
 /-- info: 5 / 8 -/
 #guard_msgs in #eval pf9.toEFixed.num.toRat
+-- pf9: since exponent is nonzero, value is normal. Value is 2^(2-3) * 1.01 = 5/8.
 
 def pf10 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b001010#6)
 /-- info: { sign := +, ex := 0x2#3, sig := 0x2#2 } -/
@@ -521,6 +561,7 @@ def pf10 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b001010#6)
 #guard_msgs in #eval pf10.toEFixed
 /-- info: 3 / 4 -/
 #guard_msgs in #eval pf10.toEFixed.num.toRat
+-- pf10: since exponent is nonzero, value is normal. Value is 2^(2-3) * 1.10 = 2^-1 * (1 + 2/4) = 2^(-1) * 6/4 = 3/4.
 
 def pf11 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b001011#6)
 /-- info: { sign := +, ex := 0x2#3, sig := 0x3#2 } -/
@@ -529,6 +570,7 @@ def pf11 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b001011#6)
 #guard_msgs in #eval pf11.toEFixed
 /-- info: 7 / 8 -/
 #guard_msgs in #eval pf11.toEFixed.num.toRat
+-- pf11: since exponent is nonzero, value is normal. Value is 2^(2-3) * 1.11 = 2^-1 * (7/4) = 7/8.
 
 def pf12 : PackedFloat 3 2 := PackedFloat.ofBits 3 2 (0b001100#6)
 /-- info: { sign := +, ex := 0x3#3, sig := 0x0#2 } -/
