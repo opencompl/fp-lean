@@ -574,11 +574,11 @@ x: (-----------------------------------@-------------------------------] WIDTH s
 
 -/
 @[bv_float_normalize]
-def round_to_packedfloat' [h : HExOffset exWidth sigWidth] [HExOffset exOffset width]
-  (exWidth sigWidth : Nat) (mode : RoundingMode) (x : EFixedPoint width exOffset)
-  [HExOffset (2 ^ (exWidth - 1) + sigWidth - 2) (2 ^ exWidth + sigWidth)]
-  (hOutputExOffsetSmaller : 2 ^ (exWidth - 1) + sigWidth - 2 < exOffset) -- outputExOffset < exOffset
-  : PackedFloat exWidth sigWidth :=
+def round_to_packedfloat' [h : HExOffset exWidth sigWidth] [HExOffset inFixedOffset inFixedWidth]
+  (outFloatingExpWidth outFloatingSigWidth : Nat) (mode : RoundingMode) (x : EFixedPoint inFixedWidth inFixedOffset)
+  [HExOffset (2 ^ (outFloatingExpWidth - 1) + outFloatingSigWidth - 2) (2 ^ outFloatingExpWidth + outFloatingSigWidth)]
+  (hOutputExOffsetSmaller : 2 ^ (outFloatingExpWidth - 1) + outFloatingSigWidth - 2 < inFixedOffset) -- outputExOffset < exOffset
+  : PackedFloat outFloatingExpWidth outFloatingSigWidth :=
   if hNaN: x.state = .NaN then
     PackedFloat.getNaN _ _ -- nan is propagated.
   else if hInfty : x.state = .Infinity then
@@ -586,8 +586,8 @@ def round_to_packedfloat' [h : HExOffset exWidth sigWidth] [HExOffset exOffset w
     -- infty ↦ -infty
     PackedFloat.getInfinity _ _ x.num.sign
   else
-    let ratX := BitVec.toUnsignedFixedPointRat x.num.val exOffset
-    let outputExOffset := 2^(exWidth - 1) + sigWidth - 2 -- new EFixedPoint offset corresponding to EFixedPoint ~= output packedFloat.
+    let ratX := BitVec.toUnsignedFixedPointRat x.num.val inFixedOffset
+    let outFixedOffset := 2^(outFloatingExpWidth - 1) + outFloatingSigWidth - 2 -- new EFixedPoint offset corresponding to EFixedPoint ~= output packedFloat.
     -- trim bitvector
     -- 'over' is x/2^(exOffset + 2^(exWidth-1)), but this is the following:
     -- we take the EFixedpoint value, and interpret it as a rational, giving us
@@ -600,24 +600,24 @@ def round_to_packedfloat' [h : HExOffset exWidth sigWidth] [HExOffset exOffset w
     -- 'sig * 2^(2^(exWidth-1) - 1)'
     -- Therefore, to check if 'x' overflows, we check if
     -- 'x / 2^exOffset >= 2^(2^(exWidth-1) - 1)', or equivalently,
-    -- 'x >= 2^(exOffset + 2^(exWidth-1) - 1)'.
-    let xhi := x.num.val >>> exOffset
-    have hXhi : xhi.toNat = x.num.val.toNat / (2 ^ exOffset) := by
+    -- 'x >= 2^(evxOffset + 2^(exWidth-1) - 1)'.
+    let xhi : BitVec inFixedWidth := x.num.val >>> inFixedOffset
+    have hXhi : xhi.toNat = x.num.val.toNat / (2 ^ inFixedOffset) := by
       simp [xhi, Nat.shiftRight_eq_div_pow]
-    let xlo := x.num.val.truncate exOffset
-    have : xlo.toNat = x.num.val.toNat % (2 ^ exOffset) := by
+    let xlo : BitVec inFixedOffset := x.num.val.truncate inFixedOffset
+    have : xlo.toNat = x.num.val.toNat % (2 ^ inFixedOffset) := by
       simp [xlo]
-    have : x.num.val = (xhi <<< exOffset) ||| (xlo.zeroExtend _) := by
+    have : x.num.val = (xhi <<< inFixedOffset) ||| (xlo.zeroExtend _) := by
       ext i
       simp [xhi, xlo]
-      by_cases hi : i < exOffset
+      by_cases hi : i < inFixedOffset
       · simp [hi]
         rfl
       · simp [hi]
-        simp [show exOffset + (i - exOffset) = i by omega]
+        simp [show inFixedOffset + (i - inFixedOffset) = i by omega]
         rfl
-    let over := xhi >>> 2^(exWidth-1) -- over := does it overflow?
-    have hOver : over.toNat = x.num.val.toNat / (2 ^ (exOffset + 2^(exWidth-1))) := by
+    let over := xhi >>> 2^(outFloatingExpWidth-1) -- over := does it overflow?
+    have hOver : over.toNat = x.num.val.toNat / (2 ^ (inFixedOffset + 2^(outFloatingExpWidth-1))) := by
       simp [over, hXhi, Nat.shiftRight_eq_div_pow]
       rw [Nat.div_div_eq_div_mul]
       rw [Nat.pow_add]
@@ -625,7 +625,7 @@ def round_to_packedfloat' [h : HExOffset exWidth sigWidth] [HExOffset exOffset w
     -- of the original number 'x'.
     -- We can precisely quantify how many bits we have lost in the precision at this stage if we want to.
     -- largest output value.
-    let hMaxOut := PackedFloat.getMax exWidth sigWidth x.num.sign
+    let hMaxOut := PackedFloat.getMax outFloatingExpWidth outFloatingSigWidth x.num.sign
     if hOverflow : over != 0 then
       have : hMaxOut.toDyadic.abs < x.num.toDyadic.abs  := sorry
       -- Overflow to Infinity
@@ -638,9 +638,9 @@ def round_to_packedfloat' [h : HExOffset exWidth sigWidth] [HExOffset exOffset w
     else
       -- | trimmedHi := truncate high bits, keeping 2^(exWidth-1) bits.
       -- But note that this is equal to 'xhi' as a value, since we are not overflowing.
-      let trimmedHi := (xhi).truncate (2^(exWidth-1))
+      let trimmedHi := (xhi).truncate (2^(outFloatingExpWidth-1))
       have hTrimmedHi :
-          trimmedHi.toNat = (x.num.val.toNat / (2 ^ (exOffset ))) := by
+          trimmedHi.toNat = (x.num.val.toNat / (2 ^ (inFixedOffset ))) := by
         simp [trimmedHi, hXhi]
         rw [Nat.mod_eq_of_lt]
         simp only [BitVec.ofNat_eq_ofNat, bne_iff_ne, ne_eq, Decidable.not_not] at hOverflow
@@ -648,27 +648,27 @@ def round_to_packedfloat' [h : HExOffset exWidth sigWidth] [HExOffset exOffset w
         rw [← BitVec.toNat_inj] at hOverflow
         simp at hOverflow
         rw [Nat.shiftRight_eq_div_pow] at hOverflow
-        have hOverflow := Nat.lt_of_div_eq_zero (x := xhi.toNat) (k := 2 ^ (2^(exWidth-1))) (by apply Nat.two_pow_pos) hOverflow
+        have hOverflow := Nat.lt_of_div_eq_zero (x := xhi.toNat) (k := 2 ^ (2^(outFloatingExpWidth-1))) (by apply Nat.two_pow_pos) hOverflow
         rw [hXhi] at hOverflow
         exact hOverflow
-      -- | trimmedLo := truncate low bits, keeping exOffset' bits
-      let trimmedLo := truncateRight outputExOffset xlo
-      -- Drop the excess low bits, which are not representable given outputExOffset number of low bits.
-      have hTrimmedLo : trimmedLo.toNat = (x.num.val.toNat % 2 ^ exOffset) >>> (exOffset - outputExOffset) := by
+      -- | trimmedLo := drop low bits of xlo, keeping MSB bits of xlo
+      let trimmedLo : BitVec outFixedOffset := truncateRight outFixedOffset xlo
+      -- Drop the excess low bits, which are not representable given outFixedOffset number of low bits.
+      have hTrimmedLo : trimmedLo.toNat = (x.num.val.toNat % 2 ^ inFixedOffset) >>> (inFixedOffset - outFixedOffset) := by
         simp only [truncateRight.eq_1, eq_mp_eq_cast, BitVec.truncate_eq_setWidth, trimmedLo]
-        have : ¬ exOffset ≤ outputExOffset := by
-          simp [outputExOffset]
+        have : ¬ inFixedOffset ≤ outFixedOffset := by
+          simp [outFixedOffset]
           omega
         simp [this]
         simp [xlo]
         rw [Nat.mod_eq_of_lt]
         rw [Nat.shiftRight_eq_div_pow]
-        have := Nat.mod_lt (x := x.num.val.toNat) (y := 2 ^ exOffset) (by omega)
+        have := Nat.mod_lt (x := x.num.val.toNat) (y := 2 ^ inFixedOffset) (by omega)
         apply Nat.div_lt_of_lt_mul
         rw [← Nat.pow_add]
-        rw [show exOffset - outputExOffset + outputExOffset = exOffset by omega]
+        rw [show inFixedOffset - outFixedOffset + outFixedOffset = inFixedOffset by omega]
         omega
-      let trimmed := trimmedHi ++ trimmedLo
+      let trimmed : BitVec (2 ^ (outFloatingExpWidth - 1) + outFixedOffset) := trimmedHi ++ trimmedLo
 
 
       have : x.num.toDyadic.abs ≤ hMaxOut.toDyadic.abs := sorry
@@ -679,9 +679,9 @@ def round_to_packedfloat' [h : HExOffset exWidth sigWidth] [HExOffset exOffset w
       -- all bits at and above 'index' are zero.
       have hIndexGe : ∀ i, firstNonzeroIndexTrimmedBV.toNat ≤ i → trimmed.getLsbD i = false := by
         apply getLsbD_eq_false_of_ge_fls
-      let sigWidthBV := BitVec.ofNat _ sigWidth -- bitvec of sigWidth
+      let sigWidthBV := BitVec.ofNat _ outFloatingSigWidth -- bitvec of sigWidth
       -- outExponent : BitVec exWidth :=  (BitVec.monus index sigWidthBV).truncate _
-      let outExponent : BitVec exWidth := (BitVec.monus firstNonzeroIndexTrimmedBV sigWidthBV).truncate _ -- new exponent.
+      let outExponent : BitVec outFloatingExpWidth := (BitVec.monus firstNonzeroIndexTrimmedBV sigWidthBV).truncate _ -- new exponent.
         -- if firstNonzeroIndexTrimmedBV ≤ sigWidthBV then -- if our number is entirely contained in the significand, then exponent is zero.
         --   0
         -- else
@@ -689,7 +689,7 @@ def round_to_packedfloat' [h : HExOffset exWidth sigWidth] [HExOffset exOffset w
         --   -- Interesting, TODO: if we had BitVec.monus, then this would be cleaner.
         --   (firstNonzeroIndexTrimmedBV - sigWidthBV).truncate _
       -- truncated significand, morally equal to 'trimmed >>> max(0, outExponent - 1)'
-      let truncSig : BitVec sigWidth := (trimmed >>> (BitVec.monus outExponent 1#exWidth)).truncate _
+      let truncSig : BitVec outFloatingSigWidth := (trimmed >>> (BitVec.monus outExponent 1#outFloatingExpWidth)).truncate _
       have : truncSig.toNat = trimmed.toNat / (2 ^ (outExponent.toNat - 1)) := by
         simp [truncSig]
         rw [Nat.shiftRight_eq_div_pow]
@@ -723,24 +723,24 @@ def round_to_packedfloat' [h : HExOffset exWidth sigWidth] [HExOffset exOffset w
         --   -- and then truncate.
         --   (trimmed >>> (outExponent - 1)).truncate _
       -- under = stuff that's left over below the trimmed.
-      let underWidth := exOffset - outputExOffset
+      let underWidth := inFixedOffset - outFixedOffset
       let under := x.num.val.truncate underWidth
       --- TODO: think about 'rem' tomorrow.
       -- when outExponent is zero, we truncate to (2^exWidth + underWidth), and then move the data
       -- by shifting left 2^exWidth
 
-      let rem : BitVec (2^exWidth + underWidth) :=
+      let rem : BitVec (2^outFloatingExpWidth + underWidth) :=
         if hOutExponentEqZero : outExponent = 0 then
           -- [underMsb...  ...underLsb] [0.. [ 2^exWidth ] ..0]
           -- Set the high bits to the 2^exwidth part.
-          let out := under.truncate (2^exWidth + underWidth) <<< (1 <<< exWidth)
-          have outLowBits : ∀ i < 2^exWidth, out.getLsbD i = false := by
+          let out := under.truncate (2^outFloatingExpWidth + underWidth) <<< (1 <<< outFloatingExpWidth)
+          have outLowBits : ∀ i < 2^outFloatingExpWidth, out.getLsbD i = false := by
             simp [out]
             intros i hi hi'
             omega
           out
         else
-          let outExponentMinusOne : BitVec (exWidth+1) := outExponent.truncate _ - 1
+          let outExponentMinusOne : BitVec (outFloatingExpWidth+1) := outExponent.truncate _ - 1
           have hOutExponentMinusOne : outExponentMinusOne.toNat =
             outExponent.toNat - 1 := by
             rw [BitVec.toNat_sub_of_le]
@@ -755,10 +755,10 @@ def round_to_packedfloat' [h : HExOffset exWidth sigWidth] [HExOffset exOffset w
               omega
           -- push the bottom bits of trimmed into the high region (1 <<< exWidth),
           -- and then do ???
-          let out := truncateRight (2^exWidth + underWidth) (trimmed <<< ((1<<<exWidth) + sigWidth - 2 - outExponentMinusOne)) |||
+          let out := truncateRight (2^outFloatingExpWidth + underWidth) (trimmed <<< ((1<<<outFloatingExpWidth) + outFloatingSigWidth - 2 - outExponentMinusOne)) |||
             -- push the 'under' bits to the high region (1 <<< exWidth), and then push it back by outExponentMinusOne.
-            (under.zeroExtend (2^exWidth + underWidth) <<< ((1<<<exWidth) - outExponentMinusOne))
-          have outLowBits : ∀ i < 2^exWidth, out.getLsbD i = false := by
+            (under.zeroExtend (2^outFloatingExpWidth + underWidth) <<< ((1<<<outFloatingExpWidth) - outExponentMinusOne))
+          have outLowBits : ∀ i < 2^outFloatingExpWidth, out.getLsbD i = false := by
               -- TODO: what the heck is going on here?
               sorry
           out
