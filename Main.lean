@@ -229,6 +229,9 @@ def main (args : List String) : IO Unit := do
       IO.println "Please run with command line arg e5m2 or e3m4"
 
 
+namespace ExamplesMain
+open ExamplesE5M2
+
 /-- info: { sign := -, ex := 0x04#5, sig := 0x1#2 } -/
 #guard_msgs in #eval add (PackedFloat.ofBits 5 2 0b00000011#8) (PackedFloat.ofBits 5 2 0b10010001#8) .RNE
 /-- info: { sign := +, ex := 0x01#5, sig := 0x2#2 } -/
@@ -239,3 +242,5 @@ def main (args : List String) : IO Unit := do
 #guard_msgs in #eval div oneE5M2 (PackedFloat.getZero 5 2) .RTZ
 /-- info: { sign := +, ex := 0x00#5, sig := 0x1#2 } -/
 #guard_msgs in #eval mul (PackedFloat.ofBits 5 2 0b00000001#8) (PackedFloat.ofBits 5 2 0b00111001#8) .RNE
+
+end ExamplesMain

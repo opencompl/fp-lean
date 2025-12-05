@@ -338,6 +338,7 @@ cover the entire range of representable values.
 -/
 @[bv_float_normalize]
 def toEFixed (pf : PackedFloat e s)
+  -- | Why is it '- 2'?
   : EFixedPoint (2 ^ e + s) (2 ^ (e - 1) + s - 2) :=
   let hExOffset := toEFixed_hExOffset e s
   if pf.isNaN then EFixedPoint.getNaN hExOffset --   pf.ex == BitVec.allOnes e && pf.sig != 0 (pf.sign can be anything.)
@@ -347,13 +348,28 @@ def toEFixed (pf : PackedFloat e s)
     num := {
       sign := pf.sign
       val :=
-        -- If zero or subnormal, then we add the implicit leading zero.
-        -- Otherwise, we do not have it.
+        -- If the value is zero/subnormal, then we append a leading '0' bit to 'pf.sig'.
+        -- Otherwise, we append a leading '1' bit to 'pf.sig', which is the representation of
+        -- 1.<significand> for regular numbers, and 0.<significand> for denormal numbers.
         let unshifted : BitVec (1+s) :=
           (BitVec.ofBool !pf.isZeroOrSubnorm) ++ pf.sig;
-        let shiftAmt : BitVec e := if pf.ex = 0 then 0 else pf.ex - 1 -- why pf.ex - 1?
+        -- If the exponent is zero, let's think about IEEE floating point.
+        -- exponent = 8bit, manitssa = 23 bit.
+        -- When exponent is zero, we are representing subnormal numbers.
+        -- so this is 2^-126 * 0.mantissa
+        -- This is <mantissa> * 2^-126 * 2^-23 = 2^-(126 + 23) * <mantissa>
+        -- Now, 126 + 23 = (128 - 2) + 23 = (2^(8-1) - 2) + 23.
+        -- When exponent is 0, then we don't shift.
+        -- When exponent is nonzero, then we shift by exponent minus one.
+        -- For example, when exponent is 1, then the number is 1.<mantissa>, so we shift by 0.
+        let shiftAmt : BitVec e := if pf.ex = 0 then 0 else pf.ex - 1
+        -- When shift amount is zero, then see that we produce the number
+        -- mantissa * 2^(128 + 23)
+        -- which is indeed what we want.
         let hs : 1 + s <= 2^e + s := by
           exact Nat.add_le_add_right Nat.one_le_two_pow s
+        -- now that we have the value, shift by the shift amount, which could at most shift by '2^e - 1'.
+        -- we shift left to counteract the bias that comes from 2 ^ (e - 1) + s - 2.
         let out : BitVec (2^e + s) := (BitVec.setWidth' (w := 2^e + s) hs (unshifted)) <<< shiftAmt -- could shift by 2^e.
         out
       hExOffset := hExOffset

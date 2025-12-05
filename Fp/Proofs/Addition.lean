@@ -60,8 +60,27 @@ theorem signToInt_eq_negOne_pow_toNat (s : Bool) :
   · simp [signToInt]
 
 
+/-- Make 1/2^n as a dyadic number-/
+def Dyadic.twoPowInv (n : Nat) : Dyadic :=
+  Dyadic.ofIntWithPrec 1 n
+
+private theorem Rat.pow_neg_eq_one_div (x : Rat) (n : Int) :
+    x ^ (- n) = 1 / (x ^ n) := by
+  rw [Rat.zpow_neg]
+  rw [Rat.div_def]
+  simp
+
+theorem Dyadic.twoPowInv_eq (n : Nat) :
+    (Dyadic.twoPowInv n |>.toRat) = mkRat 1 (2 ^ n) := by
+  simp [twoPowInv]
+  rw [Dyadic.toRat_ofIntWithPrec_eq_mul_two_pow]
+  rw [Rat.mkRat_eq_div]
+  simp only [Rat.intCast_ofNat, Rat.one_mul, Rat.natCast_pow, Rat.natCast_ofNat]
+  rw [Rat.pow_neg_eq_one_div]
+  rfl
+
 /-- make power of two as a dyadic number. -/
-def Dyadic.twoPow (n : Nat) : Dyadic :=
+def Dyadic.twoPow (n : Int) : Dyadic :=
   Dyadic.ofIntWithPrec 1 (-n)
 
 /-- the power of two as a rational number is what you'd expect it to be. -/
@@ -408,10 +427,130 @@ theorem is_over_iff_decide_le_toDyadic [HExOffset exOffset width]
   sorry
 
 
+-- The floating point bias for exWidth bits.
+def PackedFloat.exponentBias (exWidth : Nat) : Nat :=
+  2 ^ (exWidth - 1) - 1
 
+/-- Minimum value of exponent. -/
+def PackedFloat.minExponentOfNumOrDenormal (exWidth : Nat) : Int :=
+  1 - (PackedFloat.exponentBias exWidth)
+
+/-- Maximum value of exponent of a normal number. '254 - 127' in 8bit -/
+def PackedFloat.maxExponentOfNum (exWidth : Nat) : Int :=
+  -- max is 255
+  -- but we can't use 255, since that is for infty/nan.
+  let max := (2^(exWidth) - 1)
+  let maxNum := max - 1
+  maxNum - (PackedFloat.exponentBias exWidth)
+
+theorem PackedFloat.exponentBias_eq (exWidth : Nat) :
+    PackedFloat.exponentBias exWidth = (2 ^ (exWidth - 1) - 1) := rfl
+
+@[simp]
+theorem PackedFloat.exponentBias_8bit :
+    PackedFloat.exponentBias 8 = 127 := rfl
+
+theorem PackedFloat.minExponentOfNumOrDenormal_8bit :
+    PackedFloat.minExponentOfNumOrDenormal 8 = -126 := rfl
+
+theorem PackedFloat.maxExponentOfNum_8bit :
+    PackedFloat.maxExponentOfNum 8 = 254 - 127 := rfl
+
+
+-- We will define the FP dyadic encoding, ignoring the Nan, Infinity cases.
 def PackedFloat.toDyadic [h : HExOffset (2 ^ (exWidth - 1) + sigWidth - 2) (2 ^ exWidth + sigWidth)]
     (pf : PackedFloat exWidth sigWidth) : Dyadic :=
-  PackedFloat.toEFixed pf |>.num.toDyadic
+  if hex : pf.ex = 0#exWidth then
+    if hsig : pf.sig = 0#sigWidth
+    then (0 : Dyadic)
+    else
+      let exponentVal := Dyadic.twoPow (PackedFloat.minExponentOfNumOrDenormal exWidth)
+      -- | but this in itself 0.<sigVal>
+      let sigValInt : Int := pf.sig.toNat * signToInt pf.sign
+      let sigVal := sigValInt * Dyadic.twoPowInv (sigWidth)
+      exponentVal * sigVal
+  else
+    let exponentVal := Dyadic.twoPow (pf.ex.toNat - PackedFloat.exponentBias exWidth)
+    let sigValInt : Int := pf.sig.toNat * signToInt pf.sign
+    let sigVal := 1 + (sigValInt * Dyadic.twoPowInv (sigWidth))
+    exponentVal * sigVal
+
+@[simp]
+theorem BitVec.one_le_of_ne_zero (hw : w ≠ 0) {x : BitVec w} (hx : x ≠ 0#w) :
+    1#w ≤ x := by
+  simp [BitVec.le_def]
+  rw [Nat.mod_eq_of_lt]
+  · rw [BitVec.toNat_ne] at hx
+    simp at hx
+    omega
+  · simp; omega
+
+@[simp]
+theorem BitVec.beq_iff_decide_eq {w : Nat} {x y : BitVec w} :
+    ((x == y)) = decide (x = y) := by
+  by_cases hxy : x = y
+  · simp [hxy]
+  · simp [hxy]
+
+def PackedFloat.toDyadic_eq_toDyadic_num_toEFixed [h : HExOffset (2 ^ (exWidth - 1) + sigWidth - 2) (2 ^ exWidth + sigWidth)]
+      (pf : PackedFloat exWidth sigWidth)
+      (hex : exWidth > 1)
+      (hnan : ¬ pf.isNaN) (hinf : ¬ pf.isInfinite):
+      PackedFloat.toDyadic pf = (PackedFloat.toEFixed pf |>.num.toDyadic) := by
+  rw [PackedFloat.toEFixed]
+  simp [-isNaN] at hnan
+  simp [-isInfinite] at hinf
+  simp [-isNaN, -isInfinite, hnan, hinf]
+  rw [PackedFloat.toDyadic]
+  by_cases hex : pf.ex = 0#exWidth
+  case pos =>
+    simp [hex]
+    by_cases hsig : pf.sig = 0#sigWidth
+    case pos =>
+      simp [hsig]
+      simp [FixedPoint.toDyadic]
+    case neg =>
+      simp [hsig]
+      simp [FixedPoint.toDyadic]
+      simp [Dyadic.twoPow]
+      simp [Dyadic.twoPowInv]
+      rw [← Dyadic.toRat_inj]
+      simp [Dyadic.toRat_ofIntWithPrec_eq_mul_two_pow]
+      push_cast
+      conv =>
+        lhs
+        rw [Rat.mul_comm]
+        rw [Rat.mul_assoc]
+      congr
+      rw [← Rat.zpow_add]
+      · congr
+        simp [minExponentOfNumOrDenormal, exponentBias]
+        push_cast
+        sorry
+        -- norm_num
+      · decide
+  case neg =>
+    simp only [hex, ↓reduceDIte, signToInt_eq_negOne_pow_toNat, Int.reduceNeg, ↓reduceIte]
+    rw [BitVec.toNat_sub_of_le]
+    · rw [← Dyadic.toRat_inj]
+      have : (1#exWidth).toNat = 1 := by
+        simp
+        omega
+      rw [this]
+      simp only [Int.reduceNeg, Dyadic.toRat_mul, Dyadic.toRat_add, Dyadic.toRat_intCast,
+        Rat.intCast_mul, Rat.intCast_pow, Rat.intCast_neg, Rat.intCast_ofNat, decide_false,
+        Bool.not_false, BitVec.ofBool_true, BitVec.ofNat_eq_ofNat]
+      have : BitVec.setWidth (2^exWidth) (1#1) = (1#(2^exWidth)) := by
+        apply BitVec.eq_of_toNat_eq
+        simp
+      rw [this]
+      simp only [FixedPoint.toDyadic]
+      simp only [Dyadic.toRat_ofIntWithPrec_eq_mkRat]
+
+      sorry
+    · apply BitVec.one_le_of_ne_zero
+      · omega
+      · bv_omega
 
 -- @[bv_float_normalize]
 -- def round_to_efixedpoint [HExOffset exWidth sigWidth] [h : HExOffset exWidth sigWidth] [HExOffset exWidth sigWidth] [HExOffset exOffset width]
@@ -589,6 +728,17 @@ def round_to_packedfloat' [h : HExOffset exWidth sigWidth] [HExOffset inFixedOff
     let ratX := BitVec.toUnsignedFixedPointRat x.num.val inFixedOffset
     -- new EFixedPoint offset corresponding to EFixedPoint ~= output packedFloat.
     -- outFixedOffset < inFixedOffset
+    -- In the case of denormal numbers, we can have as many offsets as we have sigWidth
+    -- When exp=8, we can actually store 0..255
+    -- however, we reserve zero for denormals, and 255 for infinity/nan
+    -- so we have 1..254.
+    -- We shift these by half, giving us [-126 .. 127]
+    -- In general, if exponent is e, we have 2^e - 2 representable exponents,
+    -- which we shift by half, giving us a range of
+    -- [-(2^(e-1)-1) .. 2^(e-1  -1)]
+    -- Not sure where the extra -1 is coming from?
+    -- So, the offset is (2^(e-1) -1) + (sigWidth -1)
+    -- Why is it sigWidth - 1? Smallest # is 0.000...1, which is like 10^-sigWidth
     let outFixedOffset : Nat := 2^(outFloatingExpWidth - 1) + outFloatingSigWidth - 2
     -- trim bitvector
     -- 'over' is x/2^(exOffset + 2^(exWidth-1)), but this is the following:
@@ -629,7 +779,7 @@ def round_to_packedfloat' [h : HExOffset exWidth sigWidth] [HExOffset inFixedOff
     -- largest output value.
     let hMaxOut := PackedFloat.getMax outFloatingExpWidth outFloatingSigWidth x.num.sign
     if hOverflow : over != 0 then
-      have : hMaxOut.toDyadic.abs < x.num.toDyadic.abs  := sorry
+      have : hMaxOut.toDyadic.abs < x.num.toDyadic.abs := sorry
       -- Overflow to Infinity
       -- Unless we're rounding RTN/RTP to the opposite sign, or RTZ
       -- in which case we overflow to MAX

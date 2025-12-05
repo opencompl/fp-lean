@@ -65,6 +65,8 @@ theorem square_sqrt_is_id (x : BitVec 5)
   bv_float_normalize
   bv_decide
 
+namespace ExamplesSqrt
+open ExamplesE5M2
 /-- info: { sign := +, ex := 0x07#5, sig := 0x0#2 } -/
 #guard_msgs in #eval sqrt (PackedFloat.ofBits 5 2 0b00000001#8) .RNE
 /-- info: { sign := +, ex := 0x07#5, sig := 0x3#2 } -/
@@ -73,3 +75,5 @@ theorem square_sqrt_is_id (x : BitVec 5)
 #guard_msgs in #eval sqrt (PackedFloat.ofBits 5 2 0b01110100#8) .RNE
 /-- info: { sign := +, ex := 0x0f#5, sig := 0x0#2 } -/
 #guard_msgs in #eval sqrt (oneE5M2) .RNE
+
+end ExamplesSqrt
