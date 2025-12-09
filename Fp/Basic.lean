@@ -169,7 +169,35 @@ theorem EFixedPoint.eq_cond_num {x y : EFixedPoint width exOffset} :
   (bif b then x else y).num = bif b then x.num else y.num := by
   cases b <;> rfl
 
+class HExOffset (e : Nat) (m : Nat) where
+  h : e < m
+
+instance HExOffsetSucc [hex : HExOffset e m] :
+    HExOffset e (m + 1) where
+  h := by
+    have := hex.h
+    omega
+
 namespace FixedPoint
+
+
+
+/-- Build a fixed point number from an integer. -/
+def ofInt (i : Int) [HExOffset e m] : FixedPoint m e :=
+  {
+    sign := i < 0
+    val := BitVec.ofNat m (i.natAbs)
+    hExOffset := HExOffset.h
+  }
+
+/-- Convert a fixed point number to an integer. -/
+def toInt [HExOffset e m] (f : FixedPoint m e) : Int :=
+  let n := f.val.toNat
+  if f.sign then
+    -Int.ofNat n
+  else
+    Int.ofNat n
+
 @[simp, bv_normalize]
 def equal (a b : FixedPoint w e) : Bool :=
   (a.val == 0#_ && b.val == 0#_)

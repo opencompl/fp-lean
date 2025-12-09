@@ -4,42 +4,6 @@ import Fp.Addition
 
 open Lean
 
-class HExOffset (e : Nat) (m : Nat) where
-  h : e < m
-
-instance HExOffsetSucc [hex : HExOffset e m] :
-    HExOffset e (m + 1) where
-  h := by
-    have := hex.h
-    omega
-
-/-- Build a fixed point number from an integer. -/
-def FixedPoint.ofInt (i : Int) [HExOffset e m] : FixedPoint m e :=
-  {
-    sign := i < 0
-    val := BitVec.ofNat m (i.natAbs)
-    hExOffset := HExOffset.h
-  }
-
-/-- Convert a fixed point number to an integer. -/
-def FixedPoint.toInt [HExOffset e m] (f : FixedPoint m e) : Int :=
-  let n := f.val.toNat
-  if f.sign then
-    -Int.ofNat n
-  else
-    Int.ofNat n
-
-/-- convert the sign bit to an integer value. Morally, this is (-1)^s -/
-def signToInt (s : Bool) : Int :=
-  if s then -1 else 1
-
-/-- write the sign bit as two pow. -/
-@[simp]
-theorem signToInt_eq_negOne_pow_toNat (s : Bool) :
-  signToInt s = (-1 : Int) ^ s.toNat := by
-  cases s
-  · simp [signToInt]
-  · simp [signToInt]
 
 
 /-- make power of two as a dyadic number. -/
