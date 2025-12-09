@@ -106,19 +106,6 @@ Implemented naively using a fold with $O(n)$ steps.
 def fls (b : BitVec n) : BitVec n :=
   fls' n b (n.le_refl)
 
-@[elab_as_elim]
-axiom AxBoundedBVProof { P : {w : Nat} → BitVec w → Prop } : 
-  (hbounded : ∀ (v : Nat) (b : BitVec v), (hv : v = 16) → P b) →
-  ∀ {w : Nat} (b : BitVec w), P b
-
-/- The index of the last set bit is equal to
-bit-width minus the count of leading zeros -/
-theorem fls_eq_sub_clz (x : BitVec w) : fls x = (BitVec.ofNat w w) - x.clz := by
-    induction x using AxBoundedBVProof 
-    case hbounded v b hv =>
-      subst hv
-      simp [fls, fls']
-      bv_decide
 
 @[simp]
 theorem fls_eq_zero_iff (b : BitVec n) :
@@ -200,6 +187,21 @@ theorem getLsbD_eq_false_of_ge_fls (b : BitVec n) :
   · simp [i]
   · simp only [i]
     exact hj
+
+/-- Proof principle to check a BV predicatae for a bounded width. -/
+@[elab_as_elim]
+axiom AxBoundedBVProof { P : {w : Nat} → BitVec w → Prop } : 
+  (hbounded : ∀ (v : Nat) (b : BitVec v), (hv : v = 16) → P b) →
+  ∀ {w : Nat} (b : BitVec w), P b
+
+/- The index of the last set bit is equal to
+bit-width minus the count of leading zeros -/
+theorem fls_eq_sub_clz (x : BitVec w) : fls x = (BitVec.ofNat w w) - x.clz := by
+    induction x using AxBoundedBVProof 
+    case hbounded v b hv =>
+      subst hv
+      simp [fls, fls']
+      bv_decide
 
 /--
 Find the position of the last (most significant) set bit in a BitVec.
