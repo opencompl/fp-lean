@@ -57,12 +57,13 @@ instance : Repr RoundingMode where
 
 /--
 Find the position of the last (most significant) set bit in a BitVec.
-
 Returns zero if BitVec is zero. Otherwise, returns the index starting from 1.
+Implemented in terms of bitblastable `clz`.
 
-Implemented naively using a fold with $O(n)$ steps.
+Given a BV `000111`, then `clz` returns `3` (the number of leading zeros),
+and `fls` returns `6 - 3 = 3`, which is the index of the last set bit (counting from 1).
 -/
-@[simp, bv_normalize]
+@[simp, bv_float_normalize]
 def fls (b : BitVec n) : BitVec n := BitVec.ofNat n n - b.clz
 
 
