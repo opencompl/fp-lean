@@ -526,6 +526,7 @@ def PackedFloat.toDyadic_eq_toDyadic_num_toEFixed [h : HExOffset (2 ^ (exWidth -
       · congr
         simp [minExponentOfNumOrDenormal, exponentBias]
         push_cast
+        -- ⊢ -↑sigWidth + (1 - ↑(2 ^ (exWidth - 1) - 1)) = -↑(2 ^ (exWidth - 1) + sigWidth - 2)
         sorry
         -- norm_num
       · decide
@@ -546,7 +547,6 @@ def PackedFloat.toDyadic_eq_toDyadic_num_toEFixed [h : HExOffset (2 ^ (exWidth -
       rw [this]
       simp only [FixedPoint.toDyadic]
       simp only [Dyadic.toRat_ofIntWithPrec_eq_mkRat]
-
       sorry
     · apply BitVec.one_le_of_ne_zero
       · omega
@@ -820,7 +820,8 @@ def round_to_packedfloat' [h : HExOffset exWidth sigWidth] [HExOffset inFixedOff
         rw [← Nat.pow_add]
         rw [show inFixedOffset - outFixedOffset + outFixedOffset = inFixedOffset by omega]
         omega
-      let trimmed : BitVec (2 ^ (outFloatingExpWidth - 1) + outFixedOffset) := trimmedHi ++ trimmedLo
+      let trimmed : BitVec (2 ^ (outFloatingExpWidth - 1) + outFixedOffset) :=
+        trimmedHi ++ trimmedLo
 
 
       have : x.num.toDyadic.abs ≤ hMaxOut.toDyadic.abs := sorry
@@ -833,7 +834,8 @@ def round_to_packedfloat' [h : HExOffset exWidth sigWidth] [HExOffset inFixedOff
         apply getLsbD_eq_false_of_ge_fls
       let sigWidthBV := BitVec.ofNat _ outFloatingSigWidth -- bitvec of sigWidth
       -- outExponent : BitVec exWidth :=  (BitVec.monus index sigWidthBV).truncate _
-      let outExponent : BitVec outFloatingExpWidth := (BitVec.monus firstNonzeroIndexTrimmedBV sigWidthBV).truncate _ -- new exponent.
+      let outExponent : BitVec outFloatingExpWidth :=
+        (BitVec.monus firstNonzeroIndexTrimmedBV sigWidthBV).truncate _ -- new exponent.
         -- if firstNonzeroIndexTrimmedBV ≤ sigWidthBV then -- if our number is entirely contained in the significand, then exponent is zero.
         --   0
         -- else
@@ -841,7 +843,8 @@ def round_to_packedfloat' [h : HExOffset exWidth sigWidth] [HExOffset inFixedOff
         --   -- Interesting, TODO: if we had BitVec.monus, then this would be cleaner.
         --   (firstNonzeroIndexTrimmedBV - sigWidthBV).truncate _
       -- truncated significand, morally equal to 'trimmed >>> max(0, outExponent - 1)'
-      let truncSig : BitVec outFloatingSigWidth := (trimmed >>> (BitVec.monus outExponent 1#outFloatingExpWidth)).truncate _
+      let truncSig : BitVec outFloatingSigWidth :=
+        (trimmed >>> (BitVec.monus outExponent 1#outFloatingExpWidth)).truncate _
       have : truncSig.toNat = trimmed.toNat / (2 ^ (outExponent.toNat - 1)) := by
         simp [truncSig]
         rw [Nat.shiftRight_eq_div_pow]
@@ -852,7 +855,9 @@ def round_to_packedfloat' [h : HExOffset exWidth sigWidth] [HExOffset inFixedOff
           have : outExponent.toNat = 1 := by
             rw [BitVec.le_def] at h
             simp at h
-            sorry
+            rw [Nat.mod_eq_of_lt] at h
+            · sorry
+            · sorry
           simp [this]
           rw [Nat.mod_eq_of_lt]
           apply Nat.lt_of_lt_of_le
@@ -883,9 +888,10 @@ def round_to_packedfloat' [h : HExOffset exWidth sigWidth] [HExOffset inFixedOff
 
       let rem : BitVec (2^outFloatingExpWidth + underWidth) :=
         if hOutExponentEqZero : outExponent = 0 then
-          -- [underMsb...  ...underLsb] [0.. [ 2^exWidth ] ..0]
+          -- [underMsb...  ...underLsb] [0.. [ 2^outFloatingExpWidth ] ..0]
           -- Set the high bits to the 2^exwidth part.
-          let out := under.truncate (2^outFloatingExpWidth + underWidth) <<< (1 <<< outFloatingExpWidth)
+          -- this should be better written as `under ++ BitVec.ofNat 0 (2^outFloatingExpWidth)`.
+          let out := under.zeroExtend (2^outFloatingExpWidth + underWidth) <<< (1 <<< outFloatingExpWidth)
           have outLowBits : ∀ i < 2^outFloatingExpWidth, out.getLsbD i = false := by
             simp [out]
             intros i hi hi'
@@ -905,10 +911,10 @@ def round_to_packedfloat' [h : HExOffset exWidth sigWidth] [HExOffset inFixedOff
                 apply BitVec.eq_of_toNat_eq
                 simp [hcontra]
               omega
-          -- push the bottom bits of trimmed into the high region (1 <<< exWidth),
+          -- push the bottom bits of trimmed into the high region (1 <<< outFloatingExpWidth),
           -- and then do ???
           let out := truncateRight (2^outFloatingExpWidth + underWidth) (trimmed <<< ((1<<<outFloatingExpWidth) + outFloatingSigWidth - 2 - outExponentMinusOne)) |||
-            -- push the 'under' bits to the high region (1 <<< exWidth), and then push it back by outExponentMinusOne.
+            -- push the 'under' bits to the high region (1 <<< outFloatingExpWidth), and then push it back by outExponentMinusOne.
             (under.zeroExtend (2^outFloatingExpWidth + underWidth) <<< ((1<<<outFloatingExpWidth) - outExponentMinusOne))
           have outLowBits : ∀ i < 2^outFloatingExpWidth, out.getLsbD i = false := by
               -- TODO: what the heck is going on here?
