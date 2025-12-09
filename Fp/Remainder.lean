@@ -1,7 +1,7 @@
 import Fp.Basic
 import Fp.Rounding
 
-@[bv_float_normalize]
+@[bv_normalize]
 def remainder (a b : PackedFloat e s) : PackedFloat e s :=
   if a.isNaN || b.isNaN || a.isInfinite || b.isZero then PackedFloat.getNaN e s
   else if a.isZero || b.isInfinite then a

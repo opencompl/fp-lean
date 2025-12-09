@@ -11,5 +11,4 @@ theorem remainder_homogeneous (a b c : PackedFloat 5 2)
   (hc : isExactFloat 5 2 (e_mul (remainder a b).toEFixed c.toEFixed)
     ∧ ¬c.isZero ∧ ¬c.isInfinite)
   : mul (remainder a b) c .RNE = remainder (mul a c .RNE) (mul b c .RNE) := by
-  bv_float_normalize
   bv_decide (timeout := 300)
