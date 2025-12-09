@@ -54,66 +54,19 @@ instance : Repr RoundingMode where
   | .RTP => "RTP"
   | .RTZ => "RTZ"
 
+
+/--
+Find the position of the last (most significant) set bit in a BitVec.
+
+Returns zero if BitVec is zero. Otherwise, returns the index starting from 1.
+
+Implemented naively using a fold with $O(n)$ steps.
+-/
 @[simp, bv_normalize]
-def fls' (m : Nat) (b : BitVec n) (hm : n ≤ m) : BitVec m := match n with
-  | 0 => 0
-  | n' + 1 =>
-    if b.msb then n
-    else fls' m (BitVec.truncate n' b) (by omega)
-
-theorem fls'_eq_zero_iff (b : BitVec n) (m : Nat) (hm : n ≤ m) :
-  fls' m b hm = 0 ↔ b = 0 := by
-  induction n generalizing m with
-  | zero =>
-    simp [fls']
-    exact BitVec.of_length_zero
-  | succ n ih =>
-    simp only [fls']
-    split
-    case succ.isTrue h =>
-      constructor
-      · intros contra
-        simp at contra
-        rw [← BitVec.toNat_inj] at contra
-        simp at contra
-        rw [Nat.mod_eq_of_lt] at contra
-        · omega
-        · apply Nat.lt_of_le_of_lt hm
-          exact Nat.lt_two_pow_self
-      · intros h
-        subst h
-        simp at h
-    case succ.isFalse h =>
-      constructor
-      · intros hfls
-        simp at hfls
-        specialize ih (BitVec.setWidth n b) m (by omega)
-        have ih := ih.mp hfls
-        ext i hi
-        by_cases hiEq : i = n
-        · subst hiEq
-          simp
-          simp at h
-          rw [BitVec.msb_eq_getLsbD_last] at h
-          simpa using h
-        · have : i < n := by
-            omega
-          have : (BitVec.setWidth n b)[i] = false := by
-            rw [ih]
-            simp
-          simp at this
-          rw [BitVec.getLsbD_eq_getElem] at this
-          simpa using this
-      · intros hb
-        specialize ih (0#n) m (by omega)
-        rw [hb]
-        simp only [BitVec.ofNat_eq_ofNat, BitVec.truncate_eq_setWidth, Nat.le_add_right,
-          BitVec.setWidth_ofNat_of_le]
-        apply ih.mpr
-        simp only [BitVec.ofNat_eq_ofNat]
+def fls (b : BitVec n) : BitVec n := BitVec.ofNat n n - b.clz
 
 
-@[simp, bv_normalize]
+@[simp, bv_float_normalize]
 def fls_log (m : Nat) (b : BitVec n) : BitVec n :=
   if m = 0 then
     0
@@ -127,114 +80,6 @@ def fls_log (m : Nat) (b : BitVec n) : BitVec n :=
 Find the position of the last (most significant) set bit in a BitVec.
 
 Returns zero if BitVec is zero. Otherwise, returns the index starting from 1.
-
-Implemented naively using a fold with $O(n)$ steps.
--/
-@[simp, bv_normalize]
-def fls (b : BitVec n) : BitVec n :=
-  fls' n b (n.le_refl)
-
-
-@[simp]
-theorem fls_eq_zero_iff (b : BitVec n) :
-  fls b = 0 ↔ b = 0 := by
-  simp [fls]
-  apply fls'_eq_zero_iff
-
-theorem getLsbD_eq_false_of_fls'_eq_of_ne_zero (m : Nat)
-    (b : BitVec n) (hm : n ≤ m) (hi' : i ≤ m) :
-    fls' m b hm = i → (∀ (j : Nat), i ≤ j → b.getLsbD j = false) := by
-  induction n generalizing m i
-  case zero =>
-    simp [fls']
-  case succ n ih =>
-    simp only [fls']
-    split
-    case isTrue h =>
-      simp
-      · intros hfls
-        rw [← BitVec.toNat_inj] at hfls
-        simp only [BitVec.toNat_ofNat] at hfls
-        rw [Nat.mod_eq_of_lt] at hfls
-        · rw [Nat.mod_eq_of_lt] at hfls
-          · rw [BitVec.msb_eq_getLsbD_last] at h
-            rw [← hfls]
-            simp at h
-            intros j hj
-            apply BitVec.getLsbD_of_ge
-            omega
-          · apply Nat.lt_of_le_of_lt hi'
-            exact Nat.lt_two_pow_self
-        · apply Nat.lt_of_le_of_lt hm
-          exact Nat.lt_two_pow_self
-    case isFalse hmsb =>
-      intros h
-      intros j hj
-      have := ih (b := b.truncate _) (i := i) (m := m) (by omega) (by omega) h
-      simp at this
-      specialize this j (by omega)
-      by_cases hj : j < n
-      · apply this hj
-      · simp at hj
-        rw [BitVec.msb_eq_getLsbD_last] at hmsb
-        simp at hmsb
-        by_cases hj' : j = n
-        · subst hj'
-          simp [hmsb]
-        · apply BitVec.getLsbD_of_ge
-          omega
-
-theorem toNat_fls'_le (m : Nat) (b : BitVec n) (hm : n ≤ m) :
-    (fls' m b hm).toNat ≤ n := by
-  induction n with
-  | zero =>
-    simp [fls']
-  | succ n ih =>
-    simp only [fls']
-    split
-    case isTrue h =>
-      simp
-      rw [Nat.mod_eq_of_lt]
-      · omega
-      · apply Nat.lt_of_le_of_lt hm
-        exact Nat.lt_two_pow_self
-    case isFalse h =>
-      specialize ih (b := b.truncate _) (by omega)
-      simp at ih
-      apply Nat.le_trans ih
-      omega
-
-theorem getLsbD_eq_false_of_ge_fls (b : BitVec n) :
-    (∀ (j : Nat), (fls b).toNat ≤ j → b.getLsbD j = false) := by
-  simp [fls]
-  intros j hj
-  let i := (fls' n b n.le_refl).toNat
-  have : i ≤ n := by
-    apply toNat_fls'_le n b (n.le_refl)
-  apply getLsbD_eq_false_of_fls'_eq_of_ne_zero n b (n.le_refl) (i := i) (by omega)
-  · simp [i]
-  · simp only [i]
-    exact hj
-
-/-- Proof principle to check a BV predicatae for a bounded width. -/
-@[elab_as_elim]
-axiom AxBoundedBVProof { P : {w : Nat} → BitVec w → Prop } : 
-  (hbounded : ∀ (v : Nat) (b : BitVec v), (hv : v = 16) → P b) →
-  ∀ {w : Nat} (b : BitVec w), P b
-
-/- The index of the last set bit is equal to
-bit-width minus the count of leading zeros -/
-theorem fls_eq_sub_clz (x : BitVec w) : fls x = (BitVec.ofNat w w) - x.clz := by
-    induction x using AxBoundedBVProof 
-    case hbounded v b hv =>
-      subst hv
-      simp [fls, fls']
-      bv_decide
-
-/--
-Find the position of the last (most significant) set bit in a BitVec.
-
-Returns zero if BitVec is zero. Otherwise, returns the index starting from 1.
 -/
 @[simp, bv_normalize]
 def flsLog (b : BitVec n) : BitVec n :=
@@ -243,7 +88,7 @@ def flsLog (b : BitVec n) : BitVec n :=
 /--
 `flsLog` and `fls` implement the same function.
 -/
-theorem flsIter_eq_fls (b : BitVec 8)
+theorem flsLog_eq_fls (b : BitVec 8)
   : flsLog b = fls b := by
   simp
   bv_decide
