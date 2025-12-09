@@ -4,7 +4,7 @@ import Fp.Rounding
 /--
 Implementation of integer square root. Remainder bit appended to the end of the result.
 -/
-@[bv_float_normalize]
+@[bv_normalize]
 def sqrt_iter (i : Nat) (x : BitVec n) (w : BitVec n) : BitVec (n+1) :=
   let w' := w.setWidth (2*n) ||| (1#_ <<< i)
   let flag := (BitVec.ofBool (w' * w' ≤ x.setWidth (2*n))).setWidth n <<< i
@@ -13,11 +13,11 @@ def sqrt_iter (i : Nat) (x : BitVec n) (w : BitVec n) : BitVec (n+1) :=
   | 0 => w'' ++ BitVec.ofBool (w''.setWidth (2*n) * w''.setWidth (2*n) ≠ x.setWidth (2*n))
   | j+1 => sqrt_iter j x w''
 
-@[bv_float_normalize]
+@[bv_normalize]
 def bit_sqrt (x : BitVec n) : BitVec (n+1) :=
   sqrt_iter ((n-1)/2) x 0
 
-@[bv_float_normalize]
+@[bv_normalize]
 def sqrt_impl (x : PackedFloat e s) (m : RoundingMode) : PackedFloat e s :=
   let sig' :=
     BitVec.ofBool (x.ex != 0) ++ x.sig
@@ -53,7 +53,7 @@ def sqrt_impl (x : PackedFloat e s) (m : RoundingMode) : PackedFloat e s :=
     }
   round e s m result
 
-@[bv_float_normalize]
+@[bv_normalize]
 def sqrt (x : PackedFloat e s) (m : RoundingMode) : PackedFloat e s :=
   if x.isZero then x
   else if x.sign || x.isNaN then PackedFloat.getNaN e s
@@ -62,7 +62,7 @@ def sqrt (x : PackedFloat e s) (m : RoundingMode) : PackedFloat e s :=
 
 theorem square_sqrt_is_id (x : BitVec 5)
   : bit_sqrt (x.setWidth 10 * x.setWidth _) = x.setWidth _ <<< 1 := by
-  bv_float_normalize
+  bv_normalize
   bv_decide
 
 /-- info: { sign := +, ex := 0x07#5, sig := 0x0#2 } -/

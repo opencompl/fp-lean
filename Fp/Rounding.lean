@@ -18,6 +18,34 @@ inductive RoundingMode : Type
 | RTZ : RoundingMode -- RoundTowardZero
 deriving DecidableEq
 
+attribute [bv_normalize] RoundingMode.eq_iff_enumToBitVec_eq
+
+@[bv_normalize]
+theorem RoundingMode.beq_iff_enumToBitVec_beq {x y : RoundingMode}
+  : (x == y) = (x.enumToBitVec == y.enumToBitVec) := by
+  cases h : (x == y) <;> simp_all [eq_iff_enumToBitVec_eq]
+
+@[bv_normalize]
+theorem RoundingMode.bne_to_beq {x y : RoundingMode}
+  : (x != y) = !(x == y) := by
+  cases h : (x != y) <;> simp_all [eq_iff_enumToBitVec_eq]
+
+@[bv_normalize]
+theorem RoundingMode.RNA_enumToBitVec_eq : enumToBitVec RNA = 0b000#3 := rfl
+@[bv_normalize]
+theorem RoundingMode.RNE_enumToBitVec_eq : enumToBitVec RNE = 0b001#3 := rfl
+@[bv_normalize]
+theorem RoundingMode.RTN_enumToBitVec_eq : enumToBitVec RTN = 0b010#3 := rfl
+@[bv_normalize]
+theorem RoundingMode.RTP_enumToBitVec_eq : enumToBitVec RTP = 0b011#3 := rfl
+@[bv_normalize]
+theorem RoundingMode.RTZ_enumToBitVec_eq : enumToBitVec RTZ = 0b100#3 := rfl
+
+@[bv_normalize]
+theorem RoundingMode.eq_cond_enumToBitVec {x y : RoundingMode} :
+  (bif b then x else y).enumToBitVec = bif b then x.enumToBitVec else y.enumToBitVec := by
+  cases b <;> rfl
+
 instance : Repr RoundingMode where
   reprPrec m _ := match m with
   | .RNA => "RNA"
@@ -26,7 +54,7 @@ instance : Repr RoundingMode where
   | .RTP => "RTP"
   | .RTZ => "RTZ"
 
-@[simp, bv_float_normalize]
+@[simp, bv_normalize]
 def fls' (m : Nat) (b : BitVec n) (hm : n ≤ m) : BitVec m := match n with
   | 0 => 0
   | n' + 1 =>
@@ -34,7 +62,7 @@ def fls' (m : Nat) (b : BitVec n) (hm : n ≤ m) : BitVec m := match n with
     else fls' m (BitVec.truncate n' b) (by omega)
 
 
-@[simp, bv_float_normalize]
+@[simp, bv_normalize]
 def fls_log (m : Nat) (b : BitVec n) : BitVec n :=
   if m = 0 then
     0
@@ -51,7 +79,7 @@ Returns zero if BitVec is zero. Otherwise, returns the index starting from 1.
 
 Implemented naively using a fold with $O(n)$ steps.
 -/
-@[simp, bv_float_normalize]
+@[simp, bv_normalize]
 def fls (b : BitVec n) : BitVec n :=
   fls' n b (n.le_refl)
 
@@ -60,7 +88,7 @@ Find the position of the last (most significant) set bit in a BitVec.
 
 Returns zero if BitVec is zero. Otherwise, returns the index starting from 1.
 -/
-@[simp, bv_float_normalize]
+@[simp, bv_normalize]
 def flsLog (b : BitVec n) : BitVec n :=
   if b == 0 then 0 else 1#_ + fls_log (lastPowerOfTwo n) b
 
@@ -75,7 +103,7 @@ theorem flsIter_eq_fls (b : BitVec 8)
 /--
 Gets the first `w` bits of the bitvector `v`.
 -/
-@[simp, bv_float_normalize]
+@[simp, bv_normalize]
 def truncateRight (w : Nat) (v : BitVec n) : BitVec w :=
   if hw : n ≤ w then
     -- Have to show that hw ⊢ n + (w - n) = w
@@ -87,24 +115,30 @@ def truncateRight (w : Nat) (v : BitVec n) : BitVec w :=
   else
     BitVec.truncate w (v >>> (n-w))
 
-@[simp, bv_float_normalize]
+@[simp, bv_normalize]
 def shouldRoundAway (m : RoundingMode)
   (sign : Bool) (odd : Bool) (v : BitVec n) : Bool :=
   let guard := v.msb
   let sticky := v.truncate (n-1) ≠ 0
   match m with
-  | .RNE => guard ∧ (sticky ∨ odd)
+  | .RNE => guard && (sticky || odd)
   | .RNA => guard
-  | .RTP => (guard ∨ sticky) ∧ ¬sign
-  | .RTN => (guard ∨ sticky) ∧ sign
-  | .RTZ => False
+  | .RTP => (guard || sticky) && ¬sign
+  | .RTN => (guard || sticky) && sign
+  | .RTZ => false
+
+@[bv_normalize]
+theorem shouldRoundAway.match_eq_cond :
+  (shouldRoundAway.match_1 (fun _ => Bool) m a b c d e) =
+  bif m = .RNE then a () else bif m = .RNA then b () else bif m = .RTP then c () else bif m = .RTN then d () else e () := by
+  cases m <;> rfl
 
 -- Round is less well-behaved when exWidth = 0. This shouldn't be an issue?
 /--
 Round an extended fixed-point number to its nearest floating point number of
 the specified format, with the specified rounding mode.
 -/
-@[bv_float_normalize]
+@[bv_normalize]
 def round
   (exWidth sigWidth : Nat) (mode : RoundingMode) (x : EFixedPoint width exOffset)
   : PackedFloat exWidth sigWidth :=
@@ -176,7 +210,7 @@ def round
 Determine if a fixed-point number has an exact representation in the
 specified floating-point format.
 -/
-@[bv_float_normalize]
+@[bv_normalize]
 def isExactFloat (exWidth sigWidth : Nat)
   (x : EFixedPoint width exOffset) : Bool :=
   if x.state = .Number then
@@ -207,7 +241,7 @@ def isExactFloat (exWidth sigWidth : Nat)
   else
     true
 
-@[bv_float_normalize]
+@[bv_normalize]
 def roundToInt (mode : RoundingMode) (x : PackedFloat e s) : PackedFloat e s :=
   if x.isNaN then PackedFloat.getNaN e s
   else if x.isInfinite then x

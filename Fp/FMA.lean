@@ -3,7 +3,7 @@ import Fp.Rounding
 import Fp.Addition
 import Fp.Multiplication
 
-@[bv_float_normalize]
+@[bv_normalize]
 def fma (a b c : PackedFloat e s) (m : RoundingMode)
   : PackedFloat e s :=
   if a.isNaN || b.isNaN || c.isNaN ||
