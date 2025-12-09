@@ -1,7 +1,6 @@
 open Lean
 
 
-
 /-- make power of two as a dyadic number. -/
 def Dyadic.twoPow (n : Nat) : Dyadic :=
   Dyadic.ofIntWithPrec 1 (-n)
