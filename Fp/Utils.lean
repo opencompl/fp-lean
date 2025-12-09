@@ -1,6 +1,19 @@
 import Std.Tactic.BVDecide
 import Fp.Tactics
 
+/-- convert the sign bit to an integer value. Morally, this is (-1)^s -/
+def signToInt (s : Bool) : Int :=
+  if s then -1 else 1
+
+/-- write the sign bit as two pow. -/
+@[simp]
+theorem signToInt_eq_negOne_pow_toNat (s : Bool) :
+  signToInt s = (-1 : Int) ^ s.toNat := by
+  cases s
+  · simp [signToInt]
+  · simp [signToInt]
+
+
 @[simp, bv_normalize]
 def lastPowerOfTwo_iter (m : Nat) (n : Nat) : Nat :=
   if m = 0 then
