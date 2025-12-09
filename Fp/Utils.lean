@@ -1,7 +1,7 @@
 import Std.Tactic.BVDecide
 import Fp.Tactics
 
-@[simp, bv_float_normalize]
+@[simp, bv_normalize]
 def lastPowerOfTwo_iter (m : Nat) (n : Nat) : Nat :=
   if m = 0 then
     1
@@ -16,7 +16,7 @@ Returns the largest power of two strictly less than `n`.
 
 If no such number exists, returns `1` instead.
 -/
-@[simp, bv_float_normalize]
+@[simp, bv_normalize]
 def lastPowerOfTwo (n : Nat) : Nat :=
   lastPowerOfTwo_iter ((n+1)/2) n
 
