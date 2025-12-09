@@ -1,64 +1,9 @@
+import Fp.Proofs.Basic
 import Init.Data.Dyadic
 import Fp.Addition
 import Fp.ForLean.Dyadic
+import Fp.ForLean.Rat
 
-
-/-- Truncate a dyadic number to a fixed-point number. -/
-def FixedPoint.ofDyadic [HExOffset e m] (d : Dyadic) : FixedPoint m e :=
-  FixedPoint.ofInt <| (Dyadic.mul d (Dyadic.twoPow e)).toRat.num
-
-/-- Convert a dyadic number to a fixed-point number. -/
-def FixedPoint.toDyadic [HExOffset e m] (f : FixedPoint m e) : Dyadic :=
-  Dyadic.ofIntWithPrec (f.val.toNat * (signToInt f.sign)) e
-
-/-- Show that a dyadic number corresponds to a fixed-point number. -/
-structure DyadicEqualsFixedPoint [HExOffset e m] (d : Dyadic) (f : FixedPoint m e) where
-    h : FixedPoint.toDyadic f = d
-
-theorem DyadicEqualsFixedPoint_of_eq [HExOffset e m]
-  {d : Dyadic} {f : FixedPoint m e}
-  (h : FixedPoint.toDyadic f = d) :
-    DyadicEqualsFixedPoint d f :=
-  ⟨h⟩
-
-/-- The dyadic number equals the fixed point number. -/
-notation (name := dyadicSim) f "∼d " d => (DyadicEqualsFixedPoint d f)
-
-theorem Dyadic.eq_iff_toRat_eq (d₁ d₂ : Dyadic) :
-    d₁ = d₂ ↔ d₁.toRat = d₂.toRat := by
-  constructor
-  · intros h
-    subst d₁
-    simp
-  · intros h
-    rw [← Dyadic.toRat_inj, h]
-
-@[simp]
-theorem Rat.mkRat_add_mkRat_eq_mkRat_add (n₁ n₂ : Int) {d} (hd : d ≠ 0)  :
-    mkRat n₁ d + mkRat n₂ d = mkRat (n₁ + n₂) d:= by
-  rw [← normalize_eq_mkRat hd,
-    ← normalize_eq_mkRat hd,
-    normalize_add_normalize,
-    normalize_eq_mkRat]
-  rw [show n₁ * d + n₂ * d = (n₁ + n₂) * d by grind]
-  rw [mkRat_mul_right hd]
-
-
-/-- Two rational numbers with the same denominator are equal
-iff the numerators are equal, when the denominator is nonzero. -/
-@[simp]
-theorem Rat.mkRat_eq_iff_numerator {n₁ n₂ : Int} {d : Nat} (hd : d ≠ 0):
-    (mkRat n₁ d = mkRat n₂ d) ↔ (n₁ = n₂) := by
-  constructor
-  · intros heq
-    rw [mkRat_eq_iff] at heq
-    · rw [Int.mul_eq_mul_right_iff (by simpa using hd)] at heq
-      exact heq
-    · exact hd
-    · exact hd
-  · intros heq
-    subst heq
-    rfl
 
 theorem fp_add_dyadic [HExOffset e m] (da db : Dyadic) (fa fb : FixedPoint m e)
  (ha : fa ∼d da) (hb : fb ∼d db) (mode : RoundingMode)
@@ -200,17 +145,6 @@ theorem fp_add_dyadic [HExOffset e m] (da db : Dyadic) (fa fb : FixedPoint m e)
 #guard_msgs in #print axioms fp_add_dyadic
 
 
-/-- absolute value of a dyadic number -/
-def Dyadic.abs (d : Dyadic) : Dyadic :=
-  if d < 0 then -d else d
-
-/-- Distance between two dyadic numbers -/
-def Dyadic.distance (d1 d2 : Dyadic) : Dyadic := (d1 - d2).abs
-
-
-def Dyadic.numerator (d : Dyadic) : Int :=
-  d.toRat.num
-
 /--
 Either 'fx' is closer to 'd' than y,
 or 'fx' is and 'y' are equidistant, but
@@ -255,12 +189,3 @@ For now, let's pick RNE (round to nearest even) as our canonical rounding mode,
 and just perform proofs on this.
 -/
 
-#check round
-#check EFixedPoint.getNaN
-
-
-/-
-def round (x : FixedPoint width exOffset) :
-  (exWidth sigWidth : Nat) (mode : RoundingMode) (x : EFixedPoint width exOffset)
-  : PackedFloat exWidth sigWidth :=
--/

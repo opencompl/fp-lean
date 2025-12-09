@@ -14,3 +14,14 @@ theorem Dyadic.twoPow_eq (n : Nat) :
   congr
   rw [Int.shiftLeft_eq]
   simp only [Int.one_mul]
+
+/-- absolute value of a dyadic number -/
+def Dyadic.abs (d : Dyadic) : Dyadic :=
+  if d < 0 then -d else d
+
+/-- Distance between two dyadic numbers -/
+def Dyadic.distance (d1 d2 : Dyadic) : Dyadic := (d1 - d2).abs
+
+
+def Dyadic.numerator (d : Dyadic) : Int :=
+  d.toRat.num

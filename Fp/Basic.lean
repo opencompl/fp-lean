@@ -1,4 +1,5 @@
 import Fp.Utils
+import Fp.ForLean.Dyadic
 
 /-!
 ## Packed Floating Point Numbers
@@ -181,7 +182,6 @@ instance HExOffsetSucc [hex : HExOffset e m] :
 namespace FixedPoint
 
 
-
 /-- Build a fixed point number from an integer. -/
 def ofInt (i : Int) [HExOffset e m] : FixedPoint m e :=
   {
@@ -197,6 +197,14 @@ def toInt [HExOffset e m] (f : FixedPoint m e) : Int :=
     -Int.ofNat n
   else
     Int.ofNat n
+
+/-- Truncate a dyadic number to a fixed-point number. -/
+def ofDyadic [HExOffset e m] (d : Dyadic) : FixedPoint m e :=
+  FixedPoint.ofInt <| (Dyadic.mul d (Dyadic.twoPow e)).toRat.num
+
+/-- Convert a dyadic number to a fixed-point number. -/
+def toDyadic [HExOffset e m] (f : FixedPoint m e) : Dyadic :=
+  Dyadic.ofIntWithPrec (f.val.toNat * (signToInt f.sign)) e
 
 @[simp, bv_normalize]
 def equal (a b : FixedPoint w e) : Bool :=
