@@ -1,6 +1,6 @@
 import Fp.Basic
 import Fp.Rounding
-import Fp.Multiplication
+import Fp.Division
 import Fp.Proofs.Basic
 import Init.Data.Dyadic
 import Fp.Addition
@@ -12,7 +12,7 @@ import Fp.Proofs.Grind
 theorem f_mul_DyadicEqualsFixedPoint_mul
     [HExOffset e m] (da db : Dyadic) (fa fb : FixedPoint m e)
    (ha : fa ∼d da) (hb : fb ∼d db) 
-  : (f_mul fa fb) ∼d  (da * db) := by
+  : (f_div fa fb) ∼d  (da / db) := by
   apply DyadicEqualsFixedPoint_of_eq
   rw [f_mul]
   by_cases hsign : fa.sign = fb.sign
@@ -80,4 +80,5 @@ theorem f_mul_DyadicEqualsFixedPoint_mul
 info: 'f_mul_DyadicEqualsFixedPoint_mul' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in #print axioms f_mul_DyadicEqualsFixedPoint_mul
+
 

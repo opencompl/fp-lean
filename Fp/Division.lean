@@ -2,7 +2,7 @@ import Fp.Basic
 import Fp.Rounding
 
 @[bv_normalize]
-def div_impl (a b : PackedFloat e s) (mode : RoundingMode) : PackedFloat e s :=
+def div_on_packedFloat (a b : PackedFloat e s) (mode : RoundingMode) : PackedFloat e s :=
   let sign := a.sign ^^ b.sign
   let sig_a := BitVec.ofBool (a.ex ≠ 0) ++ a.sig
   let sig_b := BitVec.ofBool (b.ex ≠ 0) ++ b.sig
@@ -42,6 +42,10 @@ def div_impl (a b : PackedFloat e s) (mode : RoundingMode) : PackedFloat e s :=
     }
     round _ _ mode quot_rshift
 
+
+def fdiv (a b : EFixedPoint e s) : EFixedPoint e s := sorry
+def ediv (a b : EFixedPoint e s) : EFixedPoint e s := sorry
+
 /--
 Division of two floating-point numbers, rounded to a floating point number
 using the provided rounding mode.
@@ -55,4 +59,4 @@ def div (a b : PackedFloat e s) (mode : RoundingMode) : PackedFloat e s :=
   else if b.isInfinite then
     { PackedFloat.getZero _ _ with sign := a.sign ^^ b.sign }
   else
-    div_impl a b mode
+    div_on_packedFloat a b mode
