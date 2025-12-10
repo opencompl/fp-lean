@@ -33,6 +33,7 @@ test all rounding modes for small bitwidths.
 - [Ulp plots](https://blogs.mathworks.com/cleve/2017/01/23/ulps-plots-reveal-math-function-accurary/).
 _ [Kahan Floating Point Paranoia](https://people.math.sc.edu/Burkardt/c_src/paranoia/paranoia.c).
 - [IEEE floating point testing software](https://www.math.utah.edu/~beebe/software/ieee/).
+- [An Automatable Formal Semantics for IEEE 754](https://smt-lib.org/papers/BTRW14.pdf)
 
 
 #### References
