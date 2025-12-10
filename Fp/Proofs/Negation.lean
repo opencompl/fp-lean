@@ -12,13 +12,19 @@ theorem f_neg_DyadicEqualsFixedPoint_neg
   : (f_neg fa) ∼d  (- da) := by
   apply DyadicEqualsFixedPoint_of_eq
   rw [f_neg]
-  rw [FixedPoint.toDyadic]
+  obtain ⟨ha⟩ := ha
+  subst ha
+  rw [FixedPoint.toDyadic, FixedPoint.toDyadic]
+  simp
   rw [Dyadic.eq_iff_toRat_eq]
-  simp
-    -- extract out into a single theorem.
   rw [Dyadic.toRat_ofIntWithPrec_eq_mkRat]
-  simp
+  rw [Dyadic.toRat_ofIntWithPrec_eq_mkRat]
+  simp 
+  push_cast
+  by_cases hsign : fa.sign <;> simp [hsign]
 
-/-- info: 'fp_add_dyadic' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in #print axioms fp_add_neg
+/--
+info: 'f_neg_DyadicEqualsFixedPoint_neg' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms f_neg_DyadicEqualsFixedPoint_neg
 
