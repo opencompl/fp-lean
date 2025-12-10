@@ -51,6 +51,19 @@ theorem neg_one_pow_toNat_mul_neg_one_pow_toNat_eq_one_of_self
 attribute [grind] Bool.toNat
 attribute [grind funCC] mkRat
 
+/-
+@[grind .]
+theorem Int.mul_congr (a a' b b' : Int)
+  (ha : a = a') (hb : b = b') :
+  a * b = a' * b' := by grind
+-/
+
+@[grind .]
+theorem Int.mul_congr_right (a b b' : Int) (hb : b = b') :
+  a * b = a * b' := by
+  grind
+  
+
 theorem f_mul_DyadicEqualsFixedPoint_mul
     [HExOffset e m] (da db : Dyadic) (fa fb : FixedPoint m e)
    (ha : fa ∼d da) (hb : fb ∼d db) 
@@ -79,13 +92,11 @@ theorem f_mul_DyadicEqualsFixedPoint_mul
     rw [Nat.mod_eq_of_lt]
     · rw [hsign]
       norm_cast
-      -- TOO: should be simp lemma.
+      -- TODO: should be simp lemma.
       simp [Nat.shiftLeft_eq, Int.toNat_add, Nat.pow_add, Int.neg_add]
+      -- TODO: should not need ac_nf.
       ac_nf
-      apply mkRat_eq_mkRat_of_eq_of_eq
-      · congr -- TODO: I should not need this 'congr'?
-        grind
-      · grind
+      grind (splits := 40)
     · rw [Nat.pow_add]
       apply Nat.mul_lt_mul'' 
       · omega
