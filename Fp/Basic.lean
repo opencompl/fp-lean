@@ -179,6 +179,18 @@ instance HExOffsetSucc [hex : HExOffset e m] :
     have := hex.h
     omega
 
+instance HExOffsetAdd [hex : HExOffset e m] (k : Nat) :
+    HExOffset (e + k) (m + k) where
+  h := by
+    have := hex.h
+    omega
+
+instance HExOffsetDouble [hex : HExOffset e m] :
+    HExOffset (e + e) (m + m) where
+  h := by
+    have := hex.h
+    omega
+
 namespace FixedPoint
 
 
