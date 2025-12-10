@@ -7,6 +7,10 @@ import Fp.Addition
 import Fp.ForLean.Dyadic
 import Fp.ForLean.Rat
 
+@[grind =]
+theorem Int.toNat_neg_eq_zero_of_nonpos {z : Int} (h : z ≤ 0) : z.toNat = 0 := by
+  grind 
+
 @[grind .] -- What is a grind '.' pattern?
 theorem mkRat_eq_mkRat_of_eq_of_eq
   {n1 n2 : Int}
@@ -17,9 +21,20 @@ theorem mkRat_eq_mkRat_of_eq_of_eq
   mkRat n1 d1 = mkRat n2 d2 := by grind
 
 @[simp]
+theorem Bool.xor_eq_true_of_ne {b1 b2 : Bool} (h : b1 ≠ b2) :
+  b1.xor b2 = true := by
+  grind
+
+@[simp]
 theorem neg_one_pow_toNat_mul_neg_one_pow_sign_eq_one_of_eq 
   {b1 b2 : Bool} (h : b1 = b2) :
   (-1) ^ b1.toNat * (-1) ^ b2.toNat = 1 := by
+  grind [Bool.toNat]
+
+@[grind =, grind .]
+theorem neg_one_pow_toNat_eq_ite
+  { b : Bool } :
+  (-1) ^ b.toNat = if b then -1 else 1 := by
   grind [Bool.toNat]
 
 @[simp]
@@ -35,7 +50,6 @@ theorem neg_one_pow_toNat_mul_neg_one_pow_toNat_eq_one_of_self
 
 attribute [grind] Bool.toNat
 attribute [grind funCC] mkRat
-
 
 theorem f_mul_DyadicEqualsFixedPoint_mul
     [HExOffset e m] (da db : Dyadic) (fa fb : FixedPoint m e)
@@ -78,55 +92,36 @@ theorem f_mul_DyadicEqualsFixedPoint_mul
       · omega
   case neg =>
     simp [hsign]
-    sorry
+    rw [FixedPoint.toDyadic]
+    simp
+    obtain ⟨ha⟩ := ha
+    obtain ⟨hb⟩ := hb
+    subst ha
+    subst hb
+    rw [FixedPoint.toDyadic]
+    rw [FixedPoint.toDyadic]
+    rw [Dyadic.eq_iff_toRat_eq]
+    simp
+    -- extract out into a single theorem.
+    rw [Dyadic.toRat_ofIntWithPrec_eq_mkRat]
+    rw [Dyadic.toRat_ofIntWithPrec_eq_mkRat]
+    rw [Dyadic.toRat_ofIntWithPrec_eq_mkRat]
+    simp
+    norm_cast
+    rw [Nat.mod_eq_of_lt]
+    · norm_cast
+      -- TOO: should be simp lemma.
+      simp only [Int.natCast_mul, Int.natCast_add, Int.neg_add, Int.natCast_nonneg, Int.toNat_add,
+        Int.toNat_natCast, Nat.shiftLeft_eq, Nat.pow_add, Nat.one_mul, Int.reduceNeg]
+      grind
+    · rw [Nat.pow_add]
+      -- TODO: create grind lemmas.
+      apply Nat.mul_lt_mul'' 
+      · omega
+      · omega
 
 /--
-info: 'f_mul_DyadicEqualsFixedPoint_mul' depends on axioms: [propext, sorryAx, Classical.choice, Quot.sound]
+info: 'f_mul_DyadicEqualsFixedPoint_mul' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in #print axioms f_mul_DyadicEqualsFixedPoint_mul
-
-
-/--
-Either 'fx' is closer to 'd' than y,
-or 'fx' is and 'y' are equidistant, but
-then 'fx' is even, and 'y' is odd.
--/
-inductive CloseOrRounded [HExOffset m e]
-    (d : Dyadic)
-    (lim y : FixedPoint e m) : Prop
-| close : (d.distance lim.toDyadic < d.distance y.toDyadic) → CloseOrRounded d lim y
-| rounded
-    (hdeq : d.distance lim.toDyadic = d.distance y.toDyadic)
-    (hxEven: lim.toDyadic.numerator.natAbs % 2 = 0)
-    (hyOdd : y.toDyadic.numerator.natAbs % 2 ≠ 0) :
-    CloseOrRounded d lim y
-
-/-- ClosestRNE means that 'x' is the closest to 'd' according to round to nearest even -/
-def ClosestRNE [HExOffset m e] (d : Dyadic) (lim : FixedPoint e m) : Prop :=
-    ∀ (y : FixedPoint e m),
-     CloseOrRounded d lim y
-
-/-- An inductive predicate that 'd' is correctly rounded to even to create 'e' -/
-inductive GoodRNE
-    (d : Dyadic)
-    (e : Nat)
-    (m : Nat)
-    [hEx : HExOffset m e] :
-    (e : EFixedPoint e m) → Prop
-| posInfty : GoodRNE d e m (EFixedPoint.getInfinity false hEx.h)
-| negInfty : GoodRNE d e m (EFixedPoint.getInfinity true hEx.h)
-| fixedPoint (hx : ClosestRNE d x) : GoodRNE d e m (EFixedPoint.getFixedPoint x)
-
-
--- TOOD: show that GoodRNE is mutually exclusive.
--- TOOD: show that GoodRNE picks out a unique number.
--- TODO: show that the output of 'round' is always a GoodRNE.
-
-/-
-
-Now, we need a mechanization of rounding. This needs us to talk about the closest
-floating point number to a given dyadic rational.
-For now, let's pick RNE (round to nearest even) as our canonical rounding mode,
-and just perform proofs on this.
--/
 
