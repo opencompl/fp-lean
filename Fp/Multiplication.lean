@@ -2,6 +2,11 @@ import Fp.Basic
 import Fp.Rounding
 import Fp.Negation
 
+-- Sid note: It seems that SymFPU is cleverer than us.
+-- In particular, it does not use a fixed exponent.
+-- Rather, it dynamically sizes the exponent so that the result fits exactly.
+-- In the case of multiplication, it uses this to move some bits from the significand to the exponent,
+-- thus reducing the amount of rounding needed.
 /--
 Multiplication of two fixed-point numbers.
 -/

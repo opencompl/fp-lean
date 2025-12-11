@@ -307,6 +307,15 @@ def getInfinity (sign : Bool) (hExOffset : sigWidth < exWidth)
     hExOffset
   }
 
+def getZero (sign : Bool) (hExOffset : sigWidth < exWidth)
+  : EFixedPoint exWidth sigWidth where
+  state := .Number
+  num := {
+    sign
+    val := 0
+    hExOffset
+  }
+
 @[simp, bv_normalize]
 def zero (hExOffset : sigWidth < exWidth)
   : EFixedPoint exWidth sigWidth where
