@@ -2,6 +2,16 @@ import Fp.Basic
 import Fp.Rounding
 
 
+/-- Compute the multiplicative inverse. -/
+def f_mulinv (a : FixedPoint v e) : FixedPoint v e :=
+  let hExOffset := a.hExOffset
+  let a' : BitVec v := a.val.setWidth' (by omega)
+  {
+    sign := a.sign
+    val := 1#v / a'
+    hExOffset
+  }
+
 @[bv_normalize]
 def f_div (a : FixedPoint v e) (b : FixedPoint w f) : FixedPoint (v+w) (e+f) :=
   let hExOffset := Nat.add_lt_add a.hExOffset b.hExOffset
@@ -9,6 +19,7 @@ def f_div (a : FixedPoint v e) (b : FixedPoint w f) : FixedPoint (v+w) (e+f) :=
   let b' : BitVec (v+w) := b.val.setWidth' (by omega)
   {
     sign := a.sign ^^ b.sign
+    -- | TODO: this needs alignment, no?
     val := a' / b'
     hExOffset
   }
@@ -20,7 +31,7 @@ def div_on_packedFloat (a b : PackedFloat e s) (mode : RoundingMode) : PackedFlo
   let sig_a := BitVec.ofBool (a.ex ≠ 0) ++ a.sig
   let sig_b := BitVec.ofBool (b.ex ≠ 0) ++ b.sig
   let div_len := 3*(s+1) -- (s + 1) because we add the bit.
-  let unit_pos := 2*(s+1) 
+  let unit_pos := 2*(s+1)
   let dividend := (sig_a.setWidth div_len <<< unit_pos)
   let divisor := sig_b.setWidth div_len
   -- Do division, collapse remainder to a single sticky bit
