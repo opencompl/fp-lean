@@ -219,6 +219,10 @@ def ofDyadic [HExOffset e m] (d : Dyadic) : FixedPoint m e :=
 def toDyadic (f : FixedPoint m e) : Dyadic :=
   Dyadic.ofIntWithPrec (f.val.toNat * (signToInt f.sign)) e
 
+/-- Convert a fixed point number into a rational number. -/
+def toRat [HExOffset e m] (f : FixedPoint m e) : Rat :=
+  f.toDyadic.toRat
+
 @[simp, bv_normalize]
 def equal (a b : FixedPoint w e) : Bool :=
   (a.val == 0#_ && b.val == 0#_)

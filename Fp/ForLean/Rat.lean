@@ -2,6 +2,16 @@ import Lean
 
 open Lean
 
+
+/-- Absolute value of a rational number. -/
+def Rat.abs (r : Rat) : Rat := if r < 0 then -r else r
+
+/-- rational that is 1/2^n -/
+def Rat.twoPowInv (n : Nat) : Rat :=
+  Rat.mk' 1 (2 ^ n)
+      (by exact Ne.symm (NeZero.ne' (2 ^ n)))
+      (reduced := by exact Nat.gcd_pow_right_of_gcd_eq_one rfl)
+
 @[simp]
 theorem Rat.mkRat_add_mkRat_eq_mkRat_add (n₁ n₂ : Int) {d} (hd : d ≠ 0)  :
     mkRat n₁ d + mkRat n₂ d = mkRat (n₁ + n₂) d:= by
