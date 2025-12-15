@@ -169,6 +169,18 @@ theorem EFixedPoint.eq_cond_num {x y : EFixedPoint width exOffset} :
   (bif b then x else y).num = bif b then x.num else y.num := by
   cases b <;> rfl
 
+structure UnpackedFloat (e s : Nat) where
+  ex : BitVec e
+  sig : BitVec s
+  sign : Bool
+deriving DecidableEq, Inhabited
+
+-- TODO: change into an `inductive` (eventually)
+structure EUnpackedFloat (e s : Nat) where
+  state : State
+  num   : UnpackedFloat e s
+deriving DecidableEq
+
 namespace FixedPoint
 @[simp, bv_normalize]
 def equal (a b : FixedPoint w e) : Bool :=
