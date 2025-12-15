@@ -216,7 +216,7 @@ def ofDyadic [HExOffset e m] (d : Dyadic) : FixedPoint m e :=
   FixedPoint.ofInt <| (Dyadic.mul d (Dyadic.twoPow e)).toRat.num
 
 /-- Convert a dyadic number to a fixed-point number. -/
-def toDyadic [HExOffset e m] (f : FixedPoint m e) : Dyadic :=
+def toDyadic (f : FixedPoint m e) : Dyadic :=
   Dyadic.ofIntWithPrec (f.val.toNat * (signToInt f.sign)) e
 
 @[simp, bv_normalize]
@@ -287,6 +287,15 @@ def getFixedPoint (fixed : FixedPoint exWidth sigWidth) : EFixedPoint exWidth si
   state := .Number
   num := fixed
 
+
+def toDyadic? (ef : EFixedPoint e s) : Option Dyadic :=
+  bif ef.state == .Number then some (ef.num.toDyadic)
+  else none
+
+def toRat? (ef : EFixedPoint e s) : Option Rat :=
+  ef.toDyadic?.map Dyadic.toRat
+
+
 -- Sign = true ↔ negative
 @[simp, bv_normalize]
 def getInfinity (sign : Bool) (hExOffset : sigWidth < exWidth)
@@ -353,6 +362,7 @@ def expand (a : EFixedPoint w e) (w' e' : Nat)
 end EFixedPoint
 
 namespace PackedFloat
+
 
 /--
 Returns the "canonical" NaN for the given floating point format. For example,
@@ -591,6 +601,13 @@ def equal_denotation (a b : PackedFloat e s) : Bool :=
 theorem isNumber_of_isNormOrSubnorm (a : PackedFloat e s)
   : a.isNormOrSubnorm → a.toEFixed.state = .Number := by
   simp_all [toEFixed]
+
+def toDyadic? (pf : PackedFloat e s) : Option Dyadic :=
+  pf.toEFixed.toDyadic?
+
+def toRat? (pf : PackedFloat e s) : Option Rat :=
+  pf.toEFixed.toRat?
+
 
 end PackedFloat
 
