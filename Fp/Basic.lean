@@ -66,6 +66,7 @@ A fixed point number with specified exponent offset.
 structure FixedPoint (width exOffset : Nat) where
     sign : Bool
     val : BitVec width
+    -- | This should not be part of the structure, but a side invariant we keep in mind.
     hExOffset : exOffset < width
 deriving DecidableEq
 
@@ -220,7 +221,7 @@ def toDyadic (f : FixedPoint m e) : Dyadic :=
   Dyadic.ofIntWithPrec (f.val.toNat * (signToInt f.sign)) e
 
 /-- Convert a fixed point number into a rational number. -/
-def toRat [HExOffset e m] (f : FixedPoint m e) : Rat :=
+def toRat (f : FixedPoint m e) : Rat :=
   f.toDyadic.toRat
 
 @[simp, bv_normalize]

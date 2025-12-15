@@ -188,4 +188,3 @@ floating point number to a given dyadic rational.
 For now, let's pick RNE (round to nearest even) as our canonical rounding mode,
 and just perform proofs on this.
 -/
-
