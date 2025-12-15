@@ -1,6 +1,16 @@
 import Fp.Basic
 import Fp.Rounding
 
+/-
+PLAN:
+
+1. Prove that the mantissa, exponent value is correct upto some precision for 'div_on_packedFloat'.
+2. Axiomatize what the rounder does for this level of precision.
+3. Use these to prove that 'div' is correct.
+4. Replace rounder with better rounder that doesn't need the expansion to fixed point.
+5. Prove that better rounder is correct.
+-/
+
 
 /-- Compute the multiplicative inverse. -/
 def f_mulinv (a : FixedPoint v e) : FixedPoint v e :=
@@ -40,6 +50,8 @@ def div_on_packedFloat (a b : PackedFloat e s) (mode : RoundingMode) : PackedFlo
   let shiftL := if a.ex > 0 then a.ex - 1 else 0
   let shiftR := if b.ex > 0 then b.ex - 1 else 0
   -- Shift and round
+  -- | TODO: For the rounding, we still expand out into fixed point.
+  -- We should instead use the cleverer rounder.
   if shiftL ≥ shiftR then
     let quot_lshift : EFixedPoint (2^e+div_len+1) (unit_pos+1) := {
       state := .Number
