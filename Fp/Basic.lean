@@ -493,6 +493,18 @@ def toEFixed (pf : PackedFloat e s)
     }
   }
 
+structure UnpackedNumber (e s : Nat) where
+  ex : BitVec e
+  sig : BitVec s
+  sign : Bool
+deriving DecidableEq, Inhabited
+
+inductive UnpackedFloat (e s : Nat)
+  | NaN
+  | infty (sign : Bool)
+  | number (number : UnpackedNumber e s)
+deriving DecidableEq
+
 @[simp, bv_normalize]
 def equal_denotation (a b : PackedFloat e s) : Bool :=
   (a.sign == b.sign && a.ex == b.ex && a.sig == b.sig) ||
