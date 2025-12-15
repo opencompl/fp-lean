@@ -102,6 +102,7 @@ instance : Repr (FixedPoint width ExOffset) where
 The "state" of an extended fixed-point number: either NaN, infinity, or a
 number.
 -/
+@[grind]
 inductive State : Type
 | NaN : State
 | Infinity : State
@@ -493,17 +494,94 @@ def toEFixed (pf : PackedFloat e s)
     }
   }
 
-structure UnpackedNumber (e s : Nat) where
+structure UnpackedFloat (e s : Nat) where
   ex : BitVec e
   sig : BitVec s
   sign : Bool
 deriving DecidableEq, Inhabited
 
-inductive UnpackedFloat (e s : Nat)
-  | NaN
-  | infty (sign : Bool)
-  | number (number : UnpackedNumber e s)
+-- TODO: change into an `inductive` (eventually)
+structure EUnpackedFloat (e s : Nat) where
+  _state : State
+  _num   : UnpackedFloat e s
 deriving DecidableEq
+
+namespace UnpackedFloat
+
+def mkZero (sign : Bool) : UnpackedFloat e s :=
+  {
+    ex := 0
+    sig := 0
+    sign := sign
+  }
+
+end UnpackedFloat
+
+namespace EUnpackedFloat
+
+def isNaN (x : EUnpackedFloat e s) : Bool :=
+  x._state = .NaN
+
+def isInfinite (x : EUnpackedFloat e s) : Bool :=
+  x._state = .Infinity
+
+def isNumber (x : EUnpackedFloat e s) : Bool :=
+  x._state = .Number
+
+def getInfiniteSign (x : EUnpackedFloat e s) (hx : x.isInfinite): Bool :=
+  x._num.sign
+
+def getNumber (x : EUnpackedFloat e s) (hx : x.isNumber) : UnpackedFloat e s :=
+  x._num
+
+def mkNaN : EUnpackedFloat e s :=
+  {
+    _state := .NaN
+    _num := {
+      ex := 0
+      sig := 0
+      sign := false
+    }
+  }
+
+def mkInfinity (sign : Bool) : EUnpackedFloat e s :=
+  {
+    _state := .Infinity
+    _num := {
+      ex := 0
+      sig := 0
+      sign := sign
+    }
+  }
+
+def mkNumber (num : UnpackedFloat e s) : EUnpackedFloat e s :=
+  {
+    _state := .Number
+    _num := num
+  }
+
+def mkZero (sign : Bool) : EUnpackedFloat e s :=
+  {
+    _state := .Number
+    _num := UnpackedFloat.mkZero sign
+  }
+
+
+end EUnpackedFloat
+
+def unpack (pf : PackedFloat e s) : EUnpackedFloat e s :=
+  bif pf.isNaN then
+    EUnpackedFloat.mkNaN
+  else bif pf.isInfinite then
+    EUnpackedFloat.mkInfinity pf.sign
+  else bif pf.isZero then
+    EUnpackedFloat.mkZero pf.sign
+  else
+    EUnpackedFloat.mkNumber {
+      ex := pf.ex
+      sig := pf.sig
+      sign := pf.sign
+    }
 
 @[simp, bv_normalize]
 def equal_denotation (a b : PackedFloat e s) : Bool :=
