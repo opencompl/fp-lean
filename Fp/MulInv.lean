@@ -102,8 +102,6 @@ theorem Rat.mul_inv_cancel_right'
 theorem Nat.two_pow_ne_zero (n : Nat) :
     2 ^ n ≠ 0 := by grind
 
-
-
 -- Show the gap between 'y' and '⌊y*k⌋k⁻¹ is at most k⁻¹
 theorem Rat.self_sub_mul_floor_inv_le {y k  : Rat} (hk : 0 < k := by grind) :
     y  - (y * k).floor * k⁻¹ ≤ k⁻¹ := by
@@ -125,9 +123,6 @@ theorem Rat.self_sub_mul_floor_inv_le {y k  : Rat} (hk : 0 < k := by grind) :
   simp at this
   grind
 
-/-- Natural number division agrees with floor of the rational division -/
-axiom Rat.ofNat_div_ofNat_eq_floor_div {a b : Nat} (hb : b > 0 := by grind):
-    Rat.ofNat (a / b) = (Rat.ofNat a / Rat.ofNat b).floor
 
 @[simp]
 theorem Rat.num_ofNat' (n : Nat) :
@@ -139,6 +134,38 @@ theorem Rat.den_ofNat' (n : Nat) :
     (Rat.ofNat n).den = 1 := by
   simp [Rat.ofNat, Rat.ofInt]
 
+theorem Rat.ofNat_div_ofNat_eq_mkRat {a b : Nat}  :
+      Rat.ofNat a / Rat.ofNat b = mkRat a b := by
+  rw [Rat.mkRat_eq_div]
+  simp [Rat.ofNat, Rat.ofInt]
+  by_cases hb : b  = 0
+  · simp [hb]
+  · norm_cast
+
+/-- 'a/b' equals '(a/gcd(a, b)) / (b/gcd(a, b)) -/
+@[simp]
+theorem Nat.gcd_div_gcd_eq (a b : Nat) :
+    (a / Nat.gcd a b) / (b / Nat.gcd a b) = a / b := by
+  by_cases hb : b = 0
+  · simp [hb]
+  · rw [Nat.div_div_eq_div_mul]
+    rw [Nat.mul_div_cancel']
+    exact gcd_dvd_right a b
+
+/-- Natural number division agrees with floor of the rational division -/
+-- | TODO: do I want this as a simp lemma?
+theorem Rat.ofNat_div_ofNat_eq_floor_div {a b : Nat} (hb : b > 0 := by grind):
+      Rat.ofNat (a / b) = (Rat.ofNat a / Rat.ofNat b).floor := by
+  rw [Rat.floor_def]
+  rw [Rat.ofNat_div_ofNat_eq_mkRat]
+  simp [Rat.num_mkRat, Rat.den_mkRat]
+  by_cases hb : b = 0
+  · grind
+  · simp [hb]
+    norm_cast
+    rw [Nat.gcd_comm b a]
+    simp
+    norm_cast
 /-- Show that the difference between the real division value and the rounded divison value is at most 2^{-prec}. -/
 theorem fixedWidthDivideAtPrecision_abs_delta_eq
   (n d : BitVec w) (prec : Nat) (hy : d.toNat ≠ 0) :
