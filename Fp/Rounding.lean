@@ -55,7 +55,15 @@ instance : Repr RoundingMode where
   | .RTP => "RTP"
   | .RTZ => "RTZ"
 
+/-- The dyadic number 'd' is representable with a floating point number with exponent 'e', mantissa 's'. -/
+def IsRepresentable (e : Nat) (s : Nat) (d : Dyadic) : Prop :=
+  ∃ (f : PackedFloat e s),
+    f.toDyadic? = some d
 
+/-- The dyadic 'near' is closer than all representable dyadics to 'd'. -/
+def IsCloserThanRepresentables (e : Nat) (s : Nat) (d : Dyadic) (near : Dyadic) : Prop :=
+  ∀ (far : Dyadic), IsRepresentable e s far →
+    d.distance near ≤ d.distance far
 /--
 Find the position of the last (most significant) set bit in a BitVec.
 Returns zero if BitVec is zero. Otherwise, returns the index starting from 1.
@@ -128,13 +136,14 @@ theorem shouldRoundAway.match_eq_cond :
   bif m = .RNE then a () else bif m = .RNA then b () else bif m = .RTP then c () else bif m = .RTN then d () else e () := by
   cases m <;> rfl
 
+
 -- Round is less well-behaved when exWidth = 0. This shouldn't be an issue?
 /--
 Round an extended fixed-point number to its nearest floating point number of
 the specified format, with the specified rounding mode.
 -/
 @[bv_normalize]
-def round
+def round {width exOffset}
   (exWidth sigWidth : Nat) (mode : RoundingMode) (x : EFixedPoint width exOffset)
   : PackedFloat exWidth sigWidth :=
   if x.state = .NaN then
@@ -200,6 +209,49 @@ def round
       ex
       sig := truncSig
     }
+
+@[grind =>]
+theorem round_of_eq_nan {width exOffset}
+  {exWidth sigWidth : Nat} {mode : RoundingMode} {x : EFixedPoint width exOffset}
+  {hNaN : x.state = .NaN} :
+  round exWidth sigWidth mode x = PackedFloat.getNaN exWidth sigWidth := by
+  simp [round, hNaN]
+
+@[grind =>]
+theorem round_of_eq_infinity {width exOffset}
+  {exWidth sigWidth : Nat} {mode : RoundingMode} {x : EFixedPoint width exOffset}
+  {hInf : x.state = .Infinity} :
+  round exWidth sigWidth mode x = PackedFloat.getInfinity exWidth sigWidth x.num.sign := by
+  simp [round, hInf]
+
+
+/-- IsRounded e s d closest iff closest is the closest representable dyadic that is closer than all other. -/
+def IsRounded (e s : Nat) (perfect : Dyadic) (closest : Dyadic) : Prop :=
+  IsRepresentable e s closest ∧
+  IsCloserThanRepresentables e s perfect closest
+
+/--
+If there a choice between another number that is a rounded result, then our result is rounded.
+-/
+def IsNearestEven (e s : Nat) (perfect : Dyadic) (closest : Dyadic) : Prop :=
+  ∀ (other : Dyadic), IsRounded e s perfect other →
+    (other.numerator % 2 = 0 → other = closest)
+
+/-- The result of the 'round' function is well-rounded. -/
+axiom IsRounded_round_RNE {width exOffset}
+  (exWidth sigWidth : Nat) (mode : RoundingMode)
+  (x : EFixedPoint width exOffset) (xd : Dyadic) (hxd : x.toDyadic? = some xd)
+  (f : PackedFloat exWidth sigWidth) (hf : round exWidth sigWidth .RNE x = f)
+  (fd : Dyadic) (hfd : f.toDyadic? = some fd) :
+  IsRounded exWidth sigWidth xd fd
+
+/-- The result of the 'round' function is well-rounded. -/
+axiom IsNearestEven_round_RNE {width exOffset}
+  (exWidth sigWidth : Nat) (mode : RoundingMode)
+  (x : EFixedPoint width exOffset) (xd : Dyadic) (hxd : x.toDyadic? = some xd)
+  (f : PackedFloat exWidth sigWidth) (hf : round exWidth sigWidth .RNE x = f)
+  (fd : Dyadic) (hfd : f.toDyadic? = some fd) :
+  IsNearestEven exWidth sigWidth xd fd
 
 /--
 Determine if a fixed-point number has an exact representation in the
