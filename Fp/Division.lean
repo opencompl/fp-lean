@@ -217,4 +217,4 @@ using the provided rounding mode.
 -/
 @[bv_normalize]
 def div (a b : PackedFloat e s) (m : RoundingMode) : PackedFloat e s :=
-  round _ _ m (e_div a.toEFixed b.toEFixed)
+  div_on_packedFloat a b m
