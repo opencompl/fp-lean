@@ -217,7 +217,7 @@ def ofDyadic [HExOffset e m] (d : Dyadic) : FixedPoint m e :=
   FixedPoint.ofInt <| (Dyadic.mul d (Dyadic.twoPow e)).toRat.num
 
 /-- Convert a dyadic number to a fixed-point number. -/
-def toDyadic (f : FixedPoint m e) : Dyadic :=
+def toDyadic {m e} (f : FixedPoint m e) : Dyadic :=
   Dyadic.ofIntWithPrec (f.val.toNat * (signToInt f.sign)) e
 
 /-- Convert a fixed point number into a rational number. -/

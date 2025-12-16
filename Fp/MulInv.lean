@@ -3,13 +3,27 @@ import Fp.Rounding
 import Fp.Proofs.Grind
 import Fp.ForLean.Rat
 
+structure FixedWidthDivideAtPrecisionResult (outw : Nat) :=
+  (quotient : BitVec outw)
+  (sticky : Bool)
 
-
-def fixedWidthDivideAtPrecision (x y : BitVec w) (prec : Nat) (hprec : w + prec = outw)
-    : BitVec outw :=
+/--
+Returns the quotient of `x` and `y` computed at a fixed precision,
+as well as a sticky bit indicating whether there was any remainder.
+-/
+def fixedWidthDivideAtPrecision (x y : BitVec w) (prec : Nat) (outw : Nat) -- (hprec : w + prec = outw)
+    : FixedWidthDivideAtPrecisionResult outw :=
     let dividend := (x.setWidth outw <<< prec)
     let divisor := y.setWidth outw
-    dividend / divisor
+    {
+      quotient := dividend / divisor,
+      sticky := (dividend % divisor ≠ 0)
+    }
+
+/-- Compute the quotient with the sticky bit appended as the least significant bit. -/
+def FixedWidthDivideAtPrecisionResult.quotWithSticky {outw : Nat} (r : FixedWidthDivideAtPrecisionResult outw) : BitVec (outw + 1) :=
+  r.quotient ++ BitVec.ofBool r.sticky
+
 
 attribute [grind .] Nat.mul_lt_mul_of_lt_of_le -- blow up
 -- attribute [grind] Nat.mul_lt_mul_of_lt_of_le
@@ -18,9 +32,9 @@ attribute [grind .] Nat.mul_lt_mul_of_lt_of_le -- blow up
 -- attribute [grind] Nat.mul_lt_mul_of_lt_of_le
 
 @[simp]
-theorem fixedWidthDivideAtPrecision_toNat_eq
-    (x y : BitVec w) (prec : Nat) (hprec : w + prec = outw) :
-    (fixedWidthDivideAtPrecision x y prec hprec).toNat =
+theorem toNat_quoteint_fixedWidthDivideAtPrecision_eq
+    (x y : BitVec w) (prec : Nat) (outw : Nat) (hprec : w + prec = outw) :
+    (fixedWidthDivideAtPrecision x y prec outw).quotient.toNat =
       (x.toNat * 2 ^ prec) / y.toNat := by
   simp [fixedWidthDivideAtPrecision]
   have : x.toNat % 2^outw = x.toNat := by grind
@@ -34,6 +48,23 @@ theorem fixedWidthDivideAtPrecision_toNat_eq
   subst hprec
   rw [Nat.pow_add]
   apply Nat.mul_lt_mul_of_lt_of_le <;> grind
+
+@[simp]
+theorem remainder_fixedWidthDivideAtPrecision_eq_decide
+    (x y : BitVec w) (prec : Nat) (outw : Nat) (hprec : w + prec = outw) :
+    (fixedWidthDivideAtPrecision x y prec outw).sticky = (decide ((x.toNat * 2 ^ prec) % y.toNat ≠ 0)) := by
+  simp [fixedWidthDivideAtPrecision]
+  have hx : x.toNat % 2^outw = x.toNat := by grind
+  have hy : y.toNat % 2^outw = y.toNat := by grind
+  constructor
+  · intros h
+    have := congrArg BitVec.toNat h
+    simp [Nat.shiftLeft_eq, hx, hy] at this
+    grind
+  · intros h
+    apply BitVec.eq_of_toNat_eq
+    simp
+    grind
 
 @[simp]
 theorem Rat.add_div (a b c : Rat) :
@@ -166,6 +197,7 @@ theorem Rat.ofNat_div_ofNat_eq_floor_div {a b : Nat} (hb : b > 0 := by grind):
     rw [Nat.gcd_comm b a]
     simp
     norm_cast
+
 /-- Show that the difference between the real division value and the rounded divison value is at most 2^{-prec}. -/
 theorem fixedWidthDivideAtPrecision_abs_delta_eq
   (n d : BitVec w) (prec : Nat) (hy : d.toNat ≠ 0) :
