@@ -504,95 +504,6 @@ def toEFixed (pf : PackedFloat e s)
     }
   }
 
-structure UnpackedFloat (e s : Nat) where
-  ex : BitVec e
-  sig : BitVec s
-  sign : Bool
-deriving DecidableEq, Inhabited
-
--- TODO: change into an `inductive` (eventually)
-structure EUnpackedFloat (e s : Nat) where
-  _state : State
-  _num   : UnpackedFloat e s
-deriving DecidableEq
-
-namespace UnpackedFloat
-
-def mkZero (sign : Bool) : UnpackedFloat e s :=
-  {
-    ex := 0
-    sig := 0
-    sign := sign
-  }
-
-end UnpackedFloat
-
-namespace EUnpackedFloat
-
-def isNaN (x : EUnpackedFloat e s) : Bool :=
-  x._state = .NaN
-
-def isInfinite (x : EUnpackedFloat e s) : Bool :=
-  x._state = .Infinity
-
-def isNumber (x : EUnpackedFloat e s) : Bool :=
-  x._state = .Number
-
-def getInfiniteSign (x : EUnpackedFloat e s) (hx : x.isInfinite): Bool :=
-  x._num.sign
-
-def getNumber (x : EUnpackedFloat e s) (hx : x.isNumber) : UnpackedFloat e s :=
-  x._num
-
-def mkNaN : EUnpackedFloat e s :=
-  {
-    _state := .NaN
-    _num := {
-      ex := 0
-      sig := 0
-      sign := false
-    }
-  }
-
-def mkInfinity (sign : Bool) : EUnpackedFloat e s :=
-  {
-    _state := .Infinity
-    _num := {
-      ex := 0
-      sig := 0
-      sign := sign
-    }
-  }
-
-def mkNumber (num : UnpackedFloat e s) : EUnpackedFloat e s :=
-  {
-    _state := .Number
-    _num := num
-  }
-
-def mkZero (sign : Bool) : EUnpackedFloat e s :=
-  {
-    _state := .Number
-    _num := UnpackedFloat.mkZero sign
-  }
-
-
-end EUnpackedFloat
-
-def unpack (pf : PackedFloat e s) : EUnpackedFloat e s :=
-  bif pf.isNaN then
-    EUnpackedFloat.mkNaN
-  else bif pf.isInfinite then
-    EUnpackedFloat.mkInfinity pf.sign
-  else bif pf.isZero then
-    EUnpackedFloat.mkZero pf.sign
-  else
-    EUnpackedFloat.mkNumber {
-      ex := pf.ex
-      sig := pf.sig
-      sign := pf.sign
-    }
-
 @[simp, bv_normalize]
 def equal_denotation (a b : PackedFloat e s) : Bool :=
   (a.sign == b.sign && a.ex == b.ex && a.sig == b.sig) ||
@@ -610,6 +521,237 @@ def toRat? (pf : PackedFloat e s) : Option Rat :=
 
 
 end PackedFloat
+
+/--
+`UnpackedFloat e s` is the *working* (unpacked) representation of a floating-point
+number with exponent width `e` and significand width `s`.
+
+This representation is intentionally different from the IEEE *packed* format
+(sign bit, biased exponent field, trailing significand field).  It is designed
+to make floating-point algorithms (addition, normalization, rounding, etc.)
+uniform and easy to express using bitvector operations.
+
+Mathematically, an `UnpackedFloat e s` represents the real value
+
+  (-1)^sign · sig · 2^(ex - (s - 1))
+
+where:
+* `sign : Bool` is the sign bit,
+* `sig  : BitVec s` is an **integer significand**,
+* `ex   : BitVec e` is a **signed exponent**.
+
+### Key invariants and design choices
+
+* **Explicit hidden bit**:
+  The significand includes the hidden bit explicitly.
+  For normal numbers, the MSB of `sig` (bit `s-1`) is `1`.
+
+* **Binary point after the MSB**:
+  The binary point is conceptually located immediately after the most
+  significant bit of `sig`.  This means `sig` is treated as an integer, and the
+  scaling by `2^(s-1)` is absorbed into the exponent when interpreting the value.
+
+* **Normalized subnormals**:
+  Subnormal packed numbers are *normalized* during unpacking.
+  This may require additional exponent bits beyond the packed exponent width.
+  The exponent width `e` of `UnpackedFloat` is therefore chosen large enough to
+  represent:
+    - the smallest subnormal exponent after normalization, and
+    - all normal finite exponents.
+
+* **Uniform arithmetic**:
+  By using an integer significand with a fixed MSB position, normalization,
+  alignment, addition, and rounding can be implemented using only:
+    - bit shifts,
+    - integer addition/subtraction,
+    - MSB tests,
+  without fractional arithmetic.
+
+This representation closely follows the `unpackedFloat` design used in `symfpu`
+and in hardware floating-point pipelines.
+-/
+structure UnpackedFloat (e s : Nat) where
+  sign : Bool
+  ex : BitVec e
+  sig : BitVec s
+deriving DecidableEq, Inhabited
+
+/--
+`EUnpackedFloat e s` extends `UnpackedFloat e s` with explicit floating-point
+classification flags.
+
+The `_state` field records whether the value is:
+* NaN,
+* ±Infinity,
+* ±Zero,
+* or a finite number.
+
+When `state` indicates a finite number, the `num` field contains a valid
+`UnpackedFloat` satisfying the invariants described in `UnpackedFloat`.
+
+Separating exceptional states from the numeric payload avoids illegal bit-level
+states and simplifies reasoning about floating-point operations, since each
+operation can:
+1. handle NaN/Inf/Zero cases explicitly, and
+2. perform uniform arithmetic on normalized finite numbers.
+
+This mirrors the structure used by `symfpu`, where unpacking converts the packed
+IEEE representation into a uniform working format suitable for algorithmic
+manipulation.
+-/
+structure EUnpackedFloat (e s : Nat) where
+  state : State
+  num   : UnpackedFloat e s
+deriving DecidableEq
+
+namespace UnpackedFloat
+
+@[bv_normalize]
+def mkZero (sign : Bool) : UnpackedFloat e s :=
+  {
+    sign := sign
+    ex := 0
+    sig := 0
+  }
+
+@[bv_normalize]
+def isZero (uf : UnpackedFloat e s) : Bool :=
+  uf.ex == 0 && uf.sig == 0
+
+@[bv_normalize]
+def normalize (uf : UnpackedFloat e s) : UnpackedFloat e s :=
+  bif uf.sig.clz == s then
+    -- zero case: make it explicit!
+    mkZero uf.sign
+  else
+    {
+      sign := uf.sign
+      ex := uf.ex - uf.sig.clz.setWidth _
+      sig := uf.sig <<< uf.sig.clz
+    }
+
+@[bv_normalize]
+def toEUnpackedFloat (uf : UnpackedFloat e s) : EUnpackedFloat e s :=
+  EUnpackedFloat.mk .Number uf
+
+def toDyadic (uf : UnpackedFloat e s) : Dyadic :=
+  let sig : BitVec (s + 1) := uf.sig.setWidth' (Nat.le.step Nat.le.refl)
+  let sig := bif uf.sign then sig.neg else sig
+  Dyadic.ofIntWithPrec sig.toInt (uf.ex.neg.toInt + (s - 1))
+
+def toRat (uf : UnpackedFloat e s) : Rat :=
+  uf.toDyadic.toRat
+
+end UnpackedFloat
+
+namespace EUnpackedFloat
+
+@[bv_normalize]
+def isNaN (x : EUnpackedFloat e s) : Bool :=
+  x.state == .NaN
+
+@[bv_normalize]
+def isInfinite (x : EUnpackedFloat e s) : Bool :=
+  x.state == .Infinity
+
+@[bv_normalize]
+def isNumber (x : EUnpackedFloat e s) : Bool :=
+  x.state == .Number
+
+@[bv_normalize]
+def isZero (x : EUnpackedFloat e s) : Bool :=
+  x.isNumber && x.num.isZero
+
+@[bv_normalize]
+def sign (x : EUnpackedFloat e s) : Bool :=
+  x.num.sign
+
+@[bv_normalize]
+def exp (x : EUnpackedFloat e s) : BitVec e :=
+  x.num.ex
+
+@[bv_normalize]
+def sig (x : EUnpackedFloat e s) : BitVec s :=
+  x.num.sig
+
+@[bv_normalize]
+def mkNaN : EUnpackedFloat e s :=
+  {
+    state := .NaN
+    num := {
+      sign := false
+      ex := 0
+      sig := 0
+    }
+  }
+
+@[bv_normalize]
+def mkInfinity (sign : Bool) : EUnpackedFloat e s :=
+  {
+    state := .Infinity
+    num := {
+      sign := sign
+      ex := 0
+      sig := 0
+    }
+  }
+
+@[bv_normalize]
+def mkNumber (num : UnpackedFloat e s) : EUnpackedFloat e s :=
+  {
+    state := .Number
+    num := num
+  }
+
+@[bv_normalize]
+def mkZero (sign : Bool) : EUnpackedFloat e s :=
+  {
+    state := .Number
+    num := UnpackedFloat.mkZero sign
+  }
+
+@[bv_normalize]
+def normalize (uf : EUnpackedFloat e s) : EUnpackedFloat e s :=
+  bif uf.isNumber then
+    uf.num.normalize.toEUnpackedFloat
+  else
+    uf
+
+def toDyadic? (ef : EUnpackedFloat e s) : Option Dyadic :=
+  if ef.isNaN || ef.isInfinite then
+    none
+  else
+    some ef.num.toDyadic
+
+def toRat? (ef : EUnpackedFloat e s) : Option Rat :=
+  if ef.isNaN || ef.isInfinite then
+    none
+  else
+    some ef.num.toRat
+
+end EUnpackedFloat
+
+@[bv_normalize]
+def Nat.ceilLog2 (n : Nat) : Nat :=
+  if n.log2 * 2 = n then n.log2 else n.log2 + 1
+
+@[bv_normalize]
+def bias (e : Nat) : Nat :=
+  2 ^ (e - 1) - 1
+
+@[bv_normalize]
+def minNormalExp (e : Nat) : Int :=
+  -(bias e - 1)
+
+-- This is a simpler (but less tight) bound than `exponentWidth`.
+-- It's logarithmically larger.
+@[bv_normalize]
+def exponentWidth' (e s : Nat) : Nat :=
+  e + s.ceilLog2
+
+@[bv_normalize]
+def exponentWidth (e s : Nat) : Nat :=
+  (2 ^ (e - 1) + s - 2).log2 + 2
 
 -- Constants
 
