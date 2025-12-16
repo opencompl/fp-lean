@@ -44,13 +44,13 @@ def div_on_packedFloat (a b : PackedFloat e s) (mode : RoundingMode) : PackedFlo
   let sig_b := b.unpackedSignificand
   let div_len := 3*(s+1) -- (s + 1) because we add the bit.
   let unit_pos := 2*(s+1)
-  -- let dividend := (sig_a.setWidth div_len <<< unit_pos)
-  -- let divisor := sig_b.setWidth div_len
+  let dividend := (sig_a.setWidth div_len <<< unit_pos)
+  let divisor := sig_b.setWidth div_len
   -- Do division, collapse remainder to a single sticky bit
-  -- let quot_with_sticky := (dividend / divisor) ++ BitVec.ofBool ((dividend % divisor) ≠ 0)
+  let quot_with_sticky := (dividend / divisor) ++ BitVec.ofBool ((dividend % divisor) ≠ 0)
   -- Calculate shifts
   let divResult := fixedWidthDivideAtPrecision sig_a sig_b (prec := 2 * (s + 1)) (outw := 3 * (s + 1))
-  let quot_with_sticky := divResult.quotWithSticky
+  -- let quot_with_sticky := divResult.quotWithSticky
   let shiftNumerator := if a.ex > 0 then a.ex - 1 else 0
   let shiftDenominator := if b.ex > 0 then b.ex - 1 else 0
   -- Shift and round
@@ -225,4 +225,11 @@ using the provided rounding mode.
 -/
 @[bv_normalize]
 def div (a b : PackedFloat e s) (m : RoundingMode) : PackedFloat e s :=
-  div_on_packedFloat a b m
+  if a.isNaN ∨ b.isNaN ∨ (a.isInfinite ∧ b.isInfinite) ∨ (a.isZero ∧ b.isZero) then
+    PackedFloat.getNaN _ _
+  else if a.isInfinite ∨ b.isZero then
+    PackedFloat.getInfinity _ _ (a.sign ^^ b.sign)
+  else if b.isInfinite then
+    { PackedFloat.getZero _ _ with sign := a.sign ^^ b.sign }
+  else
+    div_on_packedFloat a b m
