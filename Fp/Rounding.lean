@@ -300,3 +300,23 @@ theorem ofRat_two_is_twoE5M2 : PackedFloat.ofRat 5 2 .RNE 2 1 = twoE5M2 := by
 #guard_msgs in #eval truncateRight 4 0xaf#8
 /-- info: 44800#16 -/
 #guard_msgs in #eval truncateRight 16 0xaf#8
+
+/-- info: 6#5 -/
+#guard_msgs in #eval (PackedFloat.ofRat 5 (11 - 1) .RNE 88 1).ex - BitVec.ofNat 5 (bias 5)
+/-- info: 1408#11 -/
+#guard_msgs in #eval (PackedFloat.ofRat 5 (11 - 1) .RNE 88 1).sig.cons true
+/-- info: 6#6 -/
+#guard_msgs in #eval (PackedFloat.ofRat 5 (11 - 1) .RNE 88 1).unpack._num.ex
+/-- info: 1408#11 -/
+#guard_msgs in #eval (PackedFloat.ofRat 5 (11 - 1) .RNE 88 1).unpack._num.sig
+/-- info: 88 -/
+#guard_msgs in #eval (PackedFloat.ofRat 5 (11 - 1) .RNE 88 1).toEFixed.num.toDyadic.toRat
+/-- info: 88 -/
+#guard_msgs in #eval (PackedFloat.ofRat 5 (11 - 1) .RNE 88 1).unpack._num.toDyadic.toRat
+/-- info: 88 -/
+#guard_msgs in #eval (PackedFloat.ofRat 5 (11 - 1) .RNE 88 1).unpack._num.toRat
+/-- info: 88 -/
+#guard_msgs in #eval (PackedFloat.ofRat 5 (11 - 1) .RNE 88 1).unpack.pack.toEFixed.num.toDyadic.toRat
+
+/-- info: -88 -/
+#guard_msgs in #eval (PackedFloat.ofRat 5 (11 - 1) .RNE (-88) 1).unpack.pack.toEFixed.num.toDyadic.toRat
