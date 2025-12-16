@@ -1,4 +1,5 @@
 import Fp.Basic
+import Fp.Packing
 
 /--
 Rounding modes used in floating-point calculations.
@@ -306,15 +307,15 @@ theorem ofRat_two_is_twoE5M2 : PackedFloat.ofRat 5 2 .RNE 2 1 = twoE5M2 := by
 /-- info: 1408#11 -/
 #guard_msgs in #eval (PackedFloat.ofRat 5 (11 - 1) .RNE 88 1).sig.cons true
 /-- info: 6#6 -/
-#guard_msgs in #eval (PackedFloat.ofRat 5 (11 - 1) .RNE 88 1).unpack._num.ex
+#guard_msgs in #eval (PackedFloat.ofRat 5 (11 - 1) .RNE 88 1).unpack.num.ex
 /-- info: 1408#11 -/
-#guard_msgs in #eval (PackedFloat.ofRat 5 (11 - 1) .RNE 88 1).unpack._num.sig
+#guard_msgs in #eval (PackedFloat.ofRat 5 (11 - 1) .RNE 88 1).unpack.num.sig
 /-- info: 88 -/
 #guard_msgs in #eval (PackedFloat.ofRat 5 (11 - 1) .RNE 88 1).toEFixed.num.toDyadic.toRat
 /-- info: 88 -/
-#guard_msgs in #eval (PackedFloat.ofRat 5 (11 - 1) .RNE 88 1).unpack._num.toDyadic.toRat
+#guard_msgs in #eval (PackedFloat.ofRat 5 (11 - 1) .RNE 88 1).unpack.num.toDyadic.toRat
 /-- info: 88 -/
-#guard_msgs in #eval (PackedFloat.ofRat 5 (11 - 1) .RNE 88 1).unpack._num.toRat
+#guard_msgs in #eval (PackedFloat.ofRat 5 (11 - 1) .RNE 88 1).unpack.num.toRat
 /-- info: 88 -/
 #guard_msgs in #eval (PackedFloat.ofRat 5 (11 - 1) .RNE 88 1).unpack.pack.toEFixed.num.toDyadic.toRat
 

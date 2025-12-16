@@ -10,11 +10,12 @@ def PackedFloat.unpack (pf : PackedFloat e s)
   else bif pf.isZero then
     EUnpackedFloat.mkZero pf.sign
   else bif pf.isNorm then
-    EUnpackedFloat.mkNumber {
+    ({
       sign := pf.sign
       ex := pf.ex.zeroExtend _ - BitVec.ofNat _ (bias e)
       sig := pf.sig.cons true
-    }
+      : UnpackedFloat _ _
+    }).toEUnpackedFloat
   else -- bif pf.isSubnorm then
     ({
       sign := pf.sign
