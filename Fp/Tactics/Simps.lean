@@ -17,6 +17,9 @@ theorem decide_eq_bool {p} [Decidable p] {b : Bool} (h : p = b)
   simp [h]
 
 -- | TODO: upstream
+attribute [bv_normalize] BitVec.cons
+
+-- | TODO: upstream
 open Lean Meta Simp in
 dsimproc [seval, simp, bv_normalize] reduceLog2 (Nat.log2 _) :=
   Nat.reduceUnary ``Nat.log2 1 Nat.log2

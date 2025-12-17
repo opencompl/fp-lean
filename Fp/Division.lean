@@ -324,7 +324,6 @@ def divEUnpackedFloat (a b : EUnpackedFloat (exponentWidth e s) (s + 1)) (m : Ro
 def div (a b : PackedFloat e s) (m : RoundingMode) : PackedFloat e s :=
   divEUnpackedFloat a.unpack b.unpack m
 
-attribute [bv_normalize] BitVec.cons
 
 theorem div_one_is_id (a : PackedFloat 5 2)
   : (div a oneE5M2 .RTZ).equal_denotation a := by
