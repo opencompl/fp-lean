@@ -276,16 +276,14 @@ def divUnpackedFloat (a b : UnpackedFloat (exponentWidth e s) (s + 1)) (mode : R
   -- | TODO: For the rounding, we still expand out into fixed point.
   -- We should instead use the cleverer rounder.
   if expNumerator ≥ expDenominator then
-    let quot_lshift : EFixedPoint (2^e+div_len+1) (unit_pos+1) := {
+    let quot_lshift : EFixedPoint (2^e+div_len+1) (2^e+unit_pos+1) := {
       state := .Number
       num := {
         sign
         -- numerator is larger than denominator, so multiply by the correct amount.
-        val := quot_with_sticky.setWidth _ <<< (expNumerator - expDenominator)
+        val := quot_with_sticky.setWidth _ <<< (expNumerator - expDenominator) <<< 2^e
         hExOffset := by
-          rewrite [Nat.add_lt_add_iff_right]
-          apply Nat.lt_add_left
-          omega
+          grind
       }
     }
     round _ _ mode quot_lshift
@@ -299,10 +297,9 @@ def divUnpackedFloat (a b : UnpackedFloat (exponentWidth e s) (s + 1)) (mode : R
         -- TODO: understand the bounds on our rounding.
         -- we shift by '2^e' so we scale up by the same factor as we do with (2^e + unit_pos + 1),
         -- such that we represent the same number.
-        val := (quot_with_sticky.setWidth _ <<< 2^e) >>> (expDenominator - expNumerator)
+        val := ((quot_with_sticky.setWidth _ <<< 2^e) >>> (expDenominator - expNumerator))
         hExOffset := by
-          rewrite [Nat.add_lt_add_iff_right, Nat.add_lt_add_iff_left]
-          omega
+          grind
       }
     }
     round _ _ mode quot_rshift
