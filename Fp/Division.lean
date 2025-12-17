@@ -256,11 +256,11 @@ def BitVec.monus (a : BitVec w) (b : BitVec w) : BitVec w :=
 
 
 @[bv_normalize]
-def div_on_packedFloat (a b : PackedFloat e s) (mode : RoundingMode) : PackedFloat e s :=
+def divUnpackedFloat (a b : UnpackedFloat (exponentWidth e s) (s + 1)) (mode : RoundingMode) : PackedFloat e s :=
   let sign := a.sign ^^ b.sign
   -- 1.0000 vs 0.0000
-  let sig_a := a.unpackedSignificand
-  let sig_b := b.unpackedSignificand
+  let sig_a := a.sig
+  let sig_b := b.sig
   let div_len := 3*(s+1) -- (s + 1) because we add the bit.
   let unit_pos := 2*(s+1)
   let dividend := (sig_a.setWidth div_len <<< unit_pos)
@@ -270,8 +270,8 @@ def div_on_packedFloat (a b : PackedFloat e s) (mode : RoundingMode) : PackedFlo
   -- Calculate shifts
   let divResult := fixedWidthDivideAtPrecision sig_a sig_b (prec := 2 * (s + 1)) (outw := 3 * (s + 1))
   -- let quot_with_sticky := divResult.quotWithSticky
-  let expNumerator := if a.ex > 0 then a.ex - 1 else 0
-  let expDenominator := if b.ex > 0 then b.ex - 1 else 0
+  let expNumerator := a.ex -- if a.ex > 0 then a.ex - 1 else 0
+  let expDenominator := b.ex -- if b.ex > 0 then b.ex - 1 else 0
   -- Shift and round
   -- | TODO: For the rounding, we still expand out into fixed point.
   -- We should instead use the cleverer rounder.
@@ -312,7 +312,7 @@ Division of two floating-point numbers, rounded to a floating point number
 using the provided rounding mode.
 -/
 @[bv_normalize]
-def div (a b : PackedFloat e s) (m : RoundingMode) : PackedFloat e s :=
+def divEUnpackedFloat (a b : EUnpackedFloat (exponentWidth e s) (s + 1)) (m : RoundingMode) : PackedFloat e s :=
   if a.isNaN ∨ b.isNaN ∨ (a.isInfinite ∧ b.isInfinite) ∨ (a.isZero ∧ b.isZero) then
     PackedFloat.getNaN _ _
   else if a.isInfinite ∨ b.isZero then
@@ -320,4 +320,8 @@ def div (a b : PackedFloat e s) (m : RoundingMode) : PackedFloat e s :=
   else if b.isInfinite then
     { PackedFloat.getZero _ _ with sign := a.sign ^^ b.sign }
   else
-    div_on_packedFloat a b m
+    divUnpackedFloat a.num b.num m
+
+@[bv_normalize]
+def div (a b : PackedFloat e s) (m : RoundingMode) : PackedFloat e s :=
+  divEUnpackedFloat a.unpack b.unpack m
