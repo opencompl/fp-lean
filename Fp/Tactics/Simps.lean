@@ -16,6 +16,11 @@ theorem decide_eq_bool {p} [Decidable p] {b : Bool} (h : p = b)
   : decide p = b := by
   simp [h]
 
+-- | TODO: upstream
+open Lean Meta Simp in
+dsimproc [seval, simp, bv_normalize] reduceLog2 (Nat.log2 _) :=
+  Nat.reduceUnary ``Nat.log2 1 Nat.log2
+
 open Lean Meta Simp in
 simproc ↓ [bv_normalize] ite_eq_cond_proc (@ite _ _ _ _ _) := fun e => do
   let mkApp5 (.const ``ite [u]) α c hc t e := e | return .continue

@@ -275,20 +275,21 @@ def divUnpackedFloat (a b : UnpackedFloat (exponentWidth e s) (s + 1)) (mode : R
   -- Shift and round
   -- | TODO: For the rounding, we still expand out into fixed point.
   -- We should instead use the cleverer rounder.
+  let emax := 2^e
   if expNumerator ≥ expDenominator then
-    let quot_lshift : EFixedPoint (2^e+div_len+1) (2^e+unit_pos+1) := {
+    let quot_lshift : EFixedPoint (2^e+div_len+1) (emax+unit_pos+1) := {
       state := .Number
       num := {
         sign
         -- numerator is larger than denominator, so multiply by the correct amount.
-        val := quot_with_sticky.setWidth _ <<< (expNumerator - expDenominator) <<< 2^e
+        val := quot_with_sticky.setWidth _ <<< emax >>> (expNumerator - expDenominator)
         hExOffset := by
           grind
       }
     }
     round _ _ mode quot_lshift
   else
-    let quot_rshift : EFixedPoint (2^e+div_len+1) (2^e+unit_pos+1) := {
+    let quot_rshift : EFixedPoint (2^e+div_len+1) (emax+unit_pos+1) := {
       state := .Number
       num := {
         sign
@@ -297,7 +298,7 @@ def divUnpackedFloat (a b : UnpackedFloat (exponentWidth e s) (s + 1)) (mode : R
         -- TODO: understand the bounds on our rounding.
         -- we shift by '2^e' so we scale up by the same factor as we do with (2^e + unit_pos + 1),
         -- such that we represent the same number.
-        val := ((quot_with_sticky.setWidth _ <<< 2^e) >>> (expDenominator - expNumerator))
+        val := ((quot_with_sticky.setWidth _ <<< emax) >>> (expDenominator - expNumerator))
         hExOffset := by
           grind
       }
@@ -322,3 +323,16 @@ def divEUnpackedFloat (a b : EUnpackedFloat (exponentWidth e s) (s + 1)) (m : Ro
 @[bv_normalize]
 def div (a b : PackedFloat e s) (m : RoundingMode) : PackedFloat e s :=
   divEUnpackedFloat a.unpack b.unpack m
+
+attribute [bv_normalize] BitVec.cons
+
+theorem div_one_is_id (a : PackedFloat 5 2)
+  : (div a oneE5M2 .RTZ).equal_denotation a := by
+  fail_if_success bv_decide
+  sorry
+
+theorem div_self_is_one (a : PackedFloat 5 2)
+  (h : ¬a.isNaN ∧ ¬a.isInfinite ∧ ¬a.isZero)
+  : (div a a .RTZ) = oneE5M2 := by
+  bv_normalize
+  bv_decide
