@@ -104,7 +104,7 @@ int main() {
     test_binop("max", [](e5m2 a, e5m2 b) { return ieee_max(a,b); });
     test_binop("min", [](e5m2 a, e5m2 b) { return ieee_min(a,b); });
     test_binop("mul", [](e5m2 a, e5m2 b) { return a * b; });
-    test_unop("neg", [](e5m2 a) { return -a; });
+    test_unop("neg", [](e5m2 a) { return 0 - a; });
     test_binop("rem", [](e5m2 a, e5m2 b) { return remainderl(static_cast<long double>(a), static_cast<long double>(b)); });
     test_unop("roundToInt", [](e5m2 a) { return std::round(static_cast<long double>(a)); }, "RNA");
     test_unop("roundToInt", [](e5m2 a) { return rintl(static_cast<long double>(a)); });
