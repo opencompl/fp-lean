@@ -259,6 +259,15 @@ def BitVec.monus (a : BitVec w) (b : BitVec w) : BitVec w :=
 @[bv_normalize]
 def BitVec.sge (x y : BitVec w) : Bool := y.sle x
 
+def roundUnpacked
+    (sig : BitVec sigWidth)
+    (ex : BitVec exWidth) (mode : RoundingMode) :
+    -- NOTE: we assume that 'sig' has sticky and guard bits.
+    -- Given these, we round to get a significand of size 's + 1'.
+    UnpackedFloat (exponentWidth enew snew) (snew + 1) :=
+  -- We will only do RNE for now.
+  sorry
+
 @[bv_normalize]
 def div_on_unpackedFloat (a b : UnpackedFloat (exponentWidth e s) (s + 1)) (mode : RoundingMode) : PackedFloat e s :=
   -- a.toRat = (-1)^a.sign * a.sig.toNat * 2 ^ (a.ex.toInt) * 2 ^(-s)

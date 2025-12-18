@@ -137,6 +137,73 @@ theorem shouldRoundAway.match_eq_cond :
   cases m <;> rfl
 
 
+@[bv_normalize]
+def roundNew (mode : RoundingMode) (sig : BitVec sigWidth) (exOffset : BitVec exWidth)
+  : EUnpackedFloat eout sout :=
+  if x.state = .NaN then
+    PackedFloat.getNaN _ _
+  else if x.state = .Infinity then
+    PackedFloat.getInfinity _ _ x.num.sign
+  else
+    let exOffset' := 2^(exWidth - 1) + sigWidth - 2
+    -- trim bitvector
+    let over := x.num.val >>> (exOffset + 2^(exWidth-1))
+    let a := (x.num.val >>> exOffset).truncate (2^(exWidth-1))
+    let b := truncateRight exOffset' (x.num.val.truncate exOffset)
+    let underWidth := exOffset - exOffset'
+    let under := x.num.val.truncate underWidth
+    let trimmed := a ++ b
+    if over != 0 then
+      -- Overflow to Infinity
+      -- Unless we're rounding RTN/RTP to the opposite sign, or RTZ
+      -- in which case we overflow to MAX
+      if (mode = .RTN ∧ ¬x.num.sign) ∨ (mode = .RTP ∧ x.num.sign) ∨ mode = .RTZ then
+        PackedFloat.getMax _ _ x.num.sign
+      else
+        PackedFloat.getInfinity _ _ x.num.sign
+    else
+    let index := fls trimmed
+    let sigWidthB := BitVec.ofNat _ sigWidth
+    let ex : BitVec exWidth :=
+      if index ≤ sigWidthB then
+        0
+      else
+        (index - sigWidthB).truncate _
+    let truncSig : BitVec sigWidth :=
+      if ex = 0 then
+        trimmed.truncate _
+      else
+        (trimmed >>> (ex - 1)).truncate _
+    let rem : BitVec (2^exWidth + underWidth) :=
+      if ex = 0 then
+        under.truncate _ <<< (1<<<exWidth)
+      else
+        let totalShift : BitVec (exWidth+1) := ex.truncate _ - 1
+        truncateRight _ (trimmed <<< ((1<<<exWidth) + sigWidth - 2 - totalShift)) |||
+        (under.truncate _ <<< ((1<<<exWidth) - totalShift))
+    if shouldRoundAway mode x.num.sign (truncSig.getLsbD 0) rem then
+      if truncSig = BitVec.allOnes _ then
+        -- overflow to next exponent
+        {
+          sign := x.num.sign
+          ex := ex+1
+          sig := 0
+        }
+      else
+        -- add 1 to significand
+        {
+          sign := x.num.sign
+          ex
+          sig := truncSig + 1
+        }
+    else
+    -- leave everything the same
+    {
+      sign := x.num.sign
+      ex
+      sig := truncSig
+    }
+
 -- Round is less well-behaved when exWidth = 0. This shouldn't be an issue?
 /--
 Round an extended fixed-point number to its nearest floating point number of

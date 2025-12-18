@@ -2,6 +2,45 @@ import Fp.Utils
 import Fp.ForLean.Dyadic
 
 /-!
+# Floating Point Parmeters
+-/
+
+@[bv_normalize]
+def Nat.ceilLog2 (n : Nat) : Nat :=
+  if n.log2 * 2 = n then n.log2 else n.log2 + 1
+
+@[bv_normalize]
+def bias (e : Nat) : Nat :=
+  2 ^ (e - 1) - 1
+
+@[bv_normalize]
+def minNormalExp (e : Nat) : Int :=
+  -(bias e - 1)
+
+@[bv_normalize]
+def maxNormalExp (e : Nat) : Int := (bias e)
+
+@[bv_normalize]
+def subnormalExp (e : Nat) : Int :=
+  minNormalExp e - 1
+
+@[simp]
+theorem subnormalExp_eq_minus_bias (e : Nat) :
+  subnormalExp e = -(bias e) := by
+  simp [subnormalExp, minNormalExp, bias]
+  grind
+
+-- This is a simpler (but less tight) bound than `exponentWidth`.
+-- It's logarithmically larger.
+@[bv_normalize]
+def exponentWidth' (e s : Nat) : Nat :=
+  e + s.ceilLog2
+
+@[bv_normalize]
+def exponentWidth (e s : Nat) : Nat :=
+  (2 ^ (e - 1) + s - 2).log2 + 2
+
+/-!
 ## Packed Floating Point Numbers
 
 This is a test module description
@@ -68,7 +107,10 @@ structure FixedPoint (width exOffset : Nat) where
     val : BitVec width
     -- | This should not be part of the structure, but a side invariant we keep in mind.
     hExOffset : exOffset < width
-deriving DecidableEq
+  deriving DecidableEq, Repr
+
+-- TODO: We can create a theory of normalized fixed point numbers, that are either zero,
+-- or have MSB = 1.
 
 attribute [bv_normalize] FixedPoint.ext_iff
 
@@ -536,6 +578,7 @@ def toRat? (pf : PackedFloat e s) : Option Rat :=
 
 end PackedFloat
 
+
 /--
 `UnpackedFloat e s` is the *working* (unpacked) representation of a floating-point
 number with exponent width `e` and significand width `s`.
@@ -588,8 +631,9 @@ and in hardware floating-point pipelines.
 structure UnpackedFloat (e s : Nat) where
   sign : Bool
   ex : BitVec e
-  sig : BitVec s
-  deriving DecidableEq, Inhabited, Repr
+  /-# 'sig' morally represents a 'FixedPoint s (s - 1)'. -/
+  sig : BitVec s 
+  deriving DecidableEq, Repr
 
 attribute [bv_normalize] UnpackedFloat.ext_iff
 
@@ -686,6 +730,54 @@ def toDyadic (uf : UnpackedFloat e s) : Dyadic :=
 
 def toRat (uf : UnpackedFloat e s) : Rat :=
   uf.toDyadic.toRat
+
+def zero (e s : Nat) (sign : Bool) : UnpackedFloat e (s + 1) where
+  sign := sign
+  ex := BitVec.ofInt e 0
+  sig := BitVec.ofNat (s + 1) 0
+
+/-- The minimum subnormal exponent, that shows up after normalizing a subnormal number -/ 
+def normalizedMinSubnormalExp (e s : Nat) : Int :=
+  subnormalExp e - s
+
+/-- Build the significand from the hidden bit and fraction bits. -/
+def mkSigFromHiddenBitAndFrac (hiddenBit : Bool) (fraction : BitVec s) : BitVec s :=
+  ((BitVec.ofBool hiddenBit).zeroExtend s <<< (s - 1)) ||| ((fraction <<< 1) >>> 1)
+
+@[simp]
+theorem getLsbD_mkSigFromHiddenBitAndFrac_of_lt {hidden : Bool} {frac : BitVec s} (i : Nat) (hi : i < s - 1):
+  (mkSigFromHiddenBitAndFrac hidden frac).getLsbD i = if i = s - 1 then hidden else frac.getLsbD i := by
+  grind [mkSigFromHiddenBitAndFrac]
+
+@[simp]
+theorem getElem_mkSigFromHiddenBitAndFrac {hidden : Bool} {frac : BitVec s} {i : Fin s} :
+  (mkSigFromHiddenBitAndFrac hidden frac)[i] = if i = s - 1 then hidden else frac[i] := by
+  grind [mkSigFromHiddenBitAndFrac]
+
+/- Miniminum subnormal number that is unpacked-representable. -/
+def minSubnormal (e s : Nat) : UnpackedFloat e s where -- s includes the hidden bit.
+    sign := false
+    sig := mkSigFromHiddenBitAndFrac false (BitVec.ofNat s 1) -- 0.000...01
+    ex := BitVec.ofInt e (subnormalExp e)
+
+
+/-- Maximum subnormal number that is unpacked-representable. -/
+def maxSubnormal (e s : Nat) : UnpackedFloat e s where
+    sign := false
+    sig := mkSigFromHiddenBitAndFrac false (BitVec.allOnes s) -- 0.111...11
+    ex := BitVec.ofInt e (subnormalExp e)
+
+/-- Minimum positive normal that is unpacked-representable. -/
+def minNormal (e s : Nat) : UnpackedFloat e s where 
+    sign := false
+    sig := mkSigFromHiddenBitAndFrac true (BitVec.ofNat s 0) -- 1.000...00
+    ex := BitVec.ofInt e (minNormalExp e)
+
+/-- Maximum normal number that is unpacked-representable. -/
+def maxNormal (e s : Nat) : UnpackedFloat e s where
+    sign := false
+    sig := mkSigFromHiddenBitAndFrac true (BitVec.allOnes s) -- 1.111...11
+    ex := maxNormalExp e
 
 end UnpackedFloat
 
@@ -796,28 +888,6 @@ def toRat? (ef : EUnpackedFloat e s) : Option Rat :=
     some ef.num.toRat
 
 end EUnpackedFloat
-
-@[bv_normalize]
-def Nat.ceilLog2 (n : Nat) : Nat :=
-  if n.log2 * 2 = n then n.log2 else n.log2 + 1
-
-@[bv_normalize]
-def bias (e : Nat) : Nat :=
-  2 ^ (e - 1) - 1
-
-@[bv_normalize]
-def minNormalExp (e : Nat) : Int :=
-  -(bias e - 1)
-
--- This is a simpler (but less tight) bound than `exponentWidth`.
--- It's logarithmically larger.
-@[bv_normalize]
-def exponentWidth' (e s : Nat) : Nat :=
-  e + s.ceilLog2
-
-@[bv_normalize]
-def exponentWidth (e s : Nat) : Nat :=
-  (2 ^ (e - 1) + s - 2).log2 + 2
 
 -- Constants
 
