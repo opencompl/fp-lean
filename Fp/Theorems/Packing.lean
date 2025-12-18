@@ -1,9 +1,6 @@
 import Fp.Basic
 import Fp.Packing
 
-def Bool.toSign (b : Bool) : Int :=
-  if b then -1 else 1
-
 -- TODO: upstream
 theorem BitVec.toNat_clz_le (x : BitVec w) : x.clz.toNat ≤ w := by
   conv =>

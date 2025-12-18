@@ -598,7 +598,7 @@ attribute [bv_normalize] UnpackedFloat.ext_iff
 `EUnpackedFloat e s` extends `UnpackedFloat e s` with explicit floating-point
 classification flags.
 
-The `_state` field records whether the value is:
+The `state` field records whether the value is:
 * NaN,
 * ±Infinity,
 * ±Zero,
@@ -623,6 +623,52 @@ structure EUnpackedFloat (e s : Nat) where
   num   : UnpackedFloat e s
 deriving DecidableEq
 
+inductive ExtDyadic where
+  | NaN : ExtDyadic
+  | Infinity : Bool → ExtDyadic
+  | Number : Dyadic → ExtDyadic
+deriving DecidableEq
+
+inductive ExtRat where
+  | NaN : ExtRat
+  | Infinity : Bool → ExtRat
+  | Number : Rat → ExtRat
+deriving DecidableEq
+
+def ExtDyadic.toExtRat (ed : ExtDyadic) : ExtRat :=
+  match ed with
+  | .NaN => .NaN
+  | .Infinity sign => .Infinity sign
+  | .Number d => .Number d.toRat
+
+def Bool.toSign (b : Bool) : Int :=
+  if b then -1 else 1
+
+@[bv_normalize]
+def bias (e : Nat) : Nat :=
+  2 ^ (e - 1) - 1
+
+namespace PackedFloat
+
+def toExtDyadic (pf : PackedFloat e s) : ExtDyadic :=
+  if pf.isNaN then
+    .NaN
+  else if pf.isInfinite then
+    .Infinity pf.sign
+  else
+    if pf.isNorm then
+        let sig : BitVec (s + 2) := (pf.sig.cons true).setWidth' (Nat.le.step Nat.le.refl)
+        let sig := bif pf.sign then -sig else sig
+        .Number (.ofIntWithPrec sig.toInt (bias e - (s - 1) - pf.ex.toInt))
+    else
+        let sig : BitVec (s + 2) := (pf.sig.cons false).setWidth' (Nat.le.step Nat.le.refl)
+        let sig := bif pf.sign then -sig else sig
+        .Number (.ofIntWithPrec sig.toInt (1 - (s - 1) - pf.ex.toInt))
+
+def toExtRat (pf : PackedFloat e s) : ExtRat :=
+  pf.toExtDyadic.toExtRat
+
+end PackedFloat
 
 namespace UnpackedFloat
 
@@ -677,12 +723,12 @@ def normalize (uf : UnpackedFloat e s) : UnpackedFloat e s :=
 
 @[bv_normalize]
 def toEUnpackedFloat (uf : UnpackedFloat e s) : EUnpackedFloat e s :=
-  EUnpackedFloat.mk .Number uf
+  .mk .Number uf
 
 def toDyadic (uf : UnpackedFloat e s) : Dyadic :=
   let sig : BitVec (s + 1) := uf.sig.setWidth' (Nat.le.step Nat.le.refl)
-  let sig := bif uf.sign then sig.neg else sig
-  Dyadic.ofIntWithPrec sig.toInt ((s - 1) - uf.ex.toInt)
+  let sig := bif uf.sign then -sig else sig
+  .ofIntWithPrec sig.toInt ((s - 1) - uf.ex.toInt)
 
 def toRat (uf : UnpackedFloat e s) : Rat :=
   uf.toDyadic.toRat
@@ -783,27 +829,27 @@ def normalize (uf : EUnpackedFloat e s) : EUnpackedFloat e s :=
   else
     uf
 
-def toDyadic? (ef : EUnpackedFloat e s) : Option Dyadic :=
-  if ef.isNaN || ef.isInfinite then
-    none
+def toExtDyadic (ef : EUnpackedFloat e s) : ExtDyadic :=
+  if ef.isNaN then
+    .NaN
+  else if ef.isInfinite then
+    .Infinity ef.num.sign
   else
-    some ef.num.toDyadic
+    .Number ef.num.toDyadic
 
-def toRat? (ef : EUnpackedFloat e s) : Option Rat :=
-  if ef.isNaN || ef.isInfinite then
-    none
+def toExtRat (ef : EUnpackedFloat e s) : ExtRat :=
+  if ef.isNaN then
+    .NaN
+  else if ef.isInfinite then
+    .Infinity ef.num.sign
   else
-    some ef.num.toRat
+    .Number ef.num.toRat
 
 end EUnpackedFloat
 
 @[bv_normalize]
 def Nat.ceilLog2 (n : Nat) : Nat :=
   if n.log2 * 2 = n then n.log2 else n.log2 + 1
-
-@[bv_normalize]
-def bias (e : Nat) : Nat :=
-  2 ^ (e - 1) - 1
 
 @[bv_normalize]
 def minNormalExp (e : Nat) : Int :=
