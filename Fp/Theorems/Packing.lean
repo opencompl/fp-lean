@@ -4,9 +4,31 @@ import Fp.Packing
 def Bool.toSign (b : Bool) : Int :=
   if b then -1 else 1
 
+-- TODO: upstream
+theorem BitVec.toNat_clz_le (x : BitVec w) : x.clz.toNat ≤ w := by
+  conv =>
+    rhs
+    rw [show w = (BitVec.ofNat w w).toNat by simp]
+  simp only [← BitVec.ule_iff_toNat_le, BitVec.ule_iff_le]
+  apply BitVec.clz_le
+
 theorem BitVec.toNat_shiftLeft_clz (x : BitVec w)
   : (x <<< x.clz).toNat = x.toNat <<< x.clz.toNat := by
-  sorry
+  simp
+  apply Nat.mod_eq_of_lt
+  rw [Nat.shiftLeft_eq]
+  have := BitVec.toNat_lt_two_pow_sub_clz (x := x)
+  have := BitVec.clz_le (x := x)
+  have : x.clz.toNat ≤ w := BitVec.toNat_clz_le x
+    -- simp [BitVec.clz_le (x := x)]
+  conv =>
+    rhs
+    rw [show w = (w - x.clz.toNat) + x.clz.toNat by grind]
+  simp [Nat.pow_add]
+  apply Nat.mul_lt_mul_of_pos_right
+  · grind
+  · exact Nat.two_pow_pos x.clz.toNat
+
 
 namespace UnpackedFloat
 
