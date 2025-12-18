@@ -644,6 +644,8 @@ def normalize (uf : UnpackedFloat e s) : UnpackedFloat e s :=
       sig := uf.sig <<< uf.sig.clz
     }
 
+
+
 @[bv_normalize]
 def toEUnpackedFloat (uf : UnpackedFloat e s) : EUnpackedFloat e s :=
   EUnpackedFloat.mk .Number uf
@@ -792,6 +794,8 @@ def minSubnormE5M2 := PackedFloat.ofBits 5 2 0b00000001#8
 #guard_msgs in #eval minSubnormE5M2.toEFixed
 /-- info: { state := num, num := + 0x000000004#34 } -/
 #guard_msgs in #eval minNormE5M2.toEFixed
+
+
 
 /-
 - (@bollu's thought): We may like to have `FixedPoint.toRat : FixedPoint → ℚ`, which
