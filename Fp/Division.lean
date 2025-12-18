@@ -387,7 +387,7 @@ def div_on_unpackedFloat (a b : UnpackedFloat (exponentWidth e s) (s + 1)) (mode
         -- such that we represent the same number.
         -- 2^(a.ex.toInt - b.ex.toInt) = 2^(-E + E + a.ex.toIn - b.ex.toInt)
         -- = 2^-E * 2^(E - b.ex.toInt + a.ex.toInt) [which is ≥ 1 ]
-        val := ((quot_with_sticky.setWidth _ <<< 2^e) >>> (expDenominator) <<< expNumerator)
+        val := ((quot_with_sticky.setWidth _ <<< 2^e) >>> (expDenominator - expNumerator))
         hExOffset := by
           rewrite [Nat.add_lt_add_iff_right, Nat.add_lt_add_iff_left]
           omega
@@ -437,11 +437,16 @@ def cex' : PackedFloat 5 2 where
 /-- info: 0 -/
 #guard_msgs in #eval oneE5M2.unpack.num.ex.toInt
 
-/-- info: { sign := +, ex := 0x00#5, sig := 0x0#2 } -/
+/-- info: { sign := +, ex := 0x00#5, sig := 0x2#2 } -/
 #guard_msgs in #eval div_on_unpackedFloat cex'.unpack.num oneE5M2.unpack.num .RTZ
 
 set_option debugAssertions true in
-theorem div_one_is_id' (a : PackedFloat 5 2) (h : a.unpack.num.ex.sge oneE5M2.unpack.num.ex)
+theorem div_one_is_id_on_numerator_ex_larger (a : PackedFloat 5 2) (h : a.unpack.num.ex.sge oneE5M2.unpack.num.ex)
+  : (div' a oneE5M2 .RTZ).equal_denotation a := by
+  bv_decide
+
+set_option debugAssertions true in
+theorem div_one_is_id_on_numerator_ex_smaller (a : PackedFloat 5 2) (h : ¬ a.unpack.num.ex.sge oneE5M2.unpack.num.ex)
   : (div' a oneE5M2 .RTZ).equal_denotation a := by
   bv_decide
 
