@@ -584,11 +584,15 @@ where:
 This representation closely follows the `unpackedFloat` design used in `symfpu`
 and in hardware floating-point pipelines.
 -/
+@[ext]
 structure UnpackedFloat (e s : Nat) where
   sign : Bool
   ex : BitVec e
   sig : BitVec s
-deriving DecidableEq, Inhabited
+  deriving DecidableEq, Inhabited, Repr
+
+attribute [bv_normalize] UnpackedFloat.ext_iff
+
 
 /--
 `EUnpackedFloat e s` extends `UnpackedFloat e s` with explicit floating-point
@@ -613,12 +617,39 @@ This mirrors the structure used by `symfpu`, where unpacking converts the packed
 IEEE representation into a uniform working format suitable for algorithmic
 manipulation.
 -/
+@[ext]
 structure EUnpackedFloat (e s : Nat) where
   state : State
   num   : UnpackedFloat e s
 deriving DecidableEq
 
+
 namespace UnpackedFloat
+
+@[bv_normalize]
+theorem ext_iff_beq {x y : UnpackedFloat e s}
+  : (x == y) = (x.sign == y.sign && x.ex == y.ex && (x.sig == y.sig)) := by
+  cases h : (x == y) <;> simp_all [UnpackedFloat.ext_iff]
+
+@[bv_normalize]
+theorem bne_to_beq {x y : UnpackedFloat e s}
+  : (x != y) = !(x == y) := by
+  cases h : (x != y) <;> simp_all [UnpackedFloat.ext_iff]
+
+@[bv_normalize]
+theorem eq_cond_sign {x y : UnpackedFloat e s} :
+  (bif b then x else y).sign = bif b then x.sign else y.sign := by
+  cases b <;> rfl
+
+@[bv_normalize]
+theorem eq_cond_ex {x y : UnpackedFloat e s} :
+  (bif b then x else y).ex = bif b then x.ex else y.ex := by
+  cases b <;> rfl
+
+@[bv_normalize]
+theorem eq_cond_sig {x y : UnpackedFloat e s} :
+  (bif b then x else y).sig = bif b then x.sig else y.sig := by
+  cases b <;> rfl
 
 @[bv_normalize]
 def mkZero (sign : Bool) : UnpackedFloat e s :=
@@ -659,6 +690,27 @@ def toRat (uf : UnpackedFloat e s) : Rat :=
 end UnpackedFloat
 
 namespace EUnpackedFloat
+
+@[bv_normalize]
+theorem ext_iff_beq {x y : EUnpackedFloat e s}
+  : (x == y) = (x.state == y.state && x.num == y.num) := by
+  cases h : (x == y) <;> simp_all [EUnpackedFloat.ext_iff]
+
+@[bv_normalize]
+theorem bne_to_beq {x y : EUnpackedFloat e s}
+  : (x != y) = !(x == y) := by
+  cases h : (x != y) <;> simp_all [EUnpackedFloat.ext_iff]
+
+@[bv_normalize]
+theorem eq_state_ex {x y : EUnpackedFloat e s} :
+  (bif b then x else y).state = bif b then x.state else y.state := by
+  cases b <;> rfl
+
+@[bv_normalize]
+theorem eq_num_ex {x y : EUnpackedFloat e s} :
+  (bif b then x else y).num = bif b then x.num else y.num := by
+  cases b <;> rfl
+
 
 @[bv_normalize]
 def isNaN (x : EUnpackedFloat e s) : Bool :=

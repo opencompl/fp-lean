@@ -255,12 +255,19 @@ def BitVec.monus (a : BitVec w) (b : BitVec w) : BitVec w :=
   if a ≤ b then 0#w else a - b
 
 
+/-- x ≥ y ↔ y ≤ x-/
 @[bv_normalize]
-def div_on_packedFloat (a b : PackedFloat e s) (mode : RoundingMode) : PackedFloat e s :=
+def BitVec.sge (x y : BitVec w) : Bool := y.sle x
+
+@[bv_normalize]
+def div_on_unpackedFloat (a b : UnpackedFloat (exponentWidth e s) (s + 1)) (mode : RoundingMode) : PackedFloat e s :=
+  -- a.toRat = (-1)^a.sign * a.sig.toNat * 2 ^ (a.ex.toInt) * 2 ^(-s)
+  -- a.toRat / b.toRat = (-1)^(a.sign⊕b.sign) * (a.sig.toNat /b.sig.toNat) * (2 ^ (a.ex.toInt) / 2 ^ (b.ex.toInt) *(2 ^(-s) / 2^(-s))
+  -- = (-1)^(a.sign⊕b.sign) * (a.sig.toNat /b.sig.toNat) * 2 ^(a.ex.toInt - b.ex.toInt)
+  -- = (-1)^(a.sign⊕b.sign) * (a.sig.toNat /b.sig.toNat) * 2 ^(a.ex.toInt - b.ex.toInt)
   let sign := a.sign ^^ b.sign
-  -- 1.0000 vs 0.0000
-  let sig_a := a.unpackedSignificand
-  let sig_b := b.unpackedSignificand
+  let sig_a := a.sig
+  let sig_b := b.sig
   let div_len := 3*(s+1) -- (s + 1) because we add the bit.
   let unit_pos := 2*(s+1)
   let dividend := (sig_a.setWidth div_len <<< unit_pos)
@@ -268,20 +275,21 @@ def div_on_packedFloat (a b : PackedFloat e s) (mode : RoundingMode) : PackedFlo
   -- Do division, collapse remainder to a single sticky bit
   let quot_with_sticky := (dividend / divisor) ++ BitVec.ofBool ((dividend % divisor) ≠ 0)
   -- Calculate shifts
-  let divResult := fixedWidthDivideAtPrecision sig_a sig_b (prec := 2 * (s + 1)) (outw := 3 * (s + 1))
+  -- let divResult := fixedWidthDivideAtPrecision sig_a sig_b (prec := 2 * (s + 1)) (outw := 3 * (s + 1))
   -- let quot_with_sticky := divResult.quotWithSticky
-  let expNumerator := if a.ex > 0 then a.ex - 1 else 0
-  let expDenominator := if b.ex > 0 then b.ex - 1 else 0
+  let expNumerator := a.ex -- if a.ex > 0 then a.ex - 1 else 0
+  let expDenominator := b.ex -- if b.ex > 0 then b.ex - 1 else 0
   -- Shift and round
   -- | TODO: For the rounding, we still expand out into fixed point.
   -- We should instead use the cleverer rounder.
-  if expNumerator ≥ expDenominator then
+  if expNumerator.sge expDenominator then
+    -- +1 for the sticky bit.
     let quot_lshift : EFixedPoint (2^e+div_len+1) (unit_pos+1) := {
       state := .Number
       num := {
         sign
         -- numerator is larger than denominator, so multiply by the correct amount.
-        val := quot_with_sticky.setWidth _ <<< (expNumerator - expDenominator)
+        val := quot_with_sticky.setWidth (2 ^ e + div_len + 1) <<< (expNumerator - expDenominator)
         hExOffset := by
           rewrite [Nat.add_lt_add_iff_right]
           apply Nat.lt_add_left
@@ -289,6 +297,7 @@ def div_on_packedFloat (a b : PackedFloat e s) (mode : RoundingMode) : PackedFlo
       }
     }
     round _ _ mode quot_lshift
+    -- PackedFloat.mk true (BitVec.ofNat _ 0xcafebabe) (BitVec.ofNat _ 0xcafebabe)
   else
     let quot_rshift : EFixedPoint (2^e+div_len+1) (2^e+unit_pos+1) := {
       state := .Number
@@ -299,7 +308,9 @@ def div_on_packedFloat (a b : PackedFloat e s) (mode : RoundingMode) : PackedFlo
         -- TODO: understand the bounds on our rounding.
         -- we shift by '2^e' so we scale up by the same factor as we do with (2^e + unit_pos + 1),
         -- such that we represent the same number.
-        val := (quot_with_sticky.setWidth _ <<< 2^e) >>> (expDenominator - expNumerator)
+        -- 2^(a.ex.toInt - b.ex.toInt) = 2^(-E + E + a.ex.toIn - b.ex.toInt)
+        -- = 2^-E * 2^(E - b.ex.toInt + a.ex.toInt) [which is ≥ 1 ]
+        val := ((quot_with_sticky.setWidth _ <<< 2^e) >>> (expDenominator - expNumerator))
         hExOffset := by
           rewrite [Nat.add_lt_add_iff_right, Nat.add_lt_add_iff_left]
           omega
@@ -313,11 +324,53 @@ using the provided rounding mode.
 -/
 @[bv_normalize]
 def div (a b : PackedFloat e s) (m : RoundingMode) : PackedFloat e s :=
+  let a := a.unpack
+  let b := b.unpack
+  -- a = 0, b = 0
   if a.isNaN ∨ b.isNaN ∨ (a.isInfinite ∧ b.isInfinite) ∨ (a.isZero ∧ b.isZero) then
     PackedFloat.getNaN _ _
+  -- a = ∞, b = 0
   else if a.isInfinite ∨ b.isZero then
     PackedFloat.getInfinity _ _ (a.sign ^^ b.sign)
+  -- a = *, b = ∞
   else if b.isInfinite then
     { PackedFloat.getZero _ _ with sign := a.sign ^^ b.sign }
+  else if a.isZero then -- note that b must be finite here.
+    { PackedFloat.getZero _ _ with sign := a.sign ^^ b.sign }
   else
-    div_on_packedFloat a b m
+    div_on_unpackedFloat a.num b.num m
+
+
+/-- Dividing zero by a finite nonzero number gives a zero with the right sign. -/
+theorem zero_div_is_zero (a b : PackedFloat 5 2) (ha : a.isZero) (hb : b.isNormOrSubnorm) (hb : ¬b.isZero)
+  : (div a b .RTZ).isZero ∧ (div a b .RTZ).sign = a.sign ^^ b.sign := by
+  bv_decide
+
+def cex' : PackedFloat 5 2 where
+  ex := 0#5
+  sig := 2#2
+  sign := false
+
+/-- info: -15 -/
+#guard_msgs in #eval cex'.unpack.num.ex.toInt
+
+/-- info: 0 -/
+#guard_msgs in #eval oneE5M2.unpack.num.ex.toInt
+
+/-- info: { sign := +, ex := 0x00#5, sig := 0x2#2 } -/
+#guard_msgs in #eval div_on_unpackedFloat cex'.unpack.num oneE5M2.unpack.num .RTZ
+
+set_option debugAssertions true in
+theorem div_one_is_id_on_numerator_ex_larger (a : PackedFloat 5 2) (h : a.unpack.num.ex.sge oneE5M2.unpack.num.ex)
+  : (div a oneE5M2 .RTZ).equal_denotation a := by
+  bv_decide
+
+set_option debugAssertions true in
+theorem div_one_is_id_on_numerator_ex_smaller (a : PackedFloat 5 2) (h : ¬ a.unpack.num.ex.sge oneE5M2.unpack.num.ex)
+  : (div a oneE5M2 .RTZ).equal_denotation a := by
+  bv_decide
+
+theorem div_self_is_one' (a : PackedFloat 5 2)
+  (h : ¬a.isNaN ∧ ¬a.isInfinite ∧ ¬a.isZero)
+  : (div a a .RTZ) = oneE5M2 := by
+  bv_decide

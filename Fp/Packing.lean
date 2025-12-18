@@ -12,7 +12,7 @@ def PackedFloat.unpack (pf : PackedFloat e s)
   else bif pf.isNorm then
     ({
       sign := pf.sign
-      ex := pf.ex.zeroExtend _ - BitVec.ofNat _ (bias e)
+      ex := pf.ex.zeroExtend _ - BitVec.ofNat _ (bias e) -- e - bias, but no adjustment for significand?
       sig := pf.sig.cons true
       : UnpackedFloat _ _
     }).toEUnpackedFloat
@@ -33,20 +33,32 @@ def EUnpackedFloat.pack (uf : EUnpackedFloat (exponentWidth e s) (s + 1))
     ex := bif uf.isNaN || uf.isInfinite then
             BitVec.allOnes e
           else if uf.isZero || !inNormalRange then
-            BitVec.zero _
+            (0#_)
           else -- bif uf.isNorm then
             -- Truncate msbs used to normalize subnormals
             (uf.exp + BitVec.ofNat _ (bias e)).truncate _
     sig := bif uf.isNaN then
             BitVec.ofNat _ (2 ^ (s - 1))
            else bif uf.isInfinite || uf.isZero then
-            BitVec.zero _
+            (0#_)
            else bif inNormalRange then
             uf.sig.truncate _
            else -- bif uf.isSubnorm then
             let shift := BitVec.ofInt _ (minNormalExp e) - uf.exp
             (uf.sig >>> shift).truncate _
   }
+
+theorem PackedFloat.isInfinite_pack_unpack (pf : PackedFloat 5 10) (hpf : pf.unpack.isInfinite) :
+    pf.unpack.pack.isInfinite = pf.isInfinite ∧ pf.unpack.pack.sign = pf.sign := by
+  bv_decide
+
+theorem PackedFloat.isNaN_pack_unpack (pf : PackedFloat 5 10) :
+    pf.unpack.pack.isNaN = pf.isNaN := by
+  bv_decide
+
+theorem PackedFloat.pack_unpack (pf : PackedFloat 5 10) (hpf : pf.isNormOrSubnorm) :
+    pf.unpack.pack = pf := by
+  bv_decide
 
 /-- info: { sign := +, ex := 0x00#5, sig := 0x001#10 } -/
 #guard_msgs in #eval { sign := false, ex := 0x00#5, sig := 0x001#10 : PackedFloat _ _ }.unpack.pack
