@@ -351,12 +351,9 @@ def cex' : PackedFloat 5 2 where
   sig := 2#2
   sign := false
 
-#check EUnpackedFloat.toRat?
-#eval cex'.toRat? -- 2^-15
-#eval cex'.unpack.toRat? -- 2^-15
--- 0xfff2#16 =  * 2
-/-- info: -14 -/
+/-- info: -15 -/
 #guard_msgs in #eval cex'.unpack.num.ex.toInt
+
 /-- info: 0 -/
 #guard_msgs in #eval oneE5M2.unpack.num.ex.toInt
 
