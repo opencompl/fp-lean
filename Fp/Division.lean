@@ -257,6 +257,8 @@ def BitVec.monus (a : BitVec w) (b : BitVec w) : BitVec w :=
 
 @[bv_normalize]
 def divUnpackedFloat (a b : UnpackedFloat (exponentWidth e s) (s + 1)) (mode : RoundingMode) : PackedFloat e s :=
+  -- a.toRat = a.sig * 2^(a.ex) * 2^(- (s + 1)) [+1 for the subnormal].
+  -- b.toRat = b.sig * 2^(b.ex) * 2^(- (s + 1))
   let sign := a.sign ^^ b.sign
   -- 1.0000 vs 0.0000
   let sig_a := a.sig
@@ -268,36 +270,32 @@ def divUnpackedFloat (a b : UnpackedFloat (exponentWidth e s) (s + 1)) (mode : R
   -- Do division, collapse remainder to a single sticky bit
   let quot_with_sticky := (dividend / divisor) ++ BitVec.ofBool ((dividend % divisor) ≠ 0)
   -- Calculate shifts
-  let divResult := fixedWidthDivideAtPrecision sig_a sig_b (prec := 2 * (s + 1)) (outw := 3 * (s + 1))
+  -- let divResult := fixedWidthDivideAtPrecision sig_a sig_b (prec := 2 * (s + 1)) (outw := 3 * (s + 1))
   -- let quot_with_sticky := divResult.quotWithSticky
   let expNumerator := a.ex -- if a.ex > 0 then a.ex - 1 else 0
   let expDenominator := b.ex -- if b.ex > 0 then b.ex - 1 else 0
-  -- Shift and round
+  -- a.toRat / b.toRRat = a.sig / b.sig * 2^(a.ex-b.ex)
   -- | TODO: For the rounding, we still expand out into fixed point.
   -- We should instead use the cleverer rounder.
   let emax := 2^e
   if expNumerator ≥ expDenominator then
+    -- | unit_pos + 1 for the sticky bit.
     let quot_lshift : EFixedPoint (2^e+div_len+1) (emax+unit_pos+1) := {
       state := .Number
       num := {
         sign
         -- numerator is larger than denominator, so multiply by the correct amount.
-        val := quot_with_sticky.setWidth _ <<< emax >>> (expNumerator - expDenominator)
+        val := (quot_with_sticky.setWidth _ <<< (emax - (expNumerator - expDenominator)))
         hExOffset := by
           grind
       }
     }
     round _ _ mode quot_lshift
   else
-    let quot_rshift : EFixedPoint (2^e+div_len+1) (emax+unit_pos+1) := {
+    let quot_rshift : EFixedPoint (2^e+div_len+1) (emax) := {
       state := .Number
       num := {
         sign
-        -- denominator is larger than numerator, so divide by the correct amount, but first increase the
-        -- exponent to (2^e), so that the round function rounds correctly.
-        -- TODO: understand the bounds on our rounding.
-        -- we shift by '2^e' so we scale up by the same factor as we do with (2^e + unit_pos + 1),
-        -- such that we represent the same number.
         val := ((quot_with_sticky.setWidth _ <<< emax) >>> (expDenominator - expNumerator))
         hExOffset := by
           grind

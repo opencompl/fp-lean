@@ -12,7 +12,7 @@ def PackedFloat.unpack (pf : PackedFloat e s)
   else bif pf.isNorm then
     ({
       sign := pf.sign
-      ex := pf.ex.zeroExtend _ - BitVec.ofNat _ (bias e)
+      ex := pf.ex.zeroExtend _ - BitVec.ofNat _ (bias e) -- e - bias, but no adjustment for significand?
       sig := pf.sig.cons true
       : UnpackedFloat _ _
     }).toEUnpackedFloat
