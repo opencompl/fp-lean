@@ -682,7 +682,7 @@ def toEUnpackedFloat (uf : UnpackedFloat e s) : EUnpackedFloat e s :=
 def toDyadic (uf : UnpackedFloat e s) : Dyadic :=
   let sig : BitVec (s + 1) := uf.sig.setWidth' (Nat.le.step Nat.le.refl)
   let sig := bif uf.sign then sig.neg else sig
-  Dyadic.ofIntWithPrec sig.toInt (uf.ex.neg.toInt + (s - 1))
+  Dyadic.ofIntWithPrec sig.toInt ((s - 1) - uf.ex.toInt)
 
 def toRat (uf : UnpackedFloat e s) : Rat :=
   uf.toDyadic.toRat
