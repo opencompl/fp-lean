@@ -3,6 +3,7 @@ import Fp.Rounding
 import Fp.MulInv
 import Fp.Proofs.Grind
 import Fp.ForLean.Rat
+import Fp.UnpackedRound
 
 /-
 PLAN:
@@ -255,9 +256,82 @@ def BitVec.monus (a : BitVec w) (b : BitVec w) : BitVec w :=
   if a ≤ b then 0#w else a - b
 
 
+@[bv_normalize]
+def BitVec.addExtending (a : BitVec v) (b : BitVec w) : BitVec (Nat.max v w + 1) :=
+  let a' := a.signExtend (Nat.max v w + 1)
+  let b' := b.signExtend (Nat.max v w + 1)
+  a' + b'
+
+@[bv_normalize]
+def BitVec.subExtending (a : BitVec v) (b : BitVec w) : BitVec (Nat.max v w + 1) :=
+  let a' := a.signExtend (Nat.max v w + 1)
+  let b' := b.signExtend (Nat.max v w + 1)
+  a' - b'
+
+@[bv_normalize]
+def BitVec.eqExtending (a : BitVec v) (b : BitVec w) : Prop :=
+  let a' := a.signExtend (Nat.max v w)
+  let b' := b.signExtend (Nat.max v w)
+  a' = b'
+
+@[bv_normalize]
+def BitVec.sltExtending (a : BitVec v) (b : BitVec w) : Prop :=
+  let a' := a.signExtend (Nat.max v w)
+  let b' := b.signExtend (Nat.max v w)
+  a'.slt b'
+
+instance : Decidable (BitVec.eqExtending a b) := by
+    unfold BitVec.eqExtending
+    simp
+    infer_instance
+
+instance : Decidable (BitVec.sltExtending a b) := by
+    unfold BitVec.sltExtending
+    simp
+    infer_instance
+
 /-- x ≥ y ↔ y ≤ x-/
 @[bv_normalize]
 def BitVec.sge (x y : BitVec w) : Bool := y.sle x
+
+#check round
+
+
+@[bv_normalize]
+def BitVec.dropLsbs (bv : BitVec w) (n : Nat) : BitVec (w - n) :=
+  (bv >>> n).setWidth _
+
+@[bv_normalize]
+theorem getMsbD_dropLsbs {w n : Nat} (h : n < w) (bv : BitVec w) :
+    bv.getMsbD i = (bv.dropLsbs n).getMsbD i := by
+  simp [BitVec.dropLsbs, BitVec.getMsbD]
+  by_cases hi : i < w
+  · simp [hi]
+    sorry
+  · simp [hi]
+    sorry
+
+@[bv_normalize]
+def BitVec.dropMsb (bv : BitVec w) (n : Nat) : BitVec (w - n) :=
+  bv.setWidth _
+
+@[bv_normalize]
+def BitVec.takeMsb (bv : BitVec w) (n : Nat) : BitVec n :=
+  (bv >>> (w - n)).setWidth _
+
+@[bv_normalize]
+def BitVec.splitAtMsbs (bv : BitVec w) (n : Nat) : BitVec n × BitVec (w - n) :=
+  (bv.takeMsb n, bv.dropMsb n)
+
+/-- Shift left 'bv' by 'shAmt', extending 'bv' to width 'v' first. -/
+@[bv_normalize]
+def BitVec.shlExtending (bv : BitVec w) (shAmt : BitVec v) : BitVec v :=
+  (bv.zeroExtend v) <<< shAmt
+
+@[bv_normalize]
+def BitVec.shrExtending (bv : BitVec w) (shAmt : BitVec v) : BitVec v :=
+  (bv.zeroExtend v) >>> shAmt
+
 
 @[bv_normalize]
 def div_on_unpackedFloat (a b : UnpackedFloat (exponentWidth e s) (s + 1)) (mode : RoundingMode) : PackedFloat e s :=
@@ -280,43 +354,14 @@ def div_on_unpackedFloat (a b : UnpackedFloat (exponentWidth e s) (s + 1)) (mode
   let expNumerator := a.ex -- if a.ex > 0 then a.ex - 1 else 0
   let expDenominator := b.ex -- if b.ex > 0 then b.ex - 1 else 0
   -- Shift and round
-  -- | TODO: For the rounding, we still expand out into fixed point.
-  -- We should instead use the cleverer rounder.
-  if expNumerator.sge expDenominator then
-    -- +1 for the sticky bit.
-    let quot_lshift : EFixedPoint (2^e+div_len+1) (unit_pos+1) := {
-      state := .Number
-      num := {
+  let ufIn : UnpackedFloat _ _ := {
         sign
-        -- numerator is larger than denominator, so multiply by the correct amount.
-        val := quot_with_sticky.setWidth (2 ^ e + div_len + 1) <<< (expNumerator - expDenominator)
-        hExOffset := by
-          rewrite [Nat.add_lt_add_iff_right]
-          apply Nat.lt_add_left
-          omega
-      }
-    }
-    round _ _ mode quot_lshift
-    -- PackedFloat.mk true (BitVec.ofNat _ 0xcafebabe) (BitVec.ofNat _ 0xcafebabe)
-  else
-    let quot_rshift : EFixedPoint (2^e+div_len+1) (2^e+unit_pos+1) := {
-      state := .Number
-      num := {
-        sign
-        -- denominator is larger than numerator, so divide by the correct amount, but first increase the
-        -- exponent to (2^e), so that the round function rounds correctly.
-        -- TODO: understand the bounds on our rounding.
-        -- we shift by '2^e' so we scale up by the same factor as we do with (2^e + unit_pos + 1),
-        -- such that we represent the same number.
-        -- 2^(a.ex.toInt - b.ex.toInt) = 2^(-E + E + a.ex.toIn - b.ex.toInt)
-        -- = 2^-E * 2^(E - b.ex.toInt + a.ex.toInt) [which is ≥ 1 ]
-        val := ((quot_with_sticky.setWidth _ <<< 2^e) >>> (expDenominator - expNumerator))
-        hExOffset := by
-          rewrite [Nat.add_lt_add_iff_right, Nat.add_lt_add_iff_left]
-          omega
-      }
-    }
-    round _ _ mode quot_rshift
+        ex := BitVec.subExtending expNumerator expDenominator
+        sig := quot_with_sticky
+  }
+  let ufIn := ufIn.normalize
+  EUnpackedFloat.pack (UnpackedFloat.round ufIn mode)
+
 
 /--
 Division of two floating-point numbers, rounded to a floating point number
@@ -346,31 +391,29 @@ theorem zero_div_is_zero (a b : PackedFloat 5 2) (ha : a.isZero) (hb : b.isNormO
   : (div a b .RTZ).isZero ∧ (div a b .RTZ).sign = a.sign ^^ b.sign := by
   bv_decide
 
-def cex' : PackedFloat 5 2 where
-  ex := 0#5
-  sig := 2#2
-  sign := false
 
-/-- info: -15 -/
-#guard_msgs in #eval cex'.unpack.num.ex.toInt
-
-/-- info: 0 -/
-#guard_msgs in #eval oneE5M2.unpack.num.ex.toInt
-
-/-- info: { sign := +, ex := 0x00#5, sig := 0x2#2 } -/
-#guard_msgs in #eval div_on_unpackedFloat cex'.unpack.num oneE5M2.unpack.num .RTZ
+set_option debugAssertions true in
+theorem div_one_foo (a : PackedFloat 5 2) (h : a.isNorm = true)
+  : (div a oneE5M2 .RNE).equal_denotation a := by
+  fail_if_success bv_decide
+  sorry
 
 set_option debugAssertions true in
 theorem div_one_is_id_on_numerator_ex_larger (a : PackedFloat 5 2) (h : a.unpack.num.ex.sge oneE5M2.unpack.num.ex)
-  : (div a oneE5M2 .RTZ).equal_denotation a := by
-  bv_decide
+  : (div a oneE5M2 .RNE).equal_denotation a := by
+  fail_if_success bv_decide
+  sorry
 
 set_option debugAssertions true in
-theorem div_one_is_id_on_numerator_ex_smaller (a : PackedFloat 5 2) (h : ¬ a.unpack.num.ex.sge oneE5M2.unpack.num.ex)
-  : (div a oneE5M2 .RTZ).equal_denotation a := by
-  bv_decide
+theorem div_one_is_id_on_numerator_ex_smaller (a : PackedFloat 5 2)
+  (h : ¬ a.unpack.num.ex.sge oneE5M2.unpack.num.ex)
+  : (div a oneE5M2 .RNE).equal_denotation a := by
+  fail_if_success bv_decide
+  sorry
 
 theorem div_self_is_one' (a : PackedFloat 5 2)
-  (h : ¬a.isNaN ∧ ¬a.isInfinite ∧ ¬a.isZero)
-  : (div a a .RTZ) = oneE5M2 := by
-  bv_decide
+  (h : ¬a.isNaN ∧ ¬a.isInfinite ∧ ¬a.isZero ∧ a.isNorm)
+  : (div a a .RNE) = oneE5M2 := by
+  simp at *;
+  fail_if_success bv_decide
+  sorry

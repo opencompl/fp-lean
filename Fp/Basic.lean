@@ -25,7 +25,7 @@ structure PackedFloat (exWidth sigWidth : Nat) where
     ex : BitVec exWidth
     /-- Significand (mantissa) of the packed float. -/
     sig : BitVec sigWidth
-deriving DecidableEq, Repr
+deriving DecidableEq, Repr, Inhabited
 
 attribute [bv_normalize] PackedFloat.ext_iff
 
@@ -621,7 +621,7 @@ manipulation.
 structure EUnpackedFloat (e s : Nat) where
   state : State
   num   : UnpackedFloat e s
-deriving DecidableEq
+deriving DecidableEq, Repr
 
 
 namespace UnpackedFloat
@@ -710,6 +710,7 @@ theorem eq_state_ex {x y : EUnpackedFloat e s} :
 theorem eq_num_ex {x y : EUnpackedFloat e s} :
   (bif b then x else y).num = bif b then x.num else y.num := by
   cases b <;> rfl
+
 
 
 @[bv_normalize]
@@ -805,17 +806,32 @@ def Nat.ceilLog2 (n : Nat) : Nat :=
 def bias (e : Nat) : Nat :=
   2 ^ (e - 1) - 1
 
+/-- The minimum value the exponent can take when unbiased. -/
 @[bv_normalize]
 def minNormalExp (e : Nat) : Int :=
   -(bias e - 1)
 
+/-- The max value the exponent can take when unbiased. -/
+@[bv_normalize]
+def maxNormalExp (e : Nat) : Int := (bias e)
+
+
+/-- The value the subnormal exponent can take. -/
+@[bv_normalize]
+def subnormalExp (e : Nat) : Int :=
+  minNormalExp e - 1
+
+@[bv_normalize]
+def minSubnormalExp (e : Nat) (s : Nat) : Int :=
+  (subnormalExp e) - (s : Int)
+
 -- This is a simpler (but less tight) bound than `exponentWidth`.
 -- It's logarithmically larger.
-@[bv_normalize]
+@[bv_normalize, simp]
 def exponentWidth' (e s : Nat) : Nat :=
   e + s.ceilLog2
 
-@[bv_normalize]
+@[bv_normalize, simp]
 def exponentWidth (e s : Nat) : Nat :=
   (2 ^ (e - 1) + s - 2).log2 + 2
 
