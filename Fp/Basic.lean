@@ -805,9 +805,19 @@ def Nat.ceilLog2 (n : Nat) : Nat :=
 def bias (e : Nat) : Nat :=
   2 ^ (e - 1) - 1
 
+/-- The minimum value the exponent can take when unbiased. -/
 @[bv_normalize]
 def minNormalExp (e : Nat) : Int :=
   -(bias e - 1)
+
+/-- The max value the exponent can take when unbiased. -/
+@[bv_normalize]
+def maxNormalExp (e : Nat) : Int := (bias e)
+
+/-- The value the subnormal exponent can take. -/
+@[bv_normalize]
+def subnormalExp (e : Nat) : Int :=
+  minNormalExp e - 1
 
 -- This is a simpler (but less tight) bound than `exponentWidth`.
 -- It's logarithmically larger.

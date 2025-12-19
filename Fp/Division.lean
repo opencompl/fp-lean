@@ -259,6 +259,42 @@ def BitVec.monus (a : BitVec w) (b : BitVec w) : BitVec w :=
 @[bv_normalize]
 def BitVec.sge (x y : BitVec w) : Bool := y.sle x
 
+#check round
+
+-- the number is sig.toNat *  2 ^(-sigPrec) * 2 ^ (ex.toInt)
+-- choose e = 0, s = 1 then see that after normalization, we e.
+-- If our exponent is
+def roundFast (up : UnpackedFloat e s) : EUnpackedFloat e s :=
+    let up := up.normalize
+    if up.sig = 0
+    then EUnpackedFloat.mkNumber up
+    else
+      -- we are in the <1.-----> case.
+      -- let exOffset' := 2^(exWidth - 1) + sigWidth - 2
+      -- trim bitvector
+      -- can absorb 2^s component into the significand, but any more
+      -- cannot be absorbed.
+      if up.ex > BitVec.ofInt e (maxNormalExp e) + BitVec.ofInt e s
+      then
+        EUnpackedFloat.mkInfinity up.sign
+      else if up.ex < BitVec.ofInt e (minNormalExp e)  - BitVec.ofInt e s
+      then
+      -- | too small to be subnormal.
+        EUnpackedFloat.mkZero up.sign
+      else if up.ex < BitVec.ofInt e (minNormalExp e)
+      then
+        -- | subnormal case.
+        let shift := (BitVec.ofInt e (minNormalExp e) - up.ex).toNat
+        let sig_shifted := up.sig >>> shift
+        sorry
+        -- let round_result := roundSignificandAndStickyBit up.sign sig_shifted s RoundingMode.RTZ
+        -- EUnpackedFloat.mkSubnormal round_result
+      else
+        -- | normal case.
+        -- let round_result := roundSignificandAndStickyBit up.sign up.sig s RoundingMode.RTZ
+        -- EUnpackedFloat.mkNormal (up.ex) round_result
+        sorry
+
 @[bv_normalize]
 def div_on_unpackedFloat (a b : UnpackedFloat (exponentWidth e s) (s + 1)) (mode : RoundingMode) : PackedFloat e s :=
   -- a.toRat = (-1)^a.sign * a.sig.toNat * 2 ^ (a.ex.toInt) * 2 ^(-s)
