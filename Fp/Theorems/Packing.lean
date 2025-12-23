@@ -2,12 +2,17 @@ import Fp.Basic
 import Fp.Packing
 
 -- TODO: upstream
-theorem BitVec.toNat_clz_le (x : BitVec w) : x.clz.toNat ≤ w := by
-  conv =>
-    rhs
-    rw [show w = (BitVec.ofNat w w).toNat by simp]
+theorem BitVec.toNat_clz_le {x : BitVec w} : x.clz.toNat ≤ w := by
+  suffices h : x.clz.toNat ≤ (BitVec.ofNat w w).toNat from by
+    simpa using h
   simp only [← BitVec.ule_iff_toNat_le, BitVec.ule_iff_le]
   apply BitVec.clz_le
+
+theorem BitVec.toNat_clz_lt_iff_ne_zero {x : BitVec w} : x.clz.toNat < w ↔ x.toNat ≠ 0 := by
+  suffices h : x.clz.toNat < (BitVec.ofNat w w).toNat ↔ x.toNat ≠ (BitVec.ofNat w 0).toNat from by
+    simpa using h
+  simp only [← BitVec.ult_iff_toNat_lt, BitVec.ult_iff_lt, ne_eq, BitVec.toNat_inj]
+  apply BitVec.clz_lt_iff_ne_zero
 
 theorem BitVec.toNat_shiftLeft_clz (x : BitVec w)
   : (x <<< x.clz).toNat = x.toNat <<< x.clz.toNat := by
@@ -16,8 +21,7 @@ theorem BitVec.toNat_shiftLeft_clz (x : BitVec w)
   rw [Nat.shiftLeft_eq]
   have := BitVec.toNat_lt_two_pow_sub_clz (x := x)
   have := BitVec.clz_le (x := x)
-  have : x.clz.toNat ≤ w := BitVec.toNat_clz_le x
-    -- simp [BitVec.clz_le (x := x)]
+  have : x.clz.toNat ≤ w := BitVec.toNat_clz_le
   conv =>
     rhs
     rw [show w = (w - x.clz.toNat) + x.clz.toNat by grind]
@@ -26,12 +30,72 @@ theorem BitVec.toNat_shiftLeft_clz (x : BitVec w)
   · grind
   · exact Nat.two_pow_pos x.clz.toNat
 
+theorem Nat.pow_pred_div (h : 0 < n) :
+  2 ^ (n - 1) = (2 ^ n) / 2 := by
+  grind [Nat.pow_pred_mul]
+
+theorem Nat.two_pow_succ_div_two {n : Nat} :
+  (2 ^ n + 1) / 2 = 2 ^ (n - 1) := by
+  cases n <;> grind
+
+theorem Int.two_pow_succ_div_two {n : Nat} :
+  (2 ^ n + 1) / 2 = (2 ^ (n - 1) : Int) := by
+  cases n <;> grind
+
+-- TODO: @Sid, help!
+theorem BitVec.toNat_clz_cons (b : Bool) (x : BitVec w)
+  : (BitVec.cons b x).clz.toNat = if b then 0 else x.clz.toNat + 1 := by
+  sorry
+
+theorem Nat.log2_eq_exists (n : Nat) (hn : n ≠ 0) :
+  ∃ k, n.log2 = k ∧ 2 ^ k ≤ n ∧ n < 2 ^ (k + 1) := by
+  let k := n.log2
+  exists k
+  simp [k]
+  apply Nat.log2_eq_iff .. |>.mp <;> grind
+
+theorem Nat.log2_le_log2_of_le {a b : Nat} (h : a ≤ b) : a.log2 ≤ b.log2 := by
+  induction a using Nat.div2Induction generalizing b with
+  | ind a ih =>
+    match ha : a with
+    | 0 => simp
+    | 1 => simp
+    | a' + 2 =>
+      match hb : b with
+      | 0 => simp_all
+      | 1 => simp_all
+      | b' + 2 =>
+        simp only [succ_eq_add_one] at ha hb
+        simp only [← ha, ← hb] at ⊢ h ih
+        replace ih := ih (ha ▸ Nat.zero_lt_succ _) (Nat.div_le_div_right h)
+        rewrite [Nat.log2_def a, Nat.log2_def b]
+        simp only [ha, le_add_left, ↓reduceIte, hb, Nat.add_le_add_iff_right, ge_iff_le]
+        simp [← ha, ← hb, ih]
+
+theorem Nat.log2_le_log2_add {a b : Nat} : a.log2 ≤ (a + b).log2 := by
+  apply Nat.log2_le_log2_of_le
+  apply Nat.le_add_right
+
 namespace UnpackedFloat
 
+@[simp]
+theorem mkZero_isZero {sign : Bool} : (@mkZero e s sign).isZero := by
+  simp [mkZero, isZero]
+
+@[simp]
+theorem toEUnpackedFloat_not_isNaN {uf : UnpackedFloat e s}
+  : uf.toEUnpackedFloat.isNaN = false := by
+  simp [toEUnpackedFloat, EUnpackedFloat.isNaN]
+
+@[simp]
+theorem toEUnpackedFloat_not_isInfinite {uf : UnpackedFloat e s}
+  : uf.toEUnpackedFloat.isInfinite = false := by
+  simp [toEUnpackedFloat, EUnpackedFloat.isInfinite]
+
 theorem toRat_eq {uf : UnpackedFloat e s}
-  : uf.toRat = uf.sign.toSign * uf.sig.toNat * 2 ^ (uf.ex.toInt - (s - 1)) := by
+  : uf.toRat = uf.sign.toSign * uf.sig.toNat * 2 ^ (uf.ex.toInt - (s - 1 : Nat)) := by
   have hmsb : (uf.sig.setWidth' _).msb = false := BitVec.msb_setWidth'_of_lt (Nat.lt_succ_self s)
-  simp only [toRat, toDyadic, BitVec.neg_eq, cond_eq_ite, Dyadic.toRat_ofIntWithPrec_eq_mul_two_pow,
+  simp only [toRat, toDyadic, cond_eq_ite, Dyadic.toRat_ofIntWithPrec_eq_mul_two_pow,
     Int.neg_sub, Bool.toSign]
   congr
   split
@@ -43,8 +107,13 @@ theorem toRat_eq {uf : UnpackedFloat e s}
   · rewrite [BitVec.toInt_eq_toNat_of_msb hmsb]
     simp [Rat.intCast_natCast]
 
+theorem toRat_eq' {uf : UnpackedFloat e s}
+  : uf.toRat = uf.sign.toSign * (uf.sig.toNat / 2 ^ (s - 1)) * 2 ^ uf.ex.toInt := by
+  simp only [toRat_eq, Rat.div_def, ← Rat.zpow_natCast, ← Rat.zpow_neg, Rat.mul_assoc, ← @Rat.zpow_add 2 (by decide)]
+  grind
+
 theorem toDyadic_eq {uf : UnpackedFloat e s}
-  : uf.toDyadic = uf.sign.toSign * uf.sig.toNat * (.ofOdd 1 ((s - 1) - uf.ex.toInt) rfl) := by
+  : uf.toDyadic = uf.sign.toSign * uf.sig.toNat * (.ofOdd 1 ((s - 1 : Nat) - uf.ex.toInt) rfl) := by
   simpa [← Dyadic.toRat_inj, Dyadic.toRat_ofOdd_eq_mul_two_pow, Int.neg_sub] using toRat_eq
 
 @[simp]
@@ -67,37 +136,59 @@ theorem toRat_sig_zero_eq_toRat_mkZero {uf : UnpackedFloat e s}
   : uf.sig = 0 → uf.toRat = 0 := by
   simp +contextual [toRat]
 
-theorem Nat.log2_eq_exists (n : Nat) (hn : n ≠ 0) :
-  ∃ k, n.log2 = k ∧ 2 ^ k ≤ n ∧ n < 2 ^ (k + 1) := by
-  let k := n.log2
-  exists k
-  simp [k]
-  apply Nat.log2_eq_iff .. |>.mp <;> grind
-
-theorem two_mul_sigWidth_lt_exponentWidth :
-  2 * s ≤ 2 ^ (exponentWidth e s) := by
+theorem sigWidth_le_exponentWidth_sub_one : s ≤ 2 ^ (exponentWidth e s - 1) := by
   unfold exponentWidth
-  cases s with
-  | zero  => simp
-  | succ s =>
-    cases s with
-    | zero =>
-      simp [Nat.pow_add]
-      grind [Nat.two_pow_pos]
-    | succ s =>
-      have : 2 ^ (e - 1) + (s + 1 + 1) - 2 ≠ 0 := by grind [Nat.two_pow_pos]
-      have ⟨k, h, hl, hu⟩ := Nat.log2_eq_exists _ this
-      rw [h]
-      simp [Nat.pow_add]
-      suffices s + 2 ≤ 2 ^ k * 2 from by
-        grind
-      have : 2 ^ (e - 1) ≥ 1 := by grind [Nat.pow_pos]
-      have : 1 + s < 2 ^ k * 2 := by grind [Nat.pow_pos, Nat.pow_add]
+  grind [Nat.two_pow_pos, Nat.log2_eq_iff]
+
+theorem sigWidth_lt_exponentWidth_sub_one : s < 2 ^ (exponentWidth e s - 1) := by
+  unfold exponentWidth
+  grind [Nat.two_pow_pos, Nat.log2_eq_iff]
+
+-- theorem sigWidth_add_one_lt_exponentWidth_sub_one : s + 1 < 2 ^ (exponentWidth e s - 1) := by
+--   unfold exponentWidth
+--   grind [Nat.two_pow_pos, Nat.log2_eq_iff]
+
+theorem sigWidth_add_one_lt_exponentWidth : s + 1 < 2 ^ exponentWidth e s := by
+  unfold exponentWidth
+  grind [Nat.two_pow_pos, Nat.log2_eq_iff]
+
+theorem expWidth_le_exponentWidth : e ≤ exponentWidth e s := by
+  unfold exponentWidth
+  match e with
+  | 0 => simp
+  | 1 => simp
+  | e + 2 =>
+    simp only [Nat.add_one_sub_one, Nat.add_le_add_iff_right]
+    apply Nat.le_trans (m := (2 ^ e).log2)
+    · simp
+    · apply Nat.log2_le_log2_of_le
       grind
-      -- grind
+
+theorem sigWidth_add_bias_le_exponentWidth_sub_one : s + bias e ≤ 2 ^ (exponentWidth e s - 1) := by
+  simp only [bias, exponentWidth]
+  grind [Nat.two_pow_pos, Nat.log2_eq_iff]
+
+-- theorem expWidth_lt_exponentWidth : e < exponentWidth e s := by
+--   unfold exponentWidth
+--   induction e with
+--   | zero => simp
+--   | succ e ih =>
+--     simp only [Nat.add_one_sub_one, Nat.add_lt_add_iff_right]
+--     apply Nat.lt_of_lt_of_le (m := (2 ^ e).log2 + 1)
+--     · simp
+--     · simp only [Nat.add_le_add_iff_right]
+--       apply Nat.log2_le_log2_add
+
+theorem bias_lt_exponentWidth : bias e < 2 ^ exponentWidth e s := by
+  simp only [exponentWidth, bias]
+  grind [Nat.two_pow_pos, Nat.log2_eq_iff]
+
+theorem bias_lt_exponentWidth_sub_one : bias e < 2 ^ (exponentWidth e s - 1) := by
+  simp only [exponentWidth, bias]
+  grind [Nat.two_pow_pos, Nat.log2_eq_iff]
 
 theorem toRat_normalize_eq_toRat {uf : UnpackedFloat e s}
-  (hse : 2 * s ≤ 2 ^ e)
+  (hse : s - 1 < 2 ^ (e - 1))
   (hex : !uf.ex.ssubOverflow (BitVec.setWidth e uf.sig.clz))
   : uf.normalize.toRat = uf.toRat := by
   simp only [normalize, Bool.cond_eq_ite, beq_iff_eq, BitVec.clz_eq_iff_eq_zero]
@@ -110,7 +201,7 @@ theorem toRat_normalize_eq_toRat {uf : UnpackedFloat e s}
     congr
     rewrite [← Rat.zpow_natCast, ← Rat.zpow_add, ← Int.add_sub_assoc]
     congr 2
-    have hle : -↑(2 ^ e : Nat) ≤ ↑uf.sig.clz.toNat * (2 : Int) := by grind
+    have hle : -((2 ^ e : Nat) / 2 : Int) ≤ ↑uf.sig.clz.toNat := by grind
     rewrite [BitVec.toInt_sub_of_not_ssubOverflow]
     · have hSigClzNeZero : uf.sig.clz < s := by
         exact BitVec.clz_lt_iff_ne_zero.mpr h
@@ -120,8 +211,8 @@ theorem toRat_normalize_eq_toRat {uf : UnpackedFloat e s}
         apply hSigClzNeZero
       rw [BitVec.toInt_setWidth]
       have : (uf.sig.clz.toNat : Int).bmod (2 ^ e) = uf.sig.clz.toNat := by
-        refine Int.bmod_eq_of_le_mul_two hle ?_
-        norm_cast
+        refine Int.bmod_eq_of_le hle ?_
+        have : (2 ^ e + 1) / 2 = 2 ^ (e - 1) := by cases e <;> grind
         grind
       simp [this]
       grind
@@ -129,3 +220,199 @@ theorem toRat_normalize_eq_toRat {uf : UnpackedFloat e s}
     · simp
 
 end UnpackedFloat
+
+namespace EUnpackedFloat
+
+@[simp]
+theorem mkNaN_isNaN : (@mkNaN e s).isNaN := by
+  simp [mkNaN, isNaN]
+
+@[simp]
+theorem mkNaN_not_isInfinite : (@mkNaN e s).isInfinite = false := by
+  simp [mkNaN, isInfinite]
+
+@[simp]
+theorem mkInfinity_isInfinite {sign : Bool} : (@mkInfinity e s sign).isInfinite := by
+  simp [mkInfinity, isInfinite]
+
+@[simp]
+theorem mkInfinity_not_isNaN {sign : Bool} : (@mkInfinity e s sign).isNaN = false := by
+  simp [mkInfinity, isNaN]
+
+@[simp]
+theorem mkZero_isZero {sign : Bool} : (@mkZero e s sign).isZero := by
+  simp [mkZero, isZero, isNumber]
+
+@[simp]
+theorem mkZero_not_isNaN {sign : Bool} : (@mkZero e s sign).isNaN = false := by
+  simp [mkZero, isNaN]
+
+@[simp]
+theorem mkZero_not_isInfinite {sign : Bool} : (@mkZero e s sign).isInfinite = false := by
+  simp [mkZero, isInfinite]
+
+end EUnpackedFloat
+
+namespace PackedFloat
+
+example {x y : α} [Decidable c] (f : α → β) : f (if c then x else y) = if c then f x else f y := by
+  exact apply_ite f c x y
+
+theorem sig_ne_zero_of_isSubnorm {pf : PackedFloat e s}
+  : pf.isSubnorm → pf.sig.toNat ≠ 0 := by
+  grind [isSubnorm]
+
+theorem exp_lt_max_of_isNorm {pf : PackedFloat e s}
+  : pf.isNorm → pf.ex.toNat < 2 ^ e - 1 := by
+  grind [isNorm, BitVec.allOnes, BitVec.ofNatLT_toNat]
+
+theorem toExtRat_eq_toExtRat' {pf : PackedFloat e s}
+  : pf.toExtRat = pf.toExtRat' := by
+  cases hNaN : pf.isNaN <;>
+  cases hInf : pf.isInfinite <;>
+  cases hZero : pf.isZero <;>
+  cases hNorm : pf.isNorm <;>
+  simp only [toExtRat, toExtDyadic, ExtDyadic.toExtRat, toExtRat', hNaN, hInf, hZero, hNorm, cond_true,
+    cond_false, Dyadic.toRat_zero]
+  all_goals simp only [Dyadic.toRat_ofIntWithPrec_eq_mul_two_pow, ExtRat.Number.injEq,
+    Int.neg_add, Int.neg_sub, Bool.apply_cond]
+  all_goals (simp only [BitVec.toInt_setWidth'_of_lt (Nat.lt_succ_self (s + 1)), Rat.intCast_natCast, BitVec.toInt_neg_eq_of_msb (BitVec.msb_setWidth'_of_lt (Nat.lt_succ_self (s + 1))), BitVec.toNat_cons', Bool.toNat, cond_false, cond_true, Nat.zero_shiftLeft, Nat.one_shiftLeft, Nat.zero_add, Int.natCast_add, Rat.intCast_neg, Rat.intCast_add, Rat.natCast_pow, Rat.natCast_ofNat])
+  all_goals (cases pf.sign <;> simp only [cond_false, cond_true, Bool.toSign, if_true, Bool.false_eq_true, if_false, Rat.intCast_ofNat, Rat.intCast_neg, Rat.zero_add, Rat.one_mul, Rat.neg_mul])
+  all_goals (rewrite [Rat.div_def])
+  all_goals (try rewrite [← Rat.zpow_natCast, ← Rat.zpow_neg])
+  -- TODO: complete tedious proof
+  all_goals sorry
+
+theorem bias_fits₁ : -2 ^ (exponentWidth e s - 1) ≤ (bias e : Int) := by
+  apply Int.le_trans (b := 0)
+  · simp only [Int.neg_le_zero_iff]
+    norm_cast
+    simp
+  · norm_cast
+    simp [bias]
+
+theorem minNormalExp_fits₁ : -2 ^ (exponentWidth e s - 1) ≤ minNormalExp e := by
+  unfold minNormalExp
+  simp only [Int.neg_le_neg_iff]
+  norm_cast
+  simp only [bias, exponentWidth]
+  grind [Nat.two_pow_pos, Nat.log2_eq_iff]
+
+theorem minNormalExp_fits₂ : minNormalExp e < 2 ^ (exponentWidth e s - 1) := by
+  apply Int.lt_of_le_of_lt (b := 0)
+  · grind [minNormalExp]
+  · norm_cast
+    apply Nat.two_pow_pos
+
+theorem exponentWidth_gt_zero : exponentWidth e s > 0 := by
+  simp [exponentWidth]
+
+theorem toExtRat_unpack_eq_toExtRat {pf : PackedFloat e s}
+  : pf.unpack.toExtRat = pf.toExtRat := by
+  simp only [unpack, toExtRat_eq_toExtRat']
+  cases hNaN : pf.isNaN
+  · cases hInf : pf.isInfinite
+    · cases hZero : pf.isZero
+      · cases hNorm : pf.isNorm
+        · simp only [cond_false, UnpackedFloat.toEUnpackedFloat_not_isNaN, UnpackedFloat.toEUnpackedFloat_not_isInfinite, EUnpackedFloat.toExtRat, toExtRat', hNaN, hInf, hZero, hNorm]
+          simp only [UnpackedFloat.toEUnpackedFloat]
+          rewrite [UnpackedFloat.toRat_normalize_eq_toRat UnpackedFloat.sigWidth_lt_exponentWidth_sub_one]
+          · simp only [UnpackedFloat.toRat_eq, Rat.mul_assoc]
+            congr 2
+            simp only [BitVec.toNat_cons, Bool.toNat_false, Nat.zero_shiftLeft, Nat.zero_or, Rat.zero_add, Rat.div_def, Rat.mul_assoc]
+            congr
+            simp only [← Rat.zpow_natCast, ← Rat.zpow_neg, ← @Rat.zpow_add 2 (by decide)]
+            simp only [BitVec.toInt_ofInt_eq_self exponentWidth_gt_zero minNormalExp_fits₁ minNormalExp_fits₂]
+            simp only [minNormalExp]
+            grind
+          · simp only [Nat.add_one_sub_one, Bool.not_eq_eq_eq_not, Bool.not_true]
+            simp only [BitVec.ssubOverflow_eq]
+            simp only [Bool.or_eq_false_iff, Bool.and_eq_false_iff, Bool.not_eq_eq_eq_not,
+              Bool.not_false]
+            have hSubnorm : pf.isSubnorm = true := by
+              grind [PackedFloat.classification_exhaustive]
+            have hClz : pf.sig.clz.toNat < s := BitVec.toNat_clz_lt_iff_ne_zero.mpr (sig_ne_zero_of_isSubnorm hSubnorm)
+            have he0 : e > 0 := PackedFloat.expWidth_ge_one_of_isSubnorm hSubnorm
+            constructor
+            · left; right
+              simp only [BitVec.msb_eq_toNat, BitVec.toNat_setWidth, ge_iff_le,
+                decide_eq_false_iff_not, Nat.not_le, BitVec.toNat_clz_cons]
+              rewrite [Nat.mod_eq_of_lt]
+              · grind [UnpackedFloat.sigWidth_lt_exponentWidth_sub_one]
+              · grind [UnpackedFloat.sigWidth_add_one_lt_exponentWidth]
+            · right
+              simp only [BitVec.msb_eq_toInt, BitVec.toInt_sub, BitVec.toInt_ofInt,
+                BitVec.toInt_setWidth, Int.sub_bmod_bmod, Int.bmod_sub_bmod, decide_eq_true_eq]
+              rewrite [Int.bmod_eq_of_le]
+              · simp [minNormalExp]
+                have : (BitVec.cons false pf.sig).clz.toNat ≥ 1 := by
+                  simp [BitVec.toNat_clz_cons]
+                omega
+              · apply Int.le_of_neg_le_neg
+                have hexpWidth : 2 ^ 1 ∣ 2 ^ exponentWidth e s := Nat.pow_dvd_pow 2 (by grind [UnpackedFloat.expWidth_le_exponentWidth])
+                simp only [minNormalExp, BitVec.toNat_clz_cons, Int.neg_sub, Int.sub_neg,
+                  Int.natCast_pow, Int.cast_ofNat_Int, Int.neg_neg]
+                norm_cast
+                simp only [bias, exponentWidth]
+                grind [Nat.two_pow_pos, Nat.log2_eq_iff]
+              · simp only [minNormalExp, Int.natCast_pow, Int.cast_ofNat_Int]
+                have : (2 ^ exponentWidth e s + 1) / (2 : Int) = 2 ^ (exponentWidth e s - 1) := by
+                  cases exponentWidth e s <;> grind
+                rewrite [this]
+                simp only [exponentWidth, Nat.add_one_sub_one, gt_iff_lt, Int.sub_eq_add_neg, ← Int.neg_add, ← Int.natCast_add]
+                apply Int.lt_of_le_of_lt (b := 0)
+                · simp [Int.neg_le_zero_iff]
+                  norm_cast
+                  simp
+                · simp [Int.pow_pos]
+        · simp only [cond_false, cond_true, toExtRat', UnpackedFloat.toEUnpackedFloat_not_isNaN, UnpackedFloat.toEUnpackedFloat_not_isInfinite, EUnpackedFloat.toExtRat, hNaN, hInf, hZero, hNorm]
+          simp only [UnpackedFloat.toEUnpackedFloat, UnpackedFloat.toRat_eq, Rat.mul_assoc]
+          congr 2
+          simp only [BitVec.toNat_cons', Nat.shiftLeft_eq, Bool.toNat, cond_true]
+          have he0 : e > 0 := Nat.lt_trans Nat.zero_lt_one (PackedFloat.expWidth_ge_two_of_isNorm hNorm)
+          have he1 : e > 1 := PackedFloat.expWidth_ge_two_of_isNorm hNorm
+          have : (BitVec.zeroExtend (exponentWidth e s) pf.ex - BitVec.ofNat (exponentWidth e s) (bias e)).toInt =
+              pf.ex.toNat - bias e := by
+            simp only [BitVec.truncate_eq_setWidth, bias, BitVec.toInt_sub, BitVec.toInt_setWidth,
+              BitVec.toInt_ofNat', Int.natCast_sub (Nat.two_pow_pos _), Int.natCast_pow,
+              Int.cast_ofNat_Int, Nat.succ_eq_add_one, Nat.zero_add, Int.sub_bmod_bmod,
+              Int.bmod_sub_bmod]
+            rewrite [Int.bmod_eq_of_le]
+            · rfl
+            · apply Int.le_of_neg_le_neg
+              simp only [Int.neg_sub, Int.natCast_pow, Int.cast_ofNat_Int, Int.neg_neg]
+              apply Int.le_trans (b := 2 ^ (e - 1))
+              · omega
+              · norm_cast
+                apply Nat.le_of_mul_le_mul_right (c := 2) _ (by decide)
+                have he : 2 ^ 1 ∣ 2 ^ e := Nat.pow_dvd_pow 2 (by omega)
+                have hexpWidth : 2 ^ 1 ∣ 2 ^ exponentWidth e s := Nat.pow_dvd_pow 2 (by grind [UnpackedFloat.expWidth_le_exponentWidth])
+                simp only [Nat.pow_pred_div he0, Nat.div_mul_cancel he, Nat.div_mul_cancel hexpWidth]
+                apply Nat.pow_le_pow_of_le (by decide)
+                apply UnpackedFloat.expWidth_le_exponentWidth
+            · simp [Int.two_pow_succ_div_two]
+              apply Int.lt_of_lt_of_le (b := 2 ^ (e - 1))
+              · simp only [Int.sub_eq_add_neg, Int.reduceNeg, Int.neg_add, Int.neg_neg]
+                norm_cast
+                have : pf.ex.toNat < 2 ^ e - 1 := exp_lt_max_of_isNorm hNorm
+                have : 2 ^ 1 ∣ 2 ^ e := Nat.pow_dvd_pow 2 he0
+                simp only [Nat.pow_pred_div he0, Int.natCast_ediv]
+                simp
+                grind
+              · norm_cast
+                apply Nat.pow_le_pow_of_le (by decide)
+                grind [UnpackedFloat.expWidth_le_exponentWidth]
+          rewrite [this]
+          simp only [Nat.one_mul, Rat.natCast_add, Rat.natCast_pow, Rat.natCast_ofNat,
+            Nat.add_one_sub_one, @Int.sub_eq_add_neg _ s, @Rat.zpow_add 2 (by decide)]
+          rw [Rat.mul_comm _ (2 ^ (-s : Int)), ← Rat.mul_assoc, Rat.add_mul, ← Rat.zpow_natCast, ← Rat.zpow_add (by decide) s (-s), Int.add_neg_eq_sub, Int.sub_self, Rat.zpow_zero, Rat.zpow_neg, ← Rat.div_def]
+      · simp only [EUnpackedFloat.toExtRat, cond_true, cond_false, EUnpackedFloat.mkZero_not_isNaN,
+        EUnpackedFloat.mkZero_not_isInfinite, toExtRat', hNaN, hInf, hZero]
+        simp [EUnpackedFloat.mkZero]
+    · simp only [EUnpackedFloat.toExtRat, cond_true, cond_false,
+      EUnpackedFloat.mkInfinity_not_isNaN, EUnpackedFloat.mkInfinity_isInfinite, toExtRat', hNaN,
+      hInf]
+      simp [EUnpackedFloat.mkInfinity]
+  · simp only [EUnpackedFloat.toExtRat, cond_true, EUnpackedFloat.mkNaN_isNaN, toExtRat', hNaN]
+
+end PackedFloat
