@@ -261,39 +261,98 @@ def BitVec.sge (x y : BitVec w) : Bool := y.sle x
 
 #check round
 
+
+/-
+
+The correct way to think of an UnpackedFloat is as a fixed point number,
+written in scientific notation.
+
+So, consider fixed point numbers with three digits, dot right after the first digit (as in normal floating point).
+This gives us:
+
+→ 0.00 0.01 0.10 0.11 
+→ 1.00 1.01 1.10 1.11
+
+→ 0.00 = _ | 0.01 = 1.00 * 10^(-2) | 0.10 = 1.00 * 10^(-1) | 0.11 = 1.10 * 10^(-1)
+→ 1.00 = 1.00 * 10^(0) | 1.01 = 1.01 * 10^(0) | 1.10 = 1.10 * 10^(0) | 1.11 = 1.11 * 10^(0)
+
+Next, to encode the `1.00`, we write this as:
+
+→ 0.00 = _ | 0.01 = (100 * 10^(-2)) * 10^(-2) | 0.10 = (100 * 10^(-2)) * 10^(-1) | 0.11 = (110 * 10^(-2)) * 10^(-1)
+→ 1.00 = (100 * 10^(-2)) * 10^(0) | 1.01 = (101 * 10^(-2)) * 10^(0) | 1.10 = (110*10^(-2)) * 10^(0) | 1.11 = (111 * 10^(-2)) * 10^(0)
+
+In this way, we can see our number as a composition of scientific notation with fixed-width exponent.
+In the UnpackedFloat, we only store the exponent, not the constant fixed-point shift (10^(-2)), 
+since this is common to all numbers, and also, morally, it is absorbed into the significand as a fixed-point.
+-/
+
 -- the number is sig.toNat *  2 ^(-sigPrec) * 2 ^ (ex.toInt)
 -- choose e = 0, s = 1 then see that after normalization, we e.
 -- If our exponent is
-def roundFast (up : UnpackedFloat e s) : EUnpackedFloat e s :=
+def roundFast (up : UnpackedFloat e s) : EUnpackedFloat e' s' :=
     let up := up.normalize
     if up.sig = 0
-    then EUnpackedFloat.mkNumber up
+    then EUnpackedFloat.mkNumber {
+      sign := up.sign
+      ex := 0#e'
+      sig := 0#s'
+    }
     else
       -- we are in the <1.-----> case.
       -- let exOffset' := 2^(exWidth - 1) + sigWidth - 2
       -- trim bitvector
       -- can absorb 2^s component into the significand, but any more
       -- cannot be absorbed.
-      if up.ex > BitVec.ofInt e (maxNormalExp e) + BitVec.ofInt e s
-      then
+      if hExTooBig : up.ex > BitVec.ofInt e (maxNormalExp e') + BitVec.ofInt e s' then
         EUnpackedFloat.mkInfinity up.sign
-      else if up.ex < BitVec.ofInt e (minNormalExp e)  - BitVec.ofInt e s
-      then
+      else if hExTooSmall : up.ex < BitVec.ofInt e (minNormalExp e')  - BitVec.ofInt e s' then
       -- | too small to be subnormal.
         EUnpackedFloat.mkZero up.sign
-      else if up.ex < BitVec.ofInt e (minNormalExp e)
-      then
-        -- | subnormal case.
-        let shift := (BitVec.ofInt e (minNormalExp e) - up.ex).toNat
-        let sig_shifted := up.sig >>> shift
-        sorry
+      -- else if up.ex < BitVec.ofInt e (minNormalExp e) then
+      --   -- | subnormal case.
+      --   let shift := (BitVec.ofInt e (minNormalExp e) - up.ex).toNat
+      --   let sig_shifted := up.sig >>> shift
+        -- sorry
         -- let round_result := roundSignificandAndStickyBit up.sign sig_shifted s RoundingMode.RTZ
         -- EUnpackedFloat.mkSubnormal round_result
       else
+        let adjustedExp :=
+          if up.ex > BitVec.ofInt e (maxNormalExp e') then
+            BitVec.ofInt e (maxNormalExp e)
+          else if up.ex < BitVec.ofInt e (minNormalExp e') then
+            BitVec.ofInt e (minNormalExp e')
+          else
+            up.ex
+        let truncatedSig : BitVec s' :=
+          if adjustedExp = up.ex then
+            up.sig.truncate _
+          else if adjustedExp < up.ex then
+            -- we decreased exponent, so increase significand
+            (up.sig <<< (up.ex - adjustedExp)).truncate _
+          else
+            -- we increased exponent, so decrease significand
+            let shift := (adjustedExp - up.ex)
+            (up.sig >>> shift).truncate _
+        let remainder : BitVec (s - s') :=
+          if adjustedExp = up.ex then
+            up.sig.drop s'
+          else if adjustedExp < up.ex then
+            (up.sig <<< (up.ex - adjustedExp)).drop s'
+          else
+            let shift := (adjustedExp - up.ex)
+            (up.sig >>> shift).drop s'
+        sorry
+
+
+        -- I need to ensure that exponent is in
+        -- [minNormalExp-1, maxNormalExp]
+        -- normal plus subnormal case.
+        -- drop the number of bits that can fit into the exponent.
+
+        -- let shouldRoundAway := shouldRoundAway .RNE
         -- | normal case.
         -- let round_result := roundSignificandAndStickyBit up.sign up.sig s RoundingMode.RTZ
         -- EUnpackedFloat.mkNormal (up.ex) round_result
-        sorry
 
 @[bv_normalize]
 def div_on_unpackedFloat (a b : UnpackedFloat (exponentWidth e s) (s + 1)) (mode : RoundingMode) : PackedFloat e s :=
