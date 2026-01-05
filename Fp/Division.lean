@@ -256,29 +256,28 @@ def BitVec.monus (a : BitVec w) (b : BitVec w) : BitVec w :=
 
 
 @[bv_normalize]
-def BitVec.addExtending (a : BitVec v) (b : BitVec w) : BitVec (max v w + 1) :=
-  let a' := a.signExtend (max v w + 1)
-  let b' := b.signExtend (max v w + 1)
+def BitVec.addExtending (a : BitVec v) (b : BitVec w) : BitVec (Nat.max v w + 1) :=
+  let a' := a.signExtend (Nat.max v w + 1)
+  let b' := b.signExtend (Nat.max v w + 1)
   a' + b'
 
 @[bv_normalize]
-def BitVec.subExtending (a : BitVec v) (b : BitVec w) : BitVec (max v w + 1) :=
-  let a' := a.signExtend (max v w + 1)
-  let b' := b.signExtend (max v w + 1)
+def BitVec.subExtending (a : BitVec v) (b : BitVec w) : BitVec (Nat.max v w + 1) :=
+  let a' := a.signExtend (Nat.max v w + 1)
+  let b' := b.signExtend (Nat.max v w + 1)
   a' - b'
 
 @[bv_normalize]
 def BitVec.eqExtending (a : BitVec v) (b : BitVec w) : Prop :=
-  let a' := a.signExtend (max v w)
-  let b' := b.signExtend (max v w)
+  let a' := a.signExtend (Nat.max v w)
+  let b' := b.signExtend (Nat.max v w)
   a' = b'
 
 @[bv_normalize]
 def BitVec.sltExtending (a : BitVec v) (b : BitVec w) : Prop :=
-  let a' := a.signExtend (max v w)
-  let b' := b.signExtend (max v w)
+  let a' := a.signExtend (Nat.max v w)
+  let b' := b.signExtend (Nat.max v w)
   a'.slt b'
-
 
 instance : Decidable (BitVec.eqExtending a b) := by
     unfold BitVec.eqExtending
@@ -465,7 +464,7 @@ def roundRNEFastUF (inUf : UnpackedFloat e s) : EUnpackedFloat e' s' :=
           else if BitVec.sltExtending adjustedExp inUf.ex then
             -- we decreased exponent, so increase significand
             -- | TODO: can this overflow?
-            let sig' := (inUf.sig <<< (BitVec.subExtending inUf.ex adjustedExp))
+            let sig' := (inUf.sig <<< (BitVec.subExtending inUf.ex adjustedExp : BitVec (max e e' + 1)))
             sig'.splitAtMsbs s'
           else
             -- e' > e
