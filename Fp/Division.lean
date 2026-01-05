@@ -328,6 +328,7 @@ def BitVec.shrExtending (bv : BitVec w) (shAmt : BitVec v) : BitVec v :=
   (bv.zeroExtend v) >>> shAmt
 
 
+@[bv_normalize]
 def EUnpackedFloat.incrSignificand {e s : Nat} (eu : EUnpackedFloat e s) : EUnpackedFloat e s :=
   match eu.state with
   | .NaN => eu
@@ -422,6 +423,7 @@ If our exponent is smaller than -12, then we cannot fit it.
 -- the number is sig.toNat *  2 ^(-sigPrec) * 2 ^ (ex.toInt)
 -- choose e = 0, s = 1 then see that after normalization, we e.
 -- If our exponent is
+@[bv_normalize]
 def roundRNEFastUF (inUf : UnpackedFloat e s) : EUnpackedFloat e' s' :=
     let inUf := inUf.normalize
     -- Great, we have a number of the form <1.xxxxx> * 2^(ex) or, 0 * 2^(ex).
