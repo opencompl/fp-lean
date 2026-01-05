@@ -296,6 +296,7 @@ def BitVec.sge (x y : BitVec w) : Bool := y.sle x
 def BitVec.dropLsbs (bv : BitVec w) (n : Nat) : BitVec (w - n) :=
   (bv >>> n).setWidth _
 
+@[bv_normalize]
 theorem getMsbD_dropLsbs {w n : Nat} (h : n < w) (bv : BitVec w) :
     bv.getMsbD i = (bv.dropLsbs n).getMsbD i := by
   simp [BitVec.dropLsbs, BitVec.getMsbD]
@@ -305,14 +306,26 @@ theorem getMsbD_dropLsbs {w n : Nat} (h : n < w) (bv : BitVec w) :
   · simp [hi]
     sorry
 
+@[bv_normalize]
 def BitVec.dropMsb (bv : BitVec w) (n : Nat) : BitVec (w - n) :=
   bv.setWidth _
 
+@[bv_normalize]
 def BitVec.takeMsb (bv : BitVec w) (n : Nat) : BitVec n :=
   (bv >>> (w - n)).setWidth _
 
+@[bv_normalize]
 def BitVec.splitAtMsbs (bv : BitVec w) (n : Nat) : BitVec n × BitVec (w - n) :=
   (bv.takeMsb n, bv.dropMsb n)
+
+/-- Shift left 'bv' by 'shAmt', extending 'bv' to width 'v' first. -/
+@[bv_normalize]
+def BitVec.shlExtending (bv : BitVec w) (shAmt : BitVec v) : BitVec v :=
+  (bv.zeroExtend v) <<< shAmt
+
+@[bv_normalize]
+def BitVec.shrExtending (bv : BitVec w) (shAmt : BitVec v) : BitVec v :=
+  (bv.zeroExtend v) >>> shAmt
 
 
 def EUnpackedFloat.incrSignificand {e s : Nat} (eu : EUnpackedFloat e s) : EUnpackedFloat e s :=
@@ -441,12 +454,16 @@ def roundRNEFast (inUf : UnpackedFloat e s) : EUnpackedFloat e' s' :=
         let (truncatedSig, remainder) : BitVec s' × BitVec (s - s') :=
           if BitVec.eqExtending adjustedExp inUf.ex then
             (inUf.sig.splitAtMsbs s')
+          -- e' < e
           else if BitVec.sltExtending adjustedExp inUf.ex then
             -- we decreased exponent, so increase significand
+            -- | TODO: can this overflow?
             let sig' := (inUf.sig <<< (BitVec.subExtending inUf.ex adjustedExp))
             sig'.splitAtMsbs s'
           else
+            -- e' > e
             -- we increased exponent, so decrease significand
+            -- | TODO: can this overflow?
             let shift := BitVec.subExtending adjustedExp inUf.ex
             let sig' := (inUf.sig >>> shift).truncate _
             sig'.splitAtMsbs s'
