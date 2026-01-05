@@ -321,6 +321,11 @@ Suppose we want to round to 0 bits of precision, using round to nearest even. Th
 
 Thus, see that just having one sticky bit is enough, since it tells us whether we are at the exact halfway point or not, and that's all we need to know.
 
+
+We will return an EUnpackedFloat,
+which can signal NaN/Infinity/Zero, in addition to normal numbers.
+
+
 -/
 
 -- the number is sig.toNat *  2 ^(-sigPrec) * 2 ^ (ex.toInt)
@@ -342,7 +347,7 @@ def roundRNEFast (up : UnpackedFloat e s) : EUnpackedFloat e' s' :=
       -- cannot be absorbed.
       if hExTooBig : up.ex > BitVec.ofInt e (maxNormalExp e') + BitVec.ofInt e s' then
         EUnpackedFloat.mkInfinity up.sign
-      else if hExTooSmall : up.ex < BitVec.ofInt e (minNormalExp e')  - BitVec.ofInt e s' then
+      else if hExTooSmall : up.ex < BitVec.ofInt e (minNormalExp e') - BitVec.ofInt e s' then
       -- | too small to be subnormal.
         EUnpackedFloat.mkZero up.sign
       -- else if up.ex < BitVec.ofInt e (minNormalExp e) then
@@ -372,13 +377,20 @@ def roundRNEFast (up : UnpackedFloat e s) : EUnpackedFloat e' s' :=
             (up.sig >>> shift).truncate _
         let remainder : BitVec (s - s') :=
           if adjustedExp = up.ex then
-            up.sig.drop s'
+            up.sig.dropMsb s'
           else if adjustedExp < up.ex then
-            (up.sig <<< (up.ex - adjustedExp)).drop s'
+            (up.sig <<< (up.ex - adjustedExp)).dropMsb s'
           else
             let shift := (adjustedExp - up.ex)
-            (up.sig >>> shift).drop s'
-        sorry
+            (up.sig >>> shift).dropMsb s'
+        let guardBit := remainder.getMsbD 0
+        let stickyBit : Bool := (remainder.dropMsb 1) ≠ 0
+        let isOdd := truncatedSig.getMsbD 0
+        let shouldRoundAway : Bool := guardBit && (stickyBit || isOdd)
+        if shouldRoundAway then
+          sorry
+        else 
+          sorry
 
 
         -- I need to ensure that exponent is in
