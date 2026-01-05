@@ -255,6 +255,37 @@ def BitVec.monus (a : BitVec w) (b : BitVec w) : BitVec w :=
   if a ≤ b then 0#w else a - b
 
 
+def BitVec.addExtending (a : BitVec v) (b : BitVec w) : BitVec (max v w + 1) :=
+  let a' := a.signExtend (max v w + 1)
+  let b' := b.signExtend (max v w + 1)
+  a' + b'
+
+def BitVec.subExtending (a : BitVec v) (b : BitVec w) : BitVec (max v w + 1) :=
+  let a' := a.signExtend (max v w + 1)
+  let b' := b.signExtend (max v w + 1)
+  a' - b'
+
+def BitVec.eqExtending (a : BitVec v) (b : BitVec w) : Prop :=
+  let a' := a.signExtend (max v w)
+  let b' := b.signExtend (max v w)
+  a' = b'
+
+def BitVec.sltExtending (a : BitVec v) (b : BitVec w) : Prop :=
+  let a' := a.signExtend (max v w)
+  let b' := b.signExtend (max v w)
+  a'.slt b'
+
+
+instance : Decidable (BitVec.eqExtending a b) := by
+    unfold BitVec.eqExtending
+    simp 
+    infer_instance
+
+instance : Decidable (BitVec.sltExtending a b) := by
+    unfold BitVec.sltExtending
+    simp 
+    infer_instance
+
 /-- x ≥ y ↔ y ≤ x-/
 @[bv_normalize]
 def BitVec.sge (x y : BitVec w) : Bool := y.sle x
@@ -276,6 +307,33 @@ theorem getMsbD_dropLsbs {w n : Nat} (h : n < w) (bv : BitVec w) :
 
 def BitVec.dropMsb (bv : BitVec w) (n : Nat) : BitVec (w - n) :=
   bv.setWidth _
+
+def BitVec.takeMsb (bv : BitVec w) (n : Nat) : BitVec n :=
+  (bv >>> (w - n)).setWidth _
+
+def BitVec.splitAtMsbs (bv : BitVec w) (n : Nat) : BitVec n × BitVec (w - n) :=
+  (bv.takeMsb n, bv.dropMsb n)
+
+
+def EUnpackedFloat.incrSignificand {e s : Nat} (eu : EUnpackedFloat e s) : EUnpackedFloat e s :=
+  match eu.state with
+  | .NaN => eu
+  | .Infinity => eu
+  | .Number =>
+    if eu.num.sig = BitVec.allOnes _ then
+      -- we overflowed the significand, so we need to adjust exponent.
+      let newExp := eu.num.ex + 1
+      EUnpackedFloat.mkNumber {
+        sign := eu.num.sign
+        ex := newExp
+        sig := 1#s -- since we overflowed, the new significand is 1.000... (is that right?)
+      }
+    else
+      EUnpackedFloat.mkNumber {
+        sign := eu.num.sign
+        ex := eu.num.ex
+        sig := eu.num.sig + 1
+      }
 
 /-
 
@@ -326,71 +384,89 @@ We will return an EUnpackedFloat,
 which can signal NaN/Infinity/Zero, in addition to normal numbers.
 
 
+Rounding normalized numbers
+---------------------------
+
+Suppose we have 3 digits of precision, and the exponent can go from -9 to 7.
+Then, suppose we have an unnormalized number:
+
+##### Smallest Exponent
+- 0.001 * 10^7 
+  This upon normalization becomes: 1.000 * 10^(7-3) = 1.000 * 10^4
+
+- 0.001 * 10^(-9)
+  This upon normalization becomes: 1.000 * 10^(-9-3) = 1.000 * 10^(-12)
+
+
+So, even though our scale can go from -9 to 7, after normalization, we can have exponents from -12 to 7.
+If our exponent is smaller than -12, then we cannot fit it.
+
+##### Largest Exponent
+
+- 1.111 * 10^7 | This upon normalization stays the same: 1.111 * 10^7.
 -/
 
 -- the number is sig.toNat *  2 ^(-sigPrec) * 2 ^ (ex.toInt)
 -- choose e = 0, s = 1 then see that after normalization, we e.
 -- If our exponent is
-def roundRNEFast (up : UnpackedFloat e s) : EUnpackedFloat e' s' :=
-    let up := up.normalize
-    if up.sig = 0
-    then EUnpackedFloat.mkNumber {
-      sign := up.sign
-      ex := 0#e'
-      sig := 0#s'
-    }
+def roundRNEFast (inUf : UnpackedFloat e s) : EUnpackedFloat e' s' :=
+    let inUf := inUf.normalize
+    -- Great, we have a number of the form <1.xxxxx> * 2^(ex) or, 0 * 2^(ex).
+    if inUf.sig = 0
+      -- we are in the <0> case.
+      then EUnpackedFloat.mkNumber {
+        sign := inUf.sign
+        ex := 0#e'
+        sig := 0#s'
+      }
     else
       -- we are in the <1.-----> case.
-      -- let exOffset' := 2^(exWidth - 1) + sigWidth - 2
-      -- trim bitvector
-      -- can absorb 2^s component into the significand, but any more
-      -- cannot be absorbed.
-      if hExTooBig : up.ex > BitVec.ofInt e (maxNormalExp e') + BitVec.ofInt e s' then
-        EUnpackedFloat.mkInfinity up.sign
-      else if hExTooSmall : up.ex < BitVec.ofInt e (minNormalExp e') - BitVec.ofInt e s' then
-      -- | too small to be subnormal.
-        EUnpackedFloat.mkZero up.sign
-      -- else if up.ex < BitVec.ofInt e (minNormalExp e) then
-      --   -- | subnormal case.
-      --   let shift := (BitVec.ofInt e (minNormalExp e) - up.ex).toNat
-      --   let sig_shifted := up.sig >>> shift
-        -- sorry
-        -- let round_result := roundSignificandAndStickyBit up.sign sig_shifted s RoundingMode.RTZ
-        -- EUnpackedFloat.mkSubnormal round_result
+      if hExTooBig : inUf.ex > BitVec.ofInt e (maxNormalExp e') then -- + BitVec.ofInt e s' then
+        EUnpackedFloat.mkInfinity inUf.sign
+      -- | TODO: why does this computation fit? In particular, why does adding `s'` not overflow?
+      -- We may need an extension here.
+      else if hExTooSmall : (inUf.ex).slt (BitVec.ofInt e (minNormalExp e') + BitVec.ofInt e s') then
+        -- See example, where `0.001 * 10^-5 -> 1.00 * 10^-7`, which is the smallest exponent we can use.
+        EUnpackedFloat.mkZero inUf.sign
       else
-        let adjustedExp :=
-          if up.ex > BitVec.ofInt e (maxNormalExp e') then
-            BitVec.ofInt e (maxNormalExp e)
-          else if up.ex < BitVec.ofInt e (minNormalExp e') then
-            BitVec.ofInt e (minNormalExp e')
+        -- Adjust the exponent to be in range.
+        let adjustedExp : BitVec e' :=
+          if inUf.ex > BitVec.ofInt e (maxNormalExp e') then
+            BitVec.ofInt e' (maxNormalExp e')
+          else if inUf.ex < BitVec.ofInt e (minNormalExp e') then
+            BitVec.ofInt e' (minNormalExp e')
           else
-            up.ex
-        let truncatedSig : BitVec s' :=
-          if adjustedExp = up.ex then
-            up.sig.truncate _
-          else if adjustedExp < up.ex then
+            inUf.ex.signExtend e'
+        -- Adjust the significand.
+        let (truncatedSig, remainder) : BitVec s' × BitVec (s - s') :=
+          if BitVec.eqExtending adjustedExp inUf.ex then
+            (inUf.sig.splitAtMsbs s')
+          else if BitVec.sltExtending adjustedExp inUf.ex then
             -- we decreased exponent, so increase significand
-            (up.sig <<< (up.ex - adjustedExp)).truncate _
+            let sig' := (inUf.sig <<< (BitVec.subExtending inUf.ex adjustedExp))
+            sig'.splitAtMsbs s'
           else
             -- we increased exponent, so decrease significand
-            let shift := (adjustedExp - up.ex)
-            (up.sig >>> shift).truncate _
-        let remainder : BitVec (s - s') :=
-          if adjustedExp = up.ex then
-            up.sig.dropMsb s'
-          else if adjustedExp < up.ex then
-            (up.sig <<< (up.ex - adjustedExp)).dropMsb s'
-          else
-            let shift := (adjustedExp - up.ex)
-            (up.sig >>> shift).dropMsb s'
+            let shift := BitVec.subExtending adjustedExp inUf.ex
+            let sig' := (inUf.sig >>> shift).truncate _
+            sig'.splitAtMsbs s'
         let guardBit := remainder.getMsbD 0
         let stickyBit : Bool := (remainder.dropMsb 1) ≠ 0
-        let isOdd := truncatedSig.getMsbD 0
+        let isOdd := truncatedSig.getLsbD 0
         let shouldRoundAway : Bool := guardBit && (stickyBit || isOdd)
+        let ufOut : UnpackedFloat e' s' :=
+          {
+            sign := inUf.sign
+            ex := adjustedExp
+            sig := truncatedSig
+          }
+        let eufOut : EUnpackedFloat e' s' :=
+          EUnpackedFloat.mkNumber ufOut
         if shouldRoundAway then
-          sorry
+          -- we should round up.
+          eufOut.incrSignificand
         else 
-          sorry
+          eufOut
 
 
         -- I need to ensure that exponent is in
