@@ -255,21 +255,25 @@ def BitVec.monus (a : BitVec w) (b : BitVec w) : BitVec w :=
   if a ≤ b then 0#w else a - b
 
 
+@[bv_normalize]
 def BitVec.addExtending (a : BitVec v) (b : BitVec w) : BitVec (max v w + 1) :=
   let a' := a.signExtend (max v w + 1)
   let b' := b.signExtend (max v w + 1)
   a' + b'
 
+@[bv_normalize]
 def BitVec.subExtending (a : BitVec v) (b : BitVec w) : BitVec (max v w + 1) :=
   let a' := a.signExtend (max v w + 1)
   let b' := b.signExtend (max v w + 1)
   a' - b'
 
+@[bv_normalize]
 def BitVec.eqExtending (a : BitVec v) (b : BitVec w) : Prop :=
   let a' := a.signExtend (max v w)
   let b' := b.signExtend (max v w)
   a' = b'
 
+@[bv_normalize]
 def BitVec.sltExtending (a : BitVec v) (b : BitVec w) : Prop :=
   let a' := a.signExtend (max v w)
   let b' := b.signExtend (max v w)
@@ -278,12 +282,12 @@ def BitVec.sltExtending (a : BitVec v) (b : BitVec w) : Prop :=
 
 instance : Decidable (BitVec.eqExtending a b) := by
     unfold BitVec.eqExtending
-    simp 
+    simp
     infer_instance
 
 instance : Decidable (BitVec.sltExtending a b) := by
     unfold BitVec.sltExtending
-    simp 
+    simp
     infer_instance
 
 /-- x ≥ y ↔ y ≤ x-/
@@ -293,6 +297,7 @@ def BitVec.sge (x y : BitVec w) : Bool := y.sle x
 #check round
 
 
+@[bv_normalize]
 def BitVec.dropLsbs (bv : BitVec w) (n : Nat) : BitVec (w - n) :=
   (bv >>> n).setWidth _
 
@@ -300,7 +305,7 @@ def BitVec.dropLsbs (bv : BitVec w) (n : Nat) : BitVec (w - n) :=
 theorem getMsbD_dropLsbs {w n : Nat} (h : n < w) (bv : BitVec w) :
     bv.getMsbD i = (bv.dropLsbs n).getMsbD i := by
   simp [BitVec.dropLsbs, BitVec.getMsbD]
-  by_cases hi : i < w 
+  by_cases hi : i < w
   · simp [hi]
     sorry
   · simp [hi]
@@ -357,7 +362,7 @@ written in scientific notation.
 So, consider fixed point numbers with three digits, dot right after the first digit (as in normal floating point).
 This gives us:
 
-→ 0.00 0.01 0.10 0.11 
+→ 0.00 0.01 0.10 0.11
 → 1.00 1.01 1.10 1.11
 
 → 0.00 = _ | 0.01 = 1.00 * 10^(-2) | 0.10 = 1.00 * 10^(-1) | 0.11 = 1.10 * 10^(-1)
@@ -369,7 +374,7 @@ Next, to encode the `1.00`, we write this as:
 → 1.00 = (100 * 10^(-2)) * 10^(0) | 1.01 = (101 * 10^(-2)) * 10^(0) | 1.10 = (110*10^(-2)) * 10^(0) | 1.11 = (111 * 10^(-2)) * 10^(0)
 
 In this way, we can see our number as a composition of scientific notation with fixed-width exponent.
-In the UnpackedFloat, we only store the exponent, not the constant fixed-point shift (10^(-2)), 
+In the UnpackedFloat, we only store the exponent, not the constant fixed-point shift (10^(-2)),
 since this is common to all numbers, and also, morally, it is absorbed into the significand as a fixed-point.
 -/
 
@@ -385,7 +390,7 @@ Suppose we want to round to 0 bits of precision, using round to nearest even. Th
    + 10.5001 -> 11
     * If it is non-zero, we *always* round up to 11, since it's strictly closer to 11 than 10.
 - 10.9 -> 11
-- 11.5????? 
+- 11.5?????
     + 11.5000 -> 12
       * If it is zero, then we round to the nearest even, which is 12.
     + 11.5001 -> 12
@@ -405,7 +410,7 @@ Suppose we have 3 digits of precision, and the exponent can go from -9 to 7.
 Then, suppose we have an unnormalized number:
 
 ##### Smallest Exponent
-- 0.001 * 10^7 
+- 0.001 * 10^7
   This upon normalization becomes: 1.000 * 10^(7-3) = 1.000 * 10^4
 
 - 0.001 * 10^(-9)
@@ -484,7 +489,7 @@ def roundRNEFastUF (inUf : UnpackedFloat e s) : EUnpackedFloat e' s' :=
         if shouldRoundAway then
           -- we should round up.
           eufOut.incrSignificand
-        else 
+        else
           eufOut
 
 
@@ -611,4 +616,6 @@ theorem div_one_is_id_on_numerator_ex_smaller (a : PackedFloat 5 2) (h : ¬ a.un
 theorem div_self_is_one' (a : PackedFloat 5 2)
   (h : ¬a.isNaN ∧ ¬a.isInfinite ∧ ¬a.isZero)
   : (div a a .RTZ) = oneE5M2 := by
+  bv_normalize
+  simp at *;
   bv_decide
