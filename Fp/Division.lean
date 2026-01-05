@@ -422,7 +422,7 @@ If our exponent is smaller than -12, then we cannot fit it.
 -- the number is sig.toNat *  2 ^(-sigPrec) * 2 ^ (ex.toInt)
 -- choose e = 0, s = 1 then see that after normalization, we e.
 -- If our exponent is
-def roundRNEFast (inUf : UnpackedFloat e s) : EUnpackedFloat e' s' :=
+def roundRNEFastUF (inUf : UnpackedFloat e s) : EUnpackedFloat e' s' :=
     let inUf := inUf.normalize
     -- Great, we have a number of the form <1.xxxxx> * 2^(ex) or, 0 * 2^(ex).
     if inUf.sig = 0
@@ -486,16 +486,6 @@ def roundRNEFast (inUf : UnpackedFloat e s) : EUnpackedFloat e' s' :=
           eufOut
 
 
-        -- I need to ensure that exponent is in
-        -- [minNormalExp-1, maxNormalExp]
-        -- normal plus subnormal case.
-        -- drop the number of bits that can fit into the exponent.
-
-        -- let shouldRoundAway := shouldRoundAway .RNE
-        -- | normal case.
-        -- let round_result := roundSignificandAndStickyBit up.sign up.sig s RoundingMode.RTZ
-        -- EUnpackedFloat.mkNormal (up.ex) round_result
-
 @[bv_normalize]
 def div_on_unpackedFloat (a b : UnpackedFloat (exponentWidth e s) (s + 1)) (mode : RoundingMode) : PackedFloat e s :=
   -- a.toRat = (-1)^a.sign * a.sig.toNat * 2 ^ (a.ex.toInt) * 2 ^(-s)
@@ -517,6 +507,14 @@ def div_on_unpackedFloat (a b : UnpackedFloat (exponentWidth e s) (s + 1)) (mode
   let expNumerator := a.ex -- if a.ex > 0 then a.ex - 1 else 0
   let expDenominator := b.ex -- if b.ex > 0 then b.ex - 1 else 0
   -- Shift and round
+  let ufIn : UnpackedFloat _ _ := {
+        sign
+        ex := BitVec.subExtending expNumerator expDenominator
+        sig := quot_with_sticky
+  }
+  roundRNEFastUF ufIn |>.pack
+
+  /-
   -- | TODO: For the rounding, we still expand out into fixed point.
   -- We should instead use the cleverer rounder.
   if expNumerator.sge expDenominator then
@@ -554,6 +552,7 @@ def div_on_unpackedFloat (a b : UnpackedFloat (exponentWidth e s) (s + 1)) (mode
       }
     }
     round _ _ mode quot_rshift
+  -/
 
 /--
 Division of two floating-point numbers, rounded to a floating point number
