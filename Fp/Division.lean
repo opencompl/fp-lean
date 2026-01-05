@@ -262,6 +262,21 @@ def BitVec.sge (x y : BitVec w) : Bool := y.sle x
 #check round
 
 
+def BitVec.dropLsbs (bv : BitVec w) (n : Nat) : BitVec (w - n) :=
+  (bv >>> n).setWidth _
+
+theorem getMsbD_dropLsbs {w n : Nat} (h : n < w) (bv : BitVec w) :
+    bv.getMsbD i = (bv.dropLsbs n).getMsbD i := by
+  simp [BitVec.dropLsbs, BitVec.getMsbD]
+  by_cases hi : i < w 
+  · simp [hi]
+    sorry
+  · simp [hi]
+    sorry
+
+def BitVec.dropMsb (bv : BitVec w) (n : Nat) : BitVec (w - n) :=
+  bv.setWidth _
+
 /-
 
 The correct way to think of an UnpackedFloat is as a fixed point number,
@@ -286,10 +301,32 @@ In the UnpackedFloat, we only store the exponent, not the constant fixed-point s
 since this is common to all numbers, and also, morally, it is absorbed into the significand as a fixed-point.
 -/
 
+/-
+#### Why guard and sticky bits:
+
+Suppose we want to round to 0 bits of precision, using round to nearest even. Then, if we have:
+
+- 10.1 -> 10
+- 10.5???, we need to know if the ??? is zero or not.
+   + 10.5000 -> 10
+    * If it is zero, then we round to the nearest even, which is 10.
+   + 10.5001 -> 11
+    * If it is non-zero, we *always* round up to 11, since it's strictly closer to 11 than 10.
+- 10.9 -> 11
+- 11.5????? 
+    + 11.5000 -> 12
+      * If it is zero, then we round to the nearest even, which is 12.
+    + 11.5001 -> 12
+      * If it is non-zero, we *always* round up to 12, since it's strictly closer to 12 than 11.
+
+Thus, see that just having one sticky bit is enough, since it tells us whether we are at the exact halfway point or not, and that's all we need to know.
+
+-/
+
 -- the number is sig.toNat *  2 ^(-sigPrec) * 2 ^ (ex.toInt)
 -- choose e = 0, s = 1 then see that after normalization, we e.
 -- If our exponent is
-def roundFast (up : UnpackedFloat e s) : EUnpackedFloat e' s' :=
+def roundRNEFast (up : UnpackedFloat e s) : EUnpackedFloat e' s' :=
     let up := up.normalize
     if up.sig = 0
     then EUnpackedFloat.mkNumber {
