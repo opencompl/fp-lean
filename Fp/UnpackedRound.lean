@@ -16,6 +16,7 @@ def BitVec.getElem_leadingOne (w : Nat) (i : Nat) (hi : i < w ) : (BitVec.leadin
 @[bv_normalize]
 def BitVec.decrement (x : BitVec w) : BitVec w := x - 1#w
 
+@[bv_normalize]
 def BitVec.extendAtMsb (x : BitVec w) (δ : Nat) : BitVec (δ + w) :=
   x.zeroExtend _
 
@@ -29,6 +30,7 @@ theorem BitVec.getMsbD_extractMsb' {w hi len} (h : hi + len ≤ w) (x : BitVec w
   simp [extractMsb', BitVec.getMsbD_eq_getLsbD]
   grind
 
+@[bv_normalize]
 def BitVec.expandingSubtract {w} (a b : BitVec w) : BitVec (w + 1) :=
   let a' : BitVec (w + 1) := a.signExtend (w + 1)
   let b' : BitVec (w + 1) := b.signExtend (w + 1)
@@ -41,12 +43,20 @@ theorem BitVec.toInt_expandingSubtract {w} (a b : BitVec w) :
   have : 2 ^ (w + 1) / 2 = 2^w := by grind
   apply Int.bmod_eq_of_le <;> grind
 
+
+@[bv_normalize]
 def BitVec.width {w : Nat} (_x : BitVec w) : Nat := w
 
 /-- Convert a binary number into a unary encoding of the number. -/
+@[bv_normalize]
 def BitVec.orderEncode (x : BitVec w) : BitVec w :=
   (1#w <<< x) - 1
 
+@[bv_normalize]
+def BitVec.scollar (x : BitVec w) (minVal : BitVec w) (maxVal : BitVec w) : BitVec w :=
+  if x.slt minVal then minVal
+  else if maxVal.slt x then maxVal
+  else x
 
 -- roundingDecision mode inUf.sign significandEven choosenGuardBit choosenStickyBit false
 -- bollu: TODO: port rounding mode for real.
@@ -57,14 +67,105 @@ def roundingDecision (mode : RoundingMode) (sign : Bool) (significandEven : Bool
       if guardBit then
         if stickyBit || (!significandEven) then true else false
       else false
-  | RoundingMode.RTZ =>
-      false
-  | RoundingMode.RNA =>
-      if guardBit || stickyBit then true else false
-  | RoundingMode.RTP =>
-      if sign then false else if guardBit || stickyBit then true else false
-  | RoundingMode.RTN =>
-      if sign then if guardBit || stickyBit then true else false else false
+  | _ => false
+
+/-
+  // The final reconstruction of the rounded result
+  // Handles the overflow and underflow conditions
+  template <class t>
+  unpackedFloat<t> rounderSpecialCases (const typename t::fpt &format,
+					const typename t::rm &roundingMode,
+					const unpackedFloat<t> &roundedResult,
+					const typename t::prop &overflow,
+					const typename t::prop &underflow,
+					const typename t::prop &isZero)
+-/
+def rounderSpecialCases
+  (roundingMode : RoundingMode)
+  (roundedResult : UnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1))
+  (overflow : Bool)
+  (underflow : Bool)
+  (isZero : Bool) : EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
+/-
+    /*** Underflow and overflow ***/
+
+    // On overflow either return inf or max
+    prop returnInf(roundingMode == t::RNE() ||
+		   roundingMode == t::RNA() ||
+		   (roundingMode == t::RTP() && !roundedResult.getSign()) ||
+		   (roundingMode == t::RTN() &&  roundedResult.getSign()));
+    probabilityAnnotation<t>(returnInf, LIKELY);  // Inf is more likely than max in most application scenarios
+-/
+  let returnInf : Bool :=
+    match roundingMode with
+    | RoundingMode.RNE => true
+    | RoundingMode.RNA => true
+    | RoundingMode.RTP => !roundedResult.sign
+    | RoundingMode.RTN => roundedResult.sign
+    | _ => false
+/-
+    // On underflow either return 0 or minimum subnormal
+    prop returnZero(roundingMode == t::RNE() ||
+		    roundingMode == t::RNA() ||
+		    roundingMode == t::RTZ() ||
+		    (roundingMode == t::RTP() &&  roundedResult.getSign()) ||
+		    (roundingMode == t::RTN() && !roundedResult.getSign()));
+    probabilityAnnotation<t>(returnZero, LIKELY);   // 0 is more likely than min in most application scenarios
+-/
+  let returnZero : Bool :=
+    match roundingMode with
+    | RoundingMode.RNE => true
+    | RoundingMode.RNA => true
+    | RoundingMode.RTZ => true
+    | RoundingMode.RTP => roundedResult.sign
+    | RoundingMode.RTN => !roundedResult.sign
+
+/-
+    /*** Reconstruct ***/
+    unpackedFloat<t> inf(unpackedFloat<t>::makeInf(format, roundedResult.getSign()));
+    unpackedFloat<t> max(roundedResult.getSign(), unpackedFloat<t>::maxNormalExponent(format), ubv::allOnes(unpackedFloat<t>::significandWidth(format)));
+    unpackedFloat<t> min(roundedResult.getSign(), unpackedFloat<t>::minSubnormalExponent(format), unpackedFloat<t>::leadingOne(unpackedFloat<t>::significandWidth(format)));
+    unpackedFloat<t> zero(unpackedFloat<t>::makeZero(format, roundedResult.getSign()));
+-/
+  let inf : EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
+    EUnpackedFloat.mkInfinity roundedResult.sign
+  let max : EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
+    EUnpackedFloat.mkNumber <|
+    { sign := roundedResult.sign,
+      ex := BitVec.ofInt (exponentWidth targetExponentWidth targetSignificandWidth) (maxNormalExp targetExponentWidth),
+      sig := BitVec.allOnes (targetSignificandWidth + 1) }
+  let min : EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
+    EUnpackedFloat.mkNumber <|
+    { sign := roundedResult.sign,
+      ex := BitVec.ofInt (exponentWidth targetExponentWidth targetSignificandWidth) (subnormalExp targetExponentWidth),
+      sig := BitVec.leadingOne (targetSignificandWidth + 1) }
+  let zero : EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
+    EUnpackedFloat.mkZero roundedResult.sign
+/-
+    unpackedFloat<t> result(ITE(isZero,
+				zero,
+				ITE(underflow,
+				    ITE(returnZero, zero, min),
+				    ITE(overflow,
+					ITE(returnInf, inf, max),
+					roundedResult))));
+    return result;
+  }
+-/
+  if isZero then
+    zero
+  else if underflow then
+    if returnZero then
+      zero
+    else
+      min
+  else if overflow then
+    if returnInf then
+      inf
+    else
+      max
+  else
+    EUnpackedFloat.mkNumber <| roundedResult
 
 -- https://github.com/martin-cs/symfpu/blob/aeaa3fa62730148c855f5a9e0a9b7040d48e0b7e/core/rounder.h#L299
 @[bv_normalize]
@@ -241,4 +342,146 @@ def EUnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSi
 -/
   let roundUp : Bool :=
     roundingDecision mode inUf.sign significandEven choosenGuardBit choosenStickyBit false
+/-
+  // Perform the increment as needed
+  ubv leadingOne(unpackedFloat<t>::leadingOne(targetSignificandWidth));
+  // Not actually true, consider minSubnormalExponent - 1 : not an early underfow and empty significand
+  //INVARIANT(!(subnormalMaskedSignificand & leadingOne).isAllZeros() ||
+  //          earlyUnderflow); // This one really matters, it means only the early underflow path is wrong
+
+-/
+  let leadingOne : BitVec (targetSignificandWidth) :=
+    BitVec.leadingOne (targetSignificandWidth)
+/-
+  // Convert the round up flag to a mask
+  ubv normalRoundUpAmount(ubv(roundUp).matchWidth(extractedSignificand));
+  ubv subnormalRoundUpMask(ubv(roundUp).append(ubv::zero(targetSignificandWidth)).signExtendRightShift(ubv(targetSignificandWidth + 1, targetSignificandWidth)));
+  ubv subnormalRoundUpAmount(subnormalRoundUpMask & subnormalIncrementAmount);
+-/
+  let normalRoundUpAmount : BitVec (targetSignificandWidth + 1) :=
+    (BitVec.ofBool roundUp).setWidth (targetSignificandWidth + 1)
+  -- bollu : 'subnormalRoundUpMask' should just be allOnes or zero.
+  let subnormalRoundUpMask : BitVec (targetSignificandWidth + 1) :=
+    let b := BitVec.ofBool roundUp
+    let appended := b.append (BitVec.ofNat targetSignificandWidth 0)
+    let out := appended >>> targetSignificandWidth
+    out.cast (by omega)
+  let subnormalRoundUpAmount : BitVec (targetSignificandWidth + 1) :=
+    subnormalRoundUpMask &&& subnormalIncrementAmount
+/-
+  ubv rawRoundedSignificand((ITE(normalRounding,
+				 extractedSignificand,
+				 subnormalMaskedSignificand)
+			     +
+			     ITE(normalRounding,
+				 normalRoundUpAmount,
+				 subnormalRoundUpAmount)));
+-/
+  let rawRoundedSignificand : BitVec (targetSignificandWidth + 1) :=
+    (if normalRounding then
+      extractedSignificand
+    else
+      subnormalMaskedSignificand) +
+    (if normalRounding then
+      normalRoundUpAmount
+    else
+      subnormalRoundUpAmount)
+/-
+  // We might have lost the leading one, if so, re-add and note that we need to increment the significand
+  prop significandOverflow(rawRoundedSignificand.extract(targetSignificandWidth, targetSignificandWidth).isAllOnes());
+  INVARIANT(IMPLIES(significandOverflow, roundUp));
+-/
+  let significandOverflow : Bool :=
+    rawRoundedSignificand.getMsbD targetSignificandWidth = true
+/-
+  ubv extractedRoundedSignificand(rawRoundedSignificand.extract(targetSignificandWidth - 1, 0));
+  ubv roundedSignificand(extractedRoundedSignificand | leadingOne);
+  INVARIANT(IMPLIES(significandOverflow, extractedRoundedSignificand.isAllZeros()));
+-/
+  let extractedRoundedSignificand : BitVec targetSignificandWidth :=
+    rawRoundedSignificand.extractLsb' 0 targetSignificandWidth
+  let roundedSignificand : BitVec (targetSignificandWidth) :=
+    extractedRoundedSignificand ||| leadingOne
+/-
+  /*** Round to correct exponent. ***/
+
+  // The extend is almost certainly unnecessary (see specialised rounders)
+  sbv extendedExponent(exp.extend(1));
+-/
+  let extendedExponent : BitVec (expWidth + 1) := exp.signExtend (expWidth + 1)
+/-
+  prop incrementExponentNeeded(roundUp && significandOverflow);  // The roundUp is implied but kept for signal forwarding
+  probabilityAnnotation<t>(incrementExponentNeeded, VERYUNLIKELY);
+  prop incrementExponent(!known.noSignificandOverflow && incrementExponentNeeded);
+  INVARIANT(IMPLIES(known.noSignificandOverflow, !incrementExponentNeeded));
+-/
+  let incrementExponentNeeded : Bool := roundUp && significandOverflow
+  let incrementExponent : Bool := incrementExponentNeeded -- && !known.noSignificandOverflow
+/-
+  sbv correctedExponent(conditionalIncrement<t>(incrementExponent, extendedExponent));
+-/
+  let correctedExponent : BitVec (expWidth + 1) :=
+    if incrementExponent then
+      extendedExponent + 1#(expWidth + 1)
+    else
+      extendedExponent
+/-
+  // Track overflows and underflows
+  sbv maxNormal(unpackedFloat<t>::maxNormalExponent(format).matchWidth(correctedExponent));
+  sbv minSubnormal(unpackedFloat<t>::minSubnormalExponent(format).matchWidth(correctedExponent));
+-/
+  let maxNormal : BitVec (expWidth + 1) :=
+    BitVec.ofInt (expWidth + 1) (maxNormalExp targetExponentWidth)
+  let minSubnormal : BitVec (expWidth + 1) :=
+    BitVec.ofInt (expWidth + 1) (subnormalExp targetExponentWidth)
+/-
+  sbv correctedExponentInRange(collar<t>(correctedExponent, minSubnormal, maxNormal));
+-/
+  let correctedExponentInRange : BitVec (expWidth + 1) :=
+    BitVec.scollar correctedExponent minSubnormal maxNormal
+/-
+  bwt currentExponentWidth(correctedExponentInRange.getWidth());
+  sbv roundedExponent(correctedExponentInRange.contract(currentExponentWidth - targetExponentWidth));
+-/
+  let currentExponentWidth : Nat := correctedExponentInRange.width
+  let roundedExponent : BitVec targetExponentWidth :=
+    correctedExponentInRange.extractLsb' 0 targetExponentWidth
+/-
+  /*** Finish ***/
+
+  prop computedOverflow(potentialLateOverflow && incrementExponentNeeded);
+  prop computedUnderflow(potentialLateUnderflow && !incrementExponentNeeded);
+  probabilityAnnotation<t>(computedOverflow, UNLIKELY);
+  probabilityAnnotation<t>(computedUnderflow, UNLIKELY);
+-/
+  let computedOverflow : Bool := potentialLateOverflow && incrementExponentNeeded
+  let computedUnderflow : Bool := potentialLateUnderflow && !incrementExponentNeeded
+/-
+  prop lateOverflow(!earlyOverflow && computedOverflow);
+  prop lateUnderflow(!earlyUnderflow && computedUnderflow);
+  probabilityAnnotation<t>(lateOverflow, VERYUNLIKELY);
+  probabilityAnnotation<t>(lateUnderflow, VERYUNLIKELY);
+-/
+  let lateOverflow : Bool := (!earlyOverflow) && computedOverflow
+  let lateUnderflow : Bool := (!earlyUnderflow) && computedUnderflow
+/-
+  // So that ITE abstraction works...
+  prop overflow(!known.noOverflow && ITE(lateOverflow, prop(true), earlyOverflow));
+  prop underflow(!known.noUnderflow && ITE(lateUnderflow, prop(true), earlyUnderflow));
+
+-/
+  let overflow : Bool := lateOverflow || earlyOverflow
+  let underflow : Bool := lateUnderflow || earlyUnderflow
+
+/-
+  unpackedFloat<t> roundedResult(uf.getSign(), roundedExponent, roundedSignificand);
+  unpackedFloat<t> result(rounderSpecialCases<t>(format, roundingMode, roundedResult,
+						 overflow, underflow, uf.getZero()));
+-/
+  let roundedResult : UnpackedFloat (targetExponentWidth) (targetSignificandWidth) :=
+    { sign := inUf.sign,
+      ex := roundedExponent,
+      sig := roundedSignificand }
+  let result : EUnpackedFloat (targetExponentWidth) (targetSignificandWidth) :=
+    rounderSpecialCases mode roundedResult overflow underflow inUf.isZero
   sorry
