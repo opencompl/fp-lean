@@ -21,6 +21,7 @@ def BitVec.extendAtMsb (x : BitVec w) (δ : Nat) : BitVec (δ + w) :=
   x.zeroExtend _
 
 /-- Extract from the MSB, starting at msb 'hi', going downward for 'len' bits. -/
+@[bv_normalize]
 def BitVec.extractMsb' (x : BitVec w) (hi : Nat) (len : Nat) : BitVec len :=
   x.extractLsb' (w - (hi + len)) len
 
@@ -60,6 +61,7 @@ def BitVec.scollar (x : BitVec w) (minVal : BitVec w) (maxVal : BitVec w) : BitV
 
 -- roundingDecision mode inUf.sign significandEven choosenGuardBit choosenStickyBit false
 -- bollu: TODO: port rounding mode for real.
+@[bv_normalize]
 def roundingDecision (mode : RoundingMode) (sign : Bool) (significandEven : Bool)
   (guardBit : Bool) (stickyBit : Bool) (exact : Bool) : Bool :=
   match mode with
@@ -80,6 +82,7 @@ def roundingDecision (mode : RoundingMode) (sign : Bool) (significandEven : Bool
 					const typename t::prop &underflow,
 					const typename t::prop &isZero)
 -/
+@[bv_normalize]
 def rounderSpecialCases
   (roundingMode : RoundingMode)
   (roundedResult : UnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1))
@@ -167,14 +170,16 @@ def rounderSpecialCases
   else
     EUnpackedFloat.mkNumber <| roundedResult
 
+axiom AxRoundPreconditions {P : Prop} : P
+
 -- https://github.com/martin-cs/symfpu/blob/aeaa3fa62730148c855f5a9e0a9b7040d48e0b7e/core/rounder.h#L299
 @[bv_normalize]
 def EUnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSignificandWidth : Nat}
-  (inUf : EUnpackedFloat expWidth sigWidth)
+  (inUf : UnpackedFloat expWidth sigWidth)
   (mode : RoundingMode)
-  (hs : sigWidth >= targetSignificandWidth + 2)
-  (he : expWidth >= targetExponentWidth)
-  (hs' : sigWidth >= 1) :
+  (hs : sigWidth >= targetSignificandWidth + 2 := AxRoundPreconditions)
+  (he : expWidth >= targetExponentWidth := AxRoundPreconditions)
+  (hs' : sigWidth >= 1 := AxRoundPreconditions) :
   EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
 /-
   //PRECONDITION(uf.valid(format));
@@ -187,7 +192,7 @@ def EUnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSi
   bwt expWidth(exp.getWidth());
   PRECONDITION(uf.wellFormed(sbv::minValue(expWidth), sbv::maxValue(expWidth)));
 -/
-  let exp := inUf.exp
+  let exp := inUf.ex
 
 /-
   // Also there are some conditions on how the rounder is used.
@@ -279,10 +284,13 @@ def EUnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSi
   let extractedSignificandWidth : Nat := extractedSignificand.width
   -- bollu: 'extractedSignificandWidth = targetSignificandWidth + 2'
   let subnormalShiftPrepared : BitVec extractedSignificandWidth :=
+    subnormalAmount.zeroExtend extractedSignificandWidth
+    /- bollu: deviatioon
     if extractedSignificandWidth >= expWidth + 1 then
       subnormalAmount.setWidth extractedSignificandWidth
     else
       (subnormalAmount.extractLsb (extractedSignificandWidth - 1) 0).cast (by simp [extractedSignificandWidth, BitVec.width])
+    -/
 /-
   // Compute masks
   ubv subnormalMask(orderEncode<t>(subnormalShiftPrepared)); // Invariant implies this if all ones, it will not be used

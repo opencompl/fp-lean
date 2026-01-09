@@ -3,6 +3,7 @@ import Fp.Rounding
 import Fp.MulInv
 import Fp.Proofs.Grind
 import Fp.ForLean.Rat
+import Fp.UnpackedRound
 
 /-
 PLAN:
@@ -333,166 +334,6 @@ def BitVec.shrExtending (bv : BitVec w) (shAmt : BitVec v) : BitVec v :=
 
 
 @[bv_normalize]
-def EUnpackedFloat.incrSignificand {e s : Nat} (eu : EUnpackedFloat e s) : EUnpackedFloat e s :=
-  match eu.state with
-  | .NaN => eu
-  | .Infinity => eu
-  | .Number =>
-    if eu.num.sig = BitVec.allOnes _ then
-      -- we overflowed the significand, so we need to adjust exponent.
-      let newExp := eu.num.ex + 1
-      EUnpackedFloat.mkNumber {
-        sign := eu.num.sign
-        ex := newExp
-        sig := 1#s -- since we overflowed, the new significand is 1.000... (is that right?)
-      }
-    else
-      EUnpackedFloat.mkNumber {
-        sign := eu.num.sign
-        ex := eu.num.ex
-        sig := eu.num.sig + 1
-      }
-
-/-
-
-The correct way to think of an UnpackedFloat is as a fixed point number,
-written in scientific notation.
-
-So, consider fixed point numbers with three digits, dot right after the first digit (as in normal floating point).
-This gives us:
-
-→ 0.00 0.01 0.10 0.11
-→ 1.00 1.01 1.10 1.11
-
-→ 0.00 = _ | 0.01 = 1.00 * 10^(-2) | 0.10 = 1.00 * 10^(-1) | 0.11 = 1.10 * 10^(-1)
-→ 1.00 = 1.00 * 10^(0) | 1.01 = 1.01 * 10^(0) | 1.10 = 1.10 * 10^(0) | 1.11 = 1.11 * 10^(0)
-
-Next, to encode the `1.00`, we write this as:
-
-→ 0.00 = _ | 0.01 = (100 * 10^(-2)) * 10^(-2) | 0.10 = (100 * 10^(-2)) * 10^(-1) | 0.11 = (110 * 10^(-2)) * 10^(-1)
-→ 1.00 = (100 * 10^(-2)) * 10^(0) | 1.01 = (101 * 10^(-2)) * 10^(0) | 1.10 = (110*10^(-2)) * 10^(0) | 1.11 = (111 * 10^(-2)) * 10^(0)
-
-In this way, we can see our number as a composition of scientific notation with fixed-width exponent.
-In the UnpackedFloat, we only store the exponent, not the constant fixed-point shift (10^(-2)),
-since this is common to all numbers, and also, morally, it is absorbed into the significand as a fixed-point.
--/
-
-/-
-#### Why guard and sticky bits:
-
-Suppose we want to round to 0 bits of precision, using round to nearest even. Then, if we have:
-
-- 10.1 -> 10
-- 10.5???, we need to know if the ??? is zero or not.
-   + 10.5000 -> 10
-    * If it is zero, then we round to the nearest even, which is 10.
-   + 10.5001 -> 11
-    * If it is non-zero, we *always* round up to 11, since it's strictly closer to 11 than 10.
-- 10.9 -> 11
-- 11.5?????
-    + 11.5000 -> 12
-      * If it is zero, then we round to the nearest even, which is 12.
-    + 11.5001 -> 12
-      * If it is non-zero, we *always* round up to 12, since it's strictly closer to 12 than 11.
-
-Thus, see that just having one sticky bit is enough, since it tells us whether we are at the exact halfway point or not, and that's all we need to know.
-
-
-We will return an EUnpackedFloat,
-which can signal NaN/Infinity/Zero, in addition to normal numbers.
-
-
-Rounding normalized numbers
----------------------------
-
-Suppose we have 3 digits of precision, and the exponent can go from -9 to 7.
-Then, suppose we have an unnormalized number:
-
-##### Smallest Exponent
-- 0.001 * 10^7
-  This upon normalization becomes: 1.000 * 10^(7-3) = 1.000 * 10^4
-
-- 0.001 * 10^(-9)
-  This upon normalization becomes: 1.000 * 10^(-9-3) = 1.000 * 10^(-12)
-
-
-So, even though our scale can go from -9 to 7, after normalization, we can have exponents from -12 to 7.
-If our exponent is smaller than -12, then we cannot fit it.
-
-##### Largest Exponent
-
-- 1.111 * 10^7 | This upon normalization stays the same: 1.111 * 10^7.
--/
-
--- the number is sig.toNat *  2 ^(-sigPrec) * 2 ^ (ex.toInt)
--- choose e = 0, s = 1 then see that after normalization, we e.
--- If our exponent is
-@[bv_normalize]
-def roundRNEFastUF (inUf : UnpackedFloat e s) : EUnpackedFloat e' s' :=
-    let inUf := inUf.normalize
-    -- Great, we have a number of the form <1.xxxxx> * 2^(ex) or, 0 * 2^(ex).
-    if inUf.sig = 0
-      -- we are in the <0> case.
-      then EUnpackedFloat.mkNumber {
-        sign := inUf.sign
-        ex := 0#e'
-        sig := 0#s'
-      }
-    else
-      -- we are in the <1.-----> case.
-      if hExTooBig : inUf.ex > BitVec.ofInt e (maxNormalExp e') then -- + BitVec.ofInt e s' then
-        EUnpackedFloat.mkInfinity inUf.sign
-      -- | TODO: why does this computation fit? In particular, why does adding `s'` not overflow?
-      -- We may need an extension here.
-      else if hExTooSmall : (inUf.ex).slt (BitVec.ofInt e (minNormalExp e') + BitVec.ofInt e s') then
-        -- See example, where `0.001 * 10^-5 -> 1.00 * 10^-7`, which is the smallest exponent we can use.
-        EUnpackedFloat.mkZero inUf.sign
-      else
-        -- Adjust the exponent to be in range.
-        let adjustedExp : BitVec e' :=
-          if inUf.ex > BitVec.ofInt e (maxNormalExp e') then
-            BitVec.ofInt e' (maxNormalExp e')
-          else if inUf.ex < BitVec.ofInt e (minNormalExp e') then
-            BitVec.ofInt e' (minNormalExp e')
-          else
-            inUf.ex.signExtend e'
-        -- Adjust the significand.
-        let (truncatedSig, remainder) : BitVec s' × BitVec (s - s') :=
-          if BitVec.eqExtending adjustedExp inUf.ex then
-            (inUf.sig.splitAtMsbs s')
-          -- e' < e
-          else if BitVec.sltExtending adjustedExp inUf.ex then
-            -- we decreased exponent, so increase significand
-            -- | TODO: can this overflow?
-            let sig' := (inUf.sig <<< (BitVec.subExtending inUf.ex adjustedExp : BitVec (max e e' + 1)))
-            sig'.splitAtMsbs s'
-          else
-            -- e' > e
-            -- we increased exponent, so decrease significand
-            -- | TODO: can this overflow?
-            let shift := BitVec.subExtending adjustedExp inUf.ex
-            let sig' := (inUf.sig >>> shift).truncate _
-            sig'.splitAtMsbs s'
-        let guardBit := remainder.getMsbD 0
-        let stickyBit : Bool := (remainder.dropMsb 1) ≠ 0
-        let isOdd := truncatedSig.getLsbD 0
-        let shouldRoundAway : Bool := guardBit && (stickyBit || isOdd)
-        let ufOut : UnpackedFloat e' s' :=
-          {
-            sign := inUf.sign
-            ex := adjustedExp
-            sig := truncatedSig
-          }
-        let eufOut : EUnpackedFloat e' s' :=
-          EUnpackedFloat.mkNumber ufOut
-        if shouldRoundAway then
-          -- we should round up.
-          eufOut.incrSignificand
-        else
-          eufOut
-
-
-@[bv_normalize]
 def div_on_unpackedFloat (a b : UnpackedFloat (exponentWidth e s) (s + 1)) (mode : RoundingMode) : PackedFloat e s :=
   -- a.toRat = (-1)^a.sign * a.sig.toNat * 2 ^ (a.ex.toInt) * 2 ^(-s)
   -- a.toRat / b.toRat = (-1)^(a.sign⊕b.sign) * (a.sig.toNat /b.sig.toNat) * (2 ^ (a.ex.toInt) / 2 ^ (b.ex.toInt) *(2 ^(-s) / 2^(-s))
@@ -518,48 +359,7 @@ def div_on_unpackedFloat (a b : UnpackedFloat (exponentWidth e s) (s + 1)) (mode
         ex := BitVec.subExtending expNumerator expDenominator
         sig := quot_with_sticky
   }
-  roundRNEFastUF ufIn |>.pack
-
-  /-
-  -- | TODO: For the rounding, we still expand out into fixed point.
-  -- We should instead use the cleverer rounder.
-  if expNumerator.sge expDenominator then
-    -- +1 for the sticky bit.
-    let quot_lshift : EFixedPoint (2^e+div_len+1) (unit_pos+1) := {
-      state := .Number
-      num := {
-        sign
-        -- numerator is larger than denominator, so multiply by the correct amount.
-        val := quot_with_sticky.setWidth (2 ^ e + div_len + 1) <<< (expNumerator - expDenominator)
-        hExOffset := by
-          rewrite [Nat.add_lt_add_iff_right]
-          apply Nat.lt_add_left
-          omega
-      }
-    }
-    round _ _ mode quot_lshift
-    -- PackedFloat.mk true (BitVec.ofNat _ 0xcafebabe) (BitVec.ofNat _ 0xcafebabe)
-  else
-    let quot_rshift : EFixedPoint (2^e+div_len+1) (2^e+unit_pos+1) := {
-      state := .Number
-      num := {
-        sign
-        -- denominator is larger than numerator, so divide by the correct amount, but first increase the
-        -- exponent to (2^e), so that the round function rounds correctly.
-        -- TODO: understand the bounds on our rounding.
-        -- we shift by '2^e' so we scale up by the same factor as we do with (2^e + unit_pos + 1),
-        -- such that we represent the same number.
-        -- 2^(a.ex.toInt - b.ex.toInt) = 2^(-E + E + a.ex.toIn - b.ex.toInt)
-        -- = 2^-E * 2^(E - b.ex.toInt + a.ex.toInt) [which is ≥ 1 ]
-        val := ((quot_with_sticky.setWidth _ <<< 2^e) >>> (expDenominator - expNumerator))
-        hExOffset := by
-          rewrite [Nat.add_lt_add_iff_right, Nat.add_lt_add_iff_left]
-          omega
-      }
-    }
-    round _ _ mode quot_rshift
-  -/
-
+  EUnpackedFloat.pack  (EUnpackedFloat.round ufIn mode)
 
 
 /--
@@ -601,22 +401,22 @@ def cex' : PackedFloat 5 2 where
 /-- info: 0 -/
 #guard_msgs in #eval oneE5M2.unpack.num.ex.toInt
 
-/-- info: { sign := +, ex := 0x00#5, sig := 0x2#2 } -/
+/-- info: { sign := +, ex := 0x1e#5, sig := 0x3#2 } -/
 #guard_msgs in #eval div_on_unpackedFloat cex'.unpack.num oneE5M2.unpack.num .RTZ
 
 set_option debugAssertions true in
 theorem div_one_is_id_on_numerator_ex_larger (a : PackedFloat 5 2) (h : a.unpack.num.ex.sge oneE5M2.unpack.num.ex)
-  : (div a oneE5M2 .RTZ).equal_denotation a := by
+  : (div a oneE5M2 .RNE).equal_denotation a := by
   bv_decide
 
 set_option debugAssertions true in
 theorem div_one_is_id_on_numerator_ex_smaller (a : PackedFloat 5 2) (h : ¬ a.unpack.num.ex.sge oneE5M2.unpack.num.ex)
-  : (div a oneE5M2 .RTZ).equal_denotation a := by
+  : (div a oneE5M2 .RNE).equal_denotation a := by
   bv_decide
 
 theorem div_self_is_one' (a : PackedFloat 5 2)
   (h : ¬a.isNaN ∧ ¬a.isInfinite ∧ ¬a.isZero)
-  : (div a a .RTZ) = oneE5M2 := by
+  : (div a a .RNE) = oneE5M2 := by
   bv_normalize
   simp at *;
   bv_decide
