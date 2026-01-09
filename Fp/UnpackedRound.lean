@@ -486,4 +486,4 @@ def EUnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSi
       sig := roundedSignificand }
   let result : EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1)  :=
     rounderSpecialCases mode roundedResult overflow underflow inUf.isZero
-  sorry
+  result
