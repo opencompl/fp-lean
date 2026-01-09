@@ -410,7 +410,7 @@ def EUnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSi
   // The extend is almost certainly unnecessary (see specialised rounders)
   sbv extendedExponent(exp.extend(1));
 -/
-  let extendedExponent : BitVec (expWidth + 1) := exp.signExtend (expWidth + 1)
+  let extendedExponent : BitVec ((exponentWidth targetExponentWidth targetSignificandWidth) + 1) := exp.signExtend ((exponentWidth targetExponentWidth targetSignificandWidth) + 1)
 /-
   prop incrementExponentNeeded(roundUp && significandOverflow);  // The roundUp is implied but kept for signal forwarding
   probabilityAnnotation<t>(incrementExponentNeeded, VERYUNLIKELY);
@@ -422,9 +422,9 @@ def EUnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSi
 /-
   sbv correctedExponent(conditionalIncrement<t>(incrementExponent, extendedExponent));
 -/
-  let correctedExponent : BitVec (expWidth + 1) :=
+  let correctedExponent : BitVec ((exponentWidth targetExponentWidth targetSignificandWidth) + 1) :=
     if incrementExponent then
-      extendedExponent + 1#(expWidth + 1)
+      extendedExponent + 1#((exponentWidth targetExponentWidth targetSignificandWidth) + 1)
     else
       extendedExponent
 /-
@@ -432,22 +432,22 @@ def EUnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSi
   sbv maxNormal(unpackedFloat<t>::maxNormalExponent(format).matchWidth(correctedExponent));
   sbv minSubnormal(unpackedFloat<t>::minSubnormalExponent(format).matchWidth(correctedExponent));
 -/
-  let maxNormal : BitVec (expWidth + 1) :=
-    BitVec.ofInt (expWidth + 1) (maxNormalExp targetExponentWidth)
-  let minSubnormal : BitVec (expWidth + 1) :=
-    BitVec.ofInt (expWidth + 1) (subnormalExp targetExponentWidth)
+  let maxNormal : BitVec ((exponentWidth targetExponentWidth targetSignificandWidth) + 1) :=
+    BitVec.ofInt ((exponentWidth targetExponentWidth targetSignificandWidth) + 1) (maxNormalExp targetExponentWidth)
+  let minSubnormal : BitVec ((exponentWidth targetExponentWidth targetSignificandWidth) + 1) :=
+    BitVec.ofInt ((exponentWidth targetExponentWidth targetSignificandWidth) + 1) (subnormalExp targetExponentWidth)
 /-
   sbv correctedExponentInRange(collar<t>(correctedExponent, minSubnormal, maxNormal));
 -/
-  let correctedExponentInRange : BitVec (expWidth + 1) :=
+  let correctedExponentInRange : BitVec ((exponentWidth targetExponentWidth targetSignificandWidth) + 1) :=
     BitVec.scollar correctedExponent minSubnormal maxNormal
 /-
   bwt currentExponentWidth(correctedExponentInRange.getWidth());
   sbv roundedExponent(correctedExponentInRange.contract(currentExponentWidth - targetExponentWidth));
 -/
   let currentExponentWidth : Nat := correctedExponentInRange.width
-  let roundedExponent : BitVec targetExponentWidth :=
-    correctedExponentInRange.extractLsb' 0 targetExponentWidth
+  let roundedExponent : BitVec (exponentWidth targetExponentWidth targetSignificandWidth) :=
+    correctedExponentInRange.extractLsb' 0 (exponentWidth targetExponentWidth targetSignificandWidth)
 /-
   /*** Finish ***/
 
