@@ -712,6 +712,7 @@ theorem eq_num_ex {x y : EUnpackedFloat e s} :
   cases b <;> rfl
 
 
+
 @[bv_normalize]
 def isNaN (x : EUnpackedFloat e s) : Bool :=
   x.state == .NaN

@@ -66,9 +66,7 @@ def roundingDecision (mode : RoundingMode) (sign : Bool) (significandEven : Bool
   (guardBit : Bool) (stickyBit : Bool) (exact : Bool) : Bool :=
   match mode with
   | RoundingMode.RNE =>
-      if guardBit then
-        if stickyBit || (!significandEven) then true else false
-      else false
+      (guardBit && (stickyBit || !significandEven))
   | _ => false
 
 /-
@@ -177,7 +175,7 @@ axiom AxRoundPreconditions {P : Prop} : P
 def EUnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSignificandWidth : Nat}
   (inUf : UnpackedFloat expWidth sigWidth)
   (mode : RoundingMode)
-  (hs : sigWidth >= targetSignificandWidth + 2 := AxRoundPreconditions)
+  (hs : sigWidth >= targetSignificandWidth + 3 := AxRoundPreconditions)
   (he : expWidth >= targetExponentWidth := AxRoundPreconditions)
   (hs' : sigWidth >= 1 := AxRoundPreconditions) :
   EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
@@ -248,7 +246,7 @@ def EUnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSi
 -/
   -- @bollu: deviation.
   let extractedSignificand : BitVec (targetSignificandWidth + 2) :=
-    ((sig.extractMsb' 0 (targetSignificandWidth + 1)).extendAtMsb 1).cast (by omega)
+    ((sig.extractMsb' 0 (targetSignificandWidth + 1)).zeroExtend (targetSignificandWidth + 2)).cast (by omega)
 /-
   // Normal guard and sticky bits
   bwt guardBitPosition(sigWidth - (targetSignificandWidth + 1));
@@ -259,7 +257,7 @@ def EUnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSi
 /-
   prop stickyBit(!sig.extract(guardBitPosition - 1,0).isAllZeros());
 -/
-  let stickyBit : Bool := (sig.extractLsb guardBitPosition 0) ≠ BitVec.ofNat (guardBitPosition + 1) 0
+  let stickyBit : Bool := (sig.extractLsb (guardBitPosition - 1) 0) ≠ (BitVec.ofNat (guardBitPosition) 0).cast (by omega)
 /-
   // For subnormals, locating the guard and stick bits is a bit more involved
   //sbv subnormalAmount(uf.getSubnormalAmount(format)); // Catch is, uf isn't in the given format, so this doesn't work
@@ -402,7 +400,7 @@ def EUnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSi
   INVARIANT(IMPLIES(significandOverflow, roundUp));
 -/
   let significandOverflow : Bool :=
-    rawRoundedSignificand.getMsbD targetSignificandWidth = true
+    rawRoundedSignificand.msb = true
 /-
   ubv extractedRoundedSignificand(rawRoundedSignificand.extract(targetSignificandWidth - 1, 0));
   ubv roundedSignificand(extractedRoundedSignificand | leadingOne);
@@ -418,7 +416,8 @@ def EUnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSi
   // The extend is almost certainly unnecessary (see specialised rounders)
   sbv extendedExponent(exp.extend(1));
 -/
-  let extendedExponent : BitVec ((exponentWidth targetExponentWidth targetSignificandWidth) + 1) := exp.signExtend ((exponentWidth targetExponentWidth targetSignificandWidth) + 1)
+  let extendedExponent : BitVec ((exponentWidth targetExponentWidth targetSignificandWidth) + 1) :=
+    exp.signExtend ((exponentWidth targetExponentWidth targetSignificandWidth) + 1)
 /-
   prop incrementExponentNeeded(roundUp && significandOverflow);  // The roundUp is implied but kept for signal forwarding
   probabilityAnnotation<t>(incrementExponentNeeded, VERYUNLIKELY);
@@ -496,12 +495,32 @@ def EUnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSi
     rounderSpecialCases mode roundedResult overflow underflow inUf.isZero
   result
 
-theorem round_idem (uf : UnpackedFloat (exponentWidth e s) (s + 1)) :
-    EUnpackedFloat.round uf RoundingMode.RNE = EUnpackedFloat.mkNumber uf := by
-  have : e = 5 := by sorry
-  subst this
-  have : s = 3 := by sorry
-  subst this
-  simp [exponentWidth] at uf ⊢
+-- e = 5
+-- s = 3
+-- exponentWidth 5 3 = 6
+
+
+theorem round_idem' (uf : UnpackedFloat 6 4)
+    (huf : (EUnpackedFloat.pack (e := 5) (s := 3) (EUnpackedFloat.mkNumber uf)).isNorm) :
+    (EUnpackedFloat.round (targetExponentWidth := 5) (targetSignificandWidth := 3) uf RoundingMode.RNE) = EUnpackedFloat.mkNumber uf := by
   bv_normalize
-  bv_decide
+  simp_all
+  -- bv_decide
+  sorry
+
+theorem round_idem (uf : UnpackedFloat (exponentWidth e s) (s + 1))
+    (huf : (EUnpackedFloat.pack (e := e) (s := s) (EUnpackedFloat.mkNumber uf)).isNorm) :
+    EUnpackedFloat.round  uf RoundingMode.RNE == EUnpackedFloat.mkNumber uf := by
+  have he : e = 5 := by sorry
+  have hs : s = 3 := by sorry
+  subst e s
+  revert huf
+  simp at uf
+  -- bv_normalize
+  -- bv_decide
+  sorry
+
+theorem xx (uf : UnpackedFloat (exponentWidth 5 3) (3 + 1)) :
+    EUnpackedFloat.mkNumber uf = EUnpackedFloat.mkNumber uf := by
+  -- bv_decide
+  sorry
