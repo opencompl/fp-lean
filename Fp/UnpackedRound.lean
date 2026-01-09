@@ -170,8 +170,10 @@ def rounderSpecialCases
 -- https://github.com/martin-cs/symfpu/blob/aeaa3fa62730148c855f5a9e0a9b7040d48e0b7e/core/rounder.h#L299
 @[bv_normalize]
 def EUnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSignificandWidth : Nat}
-  (inUf : EUnpackedFloat expWidth sigWidth) (mode : RoundingMode)
-  (hs : sigWidth >= targetSignificandWidth + 2) (he : expWidth >= targetExponentWidth)
+  (inUf : EUnpackedFloat expWidth sigWidth)
+  (mode : RoundingMode)
+  (hs : sigWidth >= targetSignificandWidth + 2)
+  (he : expWidth >= targetExponentWidth)
   (hs' : sigWidth >= 1) :
   EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
 /-
@@ -241,7 +243,7 @@ def EUnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSi
 -/
   -- @bollu: deviation.
   let extractedSignificand : BitVec (targetSignificandWidth + 1) :=
-    ((sig.extractMsb' 0 targetSignificandWidth).extendAtMsb 1).cast (by omega)
+    ((sig.extractMsb' 0 targetSignificandWidth).zeroExtend (targetSignificandWidth + 1)).cast (by omega)
 /-
   // Normal guard and sticky bits
   bwt guardBitPosition(sigWidth - (targetSignificandWidth + 1));
@@ -478,10 +480,10 @@ def EUnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSi
   unpackedFloat<t> result(rounderSpecialCases<t>(format, roundingMode, roundedResult,
 						 overflow, underflow, uf.getZero()));
 -/
-  let roundedResult : UnpackedFloat (targetExponentWidth) (targetSignificandWidth) :=
+  let roundedResult : UnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
     { sign := inUf.sign,
       ex := roundedExponent,
       sig := roundedSignificand }
-  let result : EUnpackedFloat (targetExponentWidth) (targetSignificandWidth) :=
+  let result : EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1)  :=
     rounderSpecialCases mode roundedResult overflow underflow inUf.isZero
   sorry
