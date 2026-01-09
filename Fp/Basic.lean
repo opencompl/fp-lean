@@ -821,11 +821,11 @@ def subnormalExp (e : Nat) : Int :=
 
 -- This is a simpler (but less tight) bound than `exponentWidth`.
 -- It's logarithmically larger.
-@[bv_normalize]
+@[bv_normalize, simp]
 def exponentWidth' (e s : Nat) : Nat :=
   e + s.ceilLog2
 
-@[bv_normalize]
+@[bv_normalize, simp]
 def exponentWidth (e s : Nat) : Nat :=
   (2 ^ (e - 1) + s - 2).log2 + 2
 

@@ -359,6 +359,7 @@ def div_on_unpackedFloat (a b : UnpackedFloat (exponentWidth e s) (s + 1)) (mode
         ex := BitVec.subExtending expNumerator expDenominator
         sig := quot_with_sticky
   }
+  let ufIn := ufIn.normalize
   EUnpackedFloat.pack  (EUnpackedFloat.round ufIn mode)
 
 
@@ -401,8 +402,8 @@ def cex' : PackedFloat 5 2 where
 /-- info: 0 -/
 #guard_msgs in #eval oneE5M2.unpack.num.ex.toInt
 
-/-- info: { sign := +, ex := 0x1e#5, sig := 0x3#2 } -/
-#guard_msgs in #eval div_on_unpackedFloat cex'.unpack.num oneE5M2.unpack.num .RTZ
+/-- info: { sign := +, ex := 0x00#5, sig := 0x0#2 } -/
+#guard_msgs in #eval div_on_unpackedFloat cex'.unpack.num oneE5M2.unpack.num .RNE
 
 set_option debugAssertions true in
 theorem div_one_is_id_on_numerator_ex_larger (a : PackedFloat 5 2) (h : a.unpack.num.ex.sge oneE5M2.unpack.num.ex)

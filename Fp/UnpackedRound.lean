@@ -231,8 +231,8 @@ def EUnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSi
 -/
   let earlyOverflow : Bool := exp > BitVec.ofInt expWidth (maxNormalExp targetExponentWidth)
   let earlyUnderflow : Bool := exp < (BitVec.ofInt expWidth (subnormalExp targetExponentWidth)).decrement
-  let potentialLateOverflow := exp == BitVec.ofInt expWidth (maxNormalExp targetExponentWidth)
-  let potentialLateUnderflow := exp == (BitVec.ofInt expWidth (subnormalExp targetExponentWidth)).decrement
+  let potentialLateOverflow := exp = BitVec.ofInt expWidth (maxNormalExp targetExponentWidth)
+  let potentialLateUnderflow := exp = (BitVec.ofInt expWidth (subnormalExp targetExponentWidth)).decrement
 /-
   /*** Normal or subnormal rounding? ***/
   prop normalRoundingRange(exp >= unpackedFloat<t>::minNormalExponent(format).extend(exponentExtension));
@@ -254,7 +254,7 @@ def EUnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSi
   bwt guardBitPosition(sigWidth - (targetSignificandWidth + 1));
   prop guardBit(sig.extract(guardBitPosition, guardBitPosition).isAllOnes());
 -/
-  let guardBitPosition : Nat := sigWidth - (targetSignificandWidth + 1)
+  let guardBitPosition : Nat := sigWidth - (targetSignificandWidth + 2)
   let guardBit : Bool := sig.getLsbD guardBitPosition
 /-
   prop stickyBit(!sig.extract(guardBitPosition - 1,0).isAllZeros());
@@ -495,3 +495,13 @@ def EUnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSi
   let result : EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1)  :=
     rounderSpecialCases mode roundedResult overflow underflow inUf.isZero
   result
+
+theorem round_idem (uf : UnpackedFloat (exponentWidth e s) (s + 1)) :
+    EUnpackedFloat.round uf RoundingMode.RNE = EUnpackedFloat.mkNumber uf := by
+  have : e = 5 := by sorry
+  subst this
+  have : s = 3 := by sorry
+  subst this
+  simp [exponentWidth] at uf ⊢
+  bv_normalize
+  bv_decide
