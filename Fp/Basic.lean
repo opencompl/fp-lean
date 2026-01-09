@@ -621,7 +621,7 @@ manipulation.
 structure EUnpackedFloat (e s : Nat) where
   state : State
   num   : UnpackedFloat e s
-deriving DecidableEq
+deriving DecidableEq, Repr
 
 
 namespace UnpackedFloat
@@ -815,10 +815,15 @@ def minNormalExp (e : Nat) : Int :=
 @[bv_normalize]
 def maxNormalExp (e : Nat) : Int := (bias e)
 
+
 /-- The value the subnormal exponent can take. -/
 @[bv_normalize]
 def subnormalExp (e : Nat) : Int :=
   minNormalExp e - 1
+
+@[bv_normalize]
+def minSubnormalExp (e : Nat) (s : Nat) : Int :=
+  (subnormalExp e) - (s : Int)
 
 -- This is a simpler (but less tight) bound than `exponentWidth`.
 -- It's logarithmically larger.
