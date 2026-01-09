@@ -242,8 +242,8 @@ def EUnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSi
   ubv extractedSignificand(sig.extract(sigWidth - 1, sigWidth - targetSignificandWidth).extend(1)); // extended to catch the overflow
 -/
   -- @bollu: deviation.
-  let extractedSignificand : BitVec (targetSignificandWidth + 1) :=
-    ((sig.extractMsb' 0 targetSignificandWidth).zeroExtend (targetSignificandWidth + 1)).cast (by omega)
+  let extractedSignificand : BitVec (targetSignificandWidth + 2) :=
+    ((sig.extractMsb' 0 (targetSignificandWidth + 1)).extendAtMsb 1).cast (by omega)
 /-
   // Normal guard and sticky bits
   bwt guardBitPosition(sigWidth - (targetSignificandWidth + 1));
@@ -277,7 +277,7 @@ def EUnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSi
 			     subnormalAmount.toUnsigned().extract(extractedSignificandWidth - 1, 0));
   -/
   let extractedSignificandWidth : Nat := extractedSignificand.width
-  -- bollu: 'extractedSignificandWidth = targetSignificandWidth + 1'
+  -- bollu: 'extractedSignificandWidth = targetSignificandWidth + 2'
   let subnormalShiftPrepared : BitVec extractedSignificandWidth :=
     if extractedSignificandWidth >= expWidth + 1 then
       subnormalAmount.setWidth extractedSignificandWidth
@@ -288,39 +288,39 @@ def EUnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSi
   ubv subnormalMask(orderEncode<t>(subnormalShiftPrepared)); // Invariant implies this if all ones, it will not be used
   ubv subnormalStickyMask(subnormalMask >> ubv::one(targetSignificandWidth + 1)); // +1 as the exponent is extended
 -/
-  let subnormalMask : BitVec (targetSignificandWidth + 1) :=
+  let subnormalMask : BitVec (targetSignificandWidth + 2) :=
     BitVec.orderEncode subnormalShiftPrepared
-  let subnormalStickyMask : BitVec (targetSignificandWidth + 1) :=
-    subnormalMask >>> 1#(targetSignificandWidth + 1)
+  let subnormalStickyMask : BitVec (targetSignificandWidth + 2) :=
+    subnormalMask >>> 1#(targetSignificandWidth + 2)
 /-
   // Apply
   ubv subnormalMaskedSignificand(extractedSignificand & (~subnormalMask));
   ubv subnormalMaskRemoved(extractedSignificand & subnormalMask);
   // Optimisation : remove the masking with a single orderEncodeBitwise style construct
 -/
-  let subnormalMaskedSignificand : BitVec (targetSignificandWidth + 1) :=
+  let subnormalMaskedSignificand : BitVec (targetSignificandWidth + 2) :=
     extractedSignificand &&& (~~~subnormalMask)
-  let subnormalMaskRemoved : BitVec (targetSignificandWidth + 1) :=
+  let subnormalMaskRemoved : BitVec (targetSignificandWidth + 2) :=
     extractedSignificand &&& subnormalMask
 /-
   prop subnormalGuardBit(!(subnormalMaskRemoved & (~subnormalStickyMask)).isAllZeros());
   prop subnormalStickyBit(guardBit || stickyBit ||
 			  !((subnormalMaskRemoved & subnormalStickyMask).isAllZeros()));
 -/
-  let subnormalGuardBV : BitVec (targetSignificandWidth + 1) :=
+  let subnormalGuardBV : BitVec (targetSignificandWidth + 2) :=
     subnormalMaskRemoved &&& (~~~subnormalStickyMask)
   let subnormalGuardBit : Bool :=
-    subnormalGuardBV ≠ BitVec.ofNat (targetSignificandWidth + 1) 0
-  let subnormalStickyBV : BitVec (targetSignificandWidth + 1) :=
+    subnormalGuardBV ≠ BitVec.ofNat (targetSignificandWidth + 2) 0
+  let subnormalStickyBV : BitVec (targetSignificandWidth + 2) :=
     subnormalMaskRemoved &&& subnormalStickyMask
   let subnormalStickyBit : Bool :=
-    guardBit || stickyBit || (subnormalStickyBV ≠ BitVec.ofNat (targetSignificandWidth + 1) 0)
+    guardBit || stickyBit || (subnormalStickyBV ≠ BitVec.ofNat (targetSignificandWidth + 2) 0)
 /-
   ubv subnormalIncrementAmount((subnormalMask.modularLeftShift(ubv::one(targetSignificandWidth + 1))) & ~subnormalMask); // The only case when this looses info is earlyUnderflow
   INVARIANT(IMPLIES(subnormalIncrementAmount.isAllZeros(), earlyUnderflow || normalRounding));
 -/
-  let subnormalIncrementAmount : BitVec (targetSignificandWidth + 1) :=
-    ((subnormalMask <<< 1#(targetSignificandWidth + 1)) &&& (~~~subnormalMask))
+  let subnormalIncrementAmount : BitVec (targetSignificandWidth + 2) :=
+    ((subnormalMask <<< 1#(targetSignificandWidth + 2)) &&& (~~~subnormalMask))
 /-
   // Have to choose the right one dependent on rounding mode
   prop choosenGuardBit(ITE(normalRounding, guardBit, subnormalGuardBit));
@@ -336,7 +336,7 @@ def EUnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSi
   let significandEven : Bool := if normalRounding then
     extractedSignificand.getLsbD 0 = false
   else
-    (extractedSignificand &&& subnormalIncrementAmount) = BitVec.ofNat (targetSignificandWidth + 1) 0
+    (extractedSignificand &&& subnormalIncrementAmount) = BitVec.ofNat (targetSignificandWidth + 2) 0
 /-
   prop roundUp(roundingDecision<t>(roundingMode, uf.getSign(), significandEven,
 				   choosenGuardBit, choosenStickyBit,
@@ -352,23 +352,23 @@ def EUnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSi
   //          earlyUnderflow); // This one really matters, it means only the early underflow path is wrong
 
 -/
-  let leadingOne : BitVec (targetSignificandWidth) :=
-    BitVec.leadingOne (targetSignificandWidth)
+  let leadingOne : BitVec (targetSignificandWidth + 1) :=
+    BitVec.leadingOne (targetSignificandWidth + 1)
 /-
   // Convert the round up flag to a mask
   ubv normalRoundUpAmount(ubv(roundUp).matchWidth(extractedSignificand));
   ubv subnormalRoundUpMask(ubv(roundUp).append(ubv::zero(targetSignificandWidth)).signExtendRightShift(ubv(targetSignificandWidth + 1, targetSignificandWidth)));
   ubv subnormalRoundUpAmount(subnormalRoundUpMask & subnormalIncrementAmount);
 -/
-  let normalRoundUpAmount : BitVec (targetSignificandWidth + 1) :=
-    (BitVec.ofBool roundUp).setWidth (targetSignificandWidth + 1)
+  let normalRoundUpAmount : BitVec (targetSignificandWidth + 2) :=
+    (BitVec.ofBool roundUp).setWidth (targetSignificandWidth + 2)
   -- bollu : 'subnormalRoundUpMask' should just be allOnes or zero.
-  let subnormalRoundUpMask : BitVec (targetSignificandWidth + 1) :=
+  let subnormalRoundUpMask : BitVec (targetSignificandWidth + 2) :=
     let b := BitVec.ofBool roundUp
-    let appended := b.append (BitVec.ofNat targetSignificandWidth 0)
+    let appended := b.append (BitVec.ofNat (targetSignificandWidth + 1) 0)
     let out := appended >>> targetSignificandWidth
     out.cast (by omega)
-  let subnormalRoundUpAmount : BitVec (targetSignificandWidth + 1) :=
+  let subnormalRoundUpAmount : BitVec (targetSignificandWidth + 2) :=
     subnormalRoundUpMask &&& subnormalIncrementAmount
 /-
   ubv rawRoundedSignificand((ITE(normalRounding,
@@ -379,7 +379,7 @@ def EUnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSi
 				 normalRoundUpAmount,
 				 subnormalRoundUpAmount)));
 -/
-  let rawRoundedSignificand : BitVec (targetSignificandWidth + 1) :=
+  let rawRoundedSignificand : BitVec (targetSignificandWidth + 2) :=
     (if normalRounding then
       extractedSignificand
     else
@@ -400,9 +400,9 @@ def EUnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSi
   ubv roundedSignificand(extractedRoundedSignificand | leadingOne);
   INVARIANT(IMPLIES(significandOverflow, extractedRoundedSignificand.isAllZeros()));
 -/
-  let extractedRoundedSignificand : BitVec targetSignificandWidth :=
-    rawRoundedSignificand.extractLsb' 0 targetSignificandWidth
-  let roundedSignificand : BitVec (targetSignificandWidth) :=
+  let extractedRoundedSignificand : BitVec (targetSignificandWidth + 1) :=
+    rawRoundedSignificand.extractLsb' 0 (targetSignificandWidth + 1)
+  let roundedSignificand : BitVec (targetSignificandWidth + 1) :=
     extractedRoundedSignificand ||| leadingOne
 /-
   /*** Round to correct exponent. ***/
