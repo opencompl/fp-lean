@@ -556,6 +556,53 @@ def mkPackedFloats (E : Nat) (S : Nat) : Array (PackedFloat E S) := Id.run do
         res := res.push pf
   res
 
+/--
+Return all representable packed floats of given exponent and significand widths,
+in ascending order by their rational value.
+-/
+def mkPackedFloatNumsSorted (E : Nat) (S : Nat) :
+    Array (PackedFloat E S × Rat) := Id.run do
+  let pfs ← mkPackedFloats E S
+  let mut res := #[]
+  for pf in pfs do
+    if let .some r := pf.toRat? then
+      res := res.push (pf, r)
+  res.qsort (fun a b => a.2 < b.2)
+
+/-
+Implementation of RNE rounding by finding the closest representable float, exhaustively.
+-/
+def getClosestRNEResult {expWidth sigWidth : Nat}
+    (targetExponentWidth targetSignificandWidth : Nat)
+    (inUf : UnpackedFloat expWidth sigWidth) :
+    -- (mode : RoundingMode) :
+    EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) := Id.run do
+  let inRat := inUf.toRat
+  let candidates := mkPackedFloatNumsSorted targetExponentWidth targetSignificandWidth
+  if inRat < (candidates.getD 0 default).2 then
+    EUnpackedFloat.mkInfinity true
+  else if inRat > (candidates.getD (candidates.size - 1) default).2 then
+    EUnpackedFloat.mkInfinity false
+  else
+    let candidatesWithDist := candidates.map (fun (pf, r) =>
+      (pf, r, (inRat - r).abs))
+    let candidatesSorted := candidatesWithDist.qsort (fun a b => a.2.2 < b.2.2)
+    let out1 := candidatesSorted.getD 0 default
+    let out2 := candidatesSorted.getD 1 default
+    let (pf1, r1, dist1) := out1
+    let (pf2, _r2, dist2) := out2
+    if dist1 < dist2 then
+      pf1.unpack
+    else if dist2 < dist1 then
+      pf2.unpack
+    else
+      -- round to the nearest even number
+      if r1.num % 2 == 0 then
+        pf1.unpack
+      else
+        pf2.unpack
+      -- round to nearest even.
+
 def BitVec.toBitsStr {w : Nat} (bv : BitVec w) : String := Id.run do
   let mut s := "0b"
   for i in [0:w] do

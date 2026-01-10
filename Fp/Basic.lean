@@ -25,7 +25,7 @@ structure PackedFloat (exWidth sigWidth : Nat) where
     ex : BitVec exWidth
     /-- Significand (mantissa) of the packed float. -/
     sig : BitVec sigWidth
-deriving DecidableEq, Repr
+deriving DecidableEq, Repr, Inhabited
 
 attribute [bv_normalize] PackedFloat.ext_iff
 
