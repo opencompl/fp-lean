@@ -172,7 +172,7 @@ axiom AxRoundPreconditions {P : Prop} : P
 
 -- https://github.com/martin-cs/symfpu/blob/aeaa3fa62730148c855f5a9e0a9b7040d48e0b7e/core/rounder.h#L299
 @[bv_normalize]
-def EUnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSignificandWidth : Nat}
+def UnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSignificandWidth : Nat}
   (inUf : UnpackedFloat expWidth sigWidth)
   (mode : RoundingMode)
   (hs : sigWidth >= targetSignificandWidth + 3 := AxRoundPreconditions)
@@ -495,6 +495,25 @@ def EUnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSi
     rounderSpecialCases mode roundedResult overflow underflow inUf.isZero
   result
 
+def EUnpackedFloat.round {targetExponentWidth targetSignificandWidth : Nat}
+    (self : EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 3))
+    (mode : RoundingMode) :
+    EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
+  if self.isNumber then
+    UnpackedFloat.round (self.num) mode
+  else if self.isInfinite then
+    EUnpackedFloat.mkInfinity self.sign
+  else if self.isZero then
+    EUnpackedFloat.mkZero self.sign
+  else -- if self.isNaN then
+    EUnpackedFloat.mkNaN
+
+def EUnpackedFloat.normalizeAndRound {targetExponentWidth targetSignificandWidth : Nat}
+    (self : EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 3))
+    (mode : RoundingMode) :
+    EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
+  self.normalize |>.round mode
+
 -- e = 5
 -- s = 3
 -- exponentWidth 5 3 = 6
@@ -511,506 +530,51 @@ def mkPackedFloats (E : Nat) (S : Nat) : Array (PackedFloat E S) := Id.run do
         res := res.push pf
   res
 
+
+/-- info: done. -/
+#guard_msgs in #eval show IO Unit from do
+  for originalPacked in mkPackedFloats 5 3 do
+    if ! originalPacked.isNorm then continue -- we only need to think about the normal case for now.
+    let originalEUnpacked := originalPacked.unpack
+    -- if ! originalEUnpacked.isNumber then continue
+    let originalUnpacked := originalEUnpacked.num
+    let originalUnpackedNormalized := originalUnpacked.normalize
+
+    let outputUnpacked := EUnpackedFloat.mkNumber originalUnpackedNormalized
+    -- let outputUnpacked := UnpackedFloat.round (targetExponentWidth := 5) (targetSignificandWidth := 3) originalEUnpacked.num RoundingMode.RNE
+    let outputPacked := outputUnpacked.pack
+    if ! originalPacked.equal_denotation outputPacked then
+      IO.println s!"Failed ❌ | original {repr originalPacked.toRat?} → output {repr outputPacked.toRat?}"
+    -- else
+    --   IO.println s!"Succeeded ✅ | original {repr originalPacked.toRat?} → output {repr outputPacked.toRat?}"
+
+  IO.println "done."
+
 /--
-info: Failed ❌ | original some (-1 : Rat)/16384 → output none
-Failed ❌ | original some (1 : Rat)/16384 → output none
-Failed ❌ | original some (-9 : Rat)/131072 → output none
-Failed ❌ | original some (9 : Rat)/131072 → output none
-Failed ❌ | original some (-5 : Rat)/65536 → output none
-Failed ❌ | original some (5 : Rat)/65536 → output none
-Failed ❌ | original some (-11 : Rat)/131072 → output none
-Failed ❌ | original some (11 : Rat)/131072 → output none
-Failed ❌ | original some (-3 : Rat)/32768 → output none
-Failed ❌ | original some (3 : Rat)/32768 → output none
-Failed ❌ | original some (-13 : Rat)/131072 → output none
-Failed ❌ | original some (13 : Rat)/131072 → output none
-Failed ❌ | original some (-7 : Rat)/65536 → output none
-Failed ❌ | original some (7 : Rat)/65536 → output none
-Failed ❌ | original some (-15 : Rat)/131072 → output none
-Failed ❌ | original some (15 : Rat)/131072 → output none
-Failed ❌ | original some (-1 : Rat)/8192 → output none
-Failed ❌ | original some (1 : Rat)/8192 → output none
-Failed ❌ | original some (-9 : Rat)/65536 → output none
-Failed ❌ | original some (9 : Rat)/65536 → output none
-Failed ❌ | original some (-5 : Rat)/32768 → output none
-Failed ❌ | original some (5 : Rat)/32768 → output none
-Failed ❌ | original some (-11 : Rat)/65536 → output none
-Failed ❌ | original some (11 : Rat)/65536 → output none
-Failed ❌ | original some (-3 : Rat)/16384 → output none
-Failed ❌ | original some (3 : Rat)/16384 → output none
-Failed ❌ | original some (-13 : Rat)/65536 → output none
-Failed ❌ | original some (13 : Rat)/65536 → output none
-Failed ❌ | original some (-7 : Rat)/32768 → output none
-Failed ❌ | original some (7 : Rat)/32768 → output none
-Failed ❌ | original some (-15 : Rat)/65536 → output none
-Failed ❌ | original some (15 : Rat)/65536 → output none
-Failed ❌ | original some (-1 : Rat)/4096 → output none
-Failed ❌ | original some (1 : Rat)/4096 → output none
-Failed ❌ | original some (-9 : Rat)/32768 → output none
-Failed ❌ | original some (9 : Rat)/32768 → output none
-Failed ❌ | original some (-5 : Rat)/16384 → output none
-Failed ❌ | original some (5 : Rat)/16384 → output none
-Failed ❌ | original some (-11 : Rat)/32768 → output none
-Failed ❌ | original some (11 : Rat)/32768 → output none
-Failed ❌ | original some (-3 : Rat)/8192 → output none
-Failed ❌ | original some (3 : Rat)/8192 → output none
-Failed ❌ | original some (-13 : Rat)/32768 → output none
-Failed ❌ | original some (13 : Rat)/32768 → output none
-Failed ❌ | original some (-7 : Rat)/16384 → output none
-Failed ❌ | original some (7 : Rat)/16384 → output none
-Failed ❌ | original some (-15 : Rat)/32768 → output none
-Failed ❌ | original some (15 : Rat)/32768 → output none
-Failed ❌ | original some (-1 : Rat)/2048 → output none
-Failed ❌ | original some (1 : Rat)/2048 → output none
-Failed ❌ | original some (-9 : Rat)/16384 → output none
-Failed ❌ | original some (9 : Rat)/16384 → output none
-Failed ❌ | original some (-5 : Rat)/8192 → output none
-Failed ❌ | original some (5 : Rat)/8192 → output none
-Failed ❌ | original some (-11 : Rat)/16384 → output none
-Failed ❌ | original some (11 : Rat)/16384 → output none
-Failed ❌ | original some (-3 : Rat)/4096 → output none
-Failed ❌ | original some (3 : Rat)/4096 → output none
-Failed ❌ | original some (-13 : Rat)/16384 → output none
-Failed ❌ | original some (13 : Rat)/16384 → output none
-Failed ❌ | original some (-7 : Rat)/8192 → output none
-Failed ❌ | original some (7 : Rat)/8192 → output none
-Failed ❌ | original some (-15 : Rat)/16384 → output none
-Failed ❌ | original some (15 : Rat)/16384 → output none
-Failed ❌ | original some (-1 : Rat)/1024 → output none
-Failed ❌ | original some (1 : Rat)/1024 → output none
-Failed ❌ | original some (-9 : Rat)/8192 → output none
-Failed ❌ | original some (9 : Rat)/8192 → output none
-Failed ❌ | original some (-5 : Rat)/4096 → output none
-Failed ❌ | original some (5 : Rat)/4096 → output none
-Failed ❌ | original some (-11 : Rat)/8192 → output none
-Failed ❌ | original some (11 : Rat)/8192 → output none
-Failed ❌ | original some (-3 : Rat)/2048 → output none
-Failed ❌ | original some (3 : Rat)/2048 → output none
-Failed ❌ | original some (-13 : Rat)/8192 → output none
-Failed ❌ | original some (13 : Rat)/8192 → output none
-Failed ❌ | original some (-7 : Rat)/4096 → output none
-Failed ❌ | original some (7 : Rat)/4096 → output none
-Failed ❌ | original some (-15 : Rat)/8192 → output none
-Failed ❌ | original some (15 : Rat)/8192 → output none
-Failed ❌ | original some (-1 : Rat)/512 → output none
-Failed ❌ | original some (1 : Rat)/512 → output none
-Failed ❌ | original some (-9 : Rat)/4096 → output none
-Failed ❌ | original some (9 : Rat)/4096 → output none
-Failed ❌ | original some (-5 : Rat)/2048 → output none
-Failed ❌ | original some (5 : Rat)/2048 → output none
-Failed ❌ | original some (-11 : Rat)/4096 → output none
-Failed ❌ | original some (11 : Rat)/4096 → output none
-Failed ❌ | original some (-3 : Rat)/1024 → output none
-Failed ❌ | original some (3 : Rat)/1024 → output none
-Failed ❌ | original some (-13 : Rat)/4096 → output none
-Failed ❌ | original some (13 : Rat)/4096 → output none
-Failed ❌ | original some (-7 : Rat)/2048 → output none
-Failed ❌ | original some (7 : Rat)/2048 → output none
-Failed ❌ | original some (-15 : Rat)/4096 → output none
-Failed ❌ | original some (15 : Rat)/4096 → output none
-Failed ❌ | original some (-1 : Rat)/256 → output none
-Failed ❌ | original some (1 : Rat)/256 → output none
-Failed ❌ | original some (-9 : Rat)/2048 → output none
-Failed ❌ | original some (9 : Rat)/2048 → output none
-Failed ❌ | original some (-5 : Rat)/1024 → output none
-Failed ❌ | original some (5 : Rat)/1024 → output none
-Failed ❌ | original some (-11 : Rat)/2048 → output none
-Failed ❌ | original some (11 : Rat)/2048 → output none
-Failed ❌ | original some (-3 : Rat)/512 → output none
-Failed ❌ | original some (3 : Rat)/512 → output none
-Failed ❌ | original some (-13 : Rat)/2048 → output none
-Failed ❌ | original some (13 : Rat)/2048 → output none
-Failed ❌ | original some (-7 : Rat)/1024 → output none
-Failed ❌ | original some (7 : Rat)/1024 → output none
-Failed ❌ | original some (-15 : Rat)/2048 → output none
-Failed ❌ | original some (15 : Rat)/2048 → output none
-Failed ❌ | original some (-1 : Rat)/128 → output none
-Failed ❌ | original some (1 : Rat)/128 → output none
-Failed ❌ | original some (-9 : Rat)/1024 → output none
-Failed ❌ | original some (9 : Rat)/1024 → output none
-Failed ❌ | original some (-5 : Rat)/512 → output none
-Failed ❌ | original some (5 : Rat)/512 → output none
-Failed ❌ | original some (-11 : Rat)/1024 → output none
-Failed ❌ | original some (11 : Rat)/1024 → output none
-Failed ❌ | original some (-3 : Rat)/256 → output none
-Failed ❌ | original some (3 : Rat)/256 → output none
-Failed ❌ | original some (-13 : Rat)/1024 → output none
-Failed ❌ | original some (13 : Rat)/1024 → output none
-Failed ❌ | original some (-7 : Rat)/512 → output none
-Failed ❌ | original some (7 : Rat)/512 → output none
-Failed ❌ | original some (-15 : Rat)/1024 → output none
-Failed ❌ | original some (15 : Rat)/1024 → output none
-Failed ❌ | original some (-1 : Rat)/64 → output none
-Failed ❌ | original some (1 : Rat)/64 → output none
-Failed ❌ | original some (-9 : Rat)/512 → output none
-Failed ❌ | original some (9 : Rat)/512 → output none
-Failed ❌ | original some (-5 : Rat)/256 → output none
-Failed ❌ | original some (5 : Rat)/256 → output none
-Failed ❌ | original some (-11 : Rat)/512 → output none
-Failed ❌ | original some (11 : Rat)/512 → output none
-Failed ❌ | original some (-3 : Rat)/128 → output none
-Failed ❌ | original some (3 : Rat)/128 → output none
-Failed ❌ | original some (-13 : Rat)/512 → output none
-Failed ❌ | original some (13 : Rat)/512 → output none
-Failed ❌ | original some (-7 : Rat)/256 → output none
-Failed ❌ | original some (7 : Rat)/256 → output none
-Failed ❌ | original some (-15 : Rat)/512 → output none
-Failed ❌ | original some (15 : Rat)/512 → output none
-Failed ❌ | original some (-1 : Rat)/32 → output none
-Failed ❌ | original some (1 : Rat)/32 → output none
-Failed ❌ | original some (-9 : Rat)/256 → output none
-Failed ❌ | original some (9 : Rat)/256 → output none
-Failed ❌ | original some (-5 : Rat)/128 → output none
-Failed ❌ | original some (5 : Rat)/128 → output none
-Failed ❌ | original some (-11 : Rat)/256 → output none
-Failed ❌ | original some (11 : Rat)/256 → output none
-Failed ❌ | original some (-3 : Rat)/64 → output none
-Failed ❌ | original some (3 : Rat)/64 → output none
-Failed ❌ | original some (-13 : Rat)/256 → output none
-Failed ❌ | original some (13 : Rat)/256 → output none
-Failed ❌ | original some (-7 : Rat)/128 → output none
-Failed ❌ | original some (7 : Rat)/128 → output none
-Failed ❌ | original some (-15 : Rat)/256 → output none
-Failed ❌ | original some (15 : Rat)/256 → output none
-Failed ❌ | original some (-1 : Rat)/16 → output none
-Failed ❌ | original some (1 : Rat)/16 → output none
-Failed ❌ | original some (-9 : Rat)/128 → output none
-Failed ❌ | original some (9 : Rat)/128 → output none
-Failed ❌ | original some (-5 : Rat)/64 → output none
-Failed ❌ | original some (5 : Rat)/64 → output none
-Failed ❌ | original some (-11 : Rat)/128 → output none
-Failed ❌ | original some (11 : Rat)/128 → output none
-Failed ❌ | original some (-3 : Rat)/32 → output none
-Failed ❌ | original some (3 : Rat)/32 → output none
-Failed ❌ | original some (-13 : Rat)/128 → output none
-Failed ❌ | original some (13 : Rat)/128 → output none
-Failed ❌ | original some (-7 : Rat)/64 → output none
-Failed ❌ | original some (7 : Rat)/64 → output none
-Failed ❌ | original some (-15 : Rat)/128 → output none
-Failed ❌ | original some (15 : Rat)/128 → output none
-Failed ❌ | original some (-1 : Rat)/8 → output none
-Failed ❌ | original some (1 : Rat)/8 → output none
-Failed ❌ | original some (-9 : Rat)/64 → output none
-Failed ❌ | original some (9 : Rat)/64 → output none
-Failed ❌ | original some (-5 : Rat)/32 → output none
-Failed ❌ | original some (5 : Rat)/32 → output none
-Failed ❌ | original some (-11 : Rat)/64 → output none
-Failed ❌ | original some (11 : Rat)/64 → output none
-Failed ❌ | original some (-3 : Rat)/16 → output none
-Failed ❌ | original some (3 : Rat)/16 → output none
-Failed ❌ | original some (-13 : Rat)/64 → output none
-Failed ❌ | original some (13 : Rat)/64 → output none
-Failed ❌ | original some (-7 : Rat)/32 → output none
-Failed ❌ | original some (7 : Rat)/32 → output none
-Failed ❌ | original some (-15 : Rat)/64 → output none
-Failed ❌ | original some (15 : Rat)/64 → output none
-Failed ❌ | original some (-1 : Rat)/4 → output none
-Failed ❌ | original some (1 : Rat)/4 → output none
-Failed ❌ | original some (-9 : Rat)/32 → output none
-Failed ❌ | original some (9 : Rat)/32 → output none
-Failed ❌ | original some (-5 : Rat)/16 → output none
-Failed ❌ | original some (5 : Rat)/16 → output none
-Failed ❌ | original some (-11 : Rat)/32 → output none
-Failed ❌ | original some (11 : Rat)/32 → output none
-Failed ❌ | original some (-3 : Rat)/8 → output none
-Failed ❌ | original some (3 : Rat)/8 → output none
-Failed ❌ | original some (-13 : Rat)/32 → output none
-Failed ❌ | original some (13 : Rat)/32 → output none
-Failed ❌ | original some (-7 : Rat)/16 → output none
-Failed ❌ | original some (7 : Rat)/16 → output none
-Failed ❌ | original some (-15 : Rat)/32 → output none
-Failed ❌ | original some (15 : Rat)/32 → output none
-Failed ❌ | original some (-1 : Rat)/2 → output none
-Failed ❌ | original some (1 : Rat)/2 → output none
-Failed ❌ | original some (-9 : Rat)/16 → output none
-Failed ❌ | original some (9 : Rat)/16 → output none
-Failed ❌ | original some (-5 : Rat)/8 → output none
-Failed ❌ | original some (5 : Rat)/8 → output none
-Failed ❌ | original some (-11 : Rat)/16 → output none
-Failed ❌ | original some (11 : Rat)/16 → output none
-Failed ❌ | original some (-3 : Rat)/4 → output none
-Failed ❌ | original some (3 : Rat)/4 → output none
-Failed ❌ | original some (-13 : Rat)/16 → output none
-Failed ❌ | original some (13 : Rat)/16 → output none
-Failed ❌ | original some (-7 : Rat)/8 → output none
-Failed ❌ | original some (7 : Rat)/8 → output none
-Failed ❌ | original some (-15 : Rat)/16 → output none
-Failed ❌ | original some (15 : Rat)/16 → output none
-Failed ❌ | original some -1 → output some 0
-Failed ❌ | original some 1 → output some 0
-Failed ❌ | original some (-9 : Rat)/8 → output some 0
-Failed ❌ | original some (9 : Rat)/8 → output some 0
-Failed ❌ | original some (-5 : Rat)/4 → output some 0
-Failed ❌ | original some (5 : Rat)/4 → output some 0
-Failed ❌ | original some (-11 : Rat)/8 → output some 0
-Failed ❌ | original some (11 : Rat)/8 → output some 0
-Failed ❌ | original some (-3 : Rat)/2 → output some 0
-Failed ❌ | original some (3 : Rat)/2 → output some 0
-Failed ❌ | original some (-13 : Rat)/8 → output some 0
-Failed ❌ | original some (13 : Rat)/8 → output some 0
-Failed ❌ | original some (-7 : Rat)/4 → output some 0
-Failed ❌ | original some (7 : Rat)/4 → output some 0
-Failed ❌ | original some (-15 : Rat)/8 → output some 0
-Failed ❌ | original some (15 : Rat)/8 → output some 0
-Failed ❌ | original some -2 → output some 0
-Failed ❌ | original some 2 → output some 0
-Failed ❌ | original some (-9 : Rat)/4 → output some 0
-Failed ❌ | original some (9 : Rat)/4 → output some 0
-Failed ❌ | original some (-5 : Rat)/2 → output some 0
-Failed ❌ | original some (5 : Rat)/2 → output some 0
-Failed ❌ | original some (-11 : Rat)/4 → output some 0
-Failed ❌ | original some (11 : Rat)/4 → output some 0
-Failed ❌ | original some -3 → output some 0
-Failed ❌ | original some 3 → output some 0
-Failed ❌ | original some (-13 : Rat)/4 → output some 0
-Failed ❌ | original some (13 : Rat)/4 → output some 0
-Failed ❌ | original some (-7 : Rat)/2 → output some 0
-Failed ❌ | original some (7 : Rat)/2 → output some 0
-Failed ❌ | original some (-15 : Rat)/4 → output some 0
-Failed ❌ | original some (15 : Rat)/4 → output some 0
-Failed ❌ | original some -4 → output some 0
-Failed ❌ | original some 4 → output some 0
-Failed ❌ | original some (-9 : Rat)/2 → output some 0
-Failed ❌ | original some (9 : Rat)/2 → output some 0
-Failed ❌ | original some -5 → output some 0
-Failed ❌ | original some 5 → output some 0
-Failed ❌ | original some (-11 : Rat)/2 → output some 0
-Failed ❌ | original some (11 : Rat)/2 → output some 0
-Failed ❌ | original some -6 → output some 0
-Failed ❌ | original some 6 → output some 0
-Failed ❌ | original some (-13 : Rat)/2 → output some 0
-Failed ❌ | original some (13 : Rat)/2 → output some 0
-Failed ❌ | original some -7 → output some 0
-Failed ❌ | original some 7 → output some 0
-Failed ❌ | original some (-15 : Rat)/2 → output some 0
-Failed ❌ | original some (15 : Rat)/2 → output some 0
-Failed ❌ | original some -8 → output some 0
-Failed ❌ | original some 8 → output some 0
-Failed ❌ | original some -9 → output some 0
-Failed ❌ | original some 9 → output some 0
-Failed ❌ | original some -10 → output some 0
-Failed ❌ | original some 10 → output some 0
-Failed ❌ | original some -11 → output some 0
-Failed ❌ | original some 11 → output some 0
-Failed ❌ | original some -12 → output some 0
-Failed ❌ | original some 12 → output some 0
-Failed ❌ | original some -13 → output some 0
-Failed ❌ | original some 13 → output some 0
-Failed ❌ | original some -14 → output some 0
-Failed ❌ | original some 14 → output some 0
-Failed ❌ | original some -15 → output some 0
-Failed ❌ | original some 15 → output some 0
-Failed ❌ | original some -16 → output some 0
-Failed ❌ | original some 16 → output some 0
-Failed ❌ | original some -18 → output some 0
-Failed ❌ | original some 18 → output some 0
-Failed ❌ | original some -20 → output some 0
-Failed ❌ | original some 20 → output some 0
-Failed ❌ | original some -22 → output some 0
-Failed ❌ | original some 22 → output some 0
-Failed ❌ | original some -24 → output some 0
-Failed ❌ | original some 24 → output some 0
-Failed ❌ | original some -26 → output some 0
-Failed ❌ | original some 26 → output some 0
-Failed ❌ | original some -28 → output some 0
-Failed ❌ | original some 28 → output some 0
-Failed ❌ | original some -30 → output some 0
-Failed ❌ | original some 30 → output some 0
-Failed ❌ | original some -32 → output some 0
-Failed ❌ | original some 32 → output some 0
-Failed ❌ | original some -36 → output some 0
-Failed ❌ | original some 36 → output some 0
-Failed ❌ | original some -40 → output some 0
-Failed ❌ | original some 40 → output some 0
-Failed ❌ | original some -44 → output some 0
-Failed ❌ | original some 44 → output some 0
-Failed ❌ | original some -48 → output some 0
-Failed ❌ | original some 48 → output some 0
-Failed ❌ | original some -52 → output some 0
-Failed ❌ | original some 52 → output some 0
-Failed ❌ | original some -56 → output some 0
-Failed ❌ | original some 56 → output some 0
-Failed ❌ | original some -60 → output some 0
-Failed ❌ | original some 60 → output some 0
-Failed ❌ | original some -64 → output some 0
-Failed ❌ | original some 64 → output some 0
-Failed ❌ | original some -72 → output some 0
-Failed ❌ | original some 72 → output some 0
-Failed ❌ | original some -80 → output some 0
-Failed ❌ | original some 80 → output some 0
-Failed ❌ | original some -88 → output some 0
-Failed ❌ | original some 88 → output some 0
-Failed ❌ | original some -96 → output some 0
-Failed ❌ | original some 96 → output some 0
-Failed ❌ | original some -104 → output some 0
-Failed ❌ | original some 104 → output some 0
-Failed ❌ | original some -112 → output some 0
-Failed ❌ | original some 112 → output some 0
-Failed ❌ | original some -120 → output some 0
-Failed ❌ | original some 120 → output some 0
-Failed ❌ | original some -128 → output some 0
-Failed ❌ | original some 128 → output some 0
-Failed ❌ | original some -144 → output some 0
-Failed ❌ | original some 144 → output some 0
-Failed ❌ | original some -160 → output some 0
-Failed ❌ | original some 160 → output some 0
-Failed ❌ | original some -176 → output some 0
-Failed ❌ | original some 176 → output some 0
-Failed ❌ | original some -192 → output some 0
-Failed ❌ | original some 192 → output some 0
-Failed ❌ | original some -208 → output some 0
-Failed ❌ | original some 208 → output some 0
-Failed ❌ | original some -224 → output some 0
-Failed ❌ | original some 224 → output some 0
-Failed ❌ | original some -240 → output some 0
-Failed ❌ | original some 240 → output some 0
-Failed ❌ | original some -256 → output some 0
-Failed ❌ | original some 256 → output some 0
-Failed ❌ | original some -288 → output some 0
-Failed ❌ | original some 288 → output some 0
-Failed ❌ | original some -320 → output some 0
-Failed ❌ | original some 320 → output some 0
-Failed ❌ | original some -352 → output some 0
-Failed ❌ | original some 352 → output some 0
-Failed ❌ | original some -384 → output some 0
-Failed ❌ | original some 384 → output some 0
-Failed ❌ | original some -416 → output some 0
-Failed ❌ | original some 416 → output some 0
-Failed ❌ | original some -448 → output some 0
-Failed ❌ | original some 448 → output some 0
-Failed ❌ | original some -480 → output some 0
-Failed ❌ | original some 480 → output some 0
-Failed ❌ | original some -512 → output some 0
-Failed ❌ | original some 512 → output some 0
-Failed ❌ | original some -576 → output some 0
-Failed ❌ | original some 576 → output some 0
-Failed ❌ | original some -640 → output some 0
-Failed ❌ | original some 640 → output some 0
-Failed ❌ | original some -704 → output some 0
-Failed ❌ | original some 704 → output some 0
-Failed ❌ | original some -768 → output some 0
-Failed ❌ | original some 768 → output some 0
-Failed ❌ | original some -832 → output some 0
-Failed ❌ | original some 832 → output some 0
-Failed ❌ | original some -896 → output some 0
-Failed ❌ | original some 896 → output some 0
-Failed ❌ | original some -960 → output some 0
-Failed ❌ | original some 960 → output some 0
-Failed ❌ | original some -1024 → output some 0
-Failed ❌ | original some 1024 → output some 0
-Failed ❌ | original some -1152 → output some 0
-Failed ❌ | original some 1152 → output some 0
-Failed ❌ | original some -1280 → output some 0
-Failed ❌ | original some 1280 → output some 0
-Failed ❌ | original some -1408 → output some 0
-Failed ❌ | original some 1408 → output some 0
-Failed ❌ | original some -1536 → output some 0
-Failed ❌ | original some 1536 → output some 0
-Failed ❌ | original some -1664 → output some 0
-Failed ❌ | original some 1664 → output some 0
-Failed ❌ | original some -1792 → output some 0
-Failed ❌ | original some 1792 → output some 0
-Failed ❌ | original some -1920 → output some 0
-Failed ❌ | original some 1920 → output some 0
-Failed ❌ | original some -2048 → output some 0
-Failed ❌ | original some 2048 → output some 0
-Failed ❌ | original some -2304 → output some 0
-Failed ❌ | original some 2304 → output some 0
-Failed ❌ | original some -2560 → output some 0
-Failed ❌ | original some 2560 → output some 0
-Failed ❌ | original some -2816 → output some 0
-Failed ❌ | original some 2816 → output some 0
-Failed ❌ | original some -3072 → output some 0
-Failed ❌ | original some 3072 → output some 0
-Failed ❌ | original some -3328 → output some 0
-Failed ❌ | original some 3328 → output some 0
-Failed ❌ | original some -3584 → output some 0
-Failed ❌ | original some 3584 → output some 0
-Failed ❌ | original some -3840 → output some 0
-Failed ❌ | original some 3840 → output some 0
-Failed ❌ | original some -4096 → output some 0
-Failed ❌ | original some 4096 → output some 0
-Failed ❌ | original some -4608 → output some 0
-Failed ❌ | original some 4608 → output some 0
-Failed ❌ | original some -5120 → output some 0
-Failed ❌ | original some 5120 → output some 0
-Failed ❌ | original some -5632 → output some 0
-Failed ❌ | original some 5632 → output some 0
-Failed ❌ | original some -6144 → output some 0
-Failed ❌ | original some 6144 → output some 0
-Failed ❌ | original some -6656 → output some 0
-Failed ❌ | original some 6656 → output some 0
-Failed ❌ | original some -7168 → output some 0
-Failed ❌ | original some 7168 → output some 0
-Failed ❌ | original some -7680 → output some 0
-Failed ❌ | original some 7680 → output some 0
-Failed ❌ | original some -8192 → output some 0
-Failed ❌ | original some 8192 → output some 0
-Failed ❌ | original some -9216 → output some 0
-Failed ❌ | original some 9216 → output some 0
-Failed ❌ | original some -10240 → output some 0
-Failed ❌ | original some 10240 → output some 0
-Failed ❌ | original some -11264 → output some 0
-Failed ❌ | original some 11264 → output some 0
-Failed ❌ | original some -12288 → output some 0
-Failed ❌ | original some 12288 → output some 0
-Failed ❌ | original some -13312 → output some 0
-Failed ❌ | original some 13312 → output some 0
-Failed ❌ | original some -14336 → output some 0
-Failed ❌ | original some 14336 → output some 0
-Failed ❌ | original some -15360 → output some 0
-Failed ❌ | original some 15360 → output some 0
-Failed ❌ | original some -16384 → output some 0
-Failed ❌ | original some 16384 → output some 0
-Failed ❌ | original some -18432 → output some 0
-Failed ❌ | original some 18432 → output some 0
-Failed ❌ | original some -20480 → output some 0
-Failed ❌ | original some 20480 → output some 0
-Failed ❌ | original some -22528 → output some 0
-Failed ❌ | original some 22528 → output some 0
-Failed ❌ | original some -24576 → output some 0
-Failed ❌ | original some 24576 → output some 0
-Failed ❌ | original some -26624 → output some 0
-Failed ❌ | original some 26624 → output some 0
-Failed ❌ | original some -28672 → output some 0
-Failed ❌ | original some 28672 → output some 0
-Failed ❌ | original some -30720 → output some 0
-Failed ❌ | original some 30720 → output some 0
-Failed ❌ | original some -32768 → output some 0
-Failed ❌ | original some 32768 → output some 0
-Failed ❌ | original some -36864 → output some 0
-Failed ❌ | original some 36864 → output some 0
-Failed ❌ | original some -40960 → output some 0
-Failed ❌ | original some 40960 → output some 0
-Failed ❌ | original some -45056 → output some 0
-Failed ❌ | original some 45056 → output some 0
-Failed ❌ | original some -49152 → output some 0
-Failed ❌ | original some 49152 → output some 0
-Failed ❌ | original some -53248 → output some 0
-Failed ❌ | original some 53248 → output some 0
-Failed ❌ | original some -57344 → output some 0
-Failed ❌ | original some 57344 → output some 0
-Failed ❌ | original some -61440 → output some 0
-Failed ❌ | original some 61440 → output some 0
-foo
+info: Failed ❌ | original some (-1 : Rat)/16384 → output { state := ∞, num := { sign := true, ex := 0x00#6, sig := 0x0#4 } } | none
+done.
 -/
 #guard_msgs in #eval show IO Unit from do
   for originalPacked in mkPackedFloats 5 3 do
     if ! originalPacked.isNorm then continue -- we only need to think about the normal case for now.
     let originalEUnpacked := originalPacked.unpack
     -- if ! originalEUnpacked.isNumber then continue
-    let outputUnpacked := EUnpackedFloat.round (targetExponentWidth := 5) (targetSignificandWidth := 3) originalEUnpacked.num RoundingMode.RNE
+    let originalUnpacked := originalEUnpacked.num
+    let originalUnpackedNormalized := originalUnpacked.normalize
+    let outputUnpacked := UnpackedFloat.round (targetExponentWidth := 5) (targetSignificandWidth := 3) originalUnpackedNormalized RoundingMode.RNE
     let outputPacked := outputUnpacked.pack
     if ! originalPacked.equal_denotation outputPacked then
-      IO.println s!"Failed ❌ | original {repr originalPacked.toRat?} → output {repr outputPacked.toRat?}"
-    else
-      IO.println s!"Succeeded ✅ | original {repr originalPacked.toRat?} → output {repr outputPacked.toRat?}"
+      IO.println s!"Failed ❌ | original {repr originalPacked.toRat?} → output {repr outputPacked.unpack} | {repr outputPacked.toRat?}"
+      break
+    -- else
+    --   IO.println s!"Succeeded ✅ | original {repr originalPacked.toRat?} → output {repr outputPacked.toRat?}"
 
-  IO.println "foo"
+  IO.println "done."
+
 
 theorem round_idem' (uf : UnpackedFloat 6 4)
     (huf : (EUnpackedFloat.pack (e := 5) (s := 3) (EUnpackedFloat.mkNumber uf)).isNorm) :
-    (EUnpackedFloat.round (targetExponentWidth := 5) (targetSignificandWidth := 3) uf RoundingMode.RNE) = EUnpackedFloat.mkNumber uf := by
+    (UnpackedFloat.round (targetExponentWidth := 5) (targetSignificandWidth := 3) uf RoundingMode.RNE) = EUnpackedFloat.mkNumber uf := by
   bv_normalize
   -- simp_all
   -- bv_decide
@@ -1018,7 +582,7 @@ theorem round_idem' (uf : UnpackedFloat 6 4)
 
 theorem round_idem (uf : UnpackedFloat (exponentWidth e s) (s + 1))
     (huf : (EUnpackedFloat.pack (e := e) (s := s) (EUnpackedFloat.mkNumber uf)).isNorm) :
-    EUnpackedFloat.round  uf RoundingMode.RNE == EUnpackedFloat.mkNumber uf := by
+    UnpackedFloat.round  uf RoundingMode.RNE == EUnpackedFloat.mkNumber uf := by
   have he : e = 5 := by sorry
   have hs : s = 3 := by sorry
   subst e s
