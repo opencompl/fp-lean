@@ -642,18 +642,18 @@ def UnpackedFloat.roundNormal {expWidth sigWidth : Nat} {targetExponentWidth tar
   println! "--- rounding: {repr inUf} ---"
   println! "val: {inUf.toRat}"
   let exp := inUf.ex
-  let sig : BitVec sigWidth := inUf.sig
-  println! "sig: {sig.toBitsStr} | ex: {exp.toBitsStr} = {exp.toInt}"
-  let sigNoHidden := sig.truncate (sigWidth - 1)
-  let targetSigNoHidden : BitVec (targetSignificandWidth) :=
-      sigNoHidden.extractMsb' 0 (targetSignificandWidth)
+  let sigWithHidden : BitVec sigWidth := inUf.sig
+  println! "sig(w/hidden): {sigWithHidden.toBitsStr} | ex: {exp.toBitsStr} = {exp.toInt}"
+  -- let sigNoHidden := sig.truncate (sigWidth - 1)
+  let targetSigWithHidden : BitVec (targetSignificandWidth + 1) :=
+      sigWithHidden.extractMsb' 0 (targetSignificandWidth + 1)
   let guardBit : Bool :=
-    targetSigNoHidden.getMsbD (targetSignificandWidth + 1)
+    targetSigWithHidden.getMsbD (targetSignificandWidth + 2)
   let stickyBits :=
-    targetSigNoHidden.extractMsb (targetSignificandWidth + 2) 0
+    targetSigWithHidden.extractMsb (targetSignificandWidth + 3) 0
   let sticky := ! stickyBits.isZero
 
-  let isEven := targetSigNoHidden.getLsbD 0 == false
+  let isEven := targetSigWithHidden.getLsbD 0 == false
   let shouldRoundUp := roundingDecision
     (mode := mode)
     (sign := inUf.sign)
@@ -661,12 +661,10 @@ def UnpackedFloat.roundNormal {expWidth sigWidth : Nat} {targetExponentWidth tar
     (guardBit := guardBit)
     (stickyBit := sticky)
     (exact := false)
-  let (roundedTargetSigNoHidden, sigDidOverflow) :=
+  let (roundedTargetSigWithHidden, sigDidOverflow) :=
     conditionalIncrementWithFlags
       (cond := shouldRoundUp)
-      (x := targetSigNoHidden)
-  let roundedTargetSigWithHidden := roundedTargetSigNoHidden.zeroExtend (targetSignificandWidth + 1)
-      ||| (BitVec.leadingOne (targetSignificandWidth + 1))
+      (x := targetSigWithHidden)
   -- let targetExp := exp.signExtend targetExponentWidth
   let (roundedExp, expDidOverflow) :=
     conditionalIncrementWithFlags
@@ -726,6 +724,10 @@ def checkRoundIdem (E S : Nat) : IO Bool := do
   else
     throw (IO.Error.userError "Some failed ❌")
 
+
+def UnpackedFloat.toString {expWidth sigWidth : Nat} (uf : UnpackedFloat expWidth sigWidth) : String :=
+  s!"{if uf.sign then "-" else "+"} {uf.sig.toNat} * 2^-({sigWidth - 1}) * 2^{uf.ex.toInt}"
+
 #guard_msgs(error) in #eval checkRoundIdem 5 3
 
 def checkRoundCorrect (EUnpacked SUnpacked : Nat) (EOut SOut : Nat) : IO Bool := do
@@ -746,8 +748,9 @@ def checkRoundCorrect (EUnpacked SUnpacked : Nat) (EOut SOut : Nat) : IO Bool :=
     let expectedPacked := expectedEUnpacked.pack
     if ! outputPacked.equal_denotation expectedPacked then
       IO.println s!"Failed ❌ | original {repr originalPacked}"
-      IO.println s!"  original unpacked {repr originalUnpacked}"
-      IO.println s!"  normalized {repr originalNormalized}"
+      IO.println s!"  original (Q) {repr originalPacked.toRat?}"
+      IO.println s!"  original unpacked {repr originalUnpacked.toString}"
+      IO.println s!"  original normalized {repr originalNormalized.toString}"
       IO.println s!"  output (Q) {repr outputPacked.toRat?}"
       IO.println s!"  expected (Q) {repr expectedPacked.toRat?}"
       IO.println s!"  output {repr outputPacked.unpack}"
@@ -762,8 +765,9 @@ def checkRoundCorrect (EUnpacked SUnpacked : Nat) (EOut SOut : Nat) : IO Bool :=
 
 /--
 info: Failed ❌ | original { sign := -, ex := 0x00#5, sig := 0x3#4 }
-  original unpacked { sign := true, ex := 0x2f#6, sig := 0x18#5 }
-  normalized { sign := true, ex := 0x2f#6, sig := 0x18#5 }
+  original (Q) some (-3 : Rat)/262144
+  original unpacked "- 24 * 2^-(4) * 2^-17"
+  original normalized "- 24 * 2^-(4) * 2^-17"
   output (Q) some 0
   expected (Q) some (-1 : Rat)/65536
   output { state := num, num := { sign := true, ex := 0x00#6, sig := 0x0#3 } }
