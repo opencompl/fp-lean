@@ -571,6 +571,9 @@ def mkPackedFloatNumsSorted (E : Nat) (S : Nat) :
 
 /-
 Implementation of RNE rounding by finding the closest representable float, exhaustively.
+Note that zero needs special handling, because toRat does not distinguish +0 and -0,
+but FP does.
+
 -/
 def getClosestRNEResult {expWidth sigWidth : Nat}
     (targetExponentWidth targetSignificandWidth : Nat)
@@ -591,17 +594,21 @@ def getClosestRNEResult {expWidth sigWidth : Nat}
     let out2 := candidatesSorted.getD 1 default
     let (pf1, r1, dist1) := out1
     let (pf2, _r2, dist2) := out2
-    if dist1 < dist2 then
-      pf1.unpack
-    else if dist2 < dist1 then
-      pf2.unpack
+    if r1 = 0 then
+      EUnpackedFloat.mkZero inUf.sign
     else
-      -- round to the nearest even number
-      if r1.num % 2 == 0 then
+      if hlt : dist1 < dist2 then
         pf1.unpack
-      else
+      else if hgt : dist2 < dist1 then
         pf2.unpack
-      -- round to nearest even.
+      else
+        have : dist1 = dist2 := by grind
+          -- round to the nearest even number
+          if r1.num % 2 == 0 then
+            pf1.unpack
+          else
+            pf2.unpack
+          -- round to nearest even.
 
 def BitVec.toBitsStr {w : Nat} (bv : BitVec w) : String := Id.run do
   let mut s := "0b"
@@ -720,6 +727,51 @@ def checkRoundIdem (E S : Nat) : IO Bool := do
     throw (IO.Error.userError "Some failed ❌")
 
 #guard_msgs(error) in #eval checkRoundIdem 5 3
+
+def checkRoundCorrect (EUnpacked SUnpacked : Nat) (EOut SOut : Nat) : IO Bool := do
+  let mut allSucceeded := true
+  for originalPacked in mkPackedFloats EUnpacked SUnpacked do
+    let originalEUnpacked := originalPacked.unpack
+    if ! originalEUnpacked.isNumber then continue
+
+    let originalUnpacked := originalEUnpacked.num
+    let originalNormalized := originalUnpacked.normalize
+    let originalRounded :=
+      UnpackedFloat.round (targetExponentWidth := EOut) (targetSignificandWidth := SOut)
+        originalNormalized RoundingMode.RNE
+    let outputPacked := originalRounded.pack
+    let expectedEUnpacked :=
+      getClosestRNEResult (targetExponentWidth := EOut) (targetSignificandWidth := SOut)
+        originalUnpacked
+    let expectedPacked := expectedEUnpacked.pack
+    if ! outputPacked.equal_denotation expectedPacked then
+      IO.println s!"Failed ❌ | original {repr originalPacked}"
+      IO.println s!"  original unpacked {repr originalUnpacked}"
+      IO.println s!"  normalized {repr originalNormalized}"
+      IO.println s!"  output (Q) {repr outputPacked.toRat?}"
+      IO.println s!"  expected (Q) {repr expectedPacked.toRat?}"
+      IO.println s!"  output {repr outputPacked.unpack}"
+      IO.println s!"  expected {repr expectedPacked.unpack}"
+      allSucceeded := false
+      break
+  if allSucceeded then
+    IO.println "All succeeded ✅"
+  else
+    throw (IO.Error.userError "Some failed ❌")
+  return allSucceeded
+
+/--
+info: Failed ❌ | original { sign := -, ex := 0x00#5, sig := 0x3#4 }
+  original unpacked { sign := true, ex := 0x2f#6, sig := 0x18#5 }
+  normalized { sign := true, ex := 0x2f#6, sig := 0x18#5 }
+  output (Q) some 0
+  expected (Q) some (-1 : Rat)/65536
+  output { state := num, num := { sign := true, ex := 0x00#6, sig := 0x0#3 } }
+  expected { state := num, num := { sign := true, ex := 0x30#6, sig := 0x4#3 } }
+---
+error: Some failed ❌
+-/
+#guard_msgs in #eval checkRoundCorrect 5 4 5 2
 
 def checkNormalizeIdem (E S : Nat) : IO Bool := do
   let mut allSucceeded := true
