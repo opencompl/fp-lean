@@ -637,23 +637,29 @@ def UnpackedFloat.roundNormal {expWidth sigWidth : Nat} {targetExponentWidth tar
   (hs : sigWidth >= targetSignificandWidth + 3 := AxRoundPreconditions)
   (he : expWidth >= (exponentWidth targetExponentWidth targetSignificandWidth) := AxRoundPreconditions)
   (hs' : sigWidth >= 1 := AxRoundPreconditions) :
-  IO (EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1)) := do
+  IO (EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) × String) := do
+  let mut out := ""
   -- round a normalized, normal float.
-  println! "--- rounding: {repr inUf} ---"
-  println! "val: {inUf.toRat}"
+  out := out ++ s!"\n--- rounding: {repr inUf} ---"
+  out := out ++ s!"\n  val: {inUf.toRat}"
   let exp := inUf.ex
   let sigWithHidden : BitVec sigWidth := inUf.sig
-  println! "sig(w/hidden): {sigWithHidden.toBitsStr} | ex: {exp.toBitsStr} = {exp.toInt}"
+  out := out ++ s!"\nsig(w/hidden): {sigWithHidden.toBitsStr} | ex: {exp.toBitsStr} = {exp.toInt}"
   -- let sigNoHidden := sig.truncate (sigWidth - 1)
   let targetSigWithHidden : BitVec (targetSignificandWidth + 1) :=
       sigWithHidden.extractMsb' 0 (targetSignificandWidth + 1)
+  out := out ++ s!"\ntargetSig(w/hidden): {targetSigWithHidden.toBitsStr}"
   let guardBit : Bool :=
     targetSigWithHidden.getMsbD (targetSignificandWidth + 2)
+  out := out ++ s!"\nguardBit: {guardBit}"
   let stickyBits :=
-    targetSigWithHidden.extractMsb (targetSignificandWidth + 3) 0
+    targetSigWithHidden.extractMsb' (targetSignificandWidth + 3) (sigWidth - (targetSignificandWidth + 3))
+  out := out ++ s!"\nstickyBits: {stickyBits.toBitsStr}"
   let sticky := ! stickyBits.isZero
+  out := out ++ s!"\nsticky: {sticky}"
 
   let isEven := targetSigWithHidden.getLsbD 0 == false
+  out := out ++ s!"\nisEven: {isEven}"
   let shouldRoundUp := roundingDecision
     (mode := mode)
     (sign := inUf.sign)
@@ -661,15 +667,20 @@ def UnpackedFloat.roundNormal {expWidth sigWidth : Nat} {targetExponentWidth tar
     (guardBit := guardBit)
     (stickyBit := sticky)
     (exact := false)
+  out := out ++ s!"\nshouldRoundUp: {shouldRoundUp}"
   let (roundedTargetSigWithHidden, sigDidOverflow) :=
     conditionalIncrementWithFlags
       (cond := shouldRoundUp)
       (x := targetSigWithHidden)
+  out := out ++ s!"\nroundedSig(w/hidden): {roundedTargetSigWithHidden.toBitsStr}"
+  out := out ++ s!"\nsigDidOverflow: {sigDidOverflow}"
   -- let targetExp := exp.signExtend targetExponentWidth
   let (roundedExp, expDidOverflow) :=
     conditionalIncrementWithFlags
       (cond := sigDidOverflow)
       (x := exp)
+  out := out ++ s!"\nroundedExp: {roundedExp.toBitsStr} = {roundedExp.toInt}"
+  out := out ++ s!"\nexpDidOverflow: {expDidOverflow}"
 
   -- I find this width stuff confusing, which width should we use?
   have : expWidth ≥ exponentWidth targetExponentWidth targetSignificandWidth := by
@@ -684,17 +695,18 @@ def UnpackedFloat.roundNormal {expWidth sigWidth : Nat} {targetExponentWidth tar
     roundedExp.slt minExp
   let overflow : Bool :=
     maxExp.slt roundedExp || expDidOverflow
-
+  out := out ++ s!"\nunderflow: {underflow}"
+  out := out ++ s!"\noverflow: {overflow}"
   if underflow then
-    return EUnpackedFloat.mkZero inUf.sign
+    return (EUnpackedFloat.mkZero inUf.sign, out)
   else if overflow then
-    return EUnpackedFloat.mkInfinity inUf.sign
+    return (EUnpackedFloat.mkInfinity inUf.sign, out)
   else
-    return EUnpackedFloat.mkNumber
+    return (EUnpackedFloat.mkNumber
       { sign := inUf.sign,
         ex := roundedExp.truncate (exponentWidth targetExponentWidth targetSignificandWidth),
         sig := roundedTargetSigWithHidden
-      }
+      }, out)
   -- relevantSig ++ guardBit ++ stickyBits = original.
 
   -- grab the significand bits that are relevant.
@@ -711,7 +723,7 @@ def checkRoundIdem (E S : Nat) : IO Bool := do
     -- if ! originalEUnpacked.isNumber then continue
     let originalUnpacked := originalEUnpacked.num
     let originalUnpackedNormalized := originalUnpacked.normalize
-    let outputUnpacked ← UnpackedFloat.roundNormal
+    let (outputUnpacked,log) ← UnpackedFloat.roundNormal
         (targetExponentWidth := E) (targetSignificandWidth := S)
         originalUnpackedNormalized RoundingMode.RNE
     let outputPacked : PackedFloat E S := outputUnpacked.pack
@@ -738,23 +750,26 @@ def checkRoundCorrect (EUnpacked SUnpacked : Nat) (EOut SOut : Nat) : IO Bool :=
 
     let originalUnpacked := originalEUnpacked.num
     let originalNormalized := originalUnpacked.normalize
-    let originalRounded :=
-      UnpackedFloat.round (targetExponentWidth := EOut) (targetSignificandWidth := SOut)
+    let (outputRounded, log) ←
+      UnpackedFloat.roundNormal (targetExponentWidth := EOut) (targetSignificandWidth := SOut)
         originalNormalized RoundingMode.RNE
-    let outputPacked := originalRounded.pack
+    let outputRoundedPacked := outputRounded.pack
     let expectedEUnpacked :=
       getClosestRNEResult (targetExponentWidth := EOut) (targetSignificandWidth := SOut)
         originalUnpacked
-    let expectedPacked := expectedEUnpacked.pack
-    if ! outputPacked.equal_denotation expectedPacked then
+    let expectedPacked := expectedEUnpacked.normalize.pack
+    if ! outputRoundedPacked.equal_denotation expectedPacked then
       IO.println s!"Failed ❌ | original {repr originalPacked}"
       IO.println s!"  original (Q) {repr originalPacked.toRat?}"
       IO.println s!"  original unpacked {repr originalUnpacked.toString}"
       IO.println s!"  original normalized {repr originalNormalized.toString}"
-      IO.println s!"  output (Q) {repr outputPacked.toRat?}"
+      IO.println s!"  output rounded Eunpacked {repr outputRounded}"
+      IO.println s!"  output rounded (Q) {repr outputRounded.toRat?}"
+      IO.println s!"  output rounded packed (Q) {repr outputRoundedPacked.toRat?}"
       IO.println s!"  expected (Q) {repr expectedPacked.toRat?}"
-      IO.println s!"  output {repr outputPacked.unpack}"
-      IO.println s!"  expected {repr expectedPacked.unpack}"
+      IO.println s!"  output rounded packed {repr outputRoundedPacked.unpack}"
+      IO.println s!"  expected packed {repr expectedPacked.unpack}"
+      IO.println log
       allSucceeded := false
       break
   if allSucceeded then
@@ -768,10 +783,28 @@ info: Failed ❌ | original { sign := -, ex := 0x00#5, sig := 0x3#4 }
   original (Q) some (-3 : Rat)/262144
   original unpacked "- 24 * 2^-(4) * 2^-17"
   original normalized "- 24 * 2^-(4) * 2^-17"
-  output (Q) some 0
+  output rounded Eunpacked { state := num, num := { sign := true, ex := 0x2f#6, sig := 0x6#3 } }
+  output rounded (Q) some (-3 : Rat)/262144
+  output rounded packed (Q) some 0
   expected (Q) some (-1 : Rat)/65536
-  output { state := num, num := { sign := true, ex := 0x00#6, sig := 0x0#3 } }
-  expected { state := num, num := { sign := true, ex := 0x30#6, sig := 0x4#3 } }
+  output rounded packed { state := num, num := { sign := true, ex := 0x00#6, sig := 0x0#3 } }
+  expected packed { state := num, num := { sign := true, ex := 0x30#6, sig := 0x4#3 } }
+
+--- rounding: { sign := true, ex := 0x2f#6, sig := 0x18#5 } ---
+  val: -3/262144
+sig(w/hidden): 0b11000 | ex: 0b101111 = -17
+targetSig(w/hidden): 0b110
+guardBit: false
+stickyBits: 0b
+sticky: false
+isEven: true
+shouldRoundUp: false
+roundedSig(w/hidden): 0b110
+sigDidOverflow: false
+roundedExp: 0b101111 = -17
+expDidOverflow: false
+underflow: false
+overflow: false
 ---
 error: Some failed ❌
 -/
