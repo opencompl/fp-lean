@@ -37,6 +37,7 @@ def BitVec.expandingSubtract {w} (a b : BitVec w) : BitVec (w + 1) :=
   let b' : BitVec (w + 1) := b.signExtend (w + 1)
   a' - b'
 
+
 @[simp]
 theorem BitVec.toInt_expandingSubtract {w} (a b : BitVec w) :
   (expandingSubtract a b).toInt = a.toInt - b.toInt := by
@@ -58,6 +59,29 @@ def BitVec.scollar (x : BitVec w) (minVal : BitVec w) (maxVal : BitVec w) : BitV
   if x.slt minVal then minVal
   else if maxVal.slt x then maxVal
   else x
+
+@[bv_normalize]
+def BitVec.extractMsb (x : BitVec w) (hi : Nat) (lo : Nat) : BitVec (hi - lo + 1) :=
+  x.extractLsb' (w - 1 - hi) (hi - lo + 1)
+
+#check BitVec.getLsbD_extractLsb
+
+/-
+theorem BitVec.getMsbD_extractMsb {w hi lo : Nat} (x : BitVec w)
+  (i : Nat) :
+  (x.extractMsb hi lo).getMsbD i =
+  (x.getMsbD (lo + i) && decide (i < hi - lo + 1)) := by
+  simp [extractMsb, BitVec.getMsbD_eq_getLsbD]
+  by_cases h1 : i < hi - lo + 1
+  · simp [h1]
+    by_cases h2 : lo + i < w
+    · simp [h2]
+      sorry
+    · simp [h2]
+
+      sorry
+  · grind
+-/
 
 -- roundingDecision mode inUf.sign significandEven choosenGuardBit choosenStickyBit false
 -- bollu: TODO: port rounding mode for real.
@@ -514,6 +538,8 @@ def EUnpackedFloat.normalizeAndRound {targetExponentWidth targetSignificandWidth
     EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
   self.normalize |>.round mode
 
+
+
 -- e = 5
 -- s = 3
 -- exponentWidth 5 3 = 6
@@ -530,7 +556,2045 @@ def mkPackedFloats (E : Nat) (S : Nat) : Array (PackedFloat E S) := Id.run do
         res := res.push pf
   res
 
+def BitVec.toBitsStr {w : Nat} (bv : BitVec w) : String := Id.run do
+  let mut s := "0b"
+  for i in [0:w] do
+    let bit := if bv.getMsbD i then "1" else "0"
+    s := s.append bit
+  s
 
+@[bv_normalize]
+def BitVec.isZero {w : Nat} (bv : BitVec w) : Bool :=
+  bv = BitVec.ofNat w 0
+
+/-- conditionally increment, and return flag of whether overflow was observed -/
+@[bv_normalize]
+def conditionalIncrementWithFlags (cond : Bool) (x : BitVec w) : BitVec w × Bool :=
+  if cond then
+    let x' := x.zeroExtend (w + 1) + 1#(w + 1)
+    (x'.setWidth w, x'.msb)
+  else
+    (x, false)
+
+@[bv_normalize]
+def UnpackedFloat.roundNormal {expWidth sigWidth : Nat} {targetExponentWidth targetSignificandWidth : Nat}
+  (inUf : UnpackedFloat expWidth sigWidth)
+  (mode : RoundingMode)
+  (hs : sigWidth >= targetSignificandWidth + 3 := AxRoundPreconditions)
+  (he : expWidth >= (exponentWidth targetExponentWidth targetSignificandWidth) := AxRoundPreconditions)
+  (hs' : sigWidth >= 1 := AxRoundPreconditions) :
+  IO (EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1)) := do
+  -- round a normalized, normal float.
+  println! "--- rounding: {repr inUf} ---"
+  println! "val: {inUf.toRat}"
+  let exp := inUf.ex
+  let sig : BitVec sigWidth := inUf.sig
+  println! "sig: {sig.toBitsStr} | ex: {exp.toBitsStr} = {exp.toInt}"
+  let sigNoHidden := sig.truncate (sigWidth - 1)
+  let targetSigNoHidden : BitVec (targetSignificandWidth) :=
+      sigNoHidden.extractMsb' 0 (targetSignificandWidth)
+  let guardBit : Bool :=
+    targetSigNoHidden.getMsbD (targetSignificandWidth + 1)
+  let stickyBits :=
+    targetSigNoHidden.extractMsb (targetSignificandWidth + 2) 0
+  let sticky := ! stickyBits.isZero
+
+  let isEven := targetSigNoHidden.getLsbD 0 == false
+  let shouldRoundUp := roundingDecision
+    (mode := mode)
+    (sign := inUf.sign)
+    (significandEven := isEven)
+    (guardBit := guardBit)
+    (stickyBit := sticky)
+    (exact := false)
+  let (roundedTargetSigNoHidden, sigDidOverflow) :=
+    conditionalIncrementWithFlags
+      (cond := shouldRoundUp)
+      (x := targetSigNoHidden)
+  let roundedTargetSigWithHidden := roundedTargetSigNoHidden.zeroExtend (targetSignificandWidth + 1)
+      ||| (BitVec.leadingOne (targetSignificandWidth + 1))
+  -- let targetExp := exp.signExtend targetExponentWidth
+  let (roundedExp, expDidOverflow) :=
+    conditionalIncrementWithFlags
+      (cond := sigDidOverflow)
+      (x := exp)
+
+  -- I find this width stuff confusing, which width should we use?
+  have : expWidth ≥ exponentWidth targetExponentWidth targetSignificandWidth := by
+    grind
+  let minExp : BitVec (expWidth) :=
+    BitVec.ofInt (expWidth)
+      ((subnormalExp targetExponentWidth) - (targetSignificandWidth)) -- TODO: do I need a +1 or sth?
+  let maxExp : BitVec (expWidth) :=
+    BitVec.ofInt (expWidth)
+      (maxNormalExp targetExponentWidth)
+  let underflow : Bool :=
+    roundedExp.slt minExp
+  let overflow : Bool :=
+    maxExp.slt roundedExp || expDidOverflow
+
+  if underflow then
+    return EUnpackedFloat.mkZero inUf.sign
+  else if overflow then
+    return EUnpackedFloat.mkInfinity inUf.sign
+  else
+    return EUnpackedFloat.mkNumber
+      { sign := inUf.sign,
+        ex := roundedExp.truncate (exponentWidth targetExponentWidth targetSignificandWidth),
+        sig := roundedTargetSigWithHidden
+      }
+  -- relevantSig ++ guardBit ++ stickyBits = original.
+
+  -- grab the significand bits that are relevant.
+  -- This is annoying, because I actually don't care about the hidden bit, so making it explicit is just redundant computation?
+  -- return UnpackedFloat.round inUf mode
+
+
+
+/--
+info: --- rounding: { sign := true, ex := 0x32#6, sig := 0x8#4 } ---
+val: -1/16384
+sig: 0b1000 | ex: 0b110010 = -14
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x32#6, sig := 0x8#4 } ---
+val: 1/16384
+sig: 0b1000 | ex: 0b110010 = -14
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x32#6, sig := 0x9#4 } ---
+val: -9/131072
+sig: 0b1001 | ex: 0b110010 = -14
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x32#6, sig := 0x9#4 } ---
+val: 9/131072
+sig: 0b1001 | ex: 0b110010 = -14
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x32#6, sig := 0xa#4 } ---
+val: -5/65536
+sig: 0b1010 | ex: 0b110010 = -14
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x32#6, sig := 0xa#4 } ---
+val: 5/65536
+sig: 0b1010 | ex: 0b110010 = -14
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x32#6, sig := 0xb#4 } ---
+val: -11/131072
+sig: 0b1011 | ex: 0b110010 = -14
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x32#6, sig := 0xb#4 } ---
+val: 11/131072
+sig: 0b1011 | ex: 0b110010 = -14
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x32#6, sig := 0xc#4 } ---
+val: -3/32768
+sig: 0b1100 | ex: 0b110010 = -14
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x32#6, sig := 0xc#4 } ---
+val: 3/32768
+sig: 0b1100 | ex: 0b110010 = -14
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x32#6, sig := 0xd#4 } ---
+val: -13/131072
+sig: 0b1101 | ex: 0b110010 = -14
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x32#6, sig := 0xd#4 } ---
+val: 13/131072
+sig: 0b1101 | ex: 0b110010 = -14
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x32#6, sig := 0xe#4 } ---
+val: -7/65536
+sig: 0b1110 | ex: 0b110010 = -14
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x32#6, sig := 0xe#4 } ---
+val: 7/65536
+sig: 0b1110 | ex: 0b110010 = -14
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x32#6, sig := 0xf#4 } ---
+val: -15/131072
+sig: 0b1111 | ex: 0b110010 = -14
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x32#6, sig := 0xf#4 } ---
+val: 15/131072
+sig: 0b1111 | ex: 0b110010 = -14
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x33#6, sig := 0x8#4 } ---
+val: -1/8192
+sig: 0b1000 | ex: 0b110011 = -13
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x33#6, sig := 0x8#4 } ---
+val: 1/8192
+sig: 0b1000 | ex: 0b110011 = -13
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x33#6, sig := 0x9#4 } ---
+val: -9/65536
+sig: 0b1001 | ex: 0b110011 = -13
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x33#6, sig := 0x9#4 } ---
+val: 9/65536
+sig: 0b1001 | ex: 0b110011 = -13
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x33#6, sig := 0xa#4 } ---
+val: -5/32768
+sig: 0b1010 | ex: 0b110011 = -13
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x33#6, sig := 0xa#4 } ---
+val: 5/32768
+sig: 0b1010 | ex: 0b110011 = -13
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x33#6, sig := 0xb#4 } ---
+val: -11/65536
+sig: 0b1011 | ex: 0b110011 = -13
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x33#6, sig := 0xb#4 } ---
+val: 11/65536
+sig: 0b1011 | ex: 0b110011 = -13
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x33#6, sig := 0xc#4 } ---
+val: -3/16384
+sig: 0b1100 | ex: 0b110011 = -13
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x33#6, sig := 0xc#4 } ---
+val: 3/16384
+sig: 0b1100 | ex: 0b110011 = -13
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x33#6, sig := 0xd#4 } ---
+val: -13/65536
+sig: 0b1101 | ex: 0b110011 = -13
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x33#6, sig := 0xd#4 } ---
+val: 13/65536
+sig: 0b1101 | ex: 0b110011 = -13
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x33#6, sig := 0xe#4 } ---
+val: -7/32768
+sig: 0b1110 | ex: 0b110011 = -13
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x33#6, sig := 0xe#4 } ---
+val: 7/32768
+sig: 0b1110 | ex: 0b110011 = -13
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x33#6, sig := 0xf#4 } ---
+val: -15/65536
+sig: 0b1111 | ex: 0b110011 = -13
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x33#6, sig := 0xf#4 } ---
+val: 15/65536
+sig: 0b1111 | ex: 0b110011 = -13
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x34#6, sig := 0x8#4 } ---
+val: -1/4096
+sig: 0b1000 | ex: 0b110100 = -12
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x34#6, sig := 0x8#4 } ---
+val: 1/4096
+sig: 0b1000 | ex: 0b110100 = -12
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x34#6, sig := 0x9#4 } ---
+val: -9/32768
+sig: 0b1001 | ex: 0b110100 = -12
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x34#6, sig := 0x9#4 } ---
+val: 9/32768
+sig: 0b1001 | ex: 0b110100 = -12
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x34#6, sig := 0xa#4 } ---
+val: -5/16384
+sig: 0b1010 | ex: 0b110100 = -12
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x34#6, sig := 0xa#4 } ---
+val: 5/16384
+sig: 0b1010 | ex: 0b110100 = -12
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x34#6, sig := 0xb#4 } ---
+val: -11/32768
+sig: 0b1011 | ex: 0b110100 = -12
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x34#6, sig := 0xb#4 } ---
+val: 11/32768
+sig: 0b1011 | ex: 0b110100 = -12
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x34#6, sig := 0xc#4 } ---
+val: -3/8192
+sig: 0b1100 | ex: 0b110100 = -12
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x34#6, sig := 0xc#4 } ---
+val: 3/8192
+sig: 0b1100 | ex: 0b110100 = -12
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x34#6, sig := 0xd#4 } ---
+val: -13/32768
+sig: 0b1101 | ex: 0b110100 = -12
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x34#6, sig := 0xd#4 } ---
+val: 13/32768
+sig: 0b1101 | ex: 0b110100 = -12
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x34#6, sig := 0xe#4 } ---
+val: -7/16384
+sig: 0b1110 | ex: 0b110100 = -12
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x34#6, sig := 0xe#4 } ---
+val: 7/16384
+sig: 0b1110 | ex: 0b110100 = -12
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x34#6, sig := 0xf#4 } ---
+val: -15/32768
+sig: 0b1111 | ex: 0b110100 = -12
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x34#6, sig := 0xf#4 } ---
+val: 15/32768
+sig: 0b1111 | ex: 0b110100 = -12
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x35#6, sig := 0x8#4 } ---
+val: -1/2048
+sig: 0b1000 | ex: 0b110101 = -11
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x35#6, sig := 0x8#4 } ---
+val: 1/2048
+sig: 0b1000 | ex: 0b110101 = -11
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x35#6, sig := 0x9#4 } ---
+val: -9/16384
+sig: 0b1001 | ex: 0b110101 = -11
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x35#6, sig := 0x9#4 } ---
+val: 9/16384
+sig: 0b1001 | ex: 0b110101 = -11
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x35#6, sig := 0xa#4 } ---
+val: -5/8192
+sig: 0b1010 | ex: 0b110101 = -11
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x35#6, sig := 0xa#4 } ---
+val: 5/8192
+sig: 0b1010 | ex: 0b110101 = -11
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x35#6, sig := 0xb#4 } ---
+val: -11/16384
+sig: 0b1011 | ex: 0b110101 = -11
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x35#6, sig := 0xb#4 } ---
+val: 11/16384
+sig: 0b1011 | ex: 0b110101 = -11
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x35#6, sig := 0xc#4 } ---
+val: -3/4096
+sig: 0b1100 | ex: 0b110101 = -11
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x35#6, sig := 0xc#4 } ---
+val: 3/4096
+sig: 0b1100 | ex: 0b110101 = -11
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x35#6, sig := 0xd#4 } ---
+val: -13/16384
+sig: 0b1101 | ex: 0b110101 = -11
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x35#6, sig := 0xd#4 } ---
+val: 13/16384
+sig: 0b1101 | ex: 0b110101 = -11
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x35#6, sig := 0xe#4 } ---
+val: -7/8192
+sig: 0b1110 | ex: 0b110101 = -11
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x35#6, sig := 0xe#4 } ---
+val: 7/8192
+sig: 0b1110 | ex: 0b110101 = -11
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x35#6, sig := 0xf#4 } ---
+val: -15/16384
+sig: 0b1111 | ex: 0b110101 = -11
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x35#6, sig := 0xf#4 } ---
+val: 15/16384
+sig: 0b1111 | ex: 0b110101 = -11
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x36#6, sig := 0x8#4 } ---
+val: -1/1024
+sig: 0b1000 | ex: 0b110110 = -10
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x36#6, sig := 0x8#4 } ---
+val: 1/1024
+sig: 0b1000 | ex: 0b110110 = -10
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x36#6, sig := 0x9#4 } ---
+val: -9/8192
+sig: 0b1001 | ex: 0b110110 = -10
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x36#6, sig := 0x9#4 } ---
+val: 9/8192
+sig: 0b1001 | ex: 0b110110 = -10
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x36#6, sig := 0xa#4 } ---
+val: -5/4096
+sig: 0b1010 | ex: 0b110110 = -10
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x36#6, sig := 0xa#4 } ---
+val: 5/4096
+sig: 0b1010 | ex: 0b110110 = -10
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x36#6, sig := 0xb#4 } ---
+val: -11/8192
+sig: 0b1011 | ex: 0b110110 = -10
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x36#6, sig := 0xb#4 } ---
+val: 11/8192
+sig: 0b1011 | ex: 0b110110 = -10
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x36#6, sig := 0xc#4 } ---
+val: -3/2048
+sig: 0b1100 | ex: 0b110110 = -10
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x36#6, sig := 0xc#4 } ---
+val: 3/2048
+sig: 0b1100 | ex: 0b110110 = -10
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x36#6, sig := 0xd#4 } ---
+val: -13/8192
+sig: 0b1101 | ex: 0b110110 = -10
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x36#6, sig := 0xd#4 } ---
+val: 13/8192
+sig: 0b1101 | ex: 0b110110 = -10
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x36#6, sig := 0xe#4 } ---
+val: -7/4096
+sig: 0b1110 | ex: 0b110110 = -10
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x36#6, sig := 0xe#4 } ---
+val: 7/4096
+sig: 0b1110 | ex: 0b110110 = -10
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x36#6, sig := 0xf#4 } ---
+val: -15/8192
+sig: 0b1111 | ex: 0b110110 = -10
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x36#6, sig := 0xf#4 } ---
+val: 15/8192
+sig: 0b1111 | ex: 0b110110 = -10
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x37#6, sig := 0x8#4 } ---
+val: -1/512
+sig: 0b1000 | ex: 0b110111 = -9
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x37#6, sig := 0x8#4 } ---
+val: 1/512
+sig: 0b1000 | ex: 0b110111 = -9
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x37#6, sig := 0x9#4 } ---
+val: -9/4096
+sig: 0b1001 | ex: 0b110111 = -9
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x37#6, sig := 0x9#4 } ---
+val: 9/4096
+sig: 0b1001 | ex: 0b110111 = -9
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x37#6, sig := 0xa#4 } ---
+val: -5/2048
+sig: 0b1010 | ex: 0b110111 = -9
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x37#6, sig := 0xa#4 } ---
+val: 5/2048
+sig: 0b1010 | ex: 0b110111 = -9
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x37#6, sig := 0xb#4 } ---
+val: -11/4096
+sig: 0b1011 | ex: 0b110111 = -9
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x37#6, sig := 0xb#4 } ---
+val: 11/4096
+sig: 0b1011 | ex: 0b110111 = -9
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x37#6, sig := 0xc#4 } ---
+val: -3/1024
+sig: 0b1100 | ex: 0b110111 = -9
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x37#6, sig := 0xc#4 } ---
+val: 3/1024
+sig: 0b1100 | ex: 0b110111 = -9
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x37#6, sig := 0xd#4 } ---
+val: -13/4096
+sig: 0b1101 | ex: 0b110111 = -9
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x37#6, sig := 0xd#4 } ---
+val: 13/4096
+sig: 0b1101 | ex: 0b110111 = -9
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x37#6, sig := 0xe#4 } ---
+val: -7/2048
+sig: 0b1110 | ex: 0b110111 = -9
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x37#6, sig := 0xe#4 } ---
+val: 7/2048
+sig: 0b1110 | ex: 0b110111 = -9
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x37#6, sig := 0xf#4 } ---
+val: -15/4096
+sig: 0b1111 | ex: 0b110111 = -9
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x37#6, sig := 0xf#4 } ---
+val: 15/4096
+sig: 0b1111 | ex: 0b110111 = -9
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x38#6, sig := 0x8#4 } ---
+val: -1/256
+sig: 0b1000 | ex: 0b111000 = -8
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x38#6, sig := 0x8#4 } ---
+val: 1/256
+sig: 0b1000 | ex: 0b111000 = -8
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x38#6, sig := 0x9#4 } ---
+val: -9/2048
+sig: 0b1001 | ex: 0b111000 = -8
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x38#6, sig := 0x9#4 } ---
+val: 9/2048
+sig: 0b1001 | ex: 0b111000 = -8
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x38#6, sig := 0xa#4 } ---
+val: -5/1024
+sig: 0b1010 | ex: 0b111000 = -8
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x38#6, sig := 0xa#4 } ---
+val: 5/1024
+sig: 0b1010 | ex: 0b111000 = -8
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x38#6, sig := 0xb#4 } ---
+val: -11/2048
+sig: 0b1011 | ex: 0b111000 = -8
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x38#6, sig := 0xb#4 } ---
+val: 11/2048
+sig: 0b1011 | ex: 0b111000 = -8
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x38#6, sig := 0xc#4 } ---
+val: -3/512
+sig: 0b1100 | ex: 0b111000 = -8
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x38#6, sig := 0xc#4 } ---
+val: 3/512
+sig: 0b1100 | ex: 0b111000 = -8
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x38#6, sig := 0xd#4 } ---
+val: -13/2048
+sig: 0b1101 | ex: 0b111000 = -8
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x38#6, sig := 0xd#4 } ---
+val: 13/2048
+sig: 0b1101 | ex: 0b111000 = -8
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x38#6, sig := 0xe#4 } ---
+val: -7/1024
+sig: 0b1110 | ex: 0b111000 = -8
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x38#6, sig := 0xe#4 } ---
+val: 7/1024
+sig: 0b1110 | ex: 0b111000 = -8
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x38#6, sig := 0xf#4 } ---
+val: -15/2048
+sig: 0b1111 | ex: 0b111000 = -8
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x38#6, sig := 0xf#4 } ---
+val: 15/2048
+sig: 0b1111 | ex: 0b111000 = -8
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x39#6, sig := 0x8#4 } ---
+val: -1/128
+sig: 0b1000 | ex: 0b111001 = -7
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x39#6, sig := 0x8#4 } ---
+val: 1/128
+sig: 0b1000 | ex: 0b111001 = -7
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x39#6, sig := 0x9#4 } ---
+val: -9/1024
+sig: 0b1001 | ex: 0b111001 = -7
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x39#6, sig := 0x9#4 } ---
+val: 9/1024
+sig: 0b1001 | ex: 0b111001 = -7
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x39#6, sig := 0xa#4 } ---
+val: -5/512
+sig: 0b1010 | ex: 0b111001 = -7
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x39#6, sig := 0xa#4 } ---
+val: 5/512
+sig: 0b1010 | ex: 0b111001 = -7
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x39#6, sig := 0xb#4 } ---
+val: -11/1024
+sig: 0b1011 | ex: 0b111001 = -7
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x39#6, sig := 0xb#4 } ---
+val: 11/1024
+sig: 0b1011 | ex: 0b111001 = -7
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x39#6, sig := 0xc#4 } ---
+val: -3/256
+sig: 0b1100 | ex: 0b111001 = -7
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x39#6, sig := 0xc#4 } ---
+val: 3/256
+sig: 0b1100 | ex: 0b111001 = -7
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x39#6, sig := 0xd#4 } ---
+val: -13/1024
+sig: 0b1101 | ex: 0b111001 = -7
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x39#6, sig := 0xd#4 } ---
+val: 13/1024
+sig: 0b1101 | ex: 0b111001 = -7
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x39#6, sig := 0xe#4 } ---
+val: -7/512
+sig: 0b1110 | ex: 0b111001 = -7
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x39#6, sig := 0xe#4 } ---
+val: 7/512
+sig: 0b1110 | ex: 0b111001 = -7
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x39#6, sig := 0xf#4 } ---
+val: -15/1024
+sig: 0b1111 | ex: 0b111001 = -7
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x39#6, sig := 0xf#4 } ---
+val: 15/1024
+sig: 0b1111 | ex: 0b111001 = -7
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3a#6, sig := 0x8#4 } ---
+val: -1/64
+sig: 0b1000 | ex: 0b111010 = -6
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3a#6, sig := 0x8#4 } ---
+val: 1/64
+sig: 0b1000 | ex: 0b111010 = -6
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3a#6, sig := 0x9#4 } ---
+val: -9/512
+sig: 0b1001 | ex: 0b111010 = -6
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3a#6, sig := 0x9#4 } ---
+val: 9/512
+sig: 0b1001 | ex: 0b111010 = -6
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3a#6, sig := 0xa#4 } ---
+val: -5/256
+sig: 0b1010 | ex: 0b111010 = -6
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3a#6, sig := 0xa#4 } ---
+val: 5/256
+sig: 0b1010 | ex: 0b111010 = -6
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3a#6, sig := 0xb#4 } ---
+val: -11/512
+sig: 0b1011 | ex: 0b111010 = -6
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3a#6, sig := 0xb#4 } ---
+val: 11/512
+sig: 0b1011 | ex: 0b111010 = -6
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3a#6, sig := 0xc#4 } ---
+val: -3/128
+sig: 0b1100 | ex: 0b111010 = -6
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3a#6, sig := 0xc#4 } ---
+val: 3/128
+sig: 0b1100 | ex: 0b111010 = -6
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3a#6, sig := 0xd#4 } ---
+val: -13/512
+sig: 0b1101 | ex: 0b111010 = -6
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3a#6, sig := 0xd#4 } ---
+val: 13/512
+sig: 0b1101 | ex: 0b111010 = -6
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3a#6, sig := 0xe#4 } ---
+val: -7/256
+sig: 0b1110 | ex: 0b111010 = -6
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3a#6, sig := 0xe#4 } ---
+val: 7/256
+sig: 0b1110 | ex: 0b111010 = -6
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3a#6, sig := 0xf#4 } ---
+val: -15/512
+sig: 0b1111 | ex: 0b111010 = -6
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3a#6, sig := 0xf#4 } ---
+val: 15/512
+sig: 0b1111 | ex: 0b111010 = -6
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3b#6, sig := 0x8#4 } ---
+val: -1/32
+sig: 0b1000 | ex: 0b111011 = -5
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3b#6, sig := 0x8#4 } ---
+val: 1/32
+sig: 0b1000 | ex: 0b111011 = -5
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3b#6, sig := 0x9#4 } ---
+val: -9/256
+sig: 0b1001 | ex: 0b111011 = -5
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3b#6, sig := 0x9#4 } ---
+val: 9/256
+sig: 0b1001 | ex: 0b111011 = -5
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3b#6, sig := 0xa#4 } ---
+val: -5/128
+sig: 0b1010 | ex: 0b111011 = -5
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3b#6, sig := 0xa#4 } ---
+val: 5/128
+sig: 0b1010 | ex: 0b111011 = -5
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3b#6, sig := 0xb#4 } ---
+val: -11/256
+sig: 0b1011 | ex: 0b111011 = -5
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3b#6, sig := 0xb#4 } ---
+val: 11/256
+sig: 0b1011 | ex: 0b111011 = -5
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3b#6, sig := 0xc#4 } ---
+val: -3/64
+sig: 0b1100 | ex: 0b111011 = -5
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3b#6, sig := 0xc#4 } ---
+val: 3/64
+sig: 0b1100 | ex: 0b111011 = -5
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3b#6, sig := 0xd#4 } ---
+val: -13/256
+sig: 0b1101 | ex: 0b111011 = -5
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3b#6, sig := 0xd#4 } ---
+val: 13/256
+sig: 0b1101 | ex: 0b111011 = -5
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3b#6, sig := 0xe#4 } ---
+val: -7/128
+sig: 0b1110 | ex: 0b111011 = -5
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3b#6, sig := 0xe#4 } ---
+val: 7/128
+sig: 0b1110 | ex: 0b111011 = -5
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3b#6, sig := 0xf#4 } ---
+val: -15/256
+sig: 0b1111 | ex: 0b111011 = -5
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3b#6, sig := 0xf#4 } ---
+val: 15/256
+sig: 0b1111 | ex: 0b111011 = -5
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3c#6, sig := 0x8#4 } ---
+val: -1/16
+sig: 0b1000 | ex: 0b111100 = -4
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3c#6, sig := 0x8#4 } ---
+val: 1/16
+sig: 0b1000 | ex: 0b111100 = -4
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3c#6, sig := 0x9#4 } ---
+val: -9/128
+sig: 0b1001 | ex: 0b111100 = -4
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3c#6, sig := 0x9#4 } ---
+val: 9/128
+sig: 0b1001 | ex: 0b111100 = -4
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3c#6, sig := 0xa#4 } ---
+val: -5/64
+sig: 0b1010 | ex: 0b111100 = -4
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3c#6, sig := 0xa#4 } ---
+val: 5/64
+sig: 0b1010 | ex: 0b111100 = -4
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3c#6, sig := 0xb#4 } ---
+val: -11/128
+sig: 0b1011 | ex: 0b111100 = -4
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3c#6, sig := 0xb#4 } ---
+val: 11/128
+sig: 0b1011 | ex: 0b111100 = -4
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3c#6, sig := 0xc#4 } ---
+val: -3/32
+sig: 0b1100 | ex: 0b111100 = -4
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3c#6, sig := 0xc#4 } ---
+val: 3/32
+sig: 0b1100 | ex: 0b111100 = -4
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3c#6, sig := 0xd#4 } ---
+val: -13/128
+sig: 0b1101 | ex: 0b111100 = -4
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3c#6, sig := 0xd#4 } ---
+val: 13/128
+sig: 0b1101 | ex: 0b111100 = -4
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3c#6, sig := 0xe#4 } ---
+val: -7/64
+sig: 0b1110 | ex: 0b111100 = -4
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3c#6, sig := 0xe#4 } ---
+val: 7/64
+sig: 0b1110 | ex: 0b111100 = -4
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3c#6, sig := 0xf#4 } ---
+val: -15/128
+sig: 0b1111 | ex: 0b111100 = -4
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3c#6, sig := 0xf#4 } ---
+val: 15/128
+sig: 0b1111 | ex: 0b111100 = -4
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3d#6, sig := 0x8#4 } ---
+val: -1/8
+sig: 0b1000 | ex: 0b111101 = -3
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3d#6, sig := 0x8#4 } ---
+val: 1/8
+sig: 0b1000 | ex: 0b111101 = -3
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3d#6, sig := 0x9#4 } ---
+val: -9/64
+sig: 0b1001 | ex: 0b111101 = -3
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3d#6, sig := 0x9#4 } ---
+val: 9/64
+sig: 0b1001 | ex: 0b111101 = -3
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3d#6, sig := 0xa#4 } ---
+val: -5/32
+sig: 0b1010 | ex: 0b111101 = -3
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3d#6, sig := 0xa#4 } ---
+val: 5/32
+sig: 0b1010 | ex: 0b111101 = -3
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3d#6, sig := 0xb#4 } ---
+val: -11/64
+sig: 0b1011 | ex: 0b111101 = -3
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3d#6, sig := 0xb#4 } ---
+val: 11/64
+sig: 0b1011 | ex: 0b111101 = -3
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3d#6, sig := 0xc#4 } ---
+val: -3/16
+sig: 0b1100 | ex: 0b111101 = -3
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3d#6, sig := 0xc#4 } ---
+val: 3/16
+sig: 0b1100 | ex: 0b111101 = -3
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3d#6, sig := 0xd#4 } ---
+val: -13/64
+sig: 0b1101 | ex: 0b111101 = -3
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3d#6, sig := 0xd#4 } ---
+val: 13/64
+sig: 0b1101 | ex: 0b111101 = -3
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3d#6, sig := 0xe#4 } ---
+val: -7/32
+sig: 0b1110 | ex: 0b111101 = -3
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3d#6, sig := 0xe#4 } ---
+val: 7/32
+sig: 0b1110 | ex: 0b111101 = -3
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3d#6, sig := 0xf#4 } ---
+val: -15/64
+sig: 0b1111 | ex: 0b111101 = -3
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3d#6, sig := 0xf#4 } ---
+val: 15/64
+sig: 0b1111 | ex: 0b111101 = -3
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3e#6, sig := 0x8#4 } ---
+val: -1/4
+sig: 0b1000 | ex: 0b111110 = -2
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3e#6, sig := 0x8#4 } ---
+val: 1/4
+sig: 0b1000 | ex: 0b111110 = -2
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3e#6, sig := 0x9#4 } ---
+val: -9/32
+sig: 0b1001 | ex: 0b111110 = -2
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3e#6, sig := 0x9#4 } ---
+val: 9/32
+sig: 0b1001 | ex: 0b111110 = -2
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3e#6, sig := 0xa#4 } ---
+val: -5/16
+sig: 0b1010 | ex: 0b111110 = -2
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3e#6, sig := 0xa#4 } ---
+val: 5/16
+sig: 0b1010 | ex: 0b111110 = -2
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3e#6, sig := 0xb#4 } ---
+val: -11/32
+sig: 0b1011 | ex: 0b111110 = -2
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3e#6, sig := 0xb#4 } ---
+val: 11/32
+sig: 0b1011 | ex: 0b111110 = -2
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3e#6, sig := 0xc#4 } ---
+val: -3/8
+sig: 0b1100 | ex: 0b111110 = -2
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3e#6, sig := 0xc#4 } ---
+val: 3/8
+sig: 0b1100 | ex: 0b111110 = -2
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3e#6, sig := 0xd#4 } ---
+val: -13/32
+sig: 0b1101 | ex: 0b111110 = -2
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3e#6, sig := 0xd#4 } ---
+val: 13/32
+sig: 0b1101 | ex: 0b111110 = -2
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3e#6, sig := 0xe#4 } ---
+val: -7/16
+sig: 0b1110 | ex: 0b111110 = -2
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3e#6, sig := 0xe#4 } ---
+val: 7/16
+sig: 0b1110 | ex: 0b111110 = -2
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3e#6, sig := 0xf#4 } ---
+val: -15/32
+sig: 0b1111 | ex: 0b111110 = -2
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3e#6, sig := 0xf#4 } ---
+val: 15/32
+sig: 0b1111 | ex: 0b111110 = -2
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3f#6, sig := 0x8#4 } ---
+val: -1/2
+sig: 0b1000 | ex: 0b111111 = -1
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3f#6, sig := 0x8#4 } ---
+val: 1/2
+sig: 0b1000 | ex: 0b111111 = -1
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3f#6, sig := 0x9#4 } ---
+val: -9/16
+sig: 0b1001 | ex: 0b111111 = -1
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3f#6, sig := 0x9#4 } ---
+val: 9/16
+sig: 0b1001 | ex: 0b111111 = -1
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3f#6, sig := 0xa#4 } ---
+val: -5/8
+sig: 0b1010 | ex: 0b111111 = -1
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3f#6, sig := 0xa#4 } ---
+val: 5/8
+sig: 0b1010 | ex: 0b111111 = -1
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3f#6, sig := 0xb#4 } ---
+val: -11/16
+sig: 0b1011 | ex: 0b111111 = -1
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3f#6, sig := 0xb#4 } ---
+val: 11/16
+sig: 0b1011 | ex: 0b111111 = -1
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3f#6, sig := 0xc#4 } ---
+val: -3/4
+sig: 0b1100 | ex: 0b111111 = -1
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3f#6, sig := 0xc#4 } ---
+val: 3/4
+sig: 0b1100 | ex: 0b111111 = -1
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3f#6, sig := 0xd#4 } ---
+val: -13/16
+sig: 0b1101 | ex: 0b111111 = -1
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3f#6, sig := 0xd#4 } ---
+val: 13/16
+sig: 0b1101 | ex: 0b111111 = -1
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3f#6, sig := 0xe#4 } ---
+val: -7/8
+sig: 0b1110 | ex: 0b111111 = -1
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3f#6, sig := 0xe#4 } ---
+val: 7/8
+sig: 0b1110 | ex: 0b111111 = -1
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x3f#6, sig := 0xf#4 } ---
+val: -15/16
+sig: 0b1111 | ex: 0b111111 = -1
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x3f#6, sig := 0xf#4 } ---
+val: 15/16
+sig: 0b1111 | ex: 0b111111 = -1
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x00#6, sig := 0x8#4 } ---
+val: -1
+sig: 0b1000 | ex: 0b000000 = 0
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x00#6, sig := 0x8#4 } ---
+val: 1
+sig: 0b1000 | ex: 0b000000 = 0
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x00#6, sig := 0x9#4 } ---
+val: -9/8
+sig: 0b1001 | ex: 0b000000 = 0
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x00#6, sig := 0x9#4 } ---
+val: 9/8
+sig: 0b1001 | ex: 0b000000 = 0
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x00#6, sig := 0xa#4 } ---
+val: -5/4
+sig: 0b1010 | ex: 0b000000 = 0
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x00#6, sig := 0xa#4 } ---
+val: 5/4
+sig: 0b1010 | ex: 0b000000 = 0
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x00#6, sig := 0xb#4 } ---
+val: -11/8
+sig: 0b1011 | ex: 0b000000 = 0
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x00#6, sig := 0xb#4 } ---
+val: 11/8
+sig: 0b1011 | ex: 0b000000 = 0
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x00#6, sig := 0xc#4 } ---
+val: -3/2
+sig: 0b1100 | ex: 0b000000 = 0
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x00#6, sig := 0xc#4 } ---
+val: 3/2
+sig: 0b1100 | ex: 0b000000 = 0
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x00#6, sig := 0xd#4 } ---
+val: -13/8
+sig: 0b1101 | ex: 0b000000 = 0
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x00#6, sig := 0xd#4 } ---
+val: 13/8
+sig: 0b1101 | ex: 0b000000 = 0
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x00#6, sig := 0xe#4 } ---
+val: -7/4
+sig: 0b1110 | ex: 0b000000 = 0
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x00#6, sig := 0xe#4 } ---
+val: 7/4
+sig: 0b1110 | ex: 0b000000 = 0
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x00#6, sig := 0xf#4 } ---
+val: -15/8
+sig: 0b1111 | ex: 0b000000 = 0
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x00#6, sig := 0xf#4 } ---
+val: 15/8
+sig: 0b1111 | ex: 0b000000 = 0
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x01#6, sig := 0x8#4 } ---
+val: -2
+sig: 0b1000 | ex: 0b000001 = 1
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x01#6, sig := 0x8#4 } ---
+val: 2
+sig: 0b1000 | ex: 0b000001 = 1
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x01#6, sig := 0x9#4 } ---
+val: -9/4
+sig: 0b1001 | ex: 0b000001 = 1
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x01#6, sig := 0x9#4 } ---
+val: 9/4
+sig: 0b1001 | ex: 0b000001 = 1
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x01#6, sig := 0xa#4 } ---
+val: -5/2
+sig: 0b1010 | ex: 0b000001 = 1
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x01#6, sig := 0xa#4 } ---
+val: 5/2
+sig: 0b1010 | ex: 0b000001 = 1
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x01#6, sig := 0xb#4 } ---
+val: -11/4
+sig: 0b1011 | ex: 0b000001 = 1
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x01#6, sig := 0xb#4 } ---
+val: 11/4
+sig: 0b1011 | ex: 0b000001 = 1
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x01#6, sig := 0xc#4 } ---
+val: -3
+sig: 0b1100 | ex: 0b000001 = 1
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x01#6, sig := 0xc#4 } ---
+val: 3
+sig: 0b1100 | ex: 0b000001 = 1
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x01#6, sig := 0xd#4 } ---
+val: -13/4
+sig: 0b1101 | ex: 0b000001 = 1
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x01#6, sig := 0xd#4 } ---
+val: 13/4
+sig: 0b1101 | ex: 0b000001 = 1
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x01#6, sig := 0xe#4 } ---
+val: -7/2
+sig: 0b1110 | ex: 0b000001 = 1
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x01#6, sig := 0xe#4 } ---
+val: 7/2
+sig: 0b1110 | ex: 0b000001 = 1
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x01#6, sig := 0xf#4 } ---
+val: -15/4
+sig: 0b1111 | ex: 0b000001 = 1
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x01#6, sig := 0xf#4 } ---
+val: 15/4
+sig: 0b1111 | ex: 0b000001 = 1
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x02#6, sig := 0x8#4 } ---
+val: -4
+sig: 0b1000 | ex: 0b000010 = 2
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x02#6, sig := 0x8#4 } ---
+val: 4
+sig: 0b1000 | ex: 0b000010 = 2
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x02#6, sig := 0x9#4 } ---
+val: -9/2
+sig: 0b1001 | ex: 0b000010 = 2
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x02#6, sig := 0x9#4 } ---
+val: 9/2
+sig: 0b1001 | ex: 0b000010 = 2
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x02#6, sig := 0xa#4 } ---
+val: -5
+sig: 0b1010 | ex: 0b000010 = 2
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x02#6, sig := 0xa#4 } ---
+val: 5
+sig: 0b1010 | ex: 0b000010 = 2
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x02#6, sig := 0xb#4 } ---
+val: -11/2
+sig: 0b1011 | ex: 0b000010 = 2
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x02#6, sig := 0xb#4 } ---
+val: 11/2
+sig: 0b1011 | ex: 0b000010 = 2
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x02#6, sig := 0xc#4 } ---
+val: -6
+sig: 0b1100 | ex: 0b000010 = 2
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x02#6, sig := 0xc#4 } ---
+val: 6
+sig: 0b1100 | ex: 0b000010 = 2
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x02#6, sig := 0xd#4 } ---
+val: -13/2
+sig: 0b1101 | ex: 0b000010 = 2
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x02#6, sig := 0xd#4 } ---
+val: 13/2
+sig: 0b1101 | ex: 0b000010 = 2
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x02#6, sig := 0xe#4 } ---
+val: -7
+sig: 0b1110 | ex: 0b000010 = 2
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x02#6, sig := 0xe#4 } ---
+val: 7
+sig: 0b1110 | ex: 0b000010 = 2
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x02#6, sig := 0xf#4 } ---
+val: -15/2
+sig: 0b1111 | ex: 0b000010 = 2
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x02#6, sig := 0xf#4 } ---
+val: 15/2
+sig: 0b1111 | ex: 0b000010 = 2
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x03#6, sig := 0x8#4 } ---
+val: -8
+sig: 0b1000 | ex: 0b000011 = 3
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x03#6, sig := 0x8#4 } ---
+val: 8
+sig: 0b1000 | ex: 0b000011 = 3
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x03#6, sig := 0x9#4 } ---
+val: -9
+sig: 0b1001 | ex: 0b000011 = 3
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x03#6, sig := 0x9#4 } ---
+val: 9
+sig: 0b1001 | ex: 0b000011 = 3
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x03#6, sig := 0xa#4 } ---
+val: -10
+sig: 0b1010 | ex: 0b000011 = 3
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x03#6, sig := 0xa#4 } ---
+val: 10
+sig: 0b1010 | ex: 0b000011 = 3
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x03#6, sig := 0xb#4 } ---
+val: -11
+sig: 0b1011 | ex: 0b000011 = 3
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x03#6, sig := 0xb#4 } ---
+val: 11
+sig: 0b1011 | ex: 0b000011 = 3
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x03#6, sig := 0xc#4 } ---
+val: -12
+sig: 0b1100 | ex: 0b000011 = 3
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x03#6, sig := 0xc#4 } ---
+val: 12
+sig: 0b1100 | ex: 0b000011 = 3
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x03#6, sig := 0xd#4 } ---
+val: -13
+sig: 0b1101 | ex: 0b000011 = 3
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x03#6, sig := 0xd#4 } ---
+val: 13
+sig: 0b1101 | ex: 0b000011 = 3
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x03#6, sig := 0xe#4 } ---
+val: -14
+sig: 0b1110 | ex: 0b000011 = 3
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x03#6, sig := 0xe#4 } ---
+val: 14
+sig: 0b1110 | ex: 0b000011 = 3
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x03#6, sig := 0xf#4 } ---
+val: -15
+sig: 0b1111 | ex: 0b000011 = 3
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x03#6, sig := 0xf#4 } ---
+val: 15
+sig: 0b1111 | ex: 0b000011 = 3
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x04#6, sig := 0x8#4 } ---
+val: -16
+sig: 0b1000 | ex: 0b000100 = 4
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x04#6, sig := 0x8#4 } ---
+val: 16
+sig: 0b1000 | ex: 0b000100 = 4
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x04#6, sig := 0x9#4 } ---
+val: -18
+sig: 0b1001 | ex: 0b000100 = 4
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x04#6, sig := 0x9#4 } ---
+val: 18
+sig: 0b1001 | ex: 0b000100 = 4
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x04#6, sig := 0xa#4 } ---
+val: -20
+sig: 0b1010 | ex: 0b000100 = 4
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x04#6, sig := 0xa#4 } ---
+val: 20
+sig: 0b1010 | ex: 0b000100 = 4
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x04#6, sig := 0xb#4 } ---
+val: -22
+sig: 0b1011 | ex: 0b000100 = 4
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x04#6, sig := 0xb#4 } ---
+val: 22
+sig: 0b1011 | ex: 0b000100 = 4
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x04#6, sig := 0xc#4 } ---
+val: -24
+sig: 0b1100 | ex: 0b000100 = 4
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x04#6, sig := 0xc#4 } ---
+val: 24
+sig: 0b1100 | ex: 0b000100 = 4
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x04#6, sig := 0xd#4 } ---
+val: -26
+sig: 0b1101 | ex: 0b000100 = 4
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x04#6, sig := 0xd#4 } ---
+val: 26
+sig: 0b1101 | ex: 0b000100 = 4
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x04#6, sig := 0xe#4 } ---
+val: -28
+sig: 0b1110 | ex: 0b000100 = 4
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x04#6, sig := 0xe#4 } ---
+val: 28
+sig: 0b1110 | ex: 0b000100 = 4
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x04#6, sig := 0xf#4 } ---
+val: -30
+sig: 0b1111 | ex: 0b000100 = 4
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x04#6, sig := 0xf#4 } ---
+val: 30
+sig: 0b1111 | ex: 0b000100 = 4
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x05#6, sig := 0x8#4 } ---
+val: -32
+sig: 0b1000 | ex: 0b000101 = 5
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x05#6, sig := 0x8#4 } ---
+val: 32
+sig: 0b1000 | ex: 0b000101 = 5
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x05#6, sig := 0x9#4 } ---
+val: -36
+sig: 0b1001 | ex: 0b000101 = 5
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x05#6, sig := 0x9#4 } ---
+val: 36
+sig: 0b1001 | ex: 0b000101 = 5
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x05#6, sig := 0xa#4 } ---
+val: -40
+sig: 0b1010 | ex: 0b000101 = 5
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x05#6, sig := 0xa#4 } ---
+val: 40
+sig: 0b1010 | ex: 0b000101 = 5
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x05#6, sig := 0xb#4 } ---
+val: -44
+sig: 0b1011 | ex: 0b000101 = 5
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x05#6, sig := 0xb#4 } ---
+val: 44
+sig: 0b1011 | ex: 0b000101 = 5
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x05#6, sig := 0xc#4 } ---
+val: -48
+sig: 0b1100 | ex: 0b000101 = 5
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x05#6, sig := 0xc#4 } ---
+val: 48
+sig: 0b1100 | ex: 0b000101 = 5
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x05#6, sig := 0xd#4 } ---
+val: -52
+sig: 0b1101 | ex: 0b000101 = 5
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x05#6, sig := 0xd#4 } ---
+val: 52
+sig: 0b1101 | ex: 0b000101 = 5
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x05#6, sig := 0xe#4 } ---
+val: -56
+sig: 0b1110 | ex: 0b000101 = 5
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x05#6, sig := 0xe#4 } ---
+val: 56
+sig: 0b1110 | ex: 0b000101 = 5
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x05#6, sig := 0xf#4 } ---
+val: -60
+sig: 0b1111 | ex: 0b000101 = 5
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x05#6, sig := 0xf#4 } ---
+val: 60
+sig: 0b1111 | ex: 0b000101 = 5
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x06#6, sig := 0x8#4 } ---
+val: -64
+sig: 0b1000 | ex: 0b000110 = 6
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x06#6, sig := 0x8#4 } ---
+val: 64
+sig: 0b1000 | ex: 0b000110 = 6
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x06#6, sig := 0x9#4 } ---
+val: -72
+sig: 0b1001 | ex: 0b000110 = 6
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x06#6, sig := 0x9#4 } ---
+val: 72
+sig: 0b1001 | ex: 0b000110 = 6
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x06#6, sig := 0xa#4 } ---
+val: -80
+sig: 0b1010 | ex: 0b000110 = 6
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x06#6, sig := 0xa#4 } ---
+val: 80
+sig: 0b1010 | ex: 0b000110 = 6
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x06#6, sig := 0xb#4 } ---
+val: -88
+sig: 0b1011 | ex: 0b000110 = 6
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x06#6, sig := 0xb#4 } ---
+val: 88
+sig: 0b1011 | ex: 0b000110 = 6
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x06#6, sig := 0xc#4 } ---
+val: -96
+sig: 0b1100 | ex: 0b000110 = 6
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x06#6, sig := 0xc#4 } ---
+val: 96
+sig: 0b1100 | ex: 0b000110 = 6
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x06#6, sig := 0xd#4 } ---
+val: -104
+sig: 0b1101 | ex: 0b000110 = 6
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x06#6, sig := 0xd#4 } ---
+val: 104
+sig: 0b1101 | ex: 0b000110 = 6
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x06#6, sig := 0xe#4 } ---
+val: -112
+sig: 0b1110 | ex: 0b000110 = 6
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x06#6, sig := 0xe#4 } ---
+val: 112
+sig: 0b1110 | ex: 0b000110 = 6
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x06#6, sig := 0xf#4 } ---
+val: -120
+sig: 0b1111 | ex: 0b000110 = 6
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x06#6, sig := 0xf#4 } ---
+val: 120
+sig: 0b1111 | ex: 0b000110 = 6
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x07#6, sig := 0x8#4 } ---
+val: -128
+sig: 0b1000 | ex: 0b000111 = 7
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x07#6, sig := 0x8#4 } ---
+val: 128
+sig: 0b1000 | ex: 0b000111 = 7
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x07#6, sig := 0x9#4 } ---
+val: -144
+sig: 0b1001 | ex: 0b000111 = 7
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x07#6, sig := 0x9#4 } ---
+val: 144
+sig: 0b1001 | ex: 0b000111 = 7
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x07#6, sig := 0xa#4 } ---
+val: -160
+sig: 0b1010 | ex: 0b000111 = 7
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x07#6, sig := 0xa#4 } ---
+val: 160
+sig: 0b1010 | ex: 0b000111 = 7
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x07#6, sig := 0xb#4 } ---
+val: -176
+sig: 0b1011 | ex: 0b000111 = 7
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x07#6, sig := 0xb#4 } ---
+val: 176
+sig: 0b1011 | ex: 0b000111 = 7
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x07#6, sig := 0xc#4 } ---
+val: -192
+sig: 0b1100 | ex: 0b000111 = 7
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x07#6, sig := 0xc#4 } ---
+val: 192
+sig: 0b1100 | ex: 0b000111 = 7
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x07#6, sig := 0xd#4 } ---
+val: -208
+sig: 0b1101 | ex: 0b000111 = 7
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x07#6, sig := 0xd#4 } ---
+val: 208
+sig: 0b1101 | ex: 0b000111 = 7
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x07#6, sig := 0xe#4 } ---
+val: -224
+sig: 0b1110 | ex: 0b000111 = 7
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x07#6, sig := 0xe#4 } ---
+val: 224
+sig: 0b1110 | ex: 0b000111 = 7
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x07#6, sig := 0xf#4 } ---
+val: -240
+sig: 0b1111 | ex: 0b000111 = 7
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x07#6, sig := 0xf#4 } ---
+val: 240
+sig: 0b1111 | ex: 0b000111 = 7
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x08#6, sig := 0x8#4 } ---
+val: -256
+sig: 0b1000 | ex: 0b001000 = 8
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x08#6, sig := 0x8#4 } ---
+val: 256
+sig: 0b1000 | ex: 0b001000 = 8
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x08#6, sig := 0x9#4 } ---
+val: -288
+sig: 0b1001 | ex: 0b001000 = 8
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x08#6, sig := 0x9#4 } ---
+val: 288
+sig: 0b1001 | ex: 0b001000 = 8
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x08#6, sig := 0xa#4 } ---
+val: -320
+sig: 0b1010 | ex: 0b001000 = 8
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x08#6, sig := 0xa#4 } ---
+val: 320
+sig: 0b1010 | ex: 0b001000 = 8
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x08#6, sig := 0xb#4 } ---
+val: -352
+sig: 0b1011 | ex: 0b001000 = 8
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x08#6, sig := 0xb#4 } ---
+val: 352
+sig: 0b1011 | ex: 0b001000 = 8
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x08#6, sig := 0xc#4 } ---
+val: -384
+sig: 0b1100 | ex: 0b001000 = 8
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x08#6, sig := 0xc#4 } ---
+val: 384
+sig: 0b1100 | ex: 0b001000 = 8
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x08#6, sig := 0xd#4 } ---
+val: -416
+sig: 0b1101 | ex: 0b001000 = 8
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x08#6, sig := 0xd#4 } ---
+val: 416
+sig: 0b1101 | ex: 0b001000 = 8
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x08#6, sig := 0xe#4 } ---
+val: -448
+sig: 0b1110 | ex: 0b001000 = 8
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x08#6, sig := 0xe#4 } ---
+val: 448
+sig: 0b1110 | ex: 0b001000 = 8
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x08#6, sig := 0xf#4 } ---
+val: -480
+sig: 0b1111 | ex: 0b001000 = 8
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x08#6, sig := 0xf#4 } ---
+val: 480
+sig: 0b1111 | ex: 0b001000 = 8
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x09#6, sig := 0x8#4 } ---
+val: -512
+sig: 0b1000 | ex: 0b001001 = 9
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x09#6, sig := 0x8#4 } ---
+val: 512
+sig: 0b1000 | ex: 0b001001 = 9
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x09#6, sig := 0x9#4 } ---
+val: -576
+sig: 0b1001 | ex: 0b001001 = 9
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x09#6, sig := 0x9#4 } ---
+val: 576
+sig: 0b1001 | ex: 0b001001 = 9
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x09#6, sig := 0xa#4 } ---
+val: -640
+sig: 0b1010 | ex: 0b001001 = 9
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x09#6, sig := 0xa#4 } ---
+val: 640
+sig: 0b1010 | ex: 0b001001 = 9
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x09#6, sig := 0xb#4 } ---
+val: -704
+sig: 0b1011 | ex: 0b001001 = 9
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x09#6, sig := 0xb#4 } ---
+val: 704
+sig: 0b1011 | ex: 0b001001 = 9
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x09#6, sig := 0xc#4 } ---
+val: -768
+sig: 0b1100 | ex: 0b001001 = 9
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x09#6, sig := 0xc#4 } ---
+val: 768
+sig: 0b1100 | ex: 0b001001 = 9
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x09#6, sig := 0xd#4 } ---
+val: -832
+sig: 0b1101 | ex: 0b001001 = 9
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x09#6, sig := 0xd#4 } ---
+val: 832
+sig: 0b1101 | ex: 0b001001 = 9
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x09#6, sig := 0xe#4 } ---
+val: -896
+sig: 0b1110 | ex: 0b001001 = 9
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x09#6, sig := 0xe#4 } ---
+val: 896
+sig: 0b1110 | ex: 0b001001 = 9
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x09#6, sig := 0xf#4 } ---
+val: -960
+sig: 0b1111 | ex: 0b001001 = 9
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x09#6, sig := 0xf#4 } ---
+val: 960
+sig: 0b1111 | ex: 0b001001 = 9
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0a#6, sig := 0x8#4 } ---
+val: -1024
+sig: 0b1000 | ex: 0b001010 = 10
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0a#6, sig := 0x8#4 } ---
+val: 1024
+sig: 0b1000 | ex: 0b001010 = 10
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0a#6, sig := 0x9#4 } ---
+val: -1152
+sig: 0b1001 | ex: 0b001010 = 10
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0a#6, sig := 0x9#4 } ---
+val: 1152
+sig: 0b1001 | ex: 0b001010 = 10
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0a#6, sig := 0xa#4 } ---
+val: -1280
+sig: 0b1010 | ex: 0b001010 = 10
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0a#6, sig := 0xa#4 } ---
+val: 1280
+sig: 0b1010 | ex: 0b001010 = 10
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0a#6, sig := 0xb#4 } ---
+val: -1408
+sig: 0b1011 | ex: 0b001010 = 10
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0a#6, sig := 0xb#4 } ---
+val: 1408
+sig: 0b1011 | ex: 0b001010 = 10
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0a#6, sig := 0xc#4 } ---
+val: -1536
+sig: 0b1100 | ex: 0b001010 = 10
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0a#6, sig := 0xc#4 } ---
+val: 1536
+sig: 0b1100 | ex: 0b001010 = 10
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0a#6, sig := 0xd#4 } ---
+val: -1664
+sig: 0b1101 | ex: 0b001010 = 10
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0a#6, sig := 0xd#4 } ---
+val: 1664
+sig: 0b1101 | ex: 0b001010 = 10
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0a#6, sig := 0xe#4 } ---
+val: -1792
+sig: 0b1110 | ex: 0b001010 = 10
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0a#6, sig := 0xe#4 } ---
+val: 1792
+sig: 0b1110 | ex: 0b001010 = 10
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0a#6, sig := 0xf#4 } ---
+val: -1920
+sig: 0b1111 | ex: 0b001010 = 10
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0a#6, sig := 0xf#4 } ---
+val: 1920
+sig: 0b1111 | ex: 0b001010 = 10
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0b#6, sig := 0x8#4 } ---
+val: -2048
+sig: 0b1000 | ex: 0b001011 = 11
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0b#6, sig := 0x8#4 } ---
+val: 2048
+sig: 0b1000 | ex: 0b001011 = 11
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0b#6, sig := 0x9#4 } ---
+val: -2304
+sig: 0b1001 | ex: 0b001011 = 11
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0b#6, sig := 0x9#4 } ---
+val: 2304
+sig: 0b1001 | ex: 0b001011 = 11
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0b#6, sig := 0xa#4 } ---
+val: -2560
+sig: 0b1010 | ex: 0b001011 = 11
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0b#6, sig := 0xa#4 } ---
+val: 2560
+sig: 0b1010 | ex: 0b001011 = 11
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0b#6, sig := 0xb#4 } ---
+val: -2816
+sig: 0b1011 | ex: 0b001011 = 11
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0b#6, sig := 0xb#4 } ---
+val: 2816
+sig: 0b1011 | ex: 0b001011 = 11
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0b#6, sig := 0xc#4 } ---
+val: -3072
+sig: 0b1100 | ex: 0b001011 = 11
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0b#6, sig := 0xc#4 } ---
+val: 3072
+sig: 0b1100 | ex: 0b001011 = 11
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0b#6, sig := 0xd#4 } ---
+val: -3328
+sig: 0b1101 | ex: 0b001011 = 11
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0b#6, sig := 0xd#4 } ---
+val: 3328
+sig: 0b1101 | ex: 0b001011 = 11
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0b#6, sig := 0xe#4 } ---
+val: -3584
+sig: 0b1110 | ex: 0b001011 = 11
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0b#6, sig := 0xe#4 } ---
+val: 3584
+sig: 0b1110 | ex: 0b001011 = 11
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0b#6, sig := 0xf#4 } ---
+val: -3840
+sig: 0b1111 | ex: 0b001011 = 11
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0b#6, sig := 0xf#4 } ---
+val: 3840
+sig: 0b1111 | ex: 0b001011 = 11
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0c#6, sig := 0x8#4 } ---
+val: -4096
+sig: 0b1000 | ex: 0b001100 = 12
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0c#6, sig := 0x8#4 } ---
+val: 4096
+sig: 0b1000 | ex: 0b001100 = 12
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0c#6, sig := 0x9#4 } ---
+val: -4608
+sig: 0b1001 | ex: 0b001100 = 12
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0c#6, sig := 0x9#4 } ---
+val: 4608
+sig: 0b1001 | ex: 0b001100 = 12
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0c#6, sig := 0xa#4 } ---
+val: -5120
+sig: 0b1010 | ex: 0b001100 = 12
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0c#6, sig := 0xa#4 } ---
+val: 5120
+sig: 0b1010 | ex: 0b001100 = 12
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0c#6, sig := 0xb#4 } ---
+val: -5632
+sig: 0b1011 | ex: 0b001100 = 12
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0c#6, sig := 0xb#4 } ---
+val: 5632
+sig: 0b1011 | ex: 0b001100 = 12
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0c#6, sig := 0xc#4 } ---
+val: -6144
+sig: 0b1100 | ex: 0b001100 = 12
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0c#6, sig := 0xc#4 } ---
+val: 6144
+sig: 0b1100 | ex: 0b001100 = 12
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0c#6, sig := 0xd#4 } ---
+val: -6656
+sig: 0b1101 | ex: 0b001100 = 12
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0c#6, sig := 0xd#4 } ---
+val: 6656
+sig: 0b1101 | ex: 0b001100 = 12
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0c#6, sig := 0xe#4 } ---
+val: -7168
+sig: 0b1110 | ex: 0b001100 = 12
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0c#6, sig := 0xe#4 } ---
+val: 7168
+sig: 0b1110 | ex: 0b001100 = 12
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0c#6, sig := 0xf#4 } ---
+val: -7680
+sig: 0b1111 | ex: 0b001100 = 12
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0c#6, sig := 0xf#4 } ---
+val: 7680
+sig: 0b1111 | ex: 0b001100 = 12
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0d#6, sig := 0x8#4 } ---
+val: -8192
+sig: 0b1000 | ex: 0b001101 = 13
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0d#6, sig := 0x8#4 } ---
+val: 8192
+sig: 0b1000 | ex: 0b001101 = 13
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0d#6, sig := 0x9#4 } ---
+val: -9216
+sig: 0b1001 | ex: 0b001101 = 13
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0d#6, sig := 0x9#4 } ---
+val: 9216
+sig: 0b1001 | ex: 0b001101 = 13
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0d#6, sig := 0xa#4 } ---
+val: -10240
+sig: 0b1010 | ex: 0b001101 = 13
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0d#6, sig := 0xa#4 } ---
+val: 10240
+sig: 0b1010 | ex: 0b001101 = 13
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0d#6, sig := 0xb#4 } ---
+val: -11264
+sig: 0b1011 | ex: 0b001101 = 13
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0d#6, sig := 0xb#4 } ---
+val: 11264
+sig: 0b1011 | ex: 0b001101 = 13
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0d#6, sig := 0xc#4 } ---
+val: -12288
+sig: 0b1100 | ex: 0b001101 = 13
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0d#6, sig := 0xc#4 } ---
+val: 12288
+sig: 0b1100 | ex: 0b001101 = 13
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0d#6, sig := 0xd#4 } ---
+val: -13312
+sig: 0b1101 | ex: 0b001101 = 13
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0d#6, sig := 0xd#4 } ---
+val: 13312
+sig: 0b1101 | ex: 0b001101 = 13
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0d#6, sig := 0xe#4 } ---
+val: -14336
+sig: 0b1110 | ex: 0b001101 = 13
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0d#6, sig := 0xe#4 } ---
+val: 14336
+sig: 0b1110 | ex: 0b001101 = 13
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0d#6, sig := 0xf#4 } ---
+val: -15360
+sig: 0b1111 | ex: 0b001101 = 13
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0d#6, sig := 0xf#4 } ---
+val: 15360
+sig: 0b1111 | ex: 0b001101 = 13
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0e#6, sig := 0x8#4 } ---
+val: -16384
+sig: 0b1000 | ex: 0b001110 = 14
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0e#6, sig := 0x8#4 } ---
+val: 16384
+sig: 0b1000 | ex: 0b001110 = 14
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0e#6, sig := 0x9#4 } ---
+val: -18432
+sig: 0b1001 | ex: 0b001110 = 14
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0e#6, sig := 0x9#4 } ---
+val: 18432
+sig: 0b1001 | ex: 0b001110 = 14
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0e#6, sig := 0xa#4 } ---
+val: -20480
+sig: 0b1010 | ex: 0b001110 = 14
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0e#6, sig := 0xa#4 } ---
+val: 20480
+sig: 0b1010 | ex: 0b001110 = 14
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0e#6, sig := 0xb#4 } ---
+val: -22528
+sig: 0b1011 | ex: 0b001110 = 14
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0e#6, sig := 0xb#4 } ---
+val: 22528
+sig: 0b1011 | ex: 0b001110 = 14
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0e#6, sig := 0xc#4 } ---
+val: -24576
+sig: 0b1100 | ex: 0b001110 = 14
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0e#6, sig := 0xc#4 } ---
+val: 24576
+sig: 0b1100 | ex: 0b001110 = 14
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0e#6, sig := 0xd#4 } ---
+val: -26624
+sig: 0b1101 | ex: 0b001110 = 14
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0e#6, sig := 0xd#4 } ---
+val: 26624
+sig: 0b1101 | ex: 0b001110 = 14
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0e#6, sig := 0xe#4 } ---
+val: -28672
+sig: 0b1110 | ex: 0b001110 = 14
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0e#6, sig := 0xe#4 } ---
+val: 28672
+sig: 0b1110 | ex: 0b001110 = 14
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0e#6, sig := 0xf#4 } ---
+val: -30720
+sig: 0b1111 | ex: 0b001110 = 14
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0e#6, sig := 0xf#4 } ---
+val: 30720
+sig: 0b1111 | ex: 0b001110 = 14
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0f#6, sig := 0x8#4 } ---
+val: -32768
+sig: 0b1000 | ex: 0b001111 = 15
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0f#6, sig := 0x8#4 } ---
+val: 32768
+sig: 0b1000 | ex: 0b001111 = 15
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0f#6, sig := 0x9#4 } ---
+val: -36864
+sig: 0b1001 | ex: 0b001111 = 15
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0f#6, sig := 0x9#4 } ---
+val: 36864
+sig: 0b1001 | ex: 0b001111 = 15
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0f#6, sig := 0xa#4 } ---
+val: -40960
+sig: 0b1010 | ex: 0b001111 = 15
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0f#6, sig := 0xa#4 } ---
+val: 40960
+sig: 0b1010 | ex: 0b001111 = 15
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0f#6, sig := 0xb#4 } ---
+val: -45056
+sig: 0b1011 | ex: 0b001111 = 15
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0f#6, sig := 0xb#4 } ---
+val: 45056
+sig: 0b1011 | ex: 0b001111 = 15
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0f#6, sig := 0xc#4 } ---
+val: -49152
+sig: 0b1100 | ex: 0b001111 = 15
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0f#6, sig := 0xc#4 } ---
+val: 49152
+sig: 0b1100 | ex: 0b001111 = 15
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0f#6, sig := 0xd#4 } ---
+val: -53248
+sig: 0b1101 | ex: 0b001111 = 15
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0f#6, sig := 0xd#4 } ---
+val: 53248
+sig: 0b1101 | ex: 0b001111 = 15
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0f#6, sig := 0xe#4 } ---
+val: -57344
+sig: 0b1110 | ex: 0b001111 = 15
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0f#6, sig := 0xe#4 } ---
+val: 57344
+sig: 0b1110 | ex: 0b001111 = 15
+Succeeded ✅
+--- rounding: { sign := true, ex := 0x0f#6, sig := 0xf#4 } ---
+val: -61440
+sig: 0b1111 | ex: 0b001111 = 15
+Succeeded ✅
+--- rounding: { sign := false, ex := 0x0f#6, sig := 0xf#4 } ---
+val: 61440
+sig: 0b1111 | ex: 0b001111 = 15
+Succeeded ✅
+done.
+-/
+#guard_msgs in #eval show IO Unit from do
+  for originalPacked in mkPackedFloats 5 3 do
+    if ! originalPacked.isNorm then continue -- we only need to think about the normal case for now.
+    let originalEUnpacked := originalPacked.unpack
+    -- if ! originalEUnpacked.isNumber then continue
+    let originalUnpacked := originalEUnpacked.num
+    let originalUnpackedNormalized := originalUnpacked.normalize
+    let outputUnpacked ← UnpackedFloat.roundNormal (targetExponentWidth := 5) (targetSignificandWidth := 3) originalUnpackedNormalized RoundingMode.RNE
+    let outputPacked := outputUnpacked.pack
+    if ! originalPacked.equal_denotation outputPacked then
+      IO.println s!"Failed ❌ | original {repr originalPacked.toRat?} → output {repr outputPacked.unpack} | {repr outputPacked.toRat?}"
+      break
+    else
+      IO.println "Succeeded ✅"
+    -- else
+    --   IO.println s!"Succeeded ✅ | original {repr originalPacked.toRat?} → output {repr outputPacked.toRat?}"
+
+  IO.println "done."
+
+
+-- Test that 'normalize' works correctly.
 /-- info: done. -/
 #guard_msgs in #eval show IO Unit from do
   for originalPacked in mkPackedFloats 5 3 do
@@ -545,27 +2609,6 @@ def mkPackedFloats (E : Nat) (S : Nat) : Array (PackedFloat E S) := Id.run do
     let outputPacked := outputUnpacked.pack
     if ! originalPacked.equal_denotation outputPacked then
       IO.println s!"Failed ❌ | original {repr originalPacked.toRat?} → output {repr outputPacked.toRat?}"
-    -- else
-    --   IO.println s!"Succeeded ✅ | original {repr originalPacked.toRat?} → output {repr outputPacked.toRat?}"
-
-  IO.println "done."
-
-/--
-info: Failed ❌ | original some (-1 : Rat)/16384 → output { state := ∞, num := { sign := true, ex := 0x00#6, sig := 0x0#4 } } | none
-done.
--/
-#guard_msgs in #eval show IO Unit from do
-  for originalPacked in mkPackedFloats 5 3 do
-    if ! originalPacked.isNorm then continue -- we only need to think about the normal case for now.
-    let originalEUnpacked := originalPacked.unpack
-    -- if ! originalEUnpacked.isNumber then continue
-    let originalUnpacked := originalEUnpacked.num
-    let originalUnpackedNormalized := originalUnpacked.normalize
-    let outputUnpacked := UnpackedFloat.round (targetExponentWidth := 5) (targetSignificandWidth := 3) originalUnpackedNormalized RoundingMode.RNE
-    let outputPacked := outputUnpacked.pack
-    if ! originalPacked.equal_denotation outputPacked then
-      IO.println s!"Failed ❌ | original {repr originalPacked.toRat?} → output {repr outputPacked.unpack} | {repr outputPacked.toRat?}"
-      break
     -- else
     --   IO.println s!"Succeeded ✅ | original {repr originalPacked.toRat?} → output {repr outputPacked.toRat?}"
 
