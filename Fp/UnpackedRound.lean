@@ -761,14 +761,14 @@ def checkRoundCorrect (EUnpacked SUnpacked : Nat) (EOut SOut : Nat) : IO Bool :=
     if ! outputRoundedPacked.equal_denotation expectedPacked then
       IO.println s!"Failed ❌ | original {repr originalPacked}"
       IO.println s!"  original (Q) {repr originalPacked.toRat?}"
-      IO.println s!"  original unpacked {repr originalUnpacked.toString}"
-      IO.println s!"  original normalized {repr originalNormalized.toString}"
-      IO.println s!"  output rounded Eunpacked {repr outputRounded}"
+      -- IO.println s!"  original unpacked {repr originalUnpacked.toString}"
+      -- IO.println s!"  original normalized {repr originalNormalized.toString}"
+      -- IO.println s!"  output rounded Eunpacked {repr outputRounded}"
       IO.println s!"  output rounded (Q) {repr outputRounded.toRat?}"
-      IO.println s!"  output rounded packed (Q) {repr outputRoundedPacked.toRat?}"
+      -- IO.println s!"  output rounded packed (Q) {repr outputRoundedPacked.toRat?}"
       IO.println s!"  expected (Q) {repr expectedPacked.toRat?}"
-      IO.println s!"  output rounded packed {repr outputRoundedPacked.unpack}"
-      IO.println s!"  expected packed {repr expectedPacked.unpack}"
+      -- IO.println s!"  output rounded packed {repr outputRoundedPacked.unpack}"
+      IO.println s!"  expected packed {repr expectedPacked}"
       IO.println log
       allSucceeded := false
       break
@@ -781,14 +781,9 @@ def checkRoundCorrect (EUnpacked SUnpacked : Nat) (EOut SOut : Nat) : IO Bool :=
 /--
 info: Failed ❌ | original { sign := -, ex := 0x00#5, sig := 0x3#4 }
   original (Q) some (-3 : Rat)/262144
-  original unpacked "- 24 * 2^-(4) * 2^-17"
-  original normalized "- 24 * 2^-(4) * 2^-17"
-  output rounded Eunpacked { state := num, num := { sign := true, ex := 0x2f#6, sig := 0x6#3 } }
   output rounded (Q) some (-3 : Rat)/262144
-  output rounded packed (Q) some 0
   expected (Q) some (-1 : Rat)/65536
-  output rounded packed { state := num, num := { sign := true, ex := 0x00#6, sig := 0x0#3 } }
-  expected packed { state := num, num := { sign := true, ex := 0x30#6, sig := 0x4#3 } }
+  expected packed { sign := -, ex := 0x00#5, sig := 0x1#2 }
 
 --- rounding: { sign := true, ex := 0x2f#6, sig := 0x18#5 } ---
   val: -3/262144
