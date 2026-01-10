@@ -27,6 +27,7 @@ def PackedFloat.unpack (pf : PackedFloat e s)
 @[bv_normalize]
 def EUnpackedFloat.pack (uf : EUnpackedFloat (exponentWidth e s) (s + 1))
   : PackedFloat e s :=
+  -- min normal <= exp
   let inNormalRange := (BitVec.ofInt _ (minNormalExp e)).sle uf.exp
   {
     sign := uf.sign
@@ -42,10 +43,13 @@ def EUnpackedFloat.pack (uf : EUnpackedFloat (exponentWidth e s) (s + 1))
            else bif uf.isInfinite || uf.isZero then
             (0#_)
            else bif inNormalRange then
-            uf.sig.truncate _
+            uf.sig.truncate s -- drop the leading 1 bit
            else -- bif uf.isSubnorm then
+            -- shift right by #of subnormal bits.
             let shift := BitVec.ofInt _ (minNormalExp e) - uf.exp
-            (uf.sig >>> shift).truncate _
+            -- shift, and then truncate to significand width.
+            (uf.sig >>> shift).truncate s
+
   }
 
 theorem PackedFloat.isInfinite_pack_unpack (pf : PackedFloat 5 10) (hpf : pf.unpack.isInfinite) :
