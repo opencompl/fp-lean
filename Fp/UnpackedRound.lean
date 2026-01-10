@@ -696,7 +696,7 @@ def UnpackedFloat.roundNormal {expWidth sigWidth : Nat} {targetExponentWidth tar
   -- This is annoying, because I actually don't care about the hidden bit, so making it explicit is just redundant computation?
   -- return UnpackedFloat.round inUf mode
 
-def checkRoundIdem (E S : Nat): IO Bool := do
+def checkRoundIdem (E S : Nat) : IO Bool := do
   -- let E := 5
   -- let S := 3
   let mut success : Bool := true
@@ -715,15 +715,15 @@ def checkRoundIdem (E S : Nat): IO Bool := do
       success:= false
   if success then
     IO.println "All succeeded ✅"
+    return success
   else
-    IO.println "Some failures ❌"
-  return success
+    throw (IO.Error.userError "Some failed ❌")
 
 #guard_msgs(error) in #eval checkRoundIdem 5 3
 
-def checkNormalizeIdem : IO Bool := do
+def checkNormalizeIdem (E S : Nat) : IO Bool := do
   let mut allSucceeded := true
-  for originalPacked in mkPackedFloats 5 3 do
+  for originalPacked in mkPackedFloats E S do
     if ! originalPacked.isNorm then continue -- we only need to think about the normal case for now.
     let originalEUnpacked := originalPacked.unpack
     -- if ! originalEUnpacked.isNumber then continue
@@ -741,7 +741,7 @@ def checkNormalizeIdem : IO Bool := do
   if allSucceeded then
     IO.println "All succeeded ✅"
   else
-    IO.println "Some failed ❌"
+    throw (IO.Error.userError "Some failed ❌")
   return allSucceeded
 
 /--
@@ -749,7 +749,7 @@ info: All succeeded ✅
 ---
 info: true
 -/
-#guard_msgs in #eval checkNormalizeIdem
+#guard_msgs in #eval checkNormalizeIdem 3 5
 
 theorem round_idem' (uf : UnpackedFloat 6 4)
     (huf : (EUnpackedFloat.pack (e := 5) (s := 3) (EUnpackedFloat.mkNumber uf)).isNorm) :
