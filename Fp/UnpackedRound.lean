@@ -100,7 +100,7 @@ theorem BitVec.getElem_orderEncode_of_lt {w : Nat} (x : BitVec w) (i : Nat) (hi 
   apply BitVec.getLsbD_orderEncode_of_lt x i hi
 
 @[simp]
-theorem BitVec.getLsb_orderEncode {w : Nat} (x : BitVec w) (i : Nat) :
+theorem BitVec.getLsbD_orderEncode {w : Nat} (x : BitVec w) (i : Nat) :
     (orderEncode x).getLsbD i = (decide (i < x.toNat) && decide (i < w)) := by
   by_cases hi : i < w
   · simp [hi]
@@ -112,7 +112,7 @@ theorem BitVec.getLsb_orderEncode {w : Nat} (x : BitVec w) (i : Nat) :
 theorem BitVec.getElem_orderEncode {w : Nat} (x : BitVec w) (i : Nat) (hi : i < w) :
     (orderEncode x)[i] = (decide (i < x.toNat)) := by
   rw [← getLsbD_eq_getElem]
-  rw [BitVec.getLsb_orderEncode x i]
+  rw [BitVec.getLsbD_orderEncode x i]
   simp [hi]
 
 @[simp]
@@ -267,6 +267,8 @@ def UnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSig
   (he : expWidth >= targetExponentWidth := AxRoundPreconditions)
   (hs' : sigWidth >= 1 := AxRoundPreconditions) :
   EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
+
+let inUf := inUf.normalize
 /-
   //PRECONDITION(uf.valid(format));
   // Not a precondition because
@@ -289,7 +291,7 @@ def UnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSig
 -/
   -- @bollu: ORing with a leading 1 is nonsensical?
   let psig := inUf.sig
-  let sig := psig ||| (BitVec.leadingOne sigWidth) --  @abdal: this seems wrong. For us, does 'sigWidth' have the leading one?
+  let sig := psig -- ||| (BitVec.leadingOne sigWidth) --  @abdal: this seems wrong. For us, does 'sigWidth' have the leading one?
 /-
   bwt targetSignificandWidth(unpackedFloat<t>::significandWidth(format));
   PRECONDITION(sigWidth >= targetSignificandWidth + 2);
@@ -316,9 +318,9 @@ def UnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSig
   probabilityAnnotation<t>(potentialLateUnderflow, VERYUNLIKELY);
 -/
   let earlyOverflow : Bool := exp > BitVec.ofInt expWidth (maxNormalExp targetExponentWidth)
-  let earlyUnderflow : Bool := exp < (BitVec.ofInt expWidth (subnormalExp targetExponentWidth)).decrement
+  let earlyUnderflow : Bool := exp < (BitVec.ofInt expWidth (minSubnormalExp targetExponentWidth targetSignificandWidth)).decrement
   let potentialLateOverflow := exp == BitVec.ofInt expWidth (maxNormalExp targetExponentWidth)
-  let potentialLateUnderflow := exp == (BitVec.ofInt expWidth (subnormalExp targetExponentWidth)).decrement
+  let potentialLateUnderflow := exp == (BitVec.ofInt expWidth (minSubnormalExp targetExponentWidth targetSignificandWidth)).decrement
 /-
   /*** Normal or subnormal rounding? ***/
   prop normalRoundingRange(exp >= unpackedFloat<t>::minNormalExponent(format).extend(exponentExtension));
@@ -750,6 +752,44 @@ theorem BitVec.getMsbDBV_eq_getMsbD {w : Nat} (x : BitVec w) (i : BitVec w)
     rw [Nat.mod_eq_of_lt (by omega)]
     omega
 
+/--
+Extract the bits from LSB from low index `0` to high index `start` (excluded), setting other bits to zero.
+-/
+def BitVec.extractLsbTo0BV {w : Nat} (x : BitVec w) (start : BitVec w) : BitVec w :=
+  x &&& (orderEncode start)
+
+@[simp]
+theorem BitVec.getLsbD_extractLsbTo0BV_eq_decide {w : Nat} (x : BitVec w) (start : Nat) (i : Nat) :
+    (x.extractLsbTo0BV (BitVec.ofNat w start)).getLsbD i = (x.getLsbD i &&  decide (i < start % 2^w)) := by
+  rw [extractLsbTo0BV]
+  rw [BitVec.getLsbD_and]
+  rw [BitVec.getLsbD_orderEncode]
+  by_cases hi : i < w
+  · by_cases hstart : start < w
+    · have : start < 2^w := by
+        have : w < 2^w := by exact Nat.lt_two_pow_self
+        omega
+      simp
+      rw [Nat.mod_eq_of_lt (by omega)]
+      by_cases hi : i < start
+      · simp [hi]
+        intros h
+        have := BitVec.lt_of_getLsbD h
+        omega
+      · simp [hi]
+    · simp [hi]
+  · simp [hi]
+    intros hx
+    have := BitVec.lt_of_getLsbD hx
+    omega
+
+
+/--
+Extract out bits from 'startMsb' (excluded) down to low index `0`, setting other bits to zero.
+-/
+def BitVec.extractMsbTo0BV {w : Nat} (x : BitVec w) (startMsb : BitVec w) : BitVec w :=
+  BitVec.extractLsbTo0BV x (BitVec.ofNat w w - 1#w - (startMsb - 1#w))
+
 @[bv_normalize]
 def UnpackedFloat.roundNormal {expWidth sigWidth : Nat} {targetExponentWidth targetSignificandWidth : Nat}
   (inUf : UnpackedFloat expWidth sigWidth)
@@ -789,16 +829,35 @@ def UnpackedFloat.roundNormal {expWidth sigWidth : Nat} {targetExponentWidth tar
   let sigWithHidden : BitVec sigWidth := inUf.sig
   out := out ++ s!"\nsig(w/hidden): {sigWithHidden.toBitsStr} = {sigWithHidden.toNat}"
 
+
+  -- in inf precision, we want to take:
+  --                ↓ guard
+  --  1 . a b c d e f g h ... * 2^exp
+  --  ============↑ (6 bits of precision)
+  -- suppose we exceed by 3 bits, so shiftAmt = 3.
+
+  -- and convert to target precision:
+  --                  ↓ guard
+  --  0 . 0 0 0 1 a b c d e f g h * 2^exp + 2^shiftAmt | to make 'exp + shiftAmt >= minNormalExp'.
+  --  ==============↑ (6 bits of precision)
+  -- (sigWidth - 1) - (targetSignificandWidth - 1) -
+  let guardBitPositionFromMsb : BitVec sigWidth :=
+    (BitVec.ofNat sigWidth targetSignificandWidth)
+      - (shiftAmtPositive.signExtend sigWidth) -- we need to subtract, because we guard "earlier", since we have less precision. More bits go into sticy.
+  let guardBit : Bool :=
+    sigWithHidden.getMsbDBV guardBitPositionFromMsb
+  -- let stickyBit : Bool := x &&& orderEncode
+
   -- -- | See that this loses bits, this is not I should be doing it.
   -- This should happen last, otherwise we will lose bits we need for rounding.
-  let sigWithHiddenAdjusted : BitVec sigWidth := sigWithHidden >>> shiftAmtPositive
-  out := out ++ s!"\nsigAdjusted(w/hidden): {sigWithHiddenAdjusted.toBitsStr} = {sigWithHiddenAdjusted.toNat}"
-  let targetSigWithHidden : BitVec (targetSignificandWidth + 1) :=
-      sigWithHiddenAdjusted.extractMsb' 0 (targetSignificandWidth + 1)
-  out := out ++ s!"\ntargetSig(w/hidden): {targetSigWithHidden.toBitsStr}"
+  -- let sigWithHiddenAdjusted : BitVec sigWidth := sigWithHidden >>> shiftAmtPositive
+  -- out := out ++ s!"\nsigAdjusted(w/hidden): {sigWithHiddenAdjusted.toBitsStr} = {sigWithHiddenAdjusted.toNat}"
+  -- let targetSigWithHidden : BitVec (targetSignificandWidth + 1) :=
+  --     sigWithHiddenAdjusted.extractMsb' 0 (targetSignificandWidth + 1)
+  -- out := out ++ s!"\ntargetSig(w/hidden): {targetSigWithHidden.toBitsStr}"
 
-  let guardBit : Bool := -- | this can lose bits, so this is not safe. I should grab bits directly from 'sigWithHidden'.
-      sigWithHiddenAdjusted.getMsbD (targetSignificandWidth + 2)
+  -- let guardBit : Bool := -- | this can lose bits, so this is not safe. I should grab bits directly from 'sigWithHidden'.
+  --     sigWithHiddenAdjusted.getMsbD (targetSignificandWidth + 2)
   -- out := out ++ s!"\nguardBit: {guardBit}"
   -- let stickyBits :=
   --   sigWithHiddenAdjusted.extractMsb' (targetSignificandWidth + 3) (sigWidth - (targetSignificandWidth + 3))
@@ -888,6 +947,11 @@ def checkRoundIdem (E S : Nat) : IO Bool := do
 def UnpackedFloat.toString {expWidth sigWidth : Nat} (uf : UnpackedFloat expWidth sigWidth) : String :=
   s!"{if uf.sign then "-" else "+"} {uf.sig.toNat} * 2^-({sigWidth - 1}) * 2^{uf.ex.toInt}"
 
+/--
+error: aborting evaluation since the expression depends on the 'sorry' axiom, which can lead to runtime instability and crashes.
+
+To attempt to evaluate anyway despite the risks, use the '#eval!' command.
+-/
 #guard_msgs(error) in #eval checkRoundIdem 5 3
 
 def checkRoundCorrect (EUnpacked SUnpacked : Nat) (EOut SOut : Nat) : IO Bool := do

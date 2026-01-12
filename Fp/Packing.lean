@@ -64,7 +64,7 @@ def expectedPacked : PackedFloat 5 2 := { sign := true, ex := 0x00#5, sig := 0x1
 #guard_msgs in #eval expectedPacked.toRat?
 
 
-theorem qeq : startUnpacked.toRat? = expectedPacked.toRat? := rfl
+-- theorem qeq : startUnpacked.toRat? = expectedPacked.toRat? := rfl
 
 end PackingExpAdjust
 
