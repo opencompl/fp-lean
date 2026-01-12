@@ -65,7 +65,7 @@ theorem BitVec.toInt_expandingSubtract {w} (a b : BitVec w) :
 @[bv_normalize]
 def BitVec.width {w : Nat} (_x : BitVec w) : Nat := w
 
-/-- Convert a binary number into a unary encoding of the number. -/
+/-- Convert a binary number into a unary mask of that number. -/
 @[bv_normalize]
 def BitVec.orderEncode (x : BitVec w) : BitVec w :=
   (1#w <<< x) - 1
@@ -729,8 +729,26 @@ theorem BitVec.getLsbDBV_eq_getLsbD {w : Nat} (x : BitVec w) (i : BitVec w) :
       grind
     grind
 
-/- Extract bits -/
--- theorem BitVec.extractMsbBVTill0
+def BitVec.getMsbDBV {w : Nat} (x : BitVec w) (i : BitVec w) : Bool :=
+  x.getLsbDBV ((BitVec.ofNat w (w - 1)) - i)
+
+@[simp]
+theorem BitVec.getMsbDBV_eq_getMsbD {w : Nat} (x : BitVec w) (i : BitVec w)
+    (hi : i.toNat < w) :
+    x.getMsbDBV i = x.getMsbD (i.toNat) := by
+  have : w - 1 < 2^w := by
+    have : w < 2^w := by exact Nat.lt_two_pow_self
+    grind
+  rw [getMsbDBV, getLsbDBV_eq_getLsbD]
+  rw [BitVec.toNat_sub_of_le]
+  · simp
+    rw [Nat.mod_eq_of_lt (by omega)]
+    simp [BitVec.getMsbD]
+    omega
+  · rw [BitVec.le_def]
+    simp only [toNat_ofNat]
+    rw [Nat.mod_eq_of_lt (by omega)]
+    omega
 
 @[bv_normalize]
 def UnpackedFloat.roundNormal {expWidth sigWidth : Nat} {targetExponentWidth targetSignificandWidth : Nat}
