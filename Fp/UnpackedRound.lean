@@ -70,6 +70,58 @@ def BitVec.width {w : Nat} (_x : BitVec w) : Nat := w
 def BitVec.orderEncode (x : BitVec w) : BitVec w :=
   (1#w <<< x) - 1
 
+theorem BitVec.orderEncode_eq_twoPow_sub (x : BitVec w) :
+    BitVec.orderEncode x = twoPow w x.toNat - 1 := rfl
+
+@[simp]
+theorem BitVec.orderEncode_eq_allOnes_of_le {w : Nat} (x : BitVec w)
+    (h : w ≤ x.toNat) :
+    orderEncode x = allOnes w := by
+  simp [orderEncode]
+  rw [BitVec.shiftLeft_eq_zero]
+  · simp [BitVec.neg_one_eq_allOnes]
+  · omega
+
+axiom AxOrderEncode {P : Prop} : P
+
+theorem BitVec.getLsbD_orderEncode_of_lt (x : BitVec w) (i : Nat) (hi : i < w) :
+    (orderEncode x).getLsbD i = (decide (i < x.toNat)) := by
+  by_cases hi : x.toNat < w
+  · rw [orderEncode]
+    · -- ⊢ (1#w <<< x - 1).getLsbD i = decide (i < x.toNat)
+      exact AxOrderEncode
+  · rw [BitVec.orderEncode_eq_allOnes_of_le]
+    · simp; omega
+    · omega
+
+theorem BitVec.getElem_orderEncode_of_lt {w : Nat} (x : BitVec w) (i : Nat) (hi : i < w) :
+    (orderEncode x)[i] = (decide (i < x.toNat)) := by
+  rw [← getLsbD_eq_getElem]
+  apply BitVec.getLsbD_orderEncode_of_lt x i hi
+
+@[simp]
+theorem BitVec.getLsb_orderEncode {w : Nat} (x : BitVec w) (i : Nat) :
+    (orderEncode x).getLsbD i = (decide (i < x.toNat) && decide (i < w)) := by
+  by_cases hi : i < w
+  · simp [hi]
+    rw [BitVec.getElem_orderEncode_of_lt]
+  · rw [BitVec.getLsbD_of_ge x.orderEncode i (by omega)]
+    simp; omega
+
+@[simp]
+theorem BitVec.getElem_orderEncode {w : Nat} (x : BitVec w) (i : Nat) (hi : i < w) :
+    (orderEncode x)[i] = (decide (i < x.toNat)) := by
+  rw [← getLsbD_eq_getElem]
+  rw [BitVec.getLsb_orderEncode x i]
+  simp [hi]
+
+@[simp]
+theorem BitVec.orderEncode_eq_shiftRight_allOnes {x : BitVec w} :
+    orderEncode x = BitVec.allOnes w >>> (w - x.toNat) := by
+  ext i hi
+  simp
+  omega
+
 @[bv_normalize]
 def BitVec.scollar (x : BitVec w) (minVal : BitVec w) (maxVal : BitVec w) : BitVec w :=
   if x.slt minVal then minVal
@@ -642,6 +694,44 @@ def conditionalIncrementWithFlags (cond : Bool) (x : BitVec w) : BitVec w × Boo
   else
     (x, false)
 
+def BitVec.smin (a b : BitVec w) : BitVec w :=
+  if a.slt b then a else b
+
+def BitVec.smax (a b : BitVec w) : BitVec w :=
+  -- a > b then a else b
+  -- b < a
+  if b.slt a then a else b
+
+
+/-- A variant of 'getLsbD' where the index is also a bitvector. -/
+@[bv_normalize]
+def BitVec.getLsbDBV {w : Nat} (x : BitVec w) (i : BitVec w) : Bool :=
+  x &&& (1#w <<< i) ≠ 0#w
+
+example (x y : BitVec 5) (hy : y < 3#5) : (x <<< 3#5).getLsbDBV y = false := by
+  bv_decide
+
+@[simp]
+theorem BitVec.getLsbDBV_eq_getLsbD {w : Nat} (x : BitVec w) (i : BitVec w) :
+    x.getLsbDBV i = x.getLsbD (i.toNat) := by
+  rw [getLsbDBV]
+  simp
+  by_cases hx : x &&& (1#w <<< i.toNat) = 0#w
+  · rw [hx]
+    simp
+    have : (x &&& (1#w <<< i.toNat)).getLsbD i.toNat = false := by
+      grind
+    grind
+  · simp [hx]
+    simp at hx
+    have : (x &&& (1#w <<< i.toNat)).getLsbD i.toNat = true := by
+      simp
+      grind
+    grind
+
+/- Extract bits -/
+-- theorem BitVec.extractMsbBVTill0
+
 @[bv_normalize]
 def UnpackedFloat.roundNormal {expWidth sigWidth : Nat} {targetExponentWidth targetSignificandWidth : Nat}
   (inUf : UnpackedFloat expWidth sigWidth)
@@ -663,39 +753,40 @@ def UnpackedFloat.roundNormal {expWidth sigWidth : Nat} {targetExponentWidth tar
   if targetMinNormalExp.toInt != minNormalExp targetExponentWidth then
     throw (IO.userError "targetMinNormalExp.toInt != minNormalExp targetExponentWidth")
 
-  -- how much to shift 'sig' by.
-  let shiftAmtPositive : BitVec expWidth :=
-    if exp.slt targetMinNormalExp then
-      targetMinNormalExp - exp
-    else
-      0#expWidth
-  out := out ++ s!"\nshiftAmtPositive: {shiftAmtPositive.toBitsStr} = {shiftAmtPositive.toInt}"
-
   -- force exponent to be at least min normal exponent.
-  let expClamped :=
+  let expGeMin :=
     if exp.slt targetMinNormalExp then
       targetMinNormalExp
     else
       exp
+  out := out ++ s!"\nexpGeMin: {expGeMin.toBitsStr} = {expGeMin.toInt}"
+
+  -- how much to shift 'sig' by.
+  let shiftAmtPositive := expGeMin - exp
+  out := out ++ s!"\nshiftAmtPositive: {shiftAmtPositive.toBitsStr} = int:{shiftAmtPositive.toInt} = nat:{shiftAmtPositive.toNat}"
+  have : shiftAmtPositive.toInt ≥ 0 := by sorry
+  have : shiftAmtPositive.toNat = shiftAmtPositive.toInt := by sorry
+  have : exp.toInt + shiftAmtPositive.toInt = expGeMin.toInt := by sorry
 
   let sigWithHidden : BitVec sigWidth := inUf.sig
-  out := out ++ s!"\nsig(w/hidden): {sigWithHidden.toBitsStr} = {sigWithHidden.toNat} | ex: {exp.toBitsStr} = {exp.toInt}"
+  out := out ++ s!"\nsig(w/hidden): {sigWithHidden.toBitsStr} = {sigWithHidden.toNat}"
 
-
+  -- -- | See that this loses bits, this is not I should be doing it.
+  -- This should happen last, otherwise we will lose bits we need for rounding.
   let sigWithHiddenAdjusted : BitVec sigWidth := sigWithHidden >>> shiftAmtPositive
   out := out ++ s!"\nsigAdjusted(w/hidden): {sigWithHiddenAdjusted.toBitsStr} = {sigWithHiddenAdjusted.toNat}"
-  -- let sigNoHidden := sig.truncate (sigWidth - 1)
   let targetSigWithHidden : BitVec (targetSignificandWidth + 1) :=
       sigWithHiddenAdjusted.extractMsb' 0 (targetSignificandWidth + 1)
   out := out ++ s!"\ntargetSig(w/hidden): {targetSigWithHidden.toBitsStr}"
-  let guardBit : Bool :=
-    sigWithHiddenAdjusted.getMsbD (targetSignificandWidth + 2)
-  out := out ++ s!"\nguardBit: {guardBit}"
-  let stickyBits :=
-    sigWithHiddenAdjusted.extractMsb' (targetSignificandWidth + 3) (sigWidth - (targetSignificandWidth + 3))
-  out := out ++ s!"\nstickyBits: {stickyBits.toBitsStr}"
-  let sticky := ! stickyBits.isZero
-  out := out ++ s!"\nsticky: {sticky}"
+
+  let guardBit : Bool := -- | this can lose bits, so this is not safe. I should grab bits directly from 'sigWithHidden'.
+      sigWithHiddenAdjusted.getMsbD (targetSignificandWidth + 2)
+  -- out := out ++ s!"\nguardBit: {guardBit}"
+  -- let stickyBits :=
+  --   sigWithHiddenAdjusted.extractMsb' (targetSignificandWidth + 3) (sigWidth - (targetSignificandWidth + 3))
+  -- out := out ++ s!"\nstickyBits: {stickyBits.toBitsStr}"
+  -- let sticky := ! stickyBits.isZero
+  -- out := out ++ s!"\nsticky: {sticky}"
 
   let isEven := targetSigWithHidden.getLsbD 0 == false
   out := out ++ s!"\nisEven: {isEven}"
