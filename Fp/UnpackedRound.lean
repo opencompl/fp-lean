@@ -20,16 +20,32 @@ def BitVec.decrement (x : BitVec w) : BitVec w := x - 1#w
 def BitVec.extendAtMsb (x : BitVec w) (δ : Nat) : BitVec (δ + w) :=
   x.zeroExtend _
 
-/-- Extract from the MSB, starting at msb 'hi', going downward for 'len' bits. -/
-@[bv_normalize]
-def BitVec.extractMsb' (x : BitVec w) (hi : Nat) (len : Nat) : BitVec len :=
-  x.extractLsb' (w - (hi + len)) len
+/-- Extract from the MSB, starting at msb lo, going downward for 'len' bits.
+0<----------------------->(w-1)
+----------->loMsb----|len
+           |
+            <-----------------loLsb
 
-@[simp]
-theorem BitVec.getMsbD_extractMsb' {w hi len} (h : hi + len ≤ w) (x : BitVec w) (hi' : i < len) :
-  (x.extractMsb' hi len).getMsbD i = (x.getMsbD (hi + i)) := by
-  simp [extractMsb', BitVec.getMsbD_eq_getLsbD]
-  grind
+-/
+@[bv_normalize]
+def BitVec.extractMsb' (x : BitVec w) (loMsb : Nat) (len : Nat) :
+    BitVec len :=
+  (x.reverse.extractLsb' loMsb len).reverse
+
+theorem BitVec.getLsbD_extractMsb' {w lo len : Nat} (x : BitVec w)
+    (i : Nat):
+    (extractMsb' x lo len).getMsbD i =
+    (x.getMsbD (lo + i) && decide (i < len) && decide (lo + i < w)) := by
+  simp [extractMsb', BitVec.getMsbD_eq_getLsbD, BitVec.getLsbD_reverse]
+  by_cases h1 : i < len
+  · simp [h1]
+    simp [show len - 1 - i < len by omega]
+    simp [show len - 1 - (len - 1 - i) < len by omega]
+    simp [show len - 1 - (len - 1 - i) = i by omega]
+    intros h2 h3
+    have := BitVec.lt_of_getLsbD h3
+    omega
+  · simp [h1]
 
 @[bv_normalize]
 def BitVec.expandingSubtract {w} (a b : BitVec w) : BitVec (w + 1) :=
@@ -59,10 +75,6 @@ def BitVec.scollar (x : BitVec w) (minVal : BitVec w) (maxVal : BitVec w) : BitV
   if x.slt minVal then minVal
   else if maxVal.slt x then maxVal
   else x
-
-@[bv_normalize]
-def BitVec.extractMsb (x : BitVec w) (hi : Nat) (lo : Nat) : BitVec (hi - lo + 1) :=
-  x.extractLsb' (w - 1 - hi) (hi - lo + 1)
 
 #check BitVec.getLsbD_extractLsb
 
@@ -642,18 +654,45 @@ def UnpackedFloat.roundNormal {expWidth sigWidth : Nat} {targetExponentWidth tar
   -- round a normalized, normal float.
   out := out ++ s!"\n--- rounding: {repr inUf} ---"
   out := out ++ s!"\n  val: {inUf.toRat}"
-  let exp := inUf.ex
+  let exp : BitVec expWidth := inUf.ex
+
+  let targetMinNormalExp : BitVec expWidth :=
+    BitVec.ofInt expWidth (minNormalExp targetExponentWidth)
+  out := out ++ s!"\nexp: {exp.toBitsStr} = {exp.toInt}"
+  out := out ++ s!"\ntargetMinNormalExp: {targetMinNormalExp.toBitsStr} = {targetMinNormalExp.toInt}"
+  if targetMinNormalExp.toInt != minNormalExp targetExponentWidth then
+    throw (IO.userError "targetMinNormalExp.toInt != minNormalExp targetExponentWidth")
+
+  -- how much to shift 'sig' by.
+  let shiftAmtPositive : BitVec expWidth :=
+    if exp.slt targetMinNormalExp then
+      targetMinNormalExp - exp
+    else
+      0#expWidth
+  out := out ++ s!"\nshiftAmtPositive: {shiftAmtPositive.toBitsStr} = {shiftAmtPositive.toInt}"
+
+  -- force exponent to be at least min normal exponent.
+  let expClamped :=
+    if exp.slt targetMinNormalExp then
+      targetMinNormalExp
+    else
+      exp
+
   let sigWithHidden : BitVec sigWidth := inUf.sig
-  out := out ++ s!"\nsig(w/hidden): {sigWithHidden.toBitsStr} | ex: {exp.toBitsStr} = {exp.toInt}"
+  out := out ++ s!"\nsig(w/hidden): {sigWithHidden.toBitsStr} = {sigWithHidden.toNat} | ex: {exp.toBitsStr} = {exp.toInt}"
+
+
+  let sigWithHiddenAdjusted : BitVec sigWidth := sigWithHidden >>> shiftAmtPositive
+  out := out ++ s!"\nsigAdjusted(w/hidden): {sigWithHiddenAdjusted.toBitsStr} = {sigWithHiddenAdjusted.toNat}"
   -- let sigNoHidden := sig.truncate (sigWidth - 1)
   let targetSigWithHidden : BitVec (targetSignificandWidth + 1) :=
-      sigWithHidden.extractMsb' 0 (targetSignificandWidth + 1)
+      sigWithHiddenAdjusted.extractMsb' 0 (targetSignificandWidth + 1)
   out := out ++ s!"\ntargetSig(w/hidden): {targetSigWithHidden.toBitsStr}"
   let guardBit : Bool :=
-    targetSigWithHidden.getMsbD (targetSignificandWidth + 2)
+    sigWithHiddenAdjusted.getMsbD (targetSignificandWidth + 2)
   out := out ++ s!"\nguardBit: {guardBit}"
   let stickyBits :=
-    targetSigWithHidden.extractMsb' (targetSignificandWidth + 3) (sigWidth - (targetSignificandWidth + 3))
+    sigWithHiddenAdjusted.extractMsb' (targetSignificandWidth + 3) (sigWidth - (targetSignificandWidth + 3))
   out := out ++ s!"\nstickyBits: {stickyBits.toBitsStr}"
   let sticky := ! stickyBits.isZero
   out := out ++ s!"\nsticky: {sticky}"
@@ -781,20 +820,24 @@ def checkRoundCorrect (EUnpacked SUnpacked : Nat) (EOut SOut : Nat) : IO Bool :=
 /--
 info: Failed ❌ | original { sign := -, ex := 0x00#5, sig := 0x3#4 }
   original (Q) some (-3 : Rat)/262144
-  output rounded (Q) some (-3 : Rat)/262144
+  output rounded (Q) some 0
   expected (Q) some (-1 : Rat)/65536
   expected packed { sign := -, ex := 0x00#5, sig := 0x1#2 }
 
 --- rounding: { sign := true, ex := 0x2f#6, sig := 0x18#5 } ---
   val: -3/262144
-sig(w/hidden): 0b11000 | ex: 0b101111 = -17
-targetSig(w/hidden): 0b110
-guardBit: false
+exp: 0b101111 = -17
+targetMinNormalExp: 0b110010 = -14
+shiftAmtPositive: 0b000011 = 3
+sig(w/hidden): 0b11000 = 24 | ex: 0b101111 = -17
+sigAdjusted(w/hidden): 0b00011 = 3
+targetSig(w/hidden): 0b000
+guardBit: true
 stickyBits: 0b
 sticky: false
 isEven: true
 shouldRoundUp: false
-roundedSig(w/hidden): 0b110
+roundedSig(w/hidden): 0b000
 sigDidOverflow: false
 roundedExp: 0b101111 = -17
 expDidOverflow: false
