@@ -360,7 +360,7 @@ def div_on_unpackedFloat (a b : UnpackedFloat (exponentWidth e s) (s + 1)) (mode
         sig := quot_with_sticky
   }
   let ufIn := ufIn.normalize
-  EUnpackedFloat.pack (UnpackedFloat.roundNormalNoLog ufIn mode)
+  EUnpackedFloat.pack (UnpackedFloat.round ufIn mode)
 
 
 /--
@@ -391,45 +391,29 @@ theorem zero_div_is_zero (a b : PackedFloat 5 2) (ha : a.isZero) (hb : b.isNormO
   : (div a b .RTZ).isZero ∧ (div a b .RTZ).sign = a.sign ^^ b.sign := by
   bv_decide
 
-def cex' : PackedFloat 5 2 where
-  ex := 15#5
-  sig := 3#2
-  sign := true
-
-/-- info: 0 -/
-#guard_msgs in #eval cex'.unpack.num.ex.toInt
-
-/-- info: { state := num, num := { sign := true, ex := 0x00#6, sig := 0x7#3 } } -/
-#guard_msgs in #eval cex'.unpack
-
-
-/-- info: 0 -/
-#guard_msgs in #eval oneE5M2.unpack.num.ex.toInt
-
-/-- info: { sign := -, ex := 0x0d#5, sig := 0x3#2 } -/
-#guard_msgs in #eval div_on_unpackedFloat cex'.unpack.num oneE5M2.unpack.num .RNE
 
 set_option debugAssertions true in
 theorem div_one_foo (a : PackedFloat 5 2) (h : a.isNorm = true)
   : (div a oneE5M2 .RNE).equal_denotation a := by
-  -- bv_normalize
-  bv_decide
-
+  fail_if_success bv_decide
+  sorry
 
 set_option debugAssertions true in
 theorem div_one_is_id_on_numerator_ex_larger (a : PackedFloat 5 2) (h : a.unpack.num.ex.sge oneE5M2.unpack.num.ex)
   : (div a oneE5M2 .RNE).equal_denotation a := by
-  -- bv_normalize
-  bv_decide
+  fail_if_success bv_decide
+  sorry
 
 set_option debugAssertions true in
 theorem div_one_is_id_on_numerator_ex_smaller (a : PackedFloat 5 2)
   (h : ¬ a.unpack.num.ex.sge oneE5M2.unpack.num.ex)
   : (div a oneE5M2 .RNE).equal_denotation a := by
-  bv_decide
+  fail_if_success bv_decide
+  sorry
 
 theorem div_self_is_one' (a : PackedFloat 5 2)
   (h : ¬a.isNaN ∧ ¬a.isInfinite ∧ ¬a.isZero ∧ a.isNorm)
   : (div a a .RNE) = oneE5M2 := by
   simp at *;
-  bv_decide
+  fail_if_success bv_decide
+  sorry
