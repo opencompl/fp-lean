@@ -1009,8 +1009,10 @@ def UnpackedFloat.toString {expWidth sigWidth : Nat} (uf : UnpackedFloat expWidt
 
 
 def checkRoundCorrect (EUnpacked SUnpacked : Nat) (EOut SOut : Nat) : IO Bool := do
-  let mut allSucceeded := true
   let mut outError : String := ""
+  let mut nsucceeded : Nat := 0
+  let mut nfailed : Nat := 0
+
   for originalPacked in mkPackedFloats EUnpacked SUnpacked do
     let originalEUnpacked := originalPacked.unpack
     if ! originalEUnpacked.isNumber then continue
@@ -1025,29 +1027,36 @@ def checkRoundCorrect (EUnpacked SUnpacked : Nat) (EOut SOut : Nat) : IO Bool :=
       getClosestRNEResult (targetExponentWidth := EOut) (targetSignificandWidth := SOut)
         originalUnpacked
     let expectedPacked := expectedEUnpacked.normalize.pack
-    if ! outputRoundedPacked.equal_denotation expectedPacked then
-      IO.println s!"Failed ❌ | original {repr originalPacked}"
-      IO.println s!"  original (Q) {repr originalPacked.toRat?}"
-      -- IO.println s!"  original unpacked {repr originalUnpacked.toString}"
-      -- IO.println s!"  original normalized {repr originalNormalized.toString}"
-      -- IO.println s!"  output rounded Eunpacked {repr outputRounded}"
-      IO.println s!"  output rounded (Q) {repr outputRounded.toRat?}"
-      -- IO.println s!"  output rounded packed (Q) {repr outputRoundedPacked.toRat?}"
-      IO.println s!"  expected (Q) {repr expectedPacked.toRat?}"
-      -- IO.println s!"  output rounded packed {repr outputRoundedPacked.unpack}"
-      IO.println s!"  expected packed {repr expectedPacked}"
-      -- IO.println log
-      outError := log
-      allSucceeded := false
-      -- break
-  if allSucceeded then
+    if outputRoundedPacked.equal_denotation expectedPacked then
+      IO.println s!"Succeeded ✅ | original {repr originalPacked}"
+      nsucceeded := nsucceeded + 1
+    else
+      let err : String := ""
+      let err := err ++ s!"\nFailed ❌ | original {repr originalPacked}"
+      let err := err ++ s!"\n  original (Q) {repr originalPacked.toRat?}"
+      let err := err ++ s!"\n  output rounded (Q) {repr outputRounded.toRat?}"
+      let err := err ++ s!"\n  expected (Q) {repr expectedPacked.toRat?}"
+      let err := err ++ s!"\n  expected packed {repr expectedPacked}"
+      let err := err ++ s!"\n\n{log}"
+      IO.println err
+      outError := err
+      nfailed := nfailed + 1
+  if nfailed = 0 then
     IO.println "All succeeded ✅"
   else
-    throw (IO.Error.userError s!"Some failed ❌\n{outError}")
-  return allSucceeded
-
+    -- | this is fixed point, with two digits of precision.
+    let fracSuccess : Float := (nsucceeded.toFloat * 100.0) / ((nsucceeded + nfailed).toFloat)
+    throw (IO.Error.userError s!"({nsucceeded} succeeded / {nsucceeded + nfailed} total) ({fracSuccess}% succeeded) ❌\n{outError}")
+  return nfailed = 0
 /--
-error: Some failed ❌
+error: (482 succeeded / 992 total) (48.588710% succeeded) ❌
+
+Failed ❌ | original { sign := +, ex := 0x1e#5, sig := 0xb#4 }
+  original (Q) some 55296
+  output rounded (Q) some 0
+  expected (Q) none
+  expected packed { sign := +, ex := 0x1f#5, sig := 0x0#1 }
+
 
 --- rounding: { sign := false, ex := 0x0f#6, sig := 0x1b#5 } ---
   val (Q): 55296 = sig(0b11011=nat:27)) * 2 ** exp:([0b001111=int:15] - (4))
