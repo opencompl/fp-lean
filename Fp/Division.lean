@@ -360,7 +360,7 @@ def div_on_unpackedFloat (a b : UnpackedFloat (exponentWidth e s) (s + 1)) (mode
         sig := quot_with_sticky
   }
   let ufIn := ufIn.normalize
-  EUnpackedFloat.pack (EUnpackedFloat.round ufIn mode)
+  EUnpackedFloat.pack (UnpackedFloat.roundNormalNoLog ufIn mode)
 
 
 /--
@@ -406,7 +406,7 @@ def cex' : PackedFloat 5 2 where
 /-- info: 0 -/
 #guard_msgs in #eval oneE5M2.unpack.num.ex.toInt
 
-/-- info: { sign := -, ex := 0x1f#5, sig := 0x0#2 } -/
+/-- info: { sign := -, ex := 0x0d#5, sig := 0x3#2 } -/
 #guard_msgs in #eval div_on_unpackedFloat cex'.unpack.num oneE5M2.unpack.num .RNE
 
 set_option debugAssertions true in
