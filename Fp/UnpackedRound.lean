@@ -65,19 +65,38 @@ theorem BitVec.toInt_expandingSubtract {w} (a b : BitVec w) :
 @[bv_normalize]
 def BitVec.width {w : Nat} (_x : BitVec w) : Nat := w
 
+/-- bitvector that has 1 at index i and 0 everywhere else. -/
+def BitVec.oneHotBV (i : BitVec w) : BitVec w :=
+    1#w <<< i
+
+@[simp]
+theorem BitVec.getlsbD_oneHotBV (i : BitVec w) : 
+    (oneHotBV i).getLsbD j =
+    (decide (j < w) && decide (i.toNat = j)) := by
+  simp [oneHotBV]
+  by_cases h1 : j < w 
+  · simp [h1]
+    grind
+  · simp [h1]
+
+@[simp]
+theorem BitVec.getElem_oneHotBV (i : BitVec w) (j : Fin w) :
+    (oneHotBV i)[j] = decide (i.toNat = j) := by
+  simp [← BitVec.getLsbD_eq_getElem]
+
 /-- Convert a binary number into a unary mask of that number. -/
 @[bv_normalize]
 def BitVec.orderEncode (x : BitVec w) : BitVec w :=
-  (1#w <<< x) - 1
+  (oneHotBV x) - 1
 
-theorem BitVec.orderEncode_eq_twoPow_sub (x : BitVec w) :
-    BitVec.orderEncode x = twoPow w x.toNat - 1 := rfl
+theorem BitVec.orderEncode_eq_oneHotBV_sub (x : BitVec w) :
+    BitVec.orderEncode x = oneHotBV x - 1 := rfl
 
 @[simp]
 theorem BitVec.orderEncode_eq_allOnes_of_le {w : Nat} (x : BitVec w)
     (h : w ≤ x.toNat) :
     orderEncode x = allOnes w := by
-  simp [orderEncode]
+  simp [orderEncode, oneHotBV]
   rw [BitVec.shiftLeft_eq_zero]
   · simp [BitVec.neg_one_eq_allOnes]
   · omega
@@ -127,8 +146,6 @@ def BitVec.scollar (x : BitVec w) (minVal : BitVec w) (maxVal : BitVec w) : BitV
   if x.slt minVal then minVal
   else if maxVal.slt x then maxVal
   else x
-
-#check BitVec.getLsbD_extractLsb
 
 /-
 theorem BitVec.getMsbD_extractMsb {w hi lo : Nat} (x : BitVec w)
@@ -759,24 +776,17 @@ def BitVec.extractLsbTo0BV {w : Nat} (x : BitVec w) (start : BitVec w) : BitVec 
   x &&& (orderEncode start)
 
 @[simp]
-theorem BitVec.getLsbD_extractLsbTo0BV_eq_decide {w : Nat} (x : BitVec w) (start : Nat) (i : Nat) :
-    (x.extractLsbTo0BV (BitVec.ofNat w start)).getLsbD i = (x.getLsbD i &&  decide (i < start % 2^w)) := by
+theorem BitVec.getLsbD_extractLsbTo0BV_eq_decide {w : Nat} (x : BitVec w) (start : BitVec w) (i : Nat) :
+    (x.extractLsbTo0BV start).getLsbD i = (x.getLsbD i &&  decide (i < start.toNat)) := by
   rw [extractLsbTo0BV]
   rw [BitVec.getLsbD_and]
   rw [BitVec.getLsbD_orderEncode]
   by_cases hi : i < w
-  · by_cases hstart : start < w
-    · have : start < 2^w := by
+  · by_cases hstart : start.toNat < w
+    · have : start.toNat < 2^w := by
         have : w < 2^w := by exact Nat.lt_two_pow_self
         omega
-      simp
-      rw [Nat.mod_eq_of_lt (by omega)]
-      by_cases hi : i < start
-      · simp [hi]
-        intros h
-        have := BitVec.lt_of_getLsbD h
-        omega
-      · simp [hi]
+      simp [hi]
     · simp [hi]
   · simp [hi]
     intros hx
@@ -788,7 +798,26 @@ theorem BitVec.getLsbD_extractLsbTo0BV_eq_decide {w : Nat} (x : BitVec w) (start
 Extract out bits from 'startMsb' (excluded) down to low index `0`, setting other bits to zero.
 -/
 def BitVec.extractMsbTo0BV {w : Nat} (x : BitVec w) (startMsb : BitVec w) : BitVec w :=
-  BitVec.extractLsbTo0BV x (BitVec.ofNat w w - 1#w - (startMsb - 1#w))
+  BitVec.extractLsbTo0BV x (BitVec.ofNat w w  - startMsb)
+
+@[simp]
+theorem BitVec.getMsbD_extractMsbTo0BV_eq_decide {w : Nat}
+    (x : BitVec w)
+    (startMsb : BitVec w)
+    (i : Nat)
+    (hstart : startMsb.toNat ≤ w) :
+    (x.extractMsbTo0BV startMsb).getLsbD i =
+      (x.getLsbD i &&  decide (i < (w - startMsb.toNat))) := by
+  rw [extractMsbTo0BV]
+  rw [BitVec.getLsbD_extractLsbTo0BV_eq_decide]
+  by_cases hx : x.getLsbD i
+  · simp only [hx, Bool.true_and, decide_eq_decide]
+    rw [BitVec.toNat_sub_of_le]
+    · simp
+    · rw [BitVec.le_def]
+      simp
+      omega
+  · simp [hx]
 
 @[bv_normalize]
 def UnpackedFloat.roundNormal {expWidth sigWidth : Nat} {targetExponentWidth targetSignificandWidth : Nat}
@@ -841,11 +870,14 @@ def UnpackedFloat.roundNormal {expWidth sigWidth : Nat} {targetExponentWidth tar
   --  0 . 0 0 0 1 a b c d e f g h * 2^exp + 2^shiftAmt | to make 'exp + shiftAmt >= minNormalExp'.
   --  ==============↑ (6 bits of precision)
   -- (sigWidth - 1) - (targetSignificandWidth - 1) -
+  let targetSigWithHidden : BitVec (targetSignificandWidth + 1) :=
+    sigWithHidden.extractMsb' 0 (targetSignificandWidth + 1)
   let guardBitPositionFromMsb : BitVec sigWidth :=
-    (BitVec.ofNat sigWidth targetSignificandWidth)
-      - (shiftAmtPositive.signExtend sigWidth) -- we need to subtract, because we guard "earlier", since we have less precision. More bits go into sticy.
+    (BitVec.ofNat sigWidth (targetSignificandWidth + 1)) -- +1 for the hidden bit
+      - (shiftAmtPositive.zeroExtend sigWidth) -- we need to subtract, because we guard "earlier", since we have less precision. More bits go into sticy.
   let guardBit : Bool :=
     sigWithHidden.getMsbDBV guardBitPositionFromMsb
+  let stickbits := sigWithHidden.extractMsbTo0BV guardBitPositionFromMsb
   -- let stickyBit : Bool := x &&& orderEncode
 
   -- -- | See that this loses bits, this is not I should be doing it.
