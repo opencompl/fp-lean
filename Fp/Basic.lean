@@ -997,6 +997,8 @@ def maxNormalExp (e : Nat) : Int := (bias e)
 def subnormalExp (e : Nat) : Int :=
   minNormalExp e - 1
 
+/-- For unpacked floats, the *minimum* the subnormal exponent can take,
+which can "steal" bits from the significand to be smaller than minNormalExp. -/
 @[bv_normalize]
 def minSubnormalExp (e : Nat) (s : Nat) : Int :=
   (subnormalExp e) - (s : Int)

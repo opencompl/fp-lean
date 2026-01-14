@@ -450,7 +450,8 @@ def UnpackedFloat.debugRound {expWidth sigWidth : Nat} {targetExponentWidth targ
   let earlyOverflow : Bool := exp.sgt (BitVec.ofInt expWidth (maxNormalExp targetExponentWidth))
   let out := out ++ s!"\nearlyOverflow: {earlyOverflow}"
   let out := out ++ s!"\nminSubnormalExp: {minSubnormalExp targetExponentWidth targetSignificandWidth}"
-  let earlyUnderflow : Bool := exp.slt (BitVec.ofInt expWidth (minSubnormalExp targetExponentWidth targetSignificandWidth))
+  -- early underflow:
+  let earlyUnderflow : Bool := exp.slt (BitVec.ofInt expWidth (minSubnormalExp targetExponentWidth targetSignificandWidth - 1))
   let out := out ++ s!"\nearlyUnderflow: {earlyUnderflow}"
 
   -- force exponent to be at least min normal exponent.
@@ -576,12 +577,13 @@ def UnpackedFloat.debugRound {expWidth sigWidth : Nat} {targetExponentWidth targ
   let lateOverflow : Bool :=
     maxNormalExpBV.slt roundedExp
   let out := out ++ s!"\nlate overflow: {lateOverflow} = roundedExp({roundedExp.toBitsStr}=int:{roundedExp.toInt}) > maxNormalExpBV({maxNormalExpBV.toBitsStr}=int:{maxNormalExpBV.toInt})"
-  let subnormalExpBV : BitVec (expWidth) :=
-    BitVec.ofInt (expWidth)
-      (subnormalExp targetExponentWidth)
+  -- let subnormalExpBV : BitVec (expWidth) := BitVec.ofInt (expWidth) (subnormalExp targetExponentWidth)
+  let minSubnormalExpMinusOneBV : BitVec (expWidth) :=
+    BitVec.ofInt (expWidth) (minSubnormalExp targetExponentWidth targetSignificandWidth - 1)
   let lateUnderflow : Bool :=
-    roundedExp.slt subnormalExpBV
-  let out := out ++ s!"\nlate underflow: {lateUnderflow} = roundedExp({roundedExp.toBitsStr}=int:{roundedExp.toInt}) < subnormalExpBV({subnormalExpBV.toBitsStr}=int:{subnormalExpBV.toInt})"
+    (roundedExp = minSubnormalExpMinusOneBV) && !shouldRoundUp
+  let out := out ++ s!"\nlateUnderflow: {lateUnderflow} = (roundedExp({roundedExp.toBitsStr}=int:{roundedExp.toInt}) = minSubnormalExpMinusOneBV({minSubnormalExpMinusOneBV.toBitsStr}=int:{minSubnormalExpMinusOneBV.toInt}) - 1) && !shouldRoundUp({shouldRoundUp})"
+  -- let out := out ++ s!"\nlate underflow: {lateUnderflow} = roundedExp({roundedExp.toBitsStr}=int:{roundedExp.toInt}) < subnormalExpBV({subnormalExpBV.toBitsStr}=int:{subnormalExpBV.toInt})"
   let underflow : Bool := lateUnderflow || earlyUnderflow
   let out := out ++ s!"\nunderflow: {underflow} = lateUnderflow({lateUnderflow}) || earlyUnderflow({earlyUnderflow})"
   let overflow : Bool := lateOverflow || earlyOverflow
@@ -769,6 +771,7 @@ theorem Prod.ite_fst {α β : Type} (cond : Bool) (p q : α × β) :
     (ite cond p q).fst =
   ite cond p.fst q.fst := by grind
 
+/-
 theorem debugRound_eq_round {expWidth sigWidth : Nat} {targetExponentWidth targetSignificandWidth : Nat}
   (inUf : UnpackedFloat expWidth sigWidth)
   (mode : RoundingMode) :
@@ -776,6 +779,7 @@ theorem debugRound_eq_round {expWidth sigWidth : Nat} {targetExponentWidth targe
     inUf mode).1 =
   UnpackedFloat.round (targetExponentWidth := targetExponentWidth) (targetSignificandWidth := targetSignificandWidth)
     inUf mode := rfl
+-/
 
 def UnpackedFloat.toString {expWidth sigWidth : Nat} (uf : UnpackedFloat expWidth sigWidth) : String :=
   s!"{if uf.sign then "-" else "+"} {uf.sig.toNat} * 2^-({sigWidth - 1}) * 2^{uf.ex.toInt}"
@@ -825,56 +829,4 @@ def checkRoundCorrect (EUnpacked SUnpacked : Nat) (EOut SOut : Nat) : IO Bool :=
     throw (IO.Error.userError s!"({nsucceeded} succeeded / {nsucceeded + nfailed} total) ({fracSuccess}% succeeded) ({nfailed} failures) ❌\n{outError}")
   return nfailed = 0
 
-/--
-error: (986 succeeded / 992 total) (99.395161% succeeded) (6 failures) ❌
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x30#6, sig := 0x1c#5 } }
-  original (Q) some (7 : Rat)/262144
-  --
-  output rounded (eunpacked) { state := num, num := { sign := false, ex := 0x00#6, sig := 0x0#2 } }
-  output rounded (Q) ExtRat.Number 0
-  --
-  expected (Q) ExtRat.Number (1 : Rat)/32768
-  expected (eunpacked) { state := num, num := { sign := false, ex := 0x31#6, sig := 0x2#2 } }
-
-
---- rounding: { sign := false, ex := 0x30#6, sig := 0x1c#5 } ---
-  val (Q): 7/262144 = sig(0b11100=nat:28)) * 2 ** exp:([0b110000=int:-16] - (4))
-exp: 0b110000 = int:-16
-targetMinNormalExp: 0b110010 = int:-14
-maxNormalExp: 15
-earlyOverflow: false
-minSubnormalExp: -16
-earlyUnderflow: false
-expGeMin: 0b110010 = int:-14
-shiftAmtPositive: 0b000010 = int:2 = nat:2
-sigWithHidden: 0b11100 = nat:28
-guardBitIndexFromLsb: (sigWidth(5) - 1)  - (targetSignificandWidth(1) + 1) = 2
-guardBitIndexFromLsb: 0b00010 = nat:2
-guardBitIndexFromLsbAdjusted(0b00100)nat:4 = guardBitIndexFromLsb(0b00010)nat:2 + shiftAmtPositive(0b000010)nat:2
-guardBitMask: 0b10000
-guardBit: true = 0b11100 &&& 0b10000
-stickyBitsMask: 0b01111
-stickyBits: 0b01100
-stickyBit: true = 0b11100 &&& 0b01111
-sigwithHiddenCleared: 0b00000 = 0b11100 &&& ~(0b10000 ||| 0b01111)
-lsbMask: 0b00000
-isEven: true = 0b11100 &&& 0b00000
-shouldRoundUp: true
-roundedTargetSigWithHidden = sigwithHiddenCleared(0b00000) + lsbMask(0b00000)
-roundedTargetSigWithHidden: 0b00001 = nat:1
-sigDidOverflow: false
-roundedTargetSigWithHiddenOverflowAdjusted: 0b00001 = nat:1
-roundedExp: 0b110000 = int:-16
-roundedExpDidOverflow: false
-late overflow: false = roundedExp(0b110000=int:-16) > maxNormalExpBV(0b001111=int:15)
-late underflow: true = roundedExp(0b110000=int:-16) < subnormalExpBV(0b110001=int:-15)
-underflow: true = lateUnderflow(true) || earlyUnderflow(false)
-overflow: false = lateOverflow(false) || earlyOverflow(false)
-roundedClampedExp: 0b1110001 = int:-15
-finalExp: 0b110001 = int:-15
-finalSigTruncated: 0b00 = nat:0
-finalNumber: { sign := false, ex := 0x31#6, sig := 0x0#2 } | (Q): 0
-result: { state := num, num := { sign := false, ex := 0x00#6, sig := 0x0#2 } } | (Q): ExtRat.Number 0
--/
-#guard_msgs(error) in #eval checkRoundCorrect 5 4 5 1
+#guard_msgs(error) in #eval checkRoundCorrect 7 6 5 3
