@@ -905,6 +905,9 @@ def UnpackedFloat.roundNormal {expWidth sigWidth : Nat} {targetExponentWidth tar
   let guardBitIndexFromLsb : BitVec sigWidth :=
     BitVec.ofNat sigWidth ((sigWidth - 1) - (targetSignificandWidth + 1))
   out := out ++ s!"\nguardBitIndexFromLsb: {guardBitIndexFromLsb.toBitsStr} = nat:{guardBitIndexFromLsb.toNat}"
+  -- | See that when we call 'shiftAmtPositive.zeroExtend sigWidth', there is
+  -- a potential that shiftAmtPositive is wider than sigWidth.
+  -- However, when we compute early underflow,
   let guardBitIndexFromLsbAdjusted : BitVec sigWidth :=
     guardBitIndexFromLsb + shiftAmtPositive.zeroExtend sigWidth
   out := out ++ s!"\nguardBitIndexFromLsbAdjusted: {guardBitIndexFromLsbAdjusted.toBitsStr} = nat:{guardBitIndexFromLsbAdjusted.toNat}"
@@ -986,23 +989,28 @@ def UnpackedFloat.roundNormal {expWidth sigWidth : Nat} {targetExponentWidth tar
   let overflow : Bool := lateOverflow || earlyOverflow || roundedExpDidOverflow
   out := out ++ s!"\noverflow: {overflow} = lateOverflow({lateOverflow}) || earlyOverflow({earlyOverflow})"
 
-  if underflow then
-    out := out ++ "\nFINAL(underflow): got underflow, producing zero."
-    return (EUnpackedFloat.mkZero inUf.sign, out)
-  else if overflow then
-    out := out ++ "\nFINAL(overflow): got overflow, producing infinity."
-    return (EUnpackedFloat.mkInfinity inUf.sign, out)
-  else
-    let finalExp := roundedExp.truncate (exponentWidth targetExponentWidth targetSignificandWidth)
-    let finalSig := roundedTargetSigWithHiddenOverflowAdjusted.setWidth (targetSignificandWidth + 1)
-    out := out ++ "\nFINAL(normal): no overflow/underflow, producing normal number."
-    out := out ++ s!"\n  * finalExp: {finalExp.toBitsStr} = int:{finalExp.toInt}"
-    out := out ++ s!"\n  * finalSig: {finalSig.toBitsStr} = nat:{finalSig.toNat}"
-    return (EUnpackedFloat.mkNumber
-      { sign := inUf.sign,
-        ex := roundedExp.truncate (exponentWidth targetExponentWidth targetSignificandWidth),
-        sig := roundedTargetSigWithHiddenOverflowAdjusted.setWidth (targetSignificandWidth + 1)
-      }, out)
+  let finalExp := roundedExp.truncate (exponentWidth targetExponentWidth targetSignificandWidth)
+  let finalSigTruncated := roundedTargetSigWithHiddenOverflowAdjusted.extractMsb' 0 (targetSignificandWidth + 1)
+  let finalNumber : UnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
+    { sign := inUf.sign,
+      ex := roundedExp.truncate (exponentWidth targetExponentWidth targetSignificandWidth),
+      sig := finalSigTruncated
+    }
+
+  let result := rounderSpecialCases
+    (roundingMode := mode)
+    finalNumber overflow underflow inUf.isZero
+  return (result, out)
+  -- if underflow then
+  --   out := out ++ "\nFINAL(underflow): got underflow, producing zero."
+  --   return (EUnpackedFloat.mkZero inUf.sign, out)
+  -- else if overflow then
+  --   out := out ++ "\nFINAL(overflow): got overflow, producing infinity."
+  --   return (EUnpackedFloat.mkInfinity inUf.sign, out)
+  -- else
+  --   out := out ++ "\nFINAL(normal): no overflow/underflow, producing normal number."
+  --   out := out ++ s!"\n  * finalSigTruncated: {finalSigTruncated.toBitsStr} = nat:{finalSigTruncated.toNat}"
+  --   return (finalNumber, out)
 
 def UnpackedFloat.toString {expWidth sigWidth : Nat} (uf : UnpackedFloat expWidth sigWidth) : String :=
   s!"{if uf.sign then "-" else "+"} {uf.sig.toNat} * 2^-({sigWidth - 1}) * 2^{uf.ex.toInt}"
@@ -1019,24 +1027,28 @@ def checkRoundCorrect (EUnpacked SUnpacked : Nat) (EOut SOut : Nat) : IO Bool :=
 
     let originalUnpacked := originalEUnpacked.num
     let originalNormalized := originalUnpacked.normalize
-    let (outputRounded, log) ←
+    let (outputRoundedEUnpacked, log) ←
       UnpackedFloat.roundNormal (targetExponentWidth := EOut) (targetSignificandWidth := SOut)
         originalNormalized RoundingMode.RNE
-    let outputRoundedPacked := outputRounded.pack
+    let outputRoundedPacked := outputRoundedEUnpacked.pack
     let expectedEUnpacked :=
       getClosestRNEResult (targetExponentWidth := EOut) (targetSignificandWidth := SOut)
         originalUnpacked
     let expectedPacked := expectedEUnpacked.normalize.pack
     if outputRoundedPacked.equal_denotation expectedPacked then
-      IO.println s!"Succeeded ✅ | original {repr originalPacked}"
+      IO.println s!"Succeeded ✅ | original {repr originalEUnpacked}"
       nsucceeded := nsucceeded + 1
     else
       let err : String := ""
-      let err := err ++ s!"\nFailed ❌ | original {repr originalPacked}"
+      let err := err ++ s!"\nFailed ❌ | original {repr originalEUnpacked}"
       let err := err ++ s!"\n  original (Q) {repr originalPacked.toRat?}"
-      let err := err ++ s!"\n  output rounded (Q) {repr outputRounded.toRat?}"
+      let err := err ++ s!"\n  --"
+      let err := err ++ s!"\n  output rounded (eunpacked) {repr outputRoundedEUnpacked}"
+      let err := err ++ s!"\n  output rounded (Q) {repr outputRoundedEUnpacked.toRat?}"
+      let err := err ++ s!"\n  --"
       let err := err ++ s!"\n  expected (Q) {repr expectedPacked.toRat?}"
-      let err := err ++ s!"\n  expected packed {repr expectedPacked}"
+      let err := err ++ s!"\n  expected (eunpacked) {repr expectedEUnpacked}"
+      -- let err := err ++ s!"\n  expected packed {repr expectedPacked}"
       let err := err ++ s!"\n\n{log}"
       IO.println err
       outError := err
@@ -1049,13 +1061,16 @@ def checkRoundCorrect (EUnpacked SUnpacked : Nat) (EOut SOut : Nat) : IO Bool :=
     throw (IO.Error.userError s!"({nsucceeded} succeeded / {nsucceeded + nfailed} total) ({fracSuccess}% succeeded) ❌\n{outError}")
   return nfailed = 0
 /--
-error: (482 succeeded / 992 total) (48.588710% succeeded) ❌
+error: (716 succeeded / 992 total) (72.177419% succeeded) ❌
 
-Failed ❌ | original { sign := +, ex := 0x1e#5, sig := 0xb#4 }
+Failed ❌ | original { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x1b#5 } }
   original (Q) some 55296
-  output rounded (Q) some 0
+  --
+  output rounded (eunpacked) { state := num, num := { sign := false, ex := 0x0f#5, sig := 0x3#2 } }
+  output rounded (Q) some 49152
+  --
   expected (Q) none
-  expected packed { sign := +, ex := 0x1f#5, sig := 0x0#1 }
+  expected (eunpacked) { state := ∞, num := { sign := false, ex := 0x00#5, sig := 0x0#2 } }
 
 
 --- rounding: { sign := false, ex := 0x0f#6, sig := 0x1b#5 } ---
@@ -1091,9 +1106,6 @@ late overflow: false = roundedExp(0b001111=int:15) > maxNormalExpBV(0b001111=int
 late underflow: false = maxNormalExpBV(0b001111=int:15) < roundedExp(0b001111=int:15)
 underflow: false = lateUnderflow(false) || earlyUnderflow(false)
 overflow: false = lateOverflow(false) || earlyOverflow(false)
-FINAL(normal): no overflow/underflow, producing normal number.
-  * finalExp: 0b01111 = int:15
-  * finalSig: 0b00 = nat:0
 -/
 #guard_msgs(error) in #eval checkRoundCorrect 5 4 5 1
 
