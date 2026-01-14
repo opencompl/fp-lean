@@ -75,7 +75,7 @@ using the provided rounding mode.
 -/
 @[bv_normalize]
 def add (a b : PackedFloat e s) (mode : RoundingMode) : PackedFloat e s :=
-  round _ _ mode (e_add mode a.toEFixed b.toEFixed)
+  EFixedPoint.round _ _ mode (e_add mode a.toEFixed b.toEFixed)
 
 -- Proof by brute force (it takes a while)
 /-

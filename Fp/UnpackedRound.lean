@@ -3,6 +3,7 @@ import Fp.Rounding
 import Fp.MulInv
 import Fp.Proofs.Grind
 import Fp.ForLean.Rat
+import Fp.Rounding
 
 @[bv_normalize]
 def BitVec.leadingOne (w : Nat) : BitVec w :=
@@ -753,6 +754,7 @@ def UnpackedFloat.toString {expWidth sigWidth : Nat} (uf : UnpackedFloat expWidt
   s!"{if uf.sign then "-" else "+"} {uf.sig.toNat} * 2^-({sigWidth - 1}) * 2^{uf.ex.toInt}"
 
 
+
 def checkRoundCorrect (EUnpacked SUnpacked : Nat) (EOut SOut : Nat) : IO Bool := do
   let mut outError : String := ""
   let mut nsucceeded : Nat := 0
@@ -768,10 +770,9 @@ def checkRoundCorrect (EUnpacked SUnpacked : Nat) (EOut SOut : Nat) : IO Bool :=
       UnpackedFloat.debugRound (targetExponentWidth := EOut) (targetSignificandWidth := SOut)
         originalNormalized RoundingMode.RNE
     let outputRoundedPacked := outputRoundedEUnpacked.pack
-    let expectedEUnpacked :=
-      getClosestRNEResult (targetExponentWidth := EOut) (targetSignificandWidth := SOut)
-        originalUnpacked
-    let expectedPacked := expectedEUnpacked.normalize.pack
+
+    let expectedPacked : PackedFloat EOut SOut :=  originalPacked.toEFixed.round (exWidth := EOut) (sigWidth := SOut) RoundingMode.RNE
+    let expectedEUnpacked := expectedPacked.unpack
     if outputRoundedPacked.equal_denotation expectedPacked then
       IO.println s!"Succeeded ✅ | original {repr originalEUnpacked}"
       nsucceeded := nsucceeded + 1
@@ -798,45 +799,45 @@ def checkRoundCorrect (EUnpacked SUnpacked : Nat) (EOut SOut : Nat) : IO Bool :=
     throw (IO.Error.userError s!"({nsucceeded} succeeded / {nsucceeded + nfailed} total) ({fracSuccess}% succeeded) ❌\n{outError}")
   return nfailed = 0
 /--
-error: (716 succeeded / 992 total) (72.177419% succeeded) ❌
+error: (754 succeeded / 992 total) (76.008065% succeeded) ❌
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x1b#5 } }
-  original (Q) some 55296
+Failed ❌ | original { state := num, num := { sign := false, ex := 0x0e#6, sig := 0x1f#5 } }
+  original (Q) some 31744
   --
-  output rounded (eunpacked) { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x3#2 } }
-  output rounded (Q) ExtRat.Number 49152
+  output rounded (eunpacked) { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x1#2 } }
+  output rounded (Q) ExtRat.Number 16384
   --
-  expected (Q) ExtRat.Infinity false
-  expected (eunpacked) { state := ∞, num := { sign := false, ex := 0x00#6, sig := 0x0#2 } }
+  expected (Q) ExtRat.Number 32768
+  expected (eunpacked) { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x2#2 } }
 
 
---- rounding: { sign := false, ex := 0x0f#6, sig := 0x1b#5 } ---
-  val (Q): 55296 = sig(0b11011=nat:27)) * 2 ** exp:([0b001111=int:15] - (4))
-exp: 0b001111 = int:15
+--- rounding: { sign := false, ex := 0x0e#6, sig := 0x1f#5 } ---
+  val (Q): 31744 = sig(0b11111=nat:31)) * 2 ** exp:([0b001110=int:14] - (4))
+exp: 0b001110 = int:14
 targetMinNormalExp: 0b110010 = int:-14
 maxNormalExp: 15
 earlyOverflow: false
 minSubnormalExp: -16
 earlyUnderflow: false
-expGeMin: 0b001111 = int:15
+expGeMin: 0b001110 = int:14
 shiftAmtPositive: 0b000000 = int:0 = nat:0
-sigWithHidden: 0b11011 = nat:27
+sigWithHidden: 0b11111 = nat:31
 guardBitIndexFromLsb: (sigWidth(5) - 1)  - (targetSignificandWidth(1) + 1) = 2
 guardBitIndexFromLsb: 0b00010 = nat:2
 guardBitIndexFromLsbAdjusted: 0b00010 = nat:2
 guardBitMask: 0b00100
-guardBit: false = 0b11011 &&& 0b00100
+guardBit: true = 0b11111 &&& 0b00100
 stickyBitsMask: 0b00011
 stickyBits: 0b00011
-stickyBit: true = 0b11011 &&& 0b00011
-sigwithHiddenCleared: 0b11000 = 0b11011 &&& ~(0b00100 ||| 0b00011)
+stickyBit: true = 0b11111 &&& 0b00011
+sigwithHiddenCleared: 0b11000 = 0b11111 &&& ~(0b00100 ||| 0b00011)
 lsbMask: 0b01000
-isEven: false = 0b11011 &&& 0b01000
-shouldRoundUp: false
-roundedTargetSigWithHidden = sigwithHiddenCleared(0b11000)
-roundedTargetSigWithHidden: 0b11000 = nat:24
-sigDidOverflow: false
-roundedTargetSigWithHiddenOverflowAdjusted: 0b11000 = nat:24
+isEven: false = 0b11111 &&& 0b01000
+shouldRoundUp: true
+roundedTargetSigWithHidden = sigwithHiddenCleared(0b11000) + lsbMask(0b01000)
+roundedTargetSigWithHidden: 0b00000 = nat:0
+sigDidOverflow: true
+roundedTargetSigWithHiddenOverflowAdjusted: 0b01000 = nat:8
 roundedExp: 0b001111 = int:15
 roundedExpDidOverflow: false
 late overflow: false = roundedExp(0b001111=int:15) > maxNormalExpBV(0b001111=int:15)
