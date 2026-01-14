@@ -158,17 +158,6 @@ def roundingDecision (mode : RoundingMode) (sign : Bool) (significandEven : Bool
       (guardBit && (stickyBit || !significandEven))
   | _ => false
 
-/-
-  // The final reconstruction of the rounded result
-  // Handles the overflow and underflow conditions
-  template <class t>
-  unpackedFloat<t> rounderSpecialCases (const typename t::fpt &format,
-					const typename t::rm &roundingMode,
-					const unpackedFloat<t> &roundedResult,
-					const typename t::prop &overflow,
-					const typename t::prop &underflow,
-					const typename t::prop &isZero)
--/
 @[bv_normalize]
 def rounderSpecialCases
   (roundingMode : RoundingMode)
@@ -176,16 +165,6 @@ def rounderSpecialCases
   (overflow : Bool)
   (underflow : Bool)
   (isZero : Bool) : EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
-/-
-    /*** Underflow and overflow ***/
-
-    // On overflow either return inf or max
-    prop returnInf(roundingMode == t::RNE() ||
-		   roundingMode == t::RNA() ||
-		   (roundingMode == t::RTP() && !roundedResult.getSign()) ||
-		   (roundingMode == t::RTN() &&  roundedResult.getSign()));
-    probabilityAnnotation<t>(returnInf, LIKELY);  // Inf is more likely than max in most application scenarios
--/
   let returnInf : Bool :=
     match roundingMode with
     | RoundingMode.RNE => true
@@ -193,15 +172,6 @@ def rounderSpecialCases
     | RoundingMode.RTP => !roundedResult.sign
     | RoundingMode.RTN => roundedResult.sign
     | _ => false
-/-
-    // On underflow either return 0 or minimum subnormal
-    prop returnZero(roundingMode == t::RNE() ||
-		    roundingMode == t::RNA() ||
-		    roundingMode == t::RTZ() ||
-		    (roundingMode == t::RTP() &&  roundedResult.getSign()) ||
-		    (roundingMode == t::RTN() && !roundedResult.getSign()));
-    probabilityAnnotation<t>(returnZero, LIKELY);   // 0 is more likely than min in most application scenarios
--/
   let returnZero : Bool :=
     match roundingMode with
     | RoundingMode.RNE => true
@@ -210,13 +180,6 @@ def rounderSpecialCases
     | RoundingMode.RTP => roundedResult.sign
     | RoundingMode.RTN => !roundedResult.sign
 
-/-
-    /*** Reconstruct ***/
-    unpackedFloat<t> inf(unpackedFloat<t>::makeInf(format, roundedResult.getSign()));
-    unpackedFloat<t> max(roundedResult.getSign(), unpackedFloat<t>::maxNormalExponent(format), ubv::allOnes(unpackedFloat<t>::significandWidth(format)));
-    unpackedFloat<t> min(roundedResult.getSign(), unpackedFloat<t>::minSubnormalExponent(format), unpackedFloat<t>::leadingOne(unpackedFloat<t>::significandWidth(format)));
-    unpackedFloat<t> zero(unpackedFloat<t>::makeZero(format, roundedResult.getSign()));
--/
   let inf : EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
     EUnpackedFloat.mkInfinity roundedResult.sign
   let max : EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
@@ -231,17 +194,7 @@ def rounderSpecialCases
       sig := BitVec.leadingOne (targetSignificandWidth + 1) }
   let zero : EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
     EUnpackedFloat.mkZero roundedResult.sign
-/-
-    unpackedFloat<t> result(ITE(isZero,
-				zero,
-				ITE(underflow,
-				    ITE(returnZero, zero, min),
-				    ITE(overflow,
-					ITE(returnInf, inf, max),
-					roundedResult))));
-    return result;
-  }
--/
+
   if isZero then
     zero
   else if underflow then
@@ -903,13 +856,10 @@ def checkNormalizeIdem (E S : Nat) : IO Bool := do
     let originalUnpackedNormalized := originalUnpacked.normalize
 
     let outputUnpacked := EUnpackedFloat.mkNumber originalUnpackedNormalized
-    -- let outputUnpacked := UnpackedFloat.round (targetExponentWidth := 5) (targetSignificandWidth := 3) originalEUnpacked.num RoundingMode.RNE
     let outputPacked := outputUnpacked.pack
     if ! originalPacked.equal_denotation outputPacked then
       IO.println s!"Failed ❌ | original {repr originalPacked.toRat?} → output {repr outputPacked.toRat?}"
       allSucceeded := false
-    -- else
-    --   IO.println s!"Succeeded ✅ | original {repr originalPacked.toRat?} → output {repr outputPacked.toRat?}"
   if allSucceeded then
     IO.println "All succeeded ✅"
   else
