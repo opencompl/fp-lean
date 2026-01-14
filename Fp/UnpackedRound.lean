@@ -713,6 +713,12 @@ def conditionalIncrementWithFlags (cond : Bool) (x : BitVec w) : BitVec w × Boo
   else
     (x, false)
 
+/-- Add the two bitvectors, returning the sum and a flag indicating whether overflow occurred -/
+@[bv_normalize]
+def addWithFlags (a b : BitVec w) : BitVec w × Bool :=
+  let sum := a.zeroExtend (w + 1) + b.zeroExtend (w + 1)
+  (sum.setWidth w, sum.msb)
+
 def BitVec.smin (a b : BitVec w) : BitVec w :=
   if a.slt b then a else b
 
@@ -797,18 +803,24 @@ theorem BitVec.getLsbD_extractLsbTo0BV_eq_decide {w : Nat} (x : BitVec w) (start
 /--
 Extract out bits from 'startMsb' (excluded) down to low index `0`, setting other bits to zero.
 -/
-def BitVec.extractMsbTo0BV {w : Nat} (x : BitVec w) (startMsb : BitVec w) : BitVec w :=
+def BitVec.maskMsbTo0BV {w : Nat} (x : BitVec w) (startMsb : BitVec w) : BitVec w :=
   BitVec.extractLsbTo0BV x (BitVec.ofNat w w  - startMsb)
 
+/--
+observe that the bounds are sane.
+if startMsb = 0, then we extract the full vector, and the decide is just (i < w).
+if startMsb = 1, then we extract all but the MSB, and the decide is (i < w - 1).
+if startMsb = w, then we extract nothing, and the decide is (i < 0) which is always false.
+-/
 @[simp]
 theorem BitVec.getMsbD_extractMsbTo0BV_eq_decide {w : Nat}
     (x : BitVec w)
     (startMsb : BitVec w)
     (i : Nat)
     (hstart : startMsb.toNat ≤ w) :
-    (x.extractMsbTo0BV startMsb).getLsbD i =
+    (x.maskMsbTo0BV startMsb).getLsbD i =
       (x.getLsbD i &&  decide (i < (w - startMsb.toNat))) := by
-  rw [extractMsbTo0BV]
+  rw [maskMsbTo0BV]
   rw [BitVec.getLsbD_extractLsbTo0BV_eq_decide]
   by_cases hx : x.getLsbD i
   · simp only [hx, Bool.true_and, decide_eq_decide]
@@ -818,6 +830,12 @@ theorem BitVec.getMsbD_extractMsbTo0BV_eq_decide {w : Nat}
       simp
       omega
   · simp [hx]
+
+
+/-- a > b -/
+def BitVec.sgt {w : Nat} (a b : BitVec w) : Bool :=
+  b.slt a
+
 
 @[bv_normalize]
 def UnpackedFloat.roundNormal {expWidth sigWidth : Nat} {targetExponentWidth targetSignificandWidth : Nat}
@@ -839,6 +857,10 @@ def UnpackedFloat.roundNormal {expWidth sigWidth : Nat} {targetExponentWidth tar
   out := out ++ s!"\ntargetMinNormalExp: {targetMinNormalExp.toBitsStr} = {targetMinNormalExp.toInt}"
   if targetMinNormalExp.toInt != minNormalExp targetExponentWidth then
     throw (IO.userError "targetMinNormalExp.toInt != minNormalExp targetExponentWidth")
+
+  let earlyOverflow : Bool := exp.sgt (BitVec.ofInt expWidth (maxNormalExp targetExponentWidth))
+  out := out ++ s!"earlyOverflow: {earlyOverflow}"
+  let earlyUnderflow : Bool := exp.slt (BitVec.ofInt expWidth (minSubnormalExp targetExponentWidth targetSignificandWidth))
 
   -- force exponent to be at least min normal exponent.
   let expGeMin :=
@@ -870,47 +892,44 @@ def UnpackedFloat.roundNormal {expWidth sigWidth : Nat} {targetExponentWidth tar
   --  0 . 0 0 0 1 a b c d e f g h * 2^exp + 2^shiftAmt | to make 'exp + shiftAmt >= minNormalExp'.
   --  ==============↑ (6 bits of precision)
   -- (sigWidth - 1) - (targetSignificandWidth - 1) -
-  let targetSigWithHidden : BitVec (targetSignificandWidth + 1) :=
-    sigWithHidden.extractMsb' 0 (targetSignificandWidth + 1)
-  let guardBitPositionFromMsb : BitVec sigWidth :=
-    (BitVec.ofNat sigWidth (targetSignificandWidth + 1)) -- +1 for the hidden bit
-      - (shiftAmtPositive.zeroExtend sigWidth) -- we need to subtract, because we guard "earlier", since we have less precision. More bits go into sticy.
-  let guardBit : Bool :=
-    sigWithHidden.getMsbDBV guardBitPositionFromMsb
-  let stickbits := sigWithHidden.extractMsbTo0BV guardBitPositionFromMsb
-  -- let stickyBit : Bool := x &&& orderEncode
-
-  -- -- | See that this loses bits, this is not I should be doing it.
-  -- This should happen last, otherwise we will lose bits we need for rounding.
-  -- let sigWithHiddenAdjusted : BitVec sigWidth := sigWithHidden >>> shiftAmtPositive
-  -- out := out ++ s!"\nsigAdjusted(w/hidden): {sigWithHiddenAdjusted.toBitsStr} = {sigWithHiddenAdjusted.toNat}"
   -- let targetSigWithHidden : BitVec (targetSignificandWidth + 1) :=
-  --     sigWithHiddenAdjusted.extractMsb' 0 (targetSignificandWidth + 1)
-  -- out := out ++ s!"\ntargetSig(w/hidden): {targetSigWithHidden.toBitsStr}"
+  --   sigWithHidden.extractMsb' 0 (targetSignificandWidth + 1)
+  -- targetSigWidth + 1 for the normal bits.
+  let guardBitIndexFromLsb : BitVec sigWidth := BitVec.ofNat sigWidth (sigWidth - (targetSignificandWidth + 2))
+  let guardBitIndexFromLsbAdjusted : BitVec sigWidth :=
+    guardBitIndexFromLsb + shiftAmtPositive.zeroExtend sigWidth
 
-  -- let guardBit : Bool := -- | this can lose bits, so this is not safe. I should grab bits directly from 'sigWithHidden'.
-  --     sigWithHiddenAdjusted.getMsbD (targetSignificandWidth + 2)
-  -- out := out ++ s!"\nguardBit: {guardBit}"
-  -- let stickyBits :=
-  --   sigWithHiddenAdjusted.extractMsb' (targetSignificandWidth + 3) (sigWidth - (targetSignificandWidth + 3))
-  -- out := out ++ s!"\nstickyBits: {stickyBits.toBitsStr}"
-  -- let sticky := ! stickyBits.isZero
-  -- out := out ++ s!"\nsticky: {sticky}"
 
-  let isEven := targetSigWithHidden.getLsbD 0 == false
+  let guardBitMask : BitVec sigWidth := BitVec.oneHotBV guardBitIndexFromLsbAdjusted
+  let guardBit : Bool := (sigWithHidden &&& guardBitMask) ≠ 0#sigWidth
+  let stickyBitsMask : BitVec sigWidth := (BitVec.orderEncode guardBitIndexFromLsbAdjusted)
+  let stickyBits : BitVec sigWidth := (sigWithHidden &&& stickyBitsMask) 
+  let stickyBit : Bool := stickyBits ≠ 0#sigWidth
+
+  let sigWithHidenCleared : BitVec sigWidth :=
+    sigWithHidden &&& (~~~(guardBitMask ||| stickyBitsMask))
+
+  let lsbMask : BitVec sigWidth := 
+     BitVec.oneHotBV (guardBitIndexFromLsbAdjusted + 1#sigWidth)
+
+  let isEven : Bool := sigWithHidden &&& lsbMask = 0#sigWidth
+
   out := out ++ s!"\nisEven: {isEven}"
   let shouldRoundUp := roundingDecision
     (mode := mode)
     (sign := inUf.sign)
     (significandEven := isEven)
     (guardBit := guardBit)
-    (stickyBit := sticky)
+    (stickyBit := stickyBit)
     (exact := false)
   out := out ++ s!"\nshouldRoundUp: {shouldRoundUp}"
-  let (roundedTargetSigWithHidden, sigDidOverflow) :=
-    conditionalIncrementWithFlags
-      (cond := shouldRoundUp)
-      (x := targetSigWithHidden)
+  let (roundedTargetSigWithHidden, sigDidOverflow) : BitVec sigWidth × Bool :=
+    if shouldRoundUp then
+      addWithFlags
+        (a := sigWithHidenCleared)
+        (b := BitVec.oneHotBV (guardBitIndexFromLsb))
+    else
+      (sigWithHidenCleared, false)
   out := out ++ s!"\nroundedSig(w/hidden): {roundedTargetSigWithHidden.toBitsStr}"
   out := out ++ s!"\nsigDidOverflow: {sigDidOverflow}"
   -- let targetExp := exp.signExtend targetExponentWidth
@@ -930,12 +949,17 @@ def UnpackedFloat.roundNormal {expWidth sigWidth : Nat} {targetExponentWidth tar
   let maxExp : BitVec (expWidth) :=
     BitVec.ofInt (expWidth)
       (maxNormalExp targetExponentWidth)
-  let underflow : Bool :=
+  let lateOverflow : Bool :=
     roundedExp.slt minExp
-  let overflow : Bool :=
+  let lateUnderflow : Bool :=
     maxExp.slt roundedExp || expDidOverflow
-  out := out ++ s!"\nunderflow: {underflow}"
-  out := out ++ s!"\noverflow: {overflow}"
+  out := out ++ s!"\nlate underflow: {lateUnderflow}"
+  out := out ++ s!"\nlate overflow: {lateOverflow}"
+  let underflow : Bool := lateUnderflow || earlyUnderflow
+  out := out ++ s!"underflow: {underflow}"
+  let overflow : Bool := lateOverflow || earlyOverflow
+  out := out ++ s!"overflow: {overflow}"
+
   if underflow then
     return (EUnpackedFloat.mkZero inUf.sign, out)
   else if overflow then
@@ -944,7 +968,7 @@ def UnpackedFloat.roundNormal {expWidth sigWidth : Nat} {targetExponentWidth tar
     return (EUnpackedFloat.mkNumber
       { sign := inUf.sign,
         ex := roundedExp.truncate (exponentWidth targetExponentWidth targetSignificandWidth),
-        sig := roundedTargetSigWithHidden
+        sig := roundedTargetSigWithHidden.setWidth (targetSignificandWidth + 1)
       }, out)
   -- relevantSig ++ guardBit ++ stickyBits = original.
 
