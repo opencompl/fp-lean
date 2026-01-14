@@ -830,3 +830,5 @@ def checkRoundCorrect (EUnpacked SUnpacked : Nat) (EOut SOut : Nat) : IO Bool :=
   return nfailed = 0
 
 #guard_msgs(error) in #eval checkRoundCorrect 7 6 5 3
+
+#guard_msgs(error) in #eval checkRoundCorrect 5 4 5 2
