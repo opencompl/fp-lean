@@ -416,7 +416,6 @@ theorem div_one_foo (a : PackedFloat 5 2) (h : a.isNorm = true)
   bv_decide
 
 
-
 set_option debugAssertions true in
 theorem div_one_is_id_on_numerator_ex_larger (a : PackedFloat 5 2) (h : a.unpack.num.ex.sge oneE5M2.unpack.num.ex)
   : (div a oneE5M2 .RNE).equal_denotation a := by
@@ -424,7 +423,8 @@ theorem div_one_is_id_on_numerator_ex_larger (a : PackedFloat 5 2) (h : a.unpack
   bv_decide
 
 set_option debugAssertions true in
-theorem div_one_is_id_on_numerator_ex_smaller (a : PackedFloat 5 2) (h : ¬ a.unpack.num.ex.sge oneE5M2.unpack.num.ex)
+theorem div_one_is_id_on_numerator_ex_smaller (a : PackedFloat 5 2)
+  (h : ¬ a.unpack.num.ex.sge oneE5M2.unpack.num.ex)
   : (div a oneE5M2 .RNE).equal_denotation a := by
   bv_decide
 

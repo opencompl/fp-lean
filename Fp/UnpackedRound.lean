@@ -66,6 +66,7 @@ theorem BitVec.toInt_expandingSubtract {w} (a b : BitVec w) :
 def BitVec.width {w : Nat} (_x : BitVec w) : Nat := w
 
 /-- bitvector that has 1 at index i and 0 everywhere else. -/
+@[bv_normalize]
 def BitVec.oneHotBV (i : BitVec w) : BitVec w :=
     1#w <<< i
 
@@ -833,6 +834,7 @@ theorem BitVec.getMsbD_extractMsbTo0BV_eq_decide {w : Nat}
 
 
 /-- a > b -/
+@[bv_normalize]
 def BitVec.sgt {w : Nat} (a b : BitVec w) : Bool :=
   b.slt a
 
@@ -952,6 +954,7 @@ def UnpackedFloat.roundNormal {expWidth sigWidth : Nat} {targetExponentWidth tar
         (b := lsbMask)
     else
       (sigwithHiddenCleared, false)
+
   out := out ++ s!"\nroundedTargetSigWithHidden: {roundedTargetSigWithHidden.toBitsStr} = nat:{roundedTargetSigWithHidden.toNat}"
   out := out ++ s!"\nsigDidOverflow: {sigDidOverflow}"
 
@@ -1075,13 +1078,26 @@ def UnpackedFloat.roundNormalNoLog {expWidth sigWidth : Nat} {targetExponentWidt
     (stickyBit := stickyBit)
     (exact := false)
 
-  let (roundedTargetSigWithHidden, sigDidOverflow) : BitVec sigWidth × Bool :=
+  let sigDidOverflow_RoundedTargetSigWithHidden : BitVec (sigWidth + 1) :=
     if shouldRoundUp then
-      addWithFlags
-        (a := sigwithHiddenCleared)
-        (b := lsbMask)
+      sigwithHiddenCleared.zeroExtend (sigWidth + 1) + lsbMask.zeroExtend (sigWidth + 1)
     else
-      (sigwithHiddenCleared, false)
+      sigwithHiddenCleared.zeroExtend (sigWidth + 1)
+
+  let sigDidOverflow : Bool :=
+    sigDidOverflow_RoundedTargetSigWithHidden.msb
+
+  let roundedTargetSigWithHidden : BitVec sigWidth :=
+    sigDidOverflow_RoundedTargetSigWithHidden.setWidth sigWidth
+
+  -- | This makes bollu sad, because this is the sensible way to write this.
+  -- let (roundedTargetSigWithHidden, sigDidOverflow) : BitVec sigWidth × Bool :=
+  --   if shouldRoundUp then
+  --     addWithFlags
+  --       (a := sigwithHiddenCleared)
+  --       (b := lsbMask)
+  --   else
+  --     (sigwithHiddenCleared, false)
 
   let roundedTargetSigWithHiddenOverflowAdjusted : BitVec sigWidth :=
     if sigDidOverflow then
@@ -1089,11 +1105,21 @@ def UnpackedFloat.roundNormalNoLog {expWidth sigWidth : Nat} {targetExponentWidt
     else
       roundedTargetSigWithHidden
 
-  -- let targetExp := exp.signExtend targetExponentWidth
-  let (roundedExp, roundedExpDidOverflow) :=
-    conditionalIncrementWithFlags
-      (cond := sigDidOverflow)
-      (x := exp)
+  let roundedExpDidOverflow_roundedExp : BitVec (expWidth + 1) :=
+    if sigDidOverflow then
+      exp.zeroExtend (expWidth + 1) + 1#(expWidth + 1)
+    else
+      exp.zeroExtend (expWidth + 1)
+
+  let roundedExpDidOverflow : Bool :=
+    roundedExpDidOverflow_roundedExp.msb
+  let roundedExp : BitVec expWidth :=
+    roundedExpDidOverflow_roundedExp.setWidth expWidth
+
+  -- let (roundedExp, roundedExpDidOverflow) :=
+  --   conditionalIncrementWithFlags
+  --     (cond := sigDidOverflow)
+  --     (x := exp)
 
   -- I find this width stuff confusing, which width should we use?
   have : expWidth ≥ exponentWidth targetExponentWidth targetSignificandWidth := by
