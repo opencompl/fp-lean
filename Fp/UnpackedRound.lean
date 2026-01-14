@@ -781,7 +781,7 @@ def checkRoundCorrect (EUnpacked SUnpacked : Nat) (EOut SOut : Nat) : IO Bool :=
       let err := err ++ s!"\n  original (Q) {repr originalPacked.toRat?}"
       let err := err ++ s!"\n  --"
       let err := err ++ s!"\n  output rounded (eunpacked) {repr outputRoundedEUnpacked}"
-      let err := err ++ s!"\n  output rounded (Q) {repr outputRoundedEUnpacked.toRat?}"
+      let err := err ++ s!"\n  output rounded (Q) {repr outputRoundedEUnpacked.toExtRat}"
       let err := err ++ s!"\n  --"
       let err := err ++ s!"\n  expected (Q) {repr expectedPacked.toRat?}"
       let err := err ++ s!"\n  expected (eunpacked) {repr expectedEUnpacked}"
@@ -803,11 +803,11 @@ error: (716 succeeded / 992 total) (72.177419% succeeded) ❌
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x1b#5 } }
   original (Q) some 55296
   --
-  output rounded (eunpacked) { state := num, num := { sign := false, ex := 0x0f#5, sig := 0x3#2 } }
-  output rounded (Q) some 49152
+  output rounded (eunpacked) { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x3#2 } }
+  output rounded (Q) ExtRat.Number 49152
   --
   expected (Q) none
-  expected (eunpacked) { state := ∞, num := { sign := false, ex := 0x00#5, sig := 0x0#2 } }
+  expected (eunpacked) { state := ∞, num := { sign := false, ex := 0x00#6, sig := 0x0#2 } }
 
 
 --- rounding: { sign := false, ex := 0x0f#6, sig := 0x1b#5 } ---
