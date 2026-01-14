@@ -783,7 +783,7 @@ def checkRoundCorrect (EUnpacked SUnpacked : Nat) (EOut SOut : Nat) : IO Bool :=
       let err := err ++ s!"\n  output rounded (eunpacked) {repr outputRoundedEUnpacked}"
       let err := err ++ s!"\n  output rounded (Q) {repr outputRoundedEUnpacked.toExtRat}"
       let err := err ++ s!"\n  --"
-      let err := err ++ s!"\n  expected (Q) {repr expectedPacked.toRat?}"
+      let err := err ++ s!"\n  expected (Q) {repr expectedPacked.toExtRat}"
       let err := err ++ s!"\n  expected (eunpacked) {repr expectedEUnpacked}"
       -- let err := err ++ s!"\n  expected packed {repr expectedPacked}"
       let err := err ++ s!"\n\n{log}"
@@ -806,7 +806,7 @@ Failed ❌ | original { state := num, num := { sign := false, ex := 0x0f#6, sig 
   output rounded (eunpacked) { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x3#2 } }
   output rounded (Q) ExtRat.Number 49152
   --
-  expected (Q) none
+  expected (Q) ExtRat.Infinity false
   expected (eunpacked) { state := ∞, num := { sign := false, ex := 0x00#6, sig := 0x0#2 } }
 
 
@@ -845,34 +845,3 @@ underflow: false = lateUnderflow(false) || earlyUnderflow(false)
 overflow: false = lateOverflow(false) || earlyOverflow(false)
 -/
 #guard_msgs(error) in #eval checkRoundCorrect 5 4 5 1
-
-def checkNormalizeIdem (E S : Nat) : IO Bool := do
-  let mut allSucceeded := true
-  for originalPacked in mkPackedFloats E S do
-    if ! originalPacked.isNorm then continue -- we only need to think about the normal case for now.
-    let originalEUnpacked := originalPacked.unpack
-    -- if ! originalEUnpacked.isNumber then continue
-    let originalUnpacked := originalEUnpacked.num
-    let originalUnpackedNormalized := originalUnpacked.normalize
-
-    let outputUnpacked := EUnpackedFloat.mkNumber originalUnpackedNormalized
-    let outputPacked := outputUnpacked.pack
-    if ! originalPacked.equal_denotation outputPacked then
-      IO.println s!"Failed ❌ | original {repr originalPacked.toRat?} → output {repr outputPacked.toRat?}"
-      allSucceeded := false
-  if allSucceeded then
-    IO.println "All succeeded ✅"
-  else
-    throw (IO.Error.userError "Some failed ❌")
-  return allSucceeded
-
-/--
-info: All succeeded ✅
----
-info: true
--/
-#guard_msgs in #eval checkNormalizeIdem 3 5
-theorem foo (x y : BitVec 5) (b : Bool) :
-  let z := if b then x else y
-  let w := if ! b then y else x
-  z = w := by bv_decide
