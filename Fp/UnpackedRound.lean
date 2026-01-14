@@ -547,7 +547,7 @@ def UnpackedFloat.debugRound {expWidth sigWidth : Nat} {targetExponentWidth targ
 
   let roundedTargetSigWithHiddenOverflowAdjusted : BitVec sigWidth :=
     if sigDidOverflow then
-      lsbMask
+      BitVec.leadingOne sigWidth
     else
       roundedTargetSigWithHidden
   let out := out ++ s!"\nroundedTargetSigWithHiddenOverflowAdjusted: {roundedTargetSigWithHiddenOverflowAdjusted.toBitsStr} = nat:{roundedTargetSigWithHiddenOverflowAdjusted.toNat}"
@@ -689,9 +689,10 @@ def UnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSig
   --   else
   --     (sigwithHiddenCleared, false)
 
+  -- | If we overflow, then we should set the significand to '1.0' times the new exponent.
   let roundedTargetSigWithHiddenOverflowAdjusted : BitVec sigWidth :=
     if sigDidOverflow then
-      lsbMask
+      BitVec.leadingOne sigWidth
     else
       roundedTargetSigWithHidden
 
@@ -786,7 +787,6 @@ def checkRoundCorrect (EUnpacked SUnpacked : Nat) (EOut SOut : Nat) : IO Bool :=
       let err := err ++ s!"\n  --"
       let err := err ++ s!"\n  expected (Q) {repr expectedPacked.toExtRat}"
       let err := err ++ s!"\n  expected (eunpacked) {repr expectedEUnpacked}"
-      -- let err := err ++ s!"\n  expected packed {repr expectedPacked}"
       let err := err ++ s!"\n\n{log}"
       IO.println err
       outError := err
@@ -799,27 +799,27 @@ def checkRoundCorrect (EUnpacked SUnpacked : Nat) (EOut SOut : Nat) : IO Bool :=
     throw (IO.Error.userError s!"({nsucceeded} succeeded / {nsucceeded + nfailed} total) ({fracSuccess}% succeeded) ❌\n{outError}")
   return nfailed = 0
 /--
-error: (754 succeeded / 992 total) (76.008065% succeeded) ❌
+error: (978 succeeded / 992 total) (98.588710% succeeded) ❌
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0e#6, sig := 0x1f#5 } }
-  original (Q) some 31744
+Failed ❌ | original { state := num, num := { sign := false, ex := 0x3f#6, sig := 0x1f#5 } }
+  original (Q) some (31 : Rat)/32
   --
-  output rounded (eunpacked) { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x1#2 } }
-  output rounded (Q) ExtRat.Number 16384
+  output rounded (eunpacked) { state := ∞, num := { sign := false, ex := 0x00#6, sig := 0x0#2 } }
+  output rounded (Q) ExtRat.Infinity false
   --
-  expected (Q) ExtRat.Number 32768
-  expected (eunpacked) { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x2#2 } }
+  expected (Q) ExtRat.Number 1
+  expected (eunpacked) { state := num, num := { sign := false, ex := 0x00#6, sig := 0x2#2 } }
 
 
---- rounding: { sign := false, ex := 0x0e#6, sig := 0x1f#5 } ---
-  val (Q): 31744 = sig(0b11111=nat:31)) * 2 ** exp:([0b001110=int:14] - (4))
-exp: 0b001110 = int:14
+--- rounding: { sign := false, ex := 0x3f#6, sig := 0x1f#5 } ---
+  val (Q): 31/32 = sig(0b11111=nat:31)) * 2 ** exp:([0b111111=int:-1] - (4))
+exp: 0b111111 = int:-1
 targetMinNormalExp: 0b110010 = int:-14
 maxNormalExp: 15
 earlyOverflow: false
 minSubnormalExp: -16
 earlyUnderflow: false
-expGeMin: 0b001110 = int:14
+expGeMin: 0b111111 = int:-1
 shiftAmtPositive: 0b000000 = int:0 = nat:0
 sigWithHidden: 0b11111 = nat:31
 guardBitIndexFromLsb: (sigWidth(5) - 1)  - (targetSignificandWidth(1) + 1) = 2
@@ -837,12 +837,12 @@ shouldRoundUp: true
 roundedTargetSigWithHidden = sigwithHiddenCleared(0b11000) + lsbMask(0b01000)
 roundedTargetSigWithHidden: 0b00000 = nat:0
 sigDidOverflow: true
-roundedTargetSigWithHiddenOverflowAdjusted: 0b01000 = nat:8
-roundedExp: 0b001111 = int:15
-roundedExpDidOverflow: false
-late overflow: false = roundedExp(0b001111=int:15) > maxNormalExpBV(0b001111=int:15)
-late underflow: false = maxNormalExpBV(0b001111=int:15) < roundedExp(0b001111=int:15)
+roundedTargetSigWithHiddenOverflowAdjusted: 0b10000 = nat:16
+roundedExp: 0b000000 = int:0
+roundedExpDidOverflow: true
+late overflow: false = roundedExp(0b000000=int:0) > maxNormalExpBV(0b001111=int:15)
+late underflow: false = maxNormalExpBV(0b001111=int:15) < roundedExp(0b000000=int:0)
 underflow: false = lateUnderflow(false) || earlyUnderflow(false)
-overflow: false = lateOverflow(false) || earlyOverflow(false)
+overflow: true = lateOverflow(false) || earlyOverflow(false)
 -/
 #guard_msgs(error) in #eval checkRoundCorrect 5 4 5 1
