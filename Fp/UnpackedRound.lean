@@ -146,7 +146,7 @@ theorem BitVec.orderEncode_eq_shiftRight_allOnes {x : BitVec w} :
 
 @[bv_normalize]
 def roundingDecision (mode : RoundingMode) (sign : Bool) (significandEven : Bool)
-  (guardBit : Bool) (stickyBit : Bool) (exact : Bool) : Bool :=
+  (guardBit : Bool) (stickyBit : Bool) (_exact : Bool) : Bool :=
   match mode with
   | RoundingMode.RNE =>
       (guardBit && (stickyBit || !significandEven))
@@ -525,7 +525,7 @@ def UnpackedFloat.debugRound {expWidth sigWidth : Nat} {targetExponentWidth targ
     (significandEven := isEven)
     (guardBit := guardBit)
     (stickyBit := stickyBit)
-    (exact := false)
+    (_exact := false)
   let out := out ++ s!"\nshouldRoundUp: {shouldRoundUp}"
   let out := if shouldRoundUp then
     out ++ s!"\nroundedTargetSigWithHidden = sigwithHiddenCleared({sigwithHiddenCleared.toBitsStr}) + lsbMask({lsbMask.toBitsStr})"
@@ -688,7 +688,7 @@ def UnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSig
     (significandEven := isEven)
     (guardBit := guardBit)
     (stickyBit := stickyBit)
-    (exact := false)
+    (_exact := false)
   let sigDidOverflow_RoundedTargetSigWithHidden : BitVec (sigWidth + 1) :=
     if shouldRoundUp then
       if sigwithHiddenCleared = 0#sigWidth && lsbMask = 0#sigWidth then
