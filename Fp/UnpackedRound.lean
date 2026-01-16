@@ -144,15 +144,20 @@ theorem BitVec.orderEncode_eq_shiftRight_allOnes {x : BitVec w} :
   omega
 
 
--- roundingDecision mode inUf.sign significandEven choosenGuardBit choosenStickyBit false
--- bollu: TODO: port rounding mode for real.
 @[bv_normalize]
 def roundingDecision (mode : RoundingMode) (sign : Bool) (significandEven : Bool)
   (guardBit : Bool) (stickyBit : Bool) (exact : Bool) : Bool :=
   match mode with
   | RoundingMode.RNE =>
       (guardBit && (stickyBit || !significandEven))
-  | _ => false
+  | RoundingMode.RNA =>
+      guardBit
+  | RoundingMode.RTP =>
+      (!sign && (guardBit || stickyBit))
+  | RoundingMode.RTN =>
+      (sign && (guardBit || stickyBit))
+  | RoundingMode.RTZ =>
+      false
 
 @[bv_normalize]
 def rounderSpecialCases
