@@ -17,7 +17,7 @@ Implemented entirely within EFixedPoint using `e_sub`.
 -/
 @[bv_normalize]
 def subfixed (a b : PackedFloat e s) (mode : RoundingMode) : PackedFloat e s :=
-  round _ _ mode (e_sub mode a.toEFixed b.toEFixed)
+  EFixedPoint.round _ _ mode (e_sub mode a.toEFixed b.toEFixed)
 
 /--
 Subtraction of two floating-point numbers.

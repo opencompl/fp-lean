@@ -375,8 +375,16 @@ def expand (a : EFixedPoint w e) (w' e' : Nat)
 
 end EFixedPoint
 
-namespace PackedFloat
+theorem BitVec.allOnes_ne_zero {e : Nat} :
+    e = 0 ∨ BitVec.allOnes e ≠ BitVec.zero e := by
+  match e with
+  | 0     => left; rfl
+  | e + 1 =>
+    right
+    simp only [BitVec.allOnes, BitVec.zero, ne_eq, ← BitVec.toNat_inj, BitVec.toNat_ofNatLT]
+    grind [Nat.two_pow_pos]
 
+namespace PackedFloat
 
 /--
 Returns the "canonical" NaN for the given floating point format. For example,
@@ -432,20 +440,133 @@ theorem inj (a b : PackedFloat e s)
   simp_all only [← injEq]
 
 @[simp, bv_normalize]
-def isNorm (pf : PackedFloat e s) : Bool :=
-  pf.ex != BitVec.allOnes e && pf.ex != 0
-
-@[simp, bv_normalize]
-def isSubnorm (pf : PackedFloat e s) : Bool :=
-  pf.ex != BitVec.allOnes e && pf.sig != 0
+def isNaN (pf : PackedFloat e s) : Bool :=
+  -- Prioritize `NaN` over `Infinity`.
+  pf.ex == .allOnes e && (s == 0 || pf.sig != .zero s)
 
 @[simp, bv_normalize]
 def isInfinite (pf : PackedFloat e s) : Bool :=
-  pf.ex == BitVec.allOnes e && pf.sig == 0
+  -- Prioritize `Infinity` over `0`. This is somewhat arbitrary.
+  pf.ex == .allOnes e && (s != 0 && pf.sig == .zero s)
 
 @[simp, bv_normalize]
-def isNaN (pf : PackedFloat e s) : Bool :=
-  pf.ex == BitVec.allOnes e && pf.sig != 0
+def isZero (pf : PackedFloat e s) : Bool :=
+  -- Prioritize `0` over `Subnormals`.
+  e != 0 && pf.ex == .zero e && pf.sig == .zero s
+
+@[simp, bv_normalize]
+def isSubnorm (pf : PackedFloat e s) : Bool :=
+  e != 0 && pf.ex == .zero e && pf.sig != .zero s
+
+@[simp, bv_normalize]
+def isNorm (pf : PackedFloat e s) : Bool :=
+  pf.ex != .allOnes e && pf.ex != .zero e
+
+-- Theorems about classification
+
+theorem classification_exhaustive {pf : PackedFloat e s} :
+    pf.isNaN || pf.isInfinite || pf.isZero || pf.isSubnorm || pf.isNorm := by
+  grind [isNaN, isInfinite, isZero, isSubnorm, isNorm]
+
+theorem not_isInfinite_of_isNaN {pf : PackedFloat e s} :
+    pf.isNaN → !pf.isInfinite := by
+  grind [isNaN, isInfinite]
+
+theorem not_isZero_of_isNaN {pf : PackedFloat e s} :
+    pf.isNaN → !pf.isZero := by
+  grind [isNaN, isZero, BitVec.allOnes_ne_zero]
+
+theorem not_isSubnorm_of_isNaN {pf : PackedFloat e s} :
+    pf.isNaN → !pf.isSubnorm := by
+  grind [isNaN, isSubnorm, BitVec.allOnes_ne_zero]
+
+theorem not_isNorm_of_isNaN {pf : PackedFloat e s} :
+    pf.isNaN → !pf.isNorm := by
+  grind [isNaN, isNorm]
+
+theorem not_isNaN_of_isInfinite {pf : PackedFloat e s} :
+    pf.isInfinite → !pf.isNaN := by
+  grind [isNaN, isInfinite]
+
+theorem not_isZero_of_isInfinite {pf : PackedFloat e s} :
+    pf.isInfinite → !pf.isZero := by
+  grind [isInfinite, isZero, BitVec.allOnes_ne_zero]
+
+theorem not_isSubnorm_of_isInfinite {pf : PackedFloat e s} :
+    pf.isInfinite → !pf.isSubnorm := by
+  grind [isInfinite, isSubnorm]
+
+theorem not_isNorm_of_isInfinite {pf : PackedFloat e s} :
+    pf.isInfinite → !pf.isNorm := by
+  grind [isInfinite, isNorm]
+
+theorem not_isNaN_of_isZero {pf : PackedFloat e s} :
+    pf.isZero → !pf.isNaN := by
+  grind [isNaN, isZero, BitVec.allOnes_ne_zero]
+
+theorem not_isInfinite_of_isZero {pf : PackedFloat e s} :
+    pf.isZero → !pf.isInfinite := by
+  grind [isInfinite, isZero, BitVec.allOnes_ne_zero]
+
+theorem not_isSubnorm_of_isZero {pf : PackedFloat e s} :
+    pf.isZero → !pf.isSubnorm := by
+  grind [isSubnorm, isZero]
+
+theorem not_isNorm_of_isZero {pf : PackedFloat e s} :
+    pf.isZero → !pf.isNorm := by
+  grind [isZero, isNorm]
+
+theorem not_isNaN_of_isSubnorm {pf : PackedFloat e s} :
+    pf.isSubnorm → !pf.isNaN := by
+  grind [isNaN, isSubnorm, BitVec.allOnes_ne_zero]
+
+theorem not_isInfinite_of_isSubnorm {pf : PackedFloat e s} :
+    pf.isSubnorm → !pf.isInfinite := by
+  grind [isInfinite, isSubnorm]
+
+theorem not_isZero_of_isSubnorm {pf : PackedFloat e s} :
+    pf.isSubnorm → !pf.isZero := by
+  grind [isSubnorm, isZero]
+
+theorem not_isNorm_of_isSubnorm {pf : PackedFloat e s} :
+    pf.isSubnorm → !pf.isNorm := by
+  grind [isSubnorm, isNorm]
+
+theorem not_isNaN_of_isNorm {pf : PackedFloat e s} :
+    pf.isNorm → !pf.isNaN := by
+  grind [isNaN, isNorm]
+
+theorem not_isInfinite_of_isNorm {pf : PackedFloat e s} :
+    pf.isNorm → !pf.isInfinite := by
+  grind [isInfinite, isNorm]
+
+theorem not_isZero_of_isNorm {pf : PackedFloat e s} :
+    pf.isNorm → !pf.isZero := by
+  grind [isZero, isNorm]
+
+theorem not_isSubnorm_of_isNorm {pf : PackedFloat e s} :
+    pf.isNorm → !pf.isSubnorm := by
+  grind [isSubnorm, isNorm]
+
+theorem sigWidth_ge_one_of_isInfinite {pf : PackedFloat e s} :
+    pf.isInfinite → s ≥ 1 := by
+  grind [isInfinite]
+
+theorem expWidth_ge_one_of_isZero {pf : PackedFloat e s} :
+    pf.isZero → e ≥ 1 := by
+  grind [isZero]
+
+theorem expWidth_ge_one_of_isSubnorm {pf : PackedFloat e s} :
+    pf.isSubnorm → e ≥ 1 := by
+  grind [isSubnorm]
+
+theorem sigWidth_ge_one_of_isSubnorm {pf : PackedFloat e s} :
+    pf.isSubnorm → s ≥ 1 := by
+  grind [isSubnorm]
+
+theorem expWidth_ge_two_of_isNorm {pf : PackedFloat e s} :
+    pf.isNorm → e ≥ 2 := by
+  grind [isNorm]
 
 @[simp, bv_normalize]
 def isNormOrSubnorm (pf : PackedFloat e s) : Bool :=
@@ -454,10 +575,6 @@ def isNormOrSubnorm (pf : PackedFloat e s) : Bool :=
 @[simp, bv_normalize]
 def isZeroOrSubnorm (pf : PackedFloat e s) : Bool :=
   pf.ex == 0
-
-@[simp, bv_normalize]
-def isZero (pf : PackedFloat e s) : Bool :=
-  pf.ex == 0 && pf.sig == 0
 
 @[simp, bv_normalize]
 def isNZero (pf : PackedFloat e s) : Bool :=
@@ -598,7 +715,7 @@ attribute [bv_normalize] UnpackedFloat.ext_iff
 `EUnpackedFloat e s` extends `UnpackedFloat e s` with explicit floating-point
 classification flags.
 
-The `_state` field records whether the value is:
+The `state` field records whether the value is:
 * NaN,
 * ±Infinity,
 * ±Zero,
@@ -623,6 +740,66 @@ structure EUnpackedFloat (e s : Nat) where
   num   : UnpackedFloat e s
 deriving DecidableEq, Repr
 
+inductive ExtDyadic where
+  | NaN : ExtDyadic
+  | Infinity : Bool → ExtDyadic
+  | Number : Dyadic → ExtDyadic
+deriving DecidableEq
+
+inductive ExtRat where
+  | NaN : ExtRat
+  | Infinity : Bool → ExtRat
+  | Number : Rat → ExtRat
+deriving DecidableEq, Repr
+
+def ExtDyadic.toExtRat (ed : ExtDyadic) : ExtRat :=
+  match ed with
+  | .NaN => .NaN
+  | .Infinity sign => .Infinity sign
+  | .Number d => .Number d.toRat
+
+def Bool.toSign (b : Bool) : Int :=
+  if b then -1 else 1
+
+@[bv_normalize]
+def bias (e : Nat) : Nat :=
+  2 ^ (e - 1) - 1
+
+namespace PackedFloat
+
+def toExtDyadic (pf : PackedFloat e s) : ExtDyadic :=
+  bif pf.isNaN then
+    .NaN
+  else bif pf.isInfinite then
+    .Infinity pf.sign
+  else bif pf.isZero  then
+    .Number 0
+  else bif pf.isNorm then
+    let sig : BitVec (s + 2) := (pf.sig.cons true).setWidth' (Nat.le.step Nat.le.refl)
+    let sig := bif pf.sign then -sig else sig
+    .Number (.ofIntWithPrec sig.toInt (bias e - pf.ex.toNat + s))
+  else
+    let sig : BitVec (s + 2) := (pf.sig.cons false).setWidth' (Nat.le.step Nat.le.refl)
+    let sig := bif pf.sign then -sig else sig
+    .Number (.ofIntWithPrec sig.toInt (bias e - 1 + s : Nat))
+
+def toExtRat (pf : PackedFloat e s) : ExtRat :=
+  pf.toExtDyadic.toExtRat
+
+def toExtRat' (pf : PackedFloat e s) : ExtRat :=
+  bif pf.isNaN then
+    .NaN
+  else bif pf.isInfinite then
+    .Infinity pf.sign
+  else bif pf.isZero  then
+    .Number 0
+  else bif pf.isNorm then
+    .Number (pf.sign.toSign * (1 + pf.sig.toNat / 2 ^ s) * 2 ^ (pf.ex.toNat - bias e : Int))
+  else
+    -- `-(bias e - 1)` is slightly different from SMT-LIB standard `1 - bias e` to allow `e = 1`.
+    .Number (pf.sign.toSign * (0 + pf.sig.toNat / 2 ^ s) * 2 ^ (-(bias e - 1 : Nat) : Int))
+
+end PackedFloat
 
 namespace UnpackedFloat
 
@@ -677,12 +854,12 @@ def normalize (uf : UnpackedFloat e s) : UnpackedFloat e s :=
 
 @[bv_normalize]
 def toEUnpackedFloat (uf : UnpackedFloat e s) : EUnpackedFloat e s :=
-  EUnpackedFloat.mk .Number uf
+  .mk .Number uf
 
 def toDyadic (uf : UnpackedFloat e s) : Dyadic :=
   let sig : BitVec (s + 1) := uf.sig.setWidth' (Nat.le.step Nat.le.refl)
-  let sig := bif uf.sign then sig.neg else sig
-  Dyadic.ofIntWithPrec sig.toInt ((s - 1) - uf.ex.toInt)
+  let sig := bif uf.sign then -sig else sig
+  .ofIntWithPrec sig.toInt ((s - 1 : Nat) - uf.ex.toInt)
 
 def toRat (uf : UnpackedFloat e s) : Rat :=
   uf.toDyadic.toRat
@@ -784,17 +961,21 @@ def normalize (uf : EUnpackedFloat e s) : EUnpackedFloat e s :=
   else
     uf
 
-def toDyadic? (ef : EUnpackedFloat e s) : Option Dyadic :=
-  if ef.isNaN || ef.isInfinite then
-    none
+def toExtDyadic (ef : EUnpackedFloat e s) : ExtDyadic :=
+  bif ef.isNaN then
+    .NaN
+  else bif ef.isInfinite then
+    .Infinity ef.num.sign
   else
-    some ef.num.toDyadic
+    .Number ef.num.toDyadic
 
-def toRat? (ef : EUnpackedFloat e s) : Option Rat :=
-  if ef.isNaN || ef.isInfinite then
-    none
+def toExtRat (ef : EUnpackedFloat e s) : ExtRat :=
+  bif ef.isNaN then
+    .NaN
+  else bif ef.isInfinite then
+    .Infinity ef.num.sign
   else
-    some ef.num.toRat
+    .Number ef.num.toRat
 
 end EUnpackedFloat
 
@@ -803,13 +984,8 @@ def Nat.ceilLog2 (n : Nat) : Nat :=
   if n.log2 * 2 = n then n.log2 else n.log2 + 1
 
 @[bv_normalize]
-def bias (e : Nat) : Nat :=
-  2 ^ (e - 1) - 1
-
-/-- The minimum value the exponent can take when unbiased. -/
-@[bv_normalize]
 def minNormalExp (e : Nat) : Int :=
-  -(bias e - 1)
+  -(bias e - 1 : Nat)
 
 /-- The max value the exponent can take when unbiased. -/
 @[bv_normalize]
@@ -821,19 +997,34 @@ def maxNormalExp (e : Nat) : Int := (bias e)
 def subnormalExp (e : Nat) : Int :=
   minNormalExp e - 1
 
+/-- For unpacked floats, the *minimum* the subnormal exponent can take,
+which can "steal" bits from the significand to be smaller than minNormalExp. -/
 @[bv_normalize]
 def minSubnormalExp (e : Nat) (s : Nat) : Int :=
   (subnormalExp e) - (s : Int)
 
--- This is a simpler (but less tight) bound than `exponentWidth`.
--- It's logarithmically larger.
+/--
+This is a simpler (but less tight) bound than `exponentWidth`.
+It's logarithmically larger.
+-/
 @[bv_normalize, simp]
 def exponentWidth' (e s : Nat) : Nat :=
   e + s.ceilLog2
 
-@[bv_normalize, simp]
+/--
+The required exponent width to represent all exponents of an `e`-bit
+floating-point number with `s`-bit significand, including normalized
+subnormals. Note that this slightly differs from symfpu's definition,
+which uses `s - 2` instead of `s - 1`. The reason is that symfpu assumes
+`e ≥ 2` while we want to support the degenerate case of `e = 1`,
+mainly to minimize our proof assumptions. The correctness
+proof of `unpack` relies on this difference which ensures that `uf.sig.clz`
+does not overflow when its width is set to `exponentWidth 1 s` (where
+`s = 2 ^ n` for some `n`).
+-/
+@[bv_normalize]
 def exponentWidth (e s : Nat) : Nat :=
-  (2 ^ (e - 1) + s - 2).log2 + 2
+  (2 ^ (e - 1) + s - 1).log2 + 2
 
 -- Constants
 

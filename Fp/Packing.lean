@@ -12,6 +12,8 @@ def PackedFloat.unpack (pf : PackedFloat e s)
   else bif pf.isNorm then
     ({
       sign := pf.sign
+      -- We cannot use `BitVec.signExtend` here because `pf.ex` is not in 2's complement representation.
+      -- It should be safe to use `setWidth'`
       ex := pf.ex.zeroExtend _ - BitVec.ofNat _ (bias e) -- e - bias, but no adjustment for significand?
       sig := pf.sig.cons true
       : UnpackedFloat _ _
@@ -52,26 +54,7 @@ def EUnpackedFloat.pack (uf : EUnpackedFloat (exponentWidth e s) (s + 1))
 
   }
 
-
-namespace PackingExpAdjust
-def startUnpacked := (EUnpackedFloat.mkNumber { sign := true, ex := 0x2f#6, sig := 0x6#3 : UnpackedFloat _ _ })
-def expectedPacked : PackedFloat 5 2 := { sign := true, ex := 0x00#5, sig := 0x1#2 }
-
-/-- info: some (-3 / 262144) -/
-#guard_msgs in #eval startUnpacked.toRat?
-
-/-- info: some (-1 / 65536) -/
-#guard_msgs in #eval expectedPacked.toRat?
-
-
--- theorem qeq : startUnpacked.toRat? = expectedPacked.toRat? := rfl
-
-end PackingExpAdjust
-
--- This packs and just returns 0,
-/-- info: { sign := -, ex := 0x00#5, sig := 0x0#2 } -/
-#guard_msgs in #eval
-  (EUnpackedFloat.mkNumber { sign := true, ex := 0x2f#6, sig := 0x6#3 : UnpackedFloat _ _ }).pack (e := 5) (s := 2)
+attribute [bv_normalize] BitVec.zero
 
 theorem PackedFloat.isInfinite_pack_unpack (pf : PackedFloat 5 10) (hpf : pf.unpack.isInfinite) :
     pf.unpack.pack.isInfinite = pf.isInfinite ∧ pf.unpack.pack.sign = pf.sign := by
@@ -85,6 +68,18 @@ theorem PackedFloat.pack_unpack (pf : PackedFloat 5 10) (hpf : pf.isNormOrSubnor
     pf.unpack.pack = pf := by
   bv_decide
 
+
+theorem PackedFloat.pack_unpack_e0m1 (pf : PackedFloat 0 1) (hpf : pf.isNormOrSubnorm) :
+    pf.unpack.pack = pf := by
+  bv_decide
+
+theorem PackedFloat.pack_unpack_e1m0 (pf : PackedFloat 1 0) (hpf : pf.isNormOrSubnorm) :
+    pf.unpack.pack = pf := by
+  bv_decide
+
+example (pf : PackedFloat 0 0) (hpf : pf.isNormOrSubnorm) :
+    pf.isNaN = true := by
+  bv_decide
 
 /-- info: { sign := +, ex := 0x00#5, sig := 0x001#10 } -/
 #guard_msgs in #eval { sign := false, ex := 0x00#5, sig := 0x001#10 : PackedFloat _ _ }.unpack.pack

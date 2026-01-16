@@ -41,7 +41,7 @@ def remainder (a b : PackedFloat e s) : PackedFloat e s :=
       }
     -- If all calculations are correct, the rounding mode should not
     -- matter here as the result is always exact
-    round e s .RTZ result
+    EFixedPoint.round e s .RTZ result
 
 /-- info: { sign := -, ex := 0x00#5, sig := 0x1#2 } -/
 #guard_msgs in #eval remainder (PackedFloat.ofBits 5 2 0b00000011) (PackedFloat.ofBits 5 2 0b00000100)
