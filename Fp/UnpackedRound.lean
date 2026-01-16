@@ -769,7 +769,7 @@ theorem debugRound_eq_round {expWidth sigWidth : Nat} {targetExponentWidth targe
     inUf mode := rfl
 
 -- TODO: these are expensive checks, so move them into a separate file.
-def checkRoundCorrect (EUnpacked SUnpacked : Nat) (EOut SOut : Nat) : IO Bool := do
+def checkRoundCorrect (EUnpacked SUnpacked : Nat) (EOut SOut : Nat) (mode : RoundingMode) : IO Bool := do
   let mut outError : String := ""
   let mut nsucceeded : Nat := 0
   let mut nfailed : Nat := 0
@@ -782,10 +782,10 @@ def checkRoundCorrect (EUnpacked SUnpacked : Nat) (EOut SOut : Nat) : IO Bool :=
     let originalNormalized := originalUnpacked.normalize
     let (outputRoundedEUnpacked, log) :=
       UnpackedFloat.debugRound (targetExponentWidth := EOut) (targetSignificandWidth := SOut)
-        originalNormalized RoundingMode.RNE
+        originalNormalized mode
     let outputRoundedPacked := outputRoundedEUnpacked.pack
 
-    let expectedPacked : PackedFloat EOut SOut :=  originalPacked.toEFixed.round (exWidth := EOut) (sigWidth := SOut) RoundingMode.RNE
+    let expectedPacked : PackedFloat EOut SOut :=  originalPacked.toEFixed.round (exWidth := EOut) (sigWidth := SOut) mode
     let expectedEUnpacked := expectedPacked.unpack
     if outputRoundedPacked.equal_denotation expectedPacked then
       IO.println s!"Succeeded ✅ | original {repr originalEUnpacked}"
@@ -813,5 +813,19 @@ def checkRoundCorrect (EUnpacked SUnpacked : Nat) (EOut SOut : Nat) : IO Bool :=
   return nfailed = 0
 
 -- TODO: these are expensive checks, so move them into a separate file.
-#guard_msgs(check error, drop info) in #eval checkRoundCorrect 6 5 4 2
-#guard_msgs(check error, drop info) in #eval checkRoundCorrect 5 4 5 2
+#guard_msgs(check error, drop info) in #eval checkRoundCorrect 6 5 4 2 .RNA
+#guard_msgs(check error, drop info) in #eval checkRoundCorrect 5 4 5 2 .RNA
+
+-- TODO: these are expensive checks, so move them into a separate file.
+#guard_msgs(check error, drop info) in #eval checkRoundCorrect 6 5 4 2 .RNE
+#guard_msgs(check error, drop info) in #eval checkRoundCorrect 5 4 5 2 .RNE
+
+-- TODO: these are expensive checks, so move them into a separate file.
+#guard_msgs(check error, drop info) in #eval checkRoundCorrect 6 5 4 2 .RTN
+#guard_msgs(check error, drop info) in #eval checkRoundCorrect 5 4 5 2 .RTN
+
+#guard_msgs(check error, drop info) in #eval checkRoundCorrect 6 5 4 2 .RTP
+#guard_msgs(check error, drop info) in #eval checkRoundCorrect 5 4 5 2 .RTP
+
+#guard_msgs(check error, drop info) in #eval checkRoundCorrect 6 5 4 2 .RTZ
+#guard_msgs(check error, drop info) in #eval checkRoundCorrect 5 4 5 2 .RTZ
