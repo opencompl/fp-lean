@@ -296,7 +296,7 @@ def div_on_unpackedFloat (a b : UnpackedFloat (exponentWidth e s) (s + 1)) (mode
           omega
       }
     }
-    round _ _ mode quot_lshift
+    EFixedPoint.round _ _ mode quot_lshift
     -- PackedFloat.mk true (BitVec.ofNat _ 0xcafebabe) (BitVec.ofNat _ 0xcafebabe)
   else
     let quot_rshift : EFixedPoint (2^e+div_len+1) (2^e+unit_pos+1) := {
@@ -316,7 +316,7 @@ def div_on_unpackedFloat (a b : UnpackedFloat (exponentWidth e s) (s + 1)) (mode
           omega
       }
     }
-    round _ _ mode quot_rshift
+    EFixedPoint.round _ _ mode quot_rshift
 
 /--
 Division of two floating-point numbers, rounded to a floating point number

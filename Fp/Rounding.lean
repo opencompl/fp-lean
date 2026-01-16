@@ -143,7 +143,7 @@ Round an extended fixed-point number to its nearest floating point number of
 the specified format, with the specified rounding mode.
 -/
 @[bv_normalize]
-def round {width exOffset}
+def EFixedPoint.round {width exOffset}
   (exWidth sigWidth : Nat) (mode : RoundingMode) (x : EFixedPoint width exOffset)
   : PackedFloat exWidth sigWidth :=
   if x.state = .NaN then
@@ -214,15 +214,15 @@ def round {width exOffset}
 theorem round_of_eq_nan {width exOffset}
   {exWidth sigWidth : Nat} {mode : RoundingMode} {x : EFixedPoint width exOffset}
   {hNaN : x.state = .NaN} :
-  round exWidth sigWidth mode x = PackedFloat.getNaN exWidth sigWidth := by
-  simp [round, hNaN]
+  EFixedPoint.round exWidth sigWidth mode x = PackedFloat.getNaN exWidth sigWidth := by
+  simp [EFixedPoint.round, hNaN]
 
 @[grind =>]
 theorem round_of_eq_infinity {width exOffset}
   {exWidth sigWidth : Nat} {mode : RoundingMode} {x : EFixedPoint width exOffset}
   {hInf : x.state = .Infinity} :
-  round exWidth sigWidth mode x = PackedFloat.getInfinity exWidth sigWidth x.num.sign := by
-  simp [round, hInf]
+  EFixedPoint.round exWidth sigWidth mode x = PackedFloat.getInfinity exWidth sigWidth x.num.sign := by
+  simp [EFixedPoint.round, hInf]
 
 
 /-- IsRounded e s d closest iff closest is the closest representable dyadic that is closer than all other. -/
@@ -241,7 +241,7 @@ def IsNearestEven (e s : Nat) (perfect : Dyadic) (closest : Dyadic) : Prop :=
 axiom IsRounded_round_RNE {width exOffset}
   (exWidth sigWidth : Nat) (mode : RoundingMode)
   (x : EFixedPoint width exOffset) (xd : Dyadic) (hxd : x.toDyadic? = some xd)
-  (f : PackedFloat exWidth sigWidth) (hf : round exWidth sigWidth .RNE x = f)
+  (f : PackedFloat exWidth sigWidth) (hf : EFixedPoint.round exWidth sigWidth .RNE x = f)
   (fd : Dyadic) (hfd : f.toDyadic? = some fd) :
   IsRounded exWidth sigWidth xd fd
 
@@ -249,7 +249,7 @@ axiom IsRounded_round_RNE {width exOffset}
 axiom IsNearestEven_round_RNE {width exOffset}
   (exWidth sigWidth : Nat) (mode : RoundingMode)
   (x : EFixedPoint width exOffset) (xd : Dyadic) (hxd : x.toDyadic? = some xd)
-  (f : PackedFloat exWidth sigWidth) (hf : round exWidth sigWidth .RNE x = f)
+  (f : PackedFloat exWidth sigWidth) (hf : EFixedPoint.round exWidth sigWidth .RNE x = f)
   (fd : Dyadic) (hfd : f.toDyadic? = some fd) :
   IsNearestEven exWidth sigWidth xd fd
 
@@ -309,7 +309,7 @@ def roundToInt (mode : RoundingMode) (x : PackedFloat e s) : PackedFloat e s :=
           omega
       }
     }
-    round e s mode res
+    EFixedPoint.round e s mode res
 
 namespace PackedFloat
 def ofRat (e s : Nat) (mode : RoundingMode) (num : Int) (den : Nat) : PackedFloat e s :=
@@ -332,7 +332,7 @@ def ofRat (e s : Nat) (mode : RoundingMode) (num : Int) (den : Nat) : PackedFloa
           omega
       }
     }
-    round e s mode result
+    EFixedPoint.round e s mode result
 end PackedFloat
 
 theorem ofRat_one_is_oneE5M2 : PackedFloat.ofRat 5 2 .RNE 1 1 = oneE5M2 := by

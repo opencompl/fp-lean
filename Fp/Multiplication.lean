@@ -50,7 +50,7 @@ Implemented using `e_mul`, by conversion to extended fixed-point numbers.
 @[bv_normalize]
 def mulfixed
   (a b : PackedFloat e s) (m : RoundingMode) : PackedFloat e s :=
-  round _ _ m (e_mul a.toEFixed b.toEFixed)
+  EFixedPoint.round _ _ m (e_mul a.toEFixed b.toEFixed)
 
 /--
 Multiplication of two floating point numbers, rounded to a floating point
@@ -84,7 +84,7 @@ def mul
             omega
         }
       }
-    round _ _ m result
+    EFixedPoint.round _ _ m result
 
 /--
 Doubles the given floating point number, rounding to infinity if applicable.

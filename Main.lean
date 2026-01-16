@@ -232,7 +232,7 @@ def main (args : List String) : IO Unit := do
 /-- info: { sign := -, ex := 0x04#5, sig := 0x1#2 } -/
 #guard_msgs in #eval add (PackedFloat.ofBits 5 2 0b00000011#8) (PackedFloat.ofBits 5 2 0b10010001#8) .RNE
 /-- info: { sign := +, ex := 0x01#5, sig := 0x2#2 } -/
-#guard_msgs in #eval round 5 2 .RNE (PackedFloat.toEFixed {sign := false, ex := 1#5, sig := 2#2})
+#guard_msgs in #eval EFixedPoint.round 5 2 .RNE (PackedFloat.toEFixed {sign := false, ex := 1#5, sig := 2#2})
 /-- info: { sign := +, ex := 0x1f#5, sig := 0x2#2 } -/
 #guard_msgs in #eval mul (PackedFloat.getZero 5 2) (PackedFloat.getInfinity 5 2 true) .RTZ
 /-- info: { sign := +, ex := 0x1f#5, sig := 0x0#2 } -/

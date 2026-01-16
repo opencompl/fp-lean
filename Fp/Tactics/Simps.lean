@@ -19,10 +19,17 @@ theorem decide_eq_bool {p} [Decidable p] {b : Bool} (h : p = b)
 -- | TODO: upstream
 attribute [bv_normalize] BitVec.cons
 
+
 -- | TODO: upstream
 open Lean Meta Simp in
 dsimproc [seval, simp, bv_normalize] reduceLog2 (Nat.log2 _) :=
   Nat.reduceUnary ``Nat.log2 1 Nat.log2
+
+dsimproc [seval, simp, bv_normalize] reduceMax (Nat.max _ _) :=
+  Nat.reduceBin ``Nat.max 2 Nat.max
+
+dsimproc [seval, simp, bv_normalize] reduceAdd (Nat.add _ _) :=
+  Nat.reduceBin ``Nat.add 2 Nat.add
 
 open Lean Meta Simp in
 simproc ↓ [bv_normalize] ite_eq_cond_proc (@ite _ _ _ _ _) := fun e => do
