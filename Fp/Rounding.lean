@@ -12,11 +12,16 @@ Available modes:
 * `RTZ`: Round towards zero.
 -/
 inductive RoundingMode : Type
-| RNA : RoundingMode -- RoundNearestTiesToAway
-| RNE : RoundingMode -- RoundNearestTiesToEven
-| RTN : RoundingMode -- RoundTowardNegative
-| RTP : RoundingMode -- RoundTowardPositive
-| RTZ : RoundingMode -- RoundTowardZero
+/-- RoundNearestTiesToAway (Round to nearest, tiebreak away from zero) -/
+| RNA : RoundingMode
+/--  RoundNearestTiesToEven (Round to nearest, tiebreak to even significand) -/
+| RNE : RoundingMode
+/-- RoundTowardNegative (Round towards negative infinity) -/
+| RTN : RoundingMode
+/-- RoundTowardPositive (round towards +ve infinity) -/
+| RTP : RoundingMode
+/-- RoundTowardZero (round towards zero) -/
+| RTZ : RoundingMode
 deriving DecidableEq
 
 attribute [bv_normalize] RoundingMode.eq_iff_enumToBitVec_eq
