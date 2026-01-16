@@ -614,7 +614,7 @@ def UnpackedFloat.debugRound {expWidth sigWidth : Nat} {targetExponentWidth targ
   let out := out ++ s!"\nresult: {repr result} | (Q): {repr result.toExtRat}"
   (result, out)
 
-/-
+
 /--
 The core rounding function, that rounds an `UnpackedFloat` to the target exponent and significand widths,
 -/
@@ -623,6 +623,7 @@ def UnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSig
   (inUf : UnpackedFloat expWidth sigWidth)
   (mode : RoundingMode) :
   EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
+  -- round a normalized, normal float.
   let exp : BitVec expWidth := inUf.ex
 
   let targetMinNormalExp : BitVec expWidth :=
@@ -705,6 +706,7 @@ def UnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSig
   let roundedTargetSigWithHidden : BitVec sigWidth :=
     sigDidOverflow_RoundedTargetSigWithHidden.setWidth sigWidth
 
+
   let roundedTargetSigWithHiddenOverflowAdjusted : BitVec sigWidth :=
     if sigDidOverflow then
       BitVec.leadingOne sigWidth
@@ -717,20 +719,21 @@ def UnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSig
     else
       exp.signExtend (expWidth + 1)
 
-  let roundedExp : BitVec expWidth :=
-    roundedExpExtended.setWidth expWidth
   -- I find this width stuff confusing, which width should we use?
   -- have : expWidth ≥ exponentWidth targetExponentWidth targetSignificandWidth := by grind
-  let maxNormalExpBV : BitVec (expWidth) :=
-    BitVec.ofInt (expWidth)
-      (maxNormalExp targetExponentWidth)
+  let maxNormalExpBV : BitVec (expWidth + 1) :=
+    BitVec.ofInt (expWidth + 1) (maxNormalExp targetExponentWidth)
   let lateOverflow : Bool :=
-    maxNormalExpBV.slt roundedExp
+    maxNormalExpBV.slt roundedExpExtended
   -- let subnormalExpBV : BitVec (expWidth) := BitVec.ofInt (expWidth) (subnormalExp targetExponentWidth)
-  let minSubnormalExpMinusOneBV : BitVec (expWidth) :=
-    BitVec.ofInt (expWidth) (minSubnormalExp targetExponentWidth targetSignificandWidth - 1)
+  -- let minSubnormalExpMinusOneBV : BitVec (expWidth + 1) :=
+  --   BitVec.ofInt (expWidth + 1) (minSubnormalExp targetExponentWidth targetSignificandWidth - 1)
+  let minSubnormalExpBV : BitVec (expWidth + 1) :=
+    BitVec.ofInt (expWidth + 1) (minSubnormalExp targetExponentWidth targetSignificandWidth)
   let lateUnderflow : Bool :=
-    (roundedExp = minSubnormalExpMinusOneBV) && !shouldRoundUp
+    roundedExpExtended.slt minSubnormalExpBV
+    -- (roundedExpExtended = minSubnormalExpMinusOneBV) && !shouldRoundUp
+  -- let out := out ++ s!"\nlateUnderflow: {lateUnderflow} = (roundedExpExtended({roundedExpExtended.toBitsStr}=int:{roundedExpExtended.toInt}) = minSubnormalExpMinusOneBV({minSubnormalExpMinusOneBV.toBitsStr}=int:{minSubnormalExpMinusOneBV.toInt}) - 1) && !shouldRoundUp({shouldRoundUp})"
   -- let out := out ++ s!"\nlate underflow: {lateUnderflow} = roundedExp({roundedExp.toBitsStr}=int:{roundedExp.toInt}) < subnormalExpBV({subnormalExpBV.toBitsStr}=int:{subnormalExpBV.toInt})"
   let underflow : Bool := lateUnderflow || earlyUnderflow
   let overflow : Bool := lateOverflow || earlyOverflow
@@ -739,7 +742,7 @@ def UnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSig
     if lateOverflow then
       BitVec.ofInt (expWidth + 1) (maxNormalExp targetExponentWidth)
     else if lateUnderflow then
-      BitVec.ofInt (expWidth + 1) (subnormalExp targetExponentWidth)
+      BitVec.ofInt (expWidth + 1) (minSubnormalExp targetExponentWidth targetSignificandWidth)
     else
       roundedExpExtended
   let finalExp := roundedClampedExp.truncate (exponentWidth targetExponentWidth targetSignificandWidth)
@@ -749,12 +752,14 @@ def UnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSig
       ex := finalExp,
       sig := finalSigTruncated
     }
-  -- | @bollu: think about the special cases here.
+  -- | TODO: I don't fully understand the special cases
   let result := rounderSpecialCases
     (roundingMode := mode)
-    finalNumber overflow underflow inUf.isZero
+    (roundedResult := finalNumber)
+    (overflow := overflow)
+    (underflow := underflow)
+    (isZero := inUf.isZero)
   result
-
 /--
 Prove that the debug mode round function is equal to the core round function.
 -/
@@ -765,7 +770,6 @@ theorem debugRound_eq_round {expWidth sigWidth : Nat} {targetExponentWidth targe
     inUf mode).1 =
   UnpackedFloat.round (targetExponentWidth := targetExponentWidth) (targetSignificandWidth := targetSignificandWidth)
     inUf mode := rfl
--/
 
 -- TODO: these are expensive checks, so move them into a separate file.
 def checkRoundCorrect (EUnpacked SUnpacked : Nat) (EOut SOut : Nat) (mode : RoundingMode) : IO Bool := do
