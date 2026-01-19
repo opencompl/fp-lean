@@ -15,11 +15,21 @@ We follow the development from
 
 open Lean
 
+
 /-- Extended real numbers, including +∞, -∞ and NaN -/
 inductive ExtReal
 | Finite (r : Real) : ExtReal
 | Infinity (neg : Bool) : ExtReal
 | NaN : ExtReal
+
+/--
+Typeclass for types that have a sign function, which mimics the sign bit
+in floating point representations.
+-/
+class IsFpKind (X : Type) where
+   /-- return True if negative. Sign is meant to be thought of as '-1^(sign x)'. -/
+   sign : X → Bool
+
 
 instance : LE ExtReal := sorry
 instance : Sub ExtReal := sorry
@@ -85,3 +95,24 @@ noncomputable def roundSmtLib {X : Type} [SupSet X] [InfSet X]
                grind
             upper v
   | _ => sorry
+
+
+noncomputable def fpUnaryOp {X : Type} [SupSet X] [InfSet X] [IsFpKind X]
+      (rm : RoundingMode)
+      (v : X → ExtReal)
+      (f : ExtReal → ExtReal) :
+      X → X :=
+   fun x =>
+      let sign : Bool := IsFpKind.sign x
+      let y := f (v x)
+      roundSmtLib rm sign y v <| y
+
+noncomputable def fpBinaryOp {X : Type} [SupSet X] [InfSet X] [IsFpKind X]
+      (rm : RoundingMode)
+      (v : X → ExtReal)
+      (f : ExtReal → ExtReal → ExtReal) :
+      X → X → X :=
+   fun x y =>
+      let z := f (v x) (v y)
+      let sign : Bool := IsFpKind.sign x
+      roundSmtLib rm sign z v <| z
