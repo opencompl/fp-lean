@@ -1,6 +1,6 @@
 name = "fp-lean"
 version = "0.1.0"
-defaultTargets = ["fp-lean"]
+defaultTargets = ["Fp", "fp-lean", "FpTheorems"]
 moreLeanArgs = ["--tstack=4096"]
 moreGlobalServerArgs = ["--tstack=4096"]
 
@@ -8,7 +8,7 @@ moreGlobalServerArgs = ["--tstack=4096"]
 name = "Fp"
 
 [[lean_lib]]
-name = "Fp.Theorems"
+name = "FpTheorems"
 
 [[require]]
 name = "mathlib"
