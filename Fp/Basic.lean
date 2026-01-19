@@ -752,6 +752,77 @@ inductive ExtRat where
   | Number : Rat → ExtRat
 deriving DecidableEq, Repr
 
+namespace ExtRat
+
+def add (x y : ExtRat) : ExtRat :=
+  match x, y with
+  | .NaN, _ => .NaN
+  | _, .NaN => .NaN
+  | .Infinity s1, .Infinity s2 =>
+    if s1 == s2 then .Infinity s1 else .NaN
+  | .Infinity s, _ => .Infinity s
+  | _, .Infinity s => .Infinity s
+  | .Number r1, .Number r2 => .Number (r1 + r2)
+
+def neg (x : ExtRat) : ExtRat :=
+  match x with
+  | .NaN => .NaN
+  | .Infinity s => .Infinity (!s)
+  | .Number r => .Number (-r)
+
+def sub (x y : ExtRat) : ExtRat :=
+  x.add (y.neg)
+
+def mul (x y : ExtRat) : ExtRat :=
+  match x, y with
+  | .NaN, _ => .NaN
+  | _, .NaN => .NaN
+  | .Infinity s1, .Infinity s2 => .Infinity (s1 == s2)
+  | .Infinity s, .Number r =>
+    if r == 0 then .NaN else .Infinity (s == (r < 0))
+  | .Number r, .Infinity s =>
+    if r == 0 then .NaN else .Infinity (s == (r < 0))
+  | .Number r1, .Number r2 => .Number (r1 * r2)
+
+def inv (x : ExtRat) : ExtRat :=
+  match x with
+  | .NaN => .NaN
+  | .Infinity _sign => .Number 0
+  | .Number r =>
+    if r == 0 then .Infinity (False) -- +∞
+    else .Number (1 / r)
+
+def div (x y : ExtRat) : ExtRat := 
+  x.mul (y.inv)
+
+def le (x y : ExtRat) : Bool :=
+  match x, y with
+  | .NaN, .NaN => true -- NaN ≤ NaN only.
+  | .NaN, _ => false
+  | _, .NaN => false
+  | .Infinity s1, .Infinity s2 =>
+      if s1 == s2 then true else s1 -- +∞ ≤ -∞ is false, -∞ ≤ +∞ is true
+  | .Infinity false, .Number _ => false -- +∞ ≤ anything else is false
+  | .Number _, .Infinity false => true  -- anything else ≤ +∞ is true
+  | .Infinity true, .Number _ => true   -- -∞ ≤ anything else is
+  | .Number _, .Infinity true => true  -- anything else ≤ -∞ is true
+  | .Number r1, .Number r2 => r1 <= r2
+
+def eq (x y : ExtRat) : Bool :=
+  match x, y with
+  | .NaN, .NaN => true
+  | .NaN, _ => false
+  | _, .NaN => false
+  | .Infinity s1, .Infinity s2 => s1 == s2
+  | .Infinity _, _ => false
+  | _, .Infinity _ => false
+  | .Number r1, .Number r2 => r1 == r2
+
+def lt (x y : ExtRat) : Bool :=
+  x.le y && !(x.eq y)
+
+end ExtRat
+
 def ExtDyadic.toExtRat (ed : ExtDyadic) : ExtRat :=
   match ed with
   | .NaN => .NaN
@@ -802,6 +873,15 @@ def toExtRat' (pf : PackedFloat e s) : ExtRat :=
 end PackedFloat
 
 namespace UnpackedFloat
+
+/-- Enumerate all UnpackedFloats of a given e and s. -/
+def universe (e s : Nat) : Array (UnpackedFloat e s) := Id.run do
+  let mut out := #[]
+  for b in #[true, false] do
+    for ex in [0:2^e] do
+      for sig in [0:2^s] do
+        out := out.push { sign := b, ex := ex, sig := sig }
+  return out
 
 @[bv_normalize]
 theorem ext_iff_beq {x y : UnpackedFloat e s}
