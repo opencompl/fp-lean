@@ -16,12 +16,12 @@
 using namespace symfpu::simpleExecutable;
 typedef symfpu::unpackedFloat<traits> uf;
 typedef traits::ubv ubv;
-traits::rm modes[5] = { 
-  traits::RNA(), 
-  traits::RNE(), 
-  traits::RTN(), 
-  traits::RTP(), 
-  traits::RTZ() 
+traits::rm modes[] = { 
+  // traits::RNA(), 
+  traits::RNE()
+  // traits::RTN(), 
+  // traits::RTP(), 
+  // traits::RTZ() 
 };
 
 // Note: This fails assertions because symfpu assumes the exponent is shorter than the

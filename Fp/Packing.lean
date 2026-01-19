@@ -68,11 +68,12 @@ theorem PackedFloat.pack_unpack (pf : PackedFloat 5 10) (hpf : pf.isNormOrSubnor
     pf.unpack.pack = pf := by
   bv_decide
 
-theorem PackedFloat.pack_unpack' (pf : PackedFloat 0 1) (hpf : pf.isNormOrSubnorm) :
+
+theorem PackedFloat.pack_unpack_e0m1 (pf : PackedFloat 0 1) (hpf : pf.isNormOrSubnorm) :
     pf.unpack.pack = pf := by
   bv_decide
 
-theorem PackedFloat.pack_unpack'' (pf : PackedFloat 1 0) (hpf : pf.isNormOrSubnorm) :
+theorem PackedFloat.pack_unpack_e1m0 (pf : PackedFloat 1 0) (hpf : pf.isNormOrSubnorm) :
     pf.unpack.pack = pf := by
   bv_decide
 

@@ -1003,8 +1003,10 @@ which can "steal" bits from the significand to be smaller than minNormalExp. -/
 def minSubnormalExp (e : Nat) (s : Nat) : Int :=
   (subnormalExp e) - (s : Int)
 
--- This is a simpler (but less tight) bound than `exponentWidth`.
--- It's logarithmically larger.
+/--
+This is a simpler (but less tight) bound than `exponentWidth`.
+It's logarithmically larger.
+-/
 @[bv_normalize, simp]
 def exponentWidth' (e s : Nat) : Nat :=
   e + s.ceilLog2
