@@ -2,6 +2,7 @@ import Fp.Basic
 import Fp.Rounding
 import Lean
 import Mathlib.Data.Real.Basic
+import Mathlib.Data.Real.Sqrt
 
 /-!
 We build the theory of SMT-LIB's definition of floating point semantics,
@@ -92,6 +93,22 @@ noncomputable def inv (a : ExtReal) : ExtReal :=
    | .Infinity sign =>
       if sign then .Finite 0 else .Finite 0
 
+
+noncomputable def div (a b : ExtReal) : ExtReal := a.mul b.inv
+
+
+/--
+Square root function for extended reals.
+Returns NaN for negative inputs and +∞ for +∞.
+-/
+noncomputable def sqrt (a : ExtReal) : ExtReal :=
+   match a with
+   | .NaN => .NaN
+   | .Finite r =>
+      if r < 0 then .NaN else .Finite (Real.sqrt r)
+   | .Infinity sign =>
+      if sign then .NaN else .Infinity false
+
 def lt (a b : ExtReal) : Prop := a ≤ b ∧ a ≠ b
 
 instance : LT ExtReal where
@@ -103,11 +120,14 @@ end ExtReal
 Typeclass for types that have a sign function, which mimics the sign bit
 in floating point representations.
 -/
-class IsFpKind (X : Type) where
+class IsFpKind (X : Type) [SupSet X] [InfSet X] where
    /-- return True if negative. Sign is meant to be thought of as '-1^(sign x)'. -/
    sign : X → Bool
 
 
+namespace IsFpKind
+
+variable {X : Type} [SupSet X] [InfSet X]
 
 /-- The lower approximant of 'v'. Returns the largest 'x : X' such that 'v x ≤ r'. -/
 def lower {X : Type} [SupSet X] (v : X → ExtReal) (r : ExtReal) : X :=
@@ -129,11 +149,6 @@ def tb {X : Type} [InfSet X] [SupSet X] (r : ExtReal) (v : X → ExtReal) : Prop
 /-- Upper half, return 'true' iff we are strictly in the upper half. -/
 def uh {X : Type} [InfSet X] [SupSet X] (r : ExtReal) (v : X → ExtReal) : Prop :=
    r - v (lower v r) > v (upper v r) - r
-
-/-- Trichotomy of lh, tb, uh -/
-theorem trichotomy_lh_tb_uh {X : Type} [InfSet X] [SupSet X] (r : ExtReal) (v : X → ExtReal) :
-  lh r v ∨ tb r v ∨ uh r v :=
-  by simp [lh, tb, uh]; sorry
 
 /-- Check if 'X' is even. -/
 def ev {X : Type} (x : X) (v : X → ExtReal) : Prop :=
@@ -164,9 +179,9 @@ noncomputable def roundSmtLib {X : Type} [SupSet X] [InfSet X]
             else upper v
          else
             -- not tie break, not lower, so we are in upper half.
-            have : uh r v := by
-               have := trichotomy_lh_tb_uh r v
-               grind
+            -- have : uh r v := by
+            --    have := trichotomy_lh_tb_uh r v
+            --    grind
             upper v
   | _ => sorry
 
@@ -190,3 +205,41 @@ noncomputable def fpBinaryOp {X : Type} [SupSet X] [InfSet X] [IsFpKind X]
       let z := f (v x) (v y)
       let sign : Bool := IsFpKind.sign x
       roundSmtLib rm sign z v <| z
+
+noncomputable def fpAdd {X : Type} [SupSet X] [InfSet X] [IsFpKind X]
+      (rm : RoundingMode)
+      (v : X → ExtReal) :
+      X → X → X :=
+   fpBinaryOp rm v ExtReal.add
+
+noncomputable def fpSub {X : Type} [SupSet X] [InfSet X] [IsFpKind X]
+      (rm : RoundingMode)
+      (v : X → ExtReal) :
+      X → X → X :=
+   fpBinaryOp rm v ExtReal.sub
+
+noncomputable def fpMul {X : Type} [SupSet X] [InfSet X] [IsFpKind X]
+      (rm : RoundingMode)
+      (v : X → ExtReal) :
+      X → X → X :=
+   fpBinaryOp rm v ExtReal.mul
+
+noncomputable def fpInv {X : Type} [SupSet X] [InfSet X] [IsFpKind X]
+      (rm : RoundingMode)
+      (v : X → ExtReal) :
+      X → X :=
+   fpUnaryOp rm v ExtReal.inv
+
+noncomputable def fpNeg {X : Type} [SupSet X] [InfSet X] [IsFpKind X]
+      (rm : RoundingMode)
+      (v : X → ExtReal) :
+      X → X :=
+   fpUnaryOp rm v ExtReal.neg
+
+noncomputable def fpDiv {X : Type} [SupSet X] [InfSet X] [IsFpKind X]
+      (rm : RoundingMode)
+      (v : X → ExtReal) :
+      X → X → X :=
+   fpBinaryOp rm v ExtReal.div
+
+end IsFpKind
