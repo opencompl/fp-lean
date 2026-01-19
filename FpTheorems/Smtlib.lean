@@ -17,10 +17,87 @@ open Lean
 
 
 /-- Extended real numbers, including +∞, -∞ and NaN -/
+@[grind]
 inductive ExtReal
 | Finite (r : Real) : ExtReal
 | Infinity (neg : Bool) : ExtReal
 | NaN : ExtReal
+
+namespace ExtReal
+
+@[match_pattern, simp]
+def plusInfty : ExtReal := .Infinity false
+
+@[match_pattern, simp]
+def minusInfty : ExtReal := .Infinity true
+
+def le (a b : ExtReal) : Prop :=
+  match a, b with
+  | .NaN, b => b = .NaN
+  | a, .NaN => a = .NaN
+  | .Infinity a, .Infinity b =>
+      -- either LHS is -∞ or RHS is +∞, or they are equal
+      (a = true) ∨ (a = b)
+   | .minusInfty, .Finite _ => true -- everything is >= -∞
+   | .plusInfty, .Finite _ => false -- +∞ is not <= anything finite
+   | .Finite _, .minusInfty => false -- finite is not <= -∞
+   | .Finite _, .plusInfty => true -- everything is <= +∞
+   | .Finite r1, .Finite r2 => r1 ≤ r2
+
+
+instance : LE ExtReal where
+   le := ExtReal.le
+
+def add (a b : ExtReal) : ExtReal :=
+   match a, b with
+   | .NaN, _ => .NaN
+   | _, .NaN => .NaN
+   | .Finite r1, .Finite r2 => .Finite (r1 + r2)
+   | .Infinity signA, .Infinity signB =>
+      if signA = signB then .Infinity signA else .NaN
+   | .Finite _, .Infinity signB => .Infinity signB
+   | .Infinity signA, .Finite _ => .Infinity signA
+
+def neg (a : ExtReal) : ExtReal :=
+   match a with
+   | .NaN => .NaN
+   | .Finite r => .Finite (-r)
+   | .Infinity sign => .Infinity (!sign)
+
+
+def sub (a b : ExtReal) : ExtReal := a.add b.neg
+
+noncomputable def mul (a b : ExtReal) : ExtReal :=
+   match a, b with
+   | .NaN, _ => .NaN
+   | _, .NaN => .NaN
+   | .Finite r1, .Finite r2 => .Finite (r1 * r2)
+   | .Infinity signA, .Infinity signB =>
+      .Infinity (signA != signB)
+   | .Finite r, .Infinity signB =>
+      if r = 0 then .NaN else .Infinity (if r < 0 then !signB else signB)
+   | .Infinity signA, .Finite r =>
+      if r = 0 then .NaN else .Infinity (if r < 0 then !signA else signA)
+
+instance : Sub ExtReal where
+   sub := ExtReal.sub
+
+noncomputable def inv (a : ExtReal) : ExtReal :=
+   match a with
+   | .NaN => .NaN
+   | .Finite r =>
+      -- Note carefully, that 1/0 = +∞ in SMT-LIB.
+      if r = 0 then .plusInfty
+      else .Finite (1 / r)
+   | .Infinity sign =>
+      if sign then .Finite 0 else .Finite 0
+
+def lt (a b : ExtReal) : Prop := a ≤ b ∧ a ≠ b
+
+instance : LT ExtReal where
+   lt := ExtReal.lt
+
+end ExtReal
 
 /--
 Typeclass for types that have a sign function, which mimics the sign bit
@@ -31,9 +108,6 @@ class IsFpKind (X : Type) where
    sign : X → Bool
 
 
-instance : LE ExtReal := sorry
-instance : Sub ExtReal := sorry
-instance : LT ExtReal := sorry
 
 /-- The lower approximant of 'v'. Returns the largest 'x : X' such that 'v x ≤ r'. -/
 def lower {X : Type} [SupSet X] (v : X → ExtReal) (r : ExtReal) : X :=
