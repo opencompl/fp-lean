@@ -788,6 +788,20 @@ def checkRoundCorrect (EUnpacked SUnpackedNoHidden : Nat) (EOut SOutNoHidden : N
         originalNormalized mode
     let outputRoundedPacked := outputRoundedEUnpacked.pack
 
+    -- check that I produce a result that packs properly.
+    if ! outputRoundedEUnpacked.pack.unpack.pack.equal_denotation outputRoundedEUnpacked.pack then
+      let err : String := ""
+      let err := err ++ s!"\nFailed packing roundtrip ❌ | original {repr originalEUnpacked}"
+      let err := err ++ s!"\n  original (packed) {repr originalPacked}"
+      let err := err ++ s!"\n  output rounded (eunpacked) {repr outputRoundedEUnpacked}"
+      let err := err ++ s!"\n  output rounded (eunpacked.Q) {repr outputRoundedEUnpacked.toExtRat}"
+      let err := err ++ s!"\n  output rounded (unpacked(packed(eunpacked))) {repr outputRoundedEUnpacked.pack.unpack}"
+      let err := err ++ s!"\n  output rounded (unpacked(packed(eunpacked)).Q) {repr outputRoundedEUnpacked.pack.unpack.toExtRat}"
+      IO.println err
+      outError := err
+      nfailed := nfailed + 1
+      continue
+
     let expectedPacked : PackedFloat EOut SOutNoHidden :=  
        originalPacked.toEFixed.round (exWidth := EOut) (sigWidth := SOutNoHidden) mode
     let expectedEUnpacked := expectedPacked.unpack
