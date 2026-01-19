@@ -96,7 +96,6 @@ noncomputable def inv (a : ExtReal) : ExtReal :=
 
 noncomputable def div (a b : ExtReal) : ExtReal := a.mul b.inv
 
-
 /--
 Square root function for extended reals.
 Returns NaN for negative inputs and +∞ for +∞.
@@ -167,14 +166,14 @@ noncomputable def roundSmtLib {X : Type} [SupSet X] [InfSet X]
       (rm : RoundingMode) (sign : Bool) (r : ExtReal) (v : X → ExtReal) : ExtReal → X :=
   match rm with
   | .RNE =>
-      if hz : r = .Finite 0 then rsz sign v
+      if _hz : r = .Finite 0 then rsz sign v
       else
-        if hlh : lh r v
+        if _hlh : lh r v
         then lower v
         else
-         if htb : tb r v
+         if _htb : tb r v
          then
-            if heven : ev (lower v r) v
+            if _heven : ev (lower v r) v
             then lower v
             else upper v
          else
@@ -183,7 +182,29 @@ noncomputable def roundSmtLib {X : Type} [SupSet X] [InfSet X]
             --    have := trichotomy_lh_tb_uh r v
             --    grind
             upper v
-  | _ => sorry
+  | .RNA =>
+      if _hnan : r = .NaN then lower v
+      else
+         if _hz : r = .Finite 0 then rsz sign v
+         else
+            if _rgt0 : r > .Finite 0
+            then
+              if _hlh : lh r v then lower v else upper v
+            else
+               -- r < 0 := by sorry
+              if _hlh : lh r v ∨ tb r v
+              then lower v
+              else upper v
+   | .RTP =>
+      if _h0 : r = .Finite 0 then rsz sign v
+      else upper v
+   | .RTN =>
+      if _h0 : r = .Finite 0 then rsz sign v
+      else lower v
+   | .RTZ =>
+      if _h0 : r = .Finite 0 then rsz sign v
+      else
+         if _rgt0 : r > .Finite 0 then lower v else upper v
 
 
 noncomputable def fpUnaryOp {X : Type} [SupSet X] [InfSet X] [IsFpKind X]
