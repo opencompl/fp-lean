@@ -767,6 +767,12 @@ deriving DecidableEq, Repr
 
 namespace ExtRat
 
+def number (e : ExtRat) : Rat :=
+  match e with
+  | .NaN => 0
+  | .Infinity _sign => 0
+  | .Number r => r
+
 def add (x y : ExtRat) : ExtRat :=
   match x, y with
   | .NaN, _ => .NaN
@@ -855,6 +861,10 @@ def lt (x y : ExtRat) : Bool :=
 
 instance : LT ExtRat where
   lt a b := lt a b
+
+instance {a b : ExtRat} : Decidable (a < b) := by
+  unfold LT.lt instLT
+  infer_instance
 
 instance : Min ExtRat where
   min a b := if a ≤ b then a else b
