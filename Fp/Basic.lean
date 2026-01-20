@@ -650,6 +650,19 @@ def toDyadic? (pf : PackedFloat e s) : Option Dyadic :=
 def toRat? (pf : PackedFloat e s) : Option Rat :=
   pf.toEFixed.toRat?
 
+/-- enumerate all packed floats. -/
+def enumerate (E S : Nat) : List (PackedFloat E S) := Id.run do
+  let mut out : List (PackedFloat E S) := []
+  for sign in [true, false] do
+    for e in [0: (2 ^ E) - 1] do
+      for sig in [0: (2 ^ S) - 1] do
+        let pf : PackedFloat E S := {
+          sign := sign
+          ex := BitVec.ofNat E e
+          sig := BitVec.ofNat S sig
+        }
+        out := pf :: out
+  out
 
 end PackedFloat
 
@@ -752,6 +765,105 @@ inductive ExtRat where
   | Number : Rat → ExtRat
 deriving DecidableEq, Repr
 
+namespace ExtRat
+
+def add (x y : ExtRat) : ExtRat :=
+  match x, y with
+  | .NaN, _ => .NaN
+  | _, .NaN => .NaN
+  | .Infinity s1, .Infinity s2 =>
+    if s1 == s2 then .Infinity s1 else .NaN
+  | .Infinity s, _ => .Infinity s
+  | _, .Infinity s => .Infinity s
+  | .Number r1, .Number r2 => .Number (r1 + r2)
+
+instance : Add ExtRat where
+  add a b := add a b
+
+def neg (x : ExtRat) : ExtRat :=
+  match x with
+  | .NaN => .NaN
+  | .Infinity s => .Infinity (!s)
+  | .Number r => .Number (-r)
+
+def sub (x y : ExtRat) : ExtRat :=
+  x.add (y.neg)
+
+instance : Neg ExtRat where
+  neg a := neg a
+
+instance : Sub ExtRat where
+  sub a b := sub a b
+
+def mul (x y : ExtRat) : ExtRat :=
+  match x, y with
+  | .NaN, _ => .NaN
+  | _, .NaN => .NaN
+  | .Infinity s1, .Infinity s2 => .Infinity (s1 == s2)
+  | .Infinity s, .Number r =>
+    if r == 0 then .NaN else .Infinity (s == (r < 0))
+  | .Number r, .Infinity s =>
+    if r == 0 then .NaN else .Infinity (s == (r < 0))
+  | .Number r1, .Number r2 => .Number (r1 * r2)
+
+instance : Mul ExtRat where
+  mul a b := mul a b
+
+def inv (x : ExtRat) : ExtRat :=
+  match x with
+  | .NaN => .NaN
+  | .Infinity _sign => .Number 0
+  | .Number r =>
+    if r == 0 then .Infinity (False) -- +∞
+    else .Number (1 / r)
+
+def div (x y : ExtRat) : ExtRat :=
+  x.mul (y.inv)
+
+def le (x y : ExtRat) : Bool :=
+  match x, y with
+  | .NaN, .NaN => true -- NaN ≤ NaN only.
+  | .NaN, _ => false
+  | _, .NaN => false
+  | .Infinity s1, .Infinity s2 =>
+      if s1 == s2 then true else s1 -- +∞ ≤ -∞ is false, -∞ ≤ +∞ is true
+  | .Infinity false, .Number _ => false -- +∞ ≤ anything else is false
+  | .Number _, .Infinity false => true  -- anything else ≤ +∞ is true
+  | .Infinity true, .Number _ => true   -- -∞ ≤ anything else is
+  | .Number _, .Infinity true => true  -- anything else ≤ -∞ is true
+  | .Number r1, .Number r2 => r1 <= r2
+
+instance : LE ExtRat where
+  le a b := le a b
+
+instance {a b : ExtRat} : Decidable (a ≤ b) := by
+  unfold LE.le instLE
+  infer_instance
+
+def eq (x y : ExtRat) : Bool :=
+  match x, y with
+  | .NaN, .NaN => true
+  | .NaN, _ => false
+  | _, .NaN => false
+  | .Infinity s1, .Infinity s2 => s1 == s2
+  | .Infinity _, _ => false
+  | _, .Infinity _ => false
+  | .Number r1, .Number r2 => r1 == r2
+
+def lt (x y : ExtRat) : Bool :=
+  x.le y && !(x.eq y)
+
+instance : LT ExtRat where
+  lt a b := lt a b
+
+instance : Min ExtRat where
+  min a b := if a ≤ b then a else b
+
+instance : Max ExtRat where
+  max a b := if a ≤ b then b else a
+
+end ExtRat
+
 def ExtDyadic.toExtRat (ed : ExtDyadic) : ExtRat :=
   match ed with
   | .NaN => .NaN
@@ -802,6 +914,15 @@ def toExtRat' (pf : PackedFloat e s) : ExtRat :=
 end PackedFloat
 
 namespace UnpackedFloat
+
+/-- Enumerate all UnpackedFloats of a given e and s. -/
+def enumerate (e s : Nat) : Array (UnpackedFloat e s) := Id.run do
+  let mut out := #[]
+  for b in #[true, false] do
+    for ex in [0:2^e] do
+      for sig in [0:2^s] do
+        out := out.push { sign := b, ex := ex, sig := sig }
+  return out
 
 @[bv_normalize]
 theorem ext_iff_beq {x y : UnpackedFloat e s}
