@@ -462,6 +462,14 @@ def isSubnorm (pf : PackedFloat e s) : Bool :=
 def isNorm (pf : PackedFloat e s) : Bool :=
   pf.ex != .allOnes e && pf.ex != .zero e
 
+/-- negate the sign bit of a packed float -/
+def neg (pf : PackedFloat e s) : PackedFloat e s :=
+  {
+    sign := !pf.sign
+    ex := pf.ex
+    sig := pf.sig
+  }
+
 -- Theorems about classification
 
 theorem classification_exhaustive {pf : PackedFloat e s} :
