@@ -201,33 +201,32 @@ def e3m4 : FP8Format where
   m := 4
   h8 := by omega
 
-def get_long_operation (args : List String) : Thunk (List OpResult) :=
-  match args with
-  | ["e5m2"] => test_all e5m2
-  | ["e3m4"] => test_all e3m4
-  | ["fma_e5m2"]  => test_ternop (test_fma e5m2) ()
-  | ["fma_e3m4"]  => test_ternop (test_fma e3m4) ()
-  | ["abs"] => test_unop_multi $ (test_abs e3m4)
-  | ["add"] => test_binop $ (test_add e3m4)
-  | ["div"] => test_binop $ (test_div e3m4)
-  | ["lt"] => test_binop $ (test_lt e3m4)
-  | ["max"] => test_binop $ (test_max e3m4)
-  | ["min"] => test_binop $ (test_min e3m4)
-  | ["mul"] => test_binop $ (test_mul e3m4)
-  | ["neg"] => test_unop_multi $ (test_neg e3m4)
-  | ["rem"] => test_binop $ (test_rem e3m4)
-  | ["sqrt"] => test_unop_multi $ (test_sqrt e3m4)
-  | ["sub"] => test_binop $ (test_sub e3m4)
-  | ["roundToInt"] => test_unop_multi $ (test_roundToInt e3m4)
+def get_long_operation (arg : String) : Thunk (List OpResult) :=
+  match arg with
+  | "e5m2" => test_all e5m2
+  | "e3m4" => test_all e3m4
+  | "fma_e5m2"  => test_ternop (test_fma e5m2) ()
+  | "fma_e3m4"  => test_ternop (test_fma e3m4) ()
+  | "abs" => test_unop_multi $ (test_abs e3m4)
+  | "add" => test_binop $ (test_add e3m4)
+  | "div" => test_binop $ (test_div e3m4)
+  | "lt" => test_binop $ (test_lt e3m4)
+  | "max" => test_binop $ (test_max e3m4)
+  | "min" => test_binop $ (test_min e3m4)
+  | "mul" => test_binop $ (test_mul e3m4)
+  | "neg" => test_unop_multi $ (test_neg e3m4)
+  | "rem" => test_binop $ (test_rem e3m4)
+  | "sqrt" => test_unop_multi $ (test_sqrt e3m4)
+  | "sub" => test_binop $ (test_sub e3m4)
+  | "roundToInt" => test_unop_multi $ (test_roundToInt e3m4)
   | _ => Thunk.pure []
 
 def main (args : List String) : IO Unit := do
-  if args != [] then do
-    for res in Thunk.get (get_long_operation args) do
+  for arg in args do
+    for res in Thunk.get (get_long_operation arg) do
       IO.println (repr res)
-  else do
-      IO.println "Please run with command line arg e5m2 or e3m4"
-
+  if args = [] then
+    IO.println "Please provide an argument specifying the operation set to test."
 
 /-- info: { sign := -, ex := 0x04#5, sig := 0x1#2 } -/
 #guard_msgs in #eval add (PackedFloat.ofBits 5 2 0b00000011#8) (PackedFloat.ofBits 5 2 0b10010001#8) .RNE

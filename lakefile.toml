@@ -1,6 +1,6 @@
 name = "fp-lean"
 version = "0.1.0"
-defaultTargets = ["Fp", "fp-lean", "FpTheorems"]
+defaultTargets = ["Fp", "fp-lean-test-suite", "FpTheorems"]
 moreLeanArgs = ["--tstack=4096"]
 moreGlobalServerArgs = ["--tstack=4096"]
 
