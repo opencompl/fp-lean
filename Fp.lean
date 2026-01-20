@@ -10,3 +10,4 @@ import Fp.Rounding
 import Fp.Sqrt
 import Fp.Subtraction
 import Fp.Proofs
+import Fp.SmtLibQSemantics
