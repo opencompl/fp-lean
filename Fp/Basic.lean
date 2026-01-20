@@ -650,6 +650,14 @@ def toDyadic? (pf : PackedFloat e s) : Option Dyadic :=
 def toRat? (pf : PackedFloat e s) : Option Rat :=
   pf.toEFixed.toRat?
 
+def toERat (pf : PackedFloat e s) : ExtRat :=
+  match pf.toRat? with
+  | none =>
+    if pf.isNaN then ExtRat.NaN
+    else if pf.isInfinite then ExtRat.Infinity pf.sign
+    else unreachable!
+  | some r => ExtRat.Number r
+
 
 end PackedFloat
 
@@ -875,7 +883,7 @@ end PackedFloat
 namespace UnpackedFloat
 
 /-- Enumerate all UnpackedFloats of a given e and s. -/
-def universe (e s : Nat) : Array (UnpackedFloat e s) := Id.run do
+def enumerate (e s : Nat) : Array (UnpackedFloat e s) := Id.run do
   let mut out := #[]
   for b in #[true, false] do
     for ex in [0:2^e] do
@@ -941,8 +949,28 @@ def toDyadic (uf : UnpackedFloat e s) : Dyadic :=
   let sig := bif uf.sign then -sig else sig
   .ofIntWithPrec sig.toInt ((s - 1 : Nat) - uf.ex.toInt)
 
+def toEDyadic (uf : UnpackedFloat e s) : ExtDyadic :=
+  if uf.isZero then
+    .Number 0
+  else if uf.isInfinity then
+    .Infinity uf.sign
+  else if uf.isNaN then
+    .NaN
+  else
+    .Number uf.toDyadic
+
 def toRat (uf : UnpackedFloat e s) : Rat :=
   uf.toDyadic.toRat
+
+def toERat (uf : UnpackedFloat e s) : ExtRat :=
+  if uf.isZero then
+    .Number 0
+  else if uf.isInfinity then
+    .Infinity uf.sign
+  else if uf.isNaN then
+    .NaN
+  else
+    .Number uf.toRat
 
 end UnpackedFloat
 

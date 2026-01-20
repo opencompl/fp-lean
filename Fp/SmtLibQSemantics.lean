@@ -13,27 +13,27 @@ as close to the SMT-LIB definitions as possible.
 
 
 /-- The lower approximant of 'v'. Returns the largest 'x : X' such that 'v x ≤ r'. -/
-def lower (r : ExtRat) : UnpackedFloat e s :=
-  let us : Array UnpackedFloat e s := UnpackedFloat.enumerate
-  let ers := us.map (fun u => u.toExtRat)
+def lower (r : ExtRat) : PackedFloat e s :=
+  let us : Array (PackedFloat e s) := PackedFloat.enumerate e s
+  let ers := us.map (fun u => u.toERat)
   let filtered := ers.filter (fun x => x ≤ er)
   let sorted := filtered.qsort (fun a b => a < b)
   match sorted.back? with
-  | some x => UnpackedFloat.fromExtRat x
-  | none => UnpackedFloat.mkInf true -- lower bound is -∞
+  | some x => PackedFloat.fromExtRat x
+  | none => PackedFloat.mkInf true -- lower bound is -∞
   
 
 /-- The upper approximant of 'v'.
 Returns the smallest 'x : X' such that 'r ≤ v x'. -/
-def upper (r : ExtRat) : UnpackedFloat e s :=
+def upper (r : ExtRat) : PackedFloat e s :=
   let er := ExtRat.Number r
-  let us : Array UnpackedFloat e s := UnpackedFloat.enumerate
+  let us : Array (PackedFloat e s) := PackedFloat.enumerate e s
   let ers := us.map (fun u => u.toExtRat)
   let filtered := ers.filter (fun x => x ≤ er)
   let sorted := filtered.qsort (fun a b => a < b)
   match sorted.back? with
-  | some x => UnpackedFloat.fromExtRat x
-  | none => UnpackedFloat.mkInf true -- lower bound is -∞
+  | some x => PackedFloat.fromExtRat x
+  | none => PackedFloat.mkInf true -- lower bound is -∞
 
 /-- Lower half, return 'true' iff we are strictly in the lower half. -/
 def lh (r : ExtRat)  : Prop :=
@@ -48,7 +48,7 @@ def uh (r : ExtRat) : Prop :=
    r - (lower r).toERat > (upper r).toERat - r
 
 /-- Check if 'X' is even. -/
-def ev (x : UnpackedFloat e s) : Prop :=
+def ev (x : PackedFloat e s) : Prop :=
   ∃ (z : Int), x.toERat = .Number (2 * z)
 
 /-- Round signed zero. Picks between the lower and upper approximant,
@@ -61,7 +61,7 @@ def rsz {X : Type} (sign : Bool) (r : ExtRat) : X :=
 
 open Classical in
 noncomputable def roundSmtLib 
-      (rm : RoundingMode) (sign : Bool) (r : ExtRat) : ExtRat → UnpackedFloat e m :=
+      (rm : RoundingMode) (sign : Bool) (r : ExtRat) : ExtRat → PackedFloat e m :=
   match rm with
   | .RNE =>
       if _hz : r = .Number 0 then rsz sign
