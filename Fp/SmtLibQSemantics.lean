@@ -1,5 +1,6 @@
 import Fp.Basic
 import Fp.Rounding
+import Fp.UnpackedRound
 import Lean
 open Lean
 
@@ -120,7 +121,44 @@ def roundSmtLib (e s : Nat)
          if _rgt0 : r > .Number 0 then lower e s else upper e s
 
 
+namespace ExhaustiveEnumeration
 
+def EUnpackedFloat.round {E S : Nat} (e s : Nat)
+  (rm : RoundingMode) (euf : EUnpackedFloat E S)  : EUnpackedFloat (exponentWidth e s) (s + 1) :=
+  if euf.isNaN then
+    EUnpackedFloat.mkNaN 
+  else if euf.isInfinite then
+    EUnpackedFloat.mkInfinity euf.sign
+  else
+    let uf : UnpackedFloat E S := euf.num
+    let roundedPf : PackedFloat e s := uf.round rm |>.pack
+    roundedPf.unpack
+
+/-- test that 'lower' agrees with reference implementation -/
+def runRoundAgreesWithUnpackedFloatRound (E S : Nat) (e s : Nat) (rm : RoundingMode) : IO Bool := do
+  let pfs : List (PackedFloat E S) := PackedFloat.enumerate E S
+  let mut nsuccess : Nat := 0
+  let mut nfailure : Nat := 0
+  for pf in pfs do
+    let r : ExtRat := pf.toExtRat
+    let sign := pf.sign
+    let ref := QSemanticsRef.roundSmtLib e s rm sign r r
+    let ufRounded := pf.unpack |> EUnpackedFloat.round e s rm
+    let ufRoundedPacked := ufRounded.pack
+    let res := ref = ufRoundedPacked
+    if !res then
+      nfailure := nfailure + 1
+      IO.println s!"Discrepancy found for {repr pf} (ExtRat: {repr r}), RoundingMode: {repr rm}, sign: {sign}"
+      IO.println s!"  Ref result:       {repr ref}  | ExtRat: {repr ref.toExtRat} | UnpackedFloat : {repr ref.unpack}"
+      IO.println s!"  UnpackedFloat result: {repr ufRoundedPacked} | ExtRat: {repr ufRoundedPacked.toExtRat} | UnpackedFloat : {repr ufRounded}"
+    else
+      nsuccess := nsuccess + 1
+  let percentSuccess : Float :=
+    if nsuccess + nfailure == 0 then 100.0
+    else (nsuccess.toFloat / (nsuccess + nfailure).toFloat) * 100.0
+  IO.println s!"Total tests run: {nsuccess + nfailure}, Successes: {nsuccess}, Failures: {nfailure} ({percentSuccess}% success rate)"
+  return nfailure == 0
+end ExhaustiveEnumeration
 
 end QSemanticsRef
 
@@ -144,11 +182,16 @@ def lower (e s : Nat) (r : ExtRat) : PackedFloat e s :=
   | .Infinity false => .getInfinity e s false
   | .Infinity true => .getInfinity e s true
   | .Number r =>
+     -- | lower approximant.
       if r < min.toExtRat.number then negInf
       else if r ≥ max.toExtRat.number then max
       else
-         let dyadic : Dyadic := r.toDyadic (minSubnormalExp e s + 2)
-         let roundDown : Dyadic := dyadic.roundDown ((minSubnormalExp e s))
+         let num := r.num
+         let den := r.den
+         let twoPow := Nat.log2 den
+         let numPow := num.natAbs.nextPowerOfTwo
+         let dyadic : Dyadic := r.toDyadic e
+         let roundDown : Dyadic := dyadic.roundDown (e + s + 1)
          let unpacked : UnpackedFloat (exponentWidth e s) (s + 1) :=  {
             sign := dyadic.numerator < 0,
             ex := - (roundDown.precision.getD 0),
@@ -157,6 +200,38 @@ def lower (e s : Nat) (r : ExtRat) : PackedFloat e s :=
          let eunpacked : EUnpackedFloat (exponentWidth e s) (s + 1) :=
             unpacked.toEUnpackedFloat
          eunpacked.pack
+
+def lowerIO (e s : Nat) (r : ExtRat) : IO (PackedFloat e s) := do
+  let _posInf := PackedFloat.getInfinity e s false
+  let negInf := PackedFloat.getInfinity e s true
+  let max := PackedFloat.getMax e s false
+  let min := PackedFloat.getMax e s true
+  match r with
+  | .NaN => return PackedFloat.getNaN e s
+  | .Infinity false => return .getInfinity e s false
+  | .Infinity true => return .getInfinity e s true
+  | .Number r =>
+     -- | lower approximant.
+      if r < min.toExtRat.number then return negInf
+      else if r ≥ max.toExtRat.number then return max
+      else
+         let num := r.num
+         let den := r.den
+         IO.println s!"  lower({r}): num = {num}, den = {den}"
+         let denExp := Nat.log2 den -- we assume that denominator is always power of 2.
+         IO.println s!"  lower({r}): denExp:{denExp} 2^denExp:{2 ^ denExp} den:{den}"
+         let numeratorBits := num.natAbs.nextPowerOfTwo
+         IO.println s!"  lower({r}): numeratorBits: {numeratorBits} | num:{num.natAbs}"
+         let dyadic : Dyadic := r.toDyadic e
+         let roundDown : Dyadic := dyadic.roundDown (e + s + 1)
+         let unpacked : UnpackedFloat (exponentWidth e s) (s + 1) :=  {
+            sign := dyadic.numerator < 0,
+            ex := - (roundDown.precision.getD 0),
+            sig := dyadic.numerator
+         }
+         let eunpacked : EUnpackedFloat (exponentWidth e s) (s + 1) :=
+            unpacked.toEUnpackedFloat
+         return eunpacked.pack
 
 
 /-- The upper approximant of 'v'.
@@ -238,8 +313,52 @@ def roundSmtLib (e s : Nat)
 
 namespace ExhaustiveEnumeration
 
+def lowerAgreesWithRefTest (E S : Nat) : IO Bool := do
+  let pfs : List (PackedFloat E S) := PackedFloat.enumerate E S
+  let mut nsuccess : Nat := 0
+  let mut nfailure : Nat := 0
+  for pf in pfs do
+    let r : ExtRat := pf.toExtRat
+    let fast ← QSemanticsFast.lowerIO E S r
+    let ref := QSemanticsRef.lower E S r
+    let res := fast = ref
+    if !res then
+      nfailure := nfailure + 1
+      IO.println s!"Discrepancy found for {repr pf} (ExtRat: {repr r}) in lower approximant"
+      IO.println s!"  Ref result:  {repr ref}  | ExtRat: {repr ref.toExtRat} | UnpackedFloat : {repr ref.unpack}"
+      IO.println s!"  Fast result: {repr fast} | ExtRat: {repr fast.toExtRat} | UnpackedFloat : {repr fast.unpack}"
+    else
+      nsuccess := nsuccess + 1
+  let percentSuccess : Float :=
+    if nsuccess + nfailure == 0 then 100.0
+    else (nsuccess.toFloat / (nsuccess + nfailure).toFloat) * 100.0
+  IO.println s!"Total tests run: {nsuccess + nfailure}, Successes: {nsuccess}, Failures: {nfailure} ({percentSuccess}% success rate)"
+  return nfailure == 0
+
+def upperAgreesWithRefTest (E S : Nat) : IO Bool := do
+  let pfs : List (PackedFloat E S) := PackedFloat.enumerate E S
+  let mut nsuccess : Nat := 0
+  let mut nfailure : Nat := 0
+  for pf in pfs do
+    let r : ExtRat := pf.toExtRat
+    let fast := QSemanticsFast.upper E S r
+    let ref := QSemanticsRef.upper E S r
+    let res := fast = ref
+    if !res then
+      nfailure := nfailure + 1
+      IO.println s!"Discrepancy found for {repr pf} (ExtRat: {repr r}) in upper approximant"
+      IO.println s!"  Ref result:  {repr ref}  | ExtRat: {repr ref.toExtRat} | UnpackedFloat : {repr ref.unpack}"
+      IO.println s!"  Fast result: {repr fast} | ExtRat: {repr fast.toExtRat} | UnpackedFloat : {repr fast.unpack}"
+    else
+      nsuccess := nsuccess + 1
+  let percentSuccess : Float :=
+    if nsuccess + nfailure == 0 then 100.0
+    else (nsuccess.toFloat / (nsuccess + nfailure).toFloat) * 100.0
+  IO.println s!"Total tests run: {nsuccess + nfailure}, Successes: {nsuccess}, Failures: {nfailure} ({percentSuccess}% success rate)"
+  return nfailure == 0
+
 def runFastIdempotent (E S : Nat) (rm : RoundingMode) : IO Bool := do
-  let pfs : List (PackedFloat E S) := PackedFloat.enumerate E S 
+  let pfs : List (PackedFloat E S) := PackedFloat.enumerate E S
   let mut nsuccess : Nat := 0
   let mut nfailure : Nat := 0
   for pf in pfs do
@@ -250,7 +369,7 @@ def runFastIdempotent (E S : Nat) (rm : RoundingMode) : IO Bool := do
     if !res then
       nfailure := nfailure + 1
       IO.println s!"Idempotency failure for {repr r} RoundingMode: {repr rm}, sign: {sign}"
-      IO.println s!"  original (PF) {repr pf} | rounded(PF) {repr fast}" 
+      IO.println s!"  original (PF) {repr pf} | rounded(PF) {repr fast}"
       IO.println s!"  original (Q)  {repr r} | rounded(Q) {repr fast.toExtRat}"
       IO.println s!"  original (UF) {repr pf.unpack} | rounded(UF) {repr fast.unpack}"
     else
@@ -262,7 +381,7 @@ def runFastIdempotent (E S : Nat) (rm : RoundingMode) : IO Bool := do
   return nfailure == 0
 
 def runSlowIdempotent (E S : Nat) (rm : RoundingMode) : IO Bool := do
-  let pfs : List (PackedFloat E S) := PackedFloat.enumerate E S 
+  let pfs : List (PackedFloat E S) := PackedFloat.enumerate E S
   let mut nsuccess : Nat := 0
   let mut nfailure : Nat := 0
   for pf in pfs do
@@ -273,7 +392,7 @@ def runSlowIdempotent (E S : Nat) (rm : RoundingMode) : IO Bool := do
     if !res then
       nfailure := nfailure + 1
       IO.println s!"Idempotency failure for {repr r} RoundingMode: {repr rm}, sign: {sign}"
-      IO.println s!"  original (PF) {repr pf} | rounded(PF) {repr ref}" 
+      IO.println s!"  original (PF) {repr pf} | rounded(PF) {repr ref}"
       IO.println s!"  original (Q)  {repr r} | rounded(Q) {repr ref.toExtRat}"
       IO.println s!"  original (UF) {repr pf.unpack} | rounded(UF) {repr ref.unpack}"
     else
@@ -286,7 +405,7 @@ def runSlowIdempotent (E S : Nat) (rm : RoundingMode) : IO Bool := do
 
 -- return true on success
 def runFastAgreesWithRefTest (E S : Nat) (e s : Nat) (rm : RoundingMode) : IO Bool := do
-  let pfs : List (PackedFloat E S) := PackedFloat.enumerate E S 
+  let pfs : List (PackedFloat E S) := PackedFloat.enumerate E S
   let mut nsuccess : Nat := 0
   let mut nfailure : Nat := 0
   for pf in pfs do
