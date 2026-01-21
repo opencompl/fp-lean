@@ -1,6 +1,7 @@
 name = "fp-lean"
 version = "0.1.0"
-defaultTargets = ["Fp", "fp-lean-test-suite", "FpTheorems"]
+defaultTargets = ["Fp", "fp-lean-test-suite", "FpTheorems", "FpUnitTests"]
+testDriver = "FpUnitTests"
 moreLeanArgs = ["--tstack=4096"]
 moreGlobalServerArgs = ["--tstack=4096"]
 
@@ -18,3 +19,7 @@ rev = "nightly-testing-2026-01-14"
 [[lean_exe]]
 name = "fp-lean-test-suite"
 root = "Test"
+
+[[lean_exe]]
+name = "FpUnitTests"
+root = "FpUnitTests"

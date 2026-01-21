@@ -120,6 +120,7 @@ def roundSmtLib (e s : Nat)
          if _rgt0 : r > .Number 0 then lower e s else upper e s
 
 
+
 end QSemanticsRef
 
 
@@ -232,5 +233,36 @@ def roundSmtLib (e s : Nat)
       if _h0 : r = .Number 0 then rsz e s sign
       else
          if _rgt0 : r > .Number 0 then lower e s else upper e s
+
+
+namespace ExhaustiveEnumeration
+
+
+-- return true on success
+def runFastAgreesWithRefTest (E S : Nat) (e s : Nat) (rm : RoundingMode) : IO Bool := do
+  let pfs : List (PackedFloat E S) := PackedFloat.enumerate E S 
+  let mut nsuccess : Nat := 0
+  let mut nfailure : Nat := 0
+  for pf in pfs do
+    let r : ExtRat := pf.toExtRat
+    let sign := pf.sign
+    let fast := QSemanticsFast.roundSmtLib e s rm sign r r
+    let ref := QSemanticsRef.roundSmtLib e s rm sign r r
+    let res := fast = ref
+    if !res then
+      nfailure := nfailure + 1
+      IO.println s!"Discrepancy found for {repr pf} (ExtRat: {repr r}), RoundingMode: {repr rm}, sign: {sign}"
+      IO.println s!"  Ref result:  {repr ref}  | ExtRat: {repr ref.toExtRat} | UnpackedFloat : {repr ref.unpack}"
+      IO.println s!"  Fast result: {repr fast} | ExtRat: {repr fast.toExtRat} | UnpackedFloat : {repr fast.unpack}"
+    else
+      nsuccess := nsuccess + 1
+  let percentSuccess : Float :=
+    if nsuccess + nfailure == 0 then 100.0
+    else (nsuccess.toFloat / (nsuccess + nfailure).toFloat) * 100.0
+  IO.println s!"Total tests run: {nsuccess + nfailure}, Successes: {nsuccess}, Failures: {nfailure} ({percentSuccess}% success rate)"
+  return nfailure == 0
+
+
+end ExhaustiveEnumeration
 
 end QSemanticsFast
