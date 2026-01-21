@@ -4,9 +4,14 @@ import Fp.SmtLibQSemantics
 
 def main : IO UInt32 := do
     let mut success := true
-    -- | test where we reduce mantissa
-    let out ← QSemanticsFast.ExhaustiveEnumeration.runFastAgreesWithRefTest 3 5 3 3 RoundingMode.RNE
+    let out ← QSemanticsFast.ExhaustiveEnumeration.runSlowIdempotent 3 5 RoundingMode.RNE
     success := success && out
+    -- | test when we give same sizes
+    -- let out ← QSemanticsFast.ExhaustiveEnumeration.runFastIdempotent 3 5 RoundingMode.RNE
+    -- success := success && out
+    -- | test where we reduce mantissa
+    -- let out ← QSemanticsFast.ExhaustiveEnumeration.runFastAgreesWithRefTest 3 5 3 3 RoundingMode.RNE
+    -- success := success && out
     -- -- | test where we reduce exponent
     -- let out ← QSemanticsFast.ExhaustiveEnumeration.runFastAgreesWithRefTest 4 5 3 5 RoundingMode.RNE
     -- success := success && out

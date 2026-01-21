@@ -31,7 +31,7 @@ as close to the SMT-LIB definitions as possible.
 def lower (e s : Nat) (r : ExtRat) : PackedFloat e s :=
   let us : List (PackedFloat e s) := PackedFloat.enumerate e s
   let filtered := us.filter (fun x => decide (x.toExtRat ≤ r))
-  let min := filtered.minOn
+  let min := filtered.maxOn
    (fun x => x.toExtRat)
    (fun a b => a ≤ b) (.getInfinity e s true)
   min
@@ -41,7 +41,7 @@ Returns the smallest 'x : X' such that 'r ≤ v x'. -/
 def upper (e s : Nat) (r : ExtRat) : PackedFloat e s :=
    let us : List (PackedFloat e s) := PackedFloat.enumerate e s
    let filtered := us.filter (fun x => decide (r ≤ x.toExtRat))
-   let max := filtered.maxOn
+   let max := filtered.minOn
     (fun x => x.toExtRat)
     (fun a b => a ≤ b) (.getInfinity e s false)
    max
@@ -118,6 +118,7 @@ def roundSmtLib (e s : Nat)
       if _h0 : r = .Number 0 then rsz e s sign
       else
          if _rgt0 : r > .Number 0 then lower e s else upper e s
+
 
 
 
@@ -237,6 +238,51 @@ def roundSmtLib (e s : Nat)
 
 namespace ExhaustiveEnumeration
 
+def runFastIdempotent (E S : Nat) (rm : RoundingMode) : IO Bool := do
+  let pfs : List (PackedFloat E S) := PackedFloat.enumerate E S 
+  let mut nsuccess : Nat := 0
+  let mut nfailure : Nat := 0
+  for pf in pfs do
+    let r : ExtRat := pf.toExtRat
+    let sign := pf.sign
+    let fast := QSemanticsFast.roundSmtLib E S rm sign r r
+    let res := fast.toExtRat = r
+    if !res then
+      nfailure := nfailure + 1
+      IO.println s!"Idempotency failure for {repr r} RoundingMode: {repr rm}, sign: {sign}"
+      IO.println s!"  original (PF) {repr pf} | rounded(PF) {repr fast}" 
+      IO.println s!"  original (Q)  {repr r} | rounded(Q) {repr fast.toExtRat}"
+      IO.println s!"  original (UF) {repr pf.unpack} | rounded(UF) {repr fast.unpack}"
+    else
+      nsuccess := nsuccess + 1
+  let percentSuccess : Float :=
+    if nsuccess + nfailure == 0 then 100.0
+    else (nsuccess.toFloat / (nsuccess + nfailure).toFloat) * 100.0
+  IO.println s!"Total tests run: {nsuccess + nfailure}, Successes: {nsuccess}, Failures: {nfailure} ({percentSuccess}% success rate)"
+  return nfailure == 0
+
+def runSlowIdempotent (E S : Nat) (rm : RoundingMode) : IO Bool := do
+  let pfs : List (PackedFloat E S) := PackedFloat.enumerate E S 
+  let mut nsuccess : Nat := 0
+  let mut nfailure : Nat := 0
+  for pf in pfs do
+    let r : ExtRat := pf.toExtRat
+    let sign := pf.sign
+    let ref := QSemanticsRef.roundSmtLib E S rm sign r r
+    let res := ref.toExtRat = r
+    if !res then
+      nfailure := nfailure + 1
+      IO.println s!"Idempotency failure for {repr r} RoundingMode: {repr rm}, sign: {sign}"
+      IO.println s!"  original (PF) {repr pf} | rounded(PF) {repr ref}" 
+      IO.println s!"  original (Q)  {repr r} | rounded(Q) {repr ref.toExtRat}"
+      IO.println s!"  original (UF) {repr pf.unpack} | rounded(UF) {repr ref.unpack}"
+    else
+      nsuccess := nsuccess + 1
+  let percentSuccess : Float :=
+    if nsuccess + nfailure == 0 then 100.0
+    else (nsuccess.toFloat / (nsuccess + nfailure).toFloat) * 100.0
+  IO.println s!"Total tests run: {nsuccess + nfailure}, Successes: {nsuccess}, Failures: {nfailure} ({percentSuccess}% success rate)"
+  return nfailure == 0
 
 -- return true on success
 def runFastAgreesWithRefTest (E S : Nat) (e s : Nat) (rm : RoundingMode) : IO Bool := do
