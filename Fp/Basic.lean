@@ -963,7 +963,7 @@ def isZero (uf : UnpackedFloat e s) : Bool :=
 
 @[bv_normalize]
 def normalize (uf : UnpackedFloat e s) : UnpackedFloat e s :=
-  bif uf.sig.clz == s then
+  bif uf.sig == 0 then
     -- zero case: make it explicit!
     mkZero uf.sign
   else
