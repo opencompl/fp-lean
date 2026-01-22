@@ -1,6 +1,6 @@
 import Fp.Proofs.Basic
 import Init.Data.Dyadic
-import Fp.Addition
+import Fp.FMA
 import Fp.ForLean.Dyadic
 import Fp.ForLean.Rat
 

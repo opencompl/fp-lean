@@ -33,7 +33,7 @@ def test_add (f : FP8Format) (m : RoundingMode) (a b : BitVec 8) : OpResult :=
   {
     oper := "add"
     mode := m
-    result := [a, b, f.h.mp (add a' b' m).toBits].map toDigits
+    result := [a, b, f.h.mp (PackedFloat.add m a' b').toBits].map toDigits
   }
 
 def test_sub (f : FP8Format) (m : RoundingMode) (a b : BitVec 8) : OpResult :=
@@ -42,7 +42,7 @@ def test_sub (f : FP8Format) (m : RoundingMode) (a b : BitVec 8) : OpResult :=
   {
     oper := "sub"
     mode := m
-    result := [a, b, f.h.mp (sub a' b' m).toBits].map toDigits
+    result := [a, b, f.h.mp (PackedFloat.sub m a' b').toBits].map toDigits
   }
 
 def test_div (f : FP8Format) (m : RoundingMode) (a b : BitVec 8) : OpResult :=
@@ -95,7 +95,7 @@ def test_neg (f : FP8Format) (m : RoundingMode) (a : BitVec 8) : OpResult :=
   {
     oper := "neg"
     mode := m
-    result := [a, 0#8, f.h.mp (PackedFloat.toBits (neg a'))].map toDigits
+    result := [a, 0#8, f.h.mp (PackedFloat.toBits a'.neg)].map toDigits
   }
 
 def test_abs (f : FP8Format) (m : RoundingMode) (a : BitVec 8) : OpResult :=
@@ -103,7 +103,7 @@ def test_abs (f : FP8Format) (m : RoundingMode) (a : BitVec 8) : OpResult :=
   {
     oper := "abs"
     mode := m
-    result := [a, 0#8, f.h.mp (PackedFloat.toBits (abs a'))].map toDigits
+    result := [a, 0#8, f.h.mp (PackedFloat.toBits a'.abs)].map toDigits
   }
 
 def test_roundToInt (f : FP8Format) (m : RoundingMode) (a : BitVec 8) : OpResult :=
@@ -230,7 +230,7 @@ def main (args : List String) : IO Unit := do
 
 
 /-- info: { sign := -, ex := 0x04#5, sig := 0x1#2 } -/
-#guard_msgs in #eval add (PackedFloat.ofBits 5 2 0b00000011#8) (PackedFloat.ofBits 5 2 0b10010001#8) .RNE
+#guard_msgs in #eval PackedFloat.add .RNE (PackedFloat.ofBits 5 2 0b00000011#8) (PackedFloat.ofBits 5 2 0b10010001#8)
 /-- info: { sign := +, ex := 0x01#5, sig := 0x2#2 } -/
 #guard_msgs in #eval EFixedPoint.round 5 2 .RNE (PackedFloat.toEFixed {sign := false, ex := 1#5, sig := 2#2})
 /-- info: { sign := +, ex := 0x1f#5, sig := 0x2#2 } -/
