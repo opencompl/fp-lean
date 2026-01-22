@@ -36,14 +36,14 @@ def EUnpackedFloat.pack (uf : EUnpackedFloat (exponentWidth e s) (s + 1))
     ex := bif uf.isNaN || uf.isInfinite then
             BitVec.allOnes e
           else if uf.isZero || !inNormalRange then
-            (0#_)
+            0#e
           else -- bif uf.isNorm then
             -- Truncate msbs used to normalize subnormals
             (uf.exp + BitVec.ofNat _ (bias e)).truncate _
     sig := bif uf.isNaN then
-            BitVec.ofNat _ (2 ^ (s - 1))
+            1#s <<< (s - 1)
            else bif uf.isInfinite || uf.isZero then
-            (0#_)
+            0#s
            else bif inNormalRange then
             uf.sig.truncate s -- drop the leading 1 bit
            else -- bif uf.isSubnorm then
@@ -51,7 +51,6 @@ def EUnpackedFloat.pack (uf : EUnpackedFloat (exponentWidth e s) (s + 1))
             let shift := BitVec.ofInt _ (minNormalExp e) - uf.exp
             -- shift, and then truncate to significand width.
             (uf.sig >>> shift).truncate s
-
   }
 
 attribute [bv_normalize] BitVec.zero

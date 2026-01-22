@@ -879,6 +879,9 @@ def bias (e : Nat) : Nat :=
 
 namespace PackedFloat
 
+def mkNaN (sign := false) (sig := 1#s <<< (s - 1)) : PackedFloat e s :=
+  { sign, ex := BitVec.allOnes e, sig }
+
 def toExtDyadic (pf : PackedFloat e s) : ExtDyadic :=
   bif pf.isNaN then
     .NaN
@@ -962,10 +965,10 @@ def isZero (uf : UnpackedFloat e s) : Bool :=
   uf.ex == 0 && uf.sig == 0
 
 @[bv_normalize]
-def normalize (uf : UnpackedFloat e s) : UnpackedFloat e s :=
-  bif uf.sig.clz == s then
+def normalize (uf : UnpackedFloat e s) (sign := uf.sign) : UnpackedFloat e s :=
+  bif uf.sig == 0#s then
     -- zero case: make it explicit!
-    mkZero uf.sign
+    mkZero sign
   else
     {
       sign := uf.sign
