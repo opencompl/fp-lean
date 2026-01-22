@@ -9,11 +9,11 @@ def UnpackedFloat.abs (x : UnpackedFloat e s) : UnpackedFloat e s :=
 
 def EUnpackedFloat.neg (x : EUnpackedFloat (exponentWidth e s) (s + 1))
   : EUnpackedFloat (exponentWidth e s) (s + 1) :=
-  .mkNumber x.num.neg
+  { x with num := x.num.neg }
 
 def EUnpackedFloat.abs (x : EUnpackedFloat (exponentWidth e s) (s + 1))
   : EUnpackedFloat (exponentWidth e s) (s + 1) :=
-  .mkNumber x.num.abs
+  { x with num := x.num.abs }
 
 namespace PackedFloat
 

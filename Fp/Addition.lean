@@ -21,24 +21,20 @@ def UnpackedFloat.add (sign : Bool) (x y : UnpackedFloat e s) : UnpackedFloat (e
   let sigSum : BitVec (s + 3) := xSig + ySig.sshiftRight' shiftAmount
   -- Sticky bit depends on bits we lose when we right shift `ySig` and `sigSum` (in case of an overflow).
   let sticky := ySig &&& shiftAmount.orderEncode != 0 || sigSum.msb && sigSum.getLsb 0
-  let sumResult :=
+  let sum : UnpackedFloat (e + 1) (s + 2) :=
     {
       -- Sign of sum is sign of the bigger number!
       sign := x.sign
       -- Exponent of sum is exponent of bigger number (`+1` if there is an overflow).
       ex := x.ex.signExtend (e + 1) + (BitVec.ofBool sigSum.msb).setWidth' (by omega)
       -- Renormalize `sigSum` if there is an overflow.
-      sig := (sigSum >>> BitVec.ofBool sigSum.msb ||| (BitVec.ofBool sticky).setWidth' (by omega)).truncate (s + 2)
+      sig := (sigSum >>> BitVec.ofBool sigSum.msb).truncate (s + 2)
     }
-  bif sigSum == 0 then
-    -- Full cancellation: return zero. This case could have been merged with the second branch if not
-    -- for the sign, which depends on the rounding mode.
-    .mkZero sign
-  else bif !sigSum.getMsb 0 && !sigSum.getMsb 1 then
-    -- Catastrophic cancellation: we have to normalize.
-    sumResult.normalize
-  else
-    sumResult
+  -- If a catastrophic cancellation occured, we have to normalize. In case the sum is `0` (i.e., full
+  -- cancellation), the sign depends on the rounding mode.
+  let normSum := bif !sum.sig.msb then sum.normalize sign else sum
+  -- Sticky bit is independent of normalization: add it at the very end.
+  { normSum with sig := normSum.sig ||| (BitVec.ofBool sticky).setWidth' (by omega) }
 
 def EUnpackedFloat.add (m : RoundingMode) (x y : EUnpackedFloat (exponentWidth e s) (s + 1))
   : EUnpackedFloat (exponentWidth e s) (s + 1) :=
@@ -66,20 +62,44 @@ instance : Add (PackedFloat e s) where
 
 end PackedFloat
 
+-- Minor cancellation with rounding
+
+/-- info: ExtRat.Number (5 : Rat)/64 -/
+#guard_msgs in #eval (PackedFloat.ofBits 3 4 0b00000101).toExtRat
+/-- info: ExtRat.Number -2 -/
+#guard_msgs in #eval (PackedFloat.ofBits 3 4 0b11000000).toExtRat
+/-- info: -123 / 64 -/
+#guard_msgs in #eval (5 : Rat)/64 + -2
+/-- info: ExtRat.Number (-31 : Rat)/16 -/
+#guard_msgs in #eval (PackedFloat.ofRat 3 4 .RNE (-123) 64).toExtRat
+/-- info: ExtRat.Number (-31 : Rat)/16 -/
+#guard_msgs in #eval (PackedFloat.add .RNE (PackedFloat.ofBits 3 4 0b00000101) (PackedFloat.ofBits 3 4 0b11000000)).toExtRat
+
+-- Minor cancellation without rounding
+
+/-- info: ExtRat.Number (5 : Rat)/64 -/
+#guard_msgs in #eval (PackedFloat.ofBits 3 4 0b00000101).toExtRat
+/-- info: ExtRat.Number -4 -/
+#guard_msgs in #eval (PackedFloat.ofBits 3 4 0b11010000).toExtRat
+/-- info: -251 / 64 -/
+#guard_msgs in #eval (5 : Rat)/64 + -4
+/-- info: ExtRat.Number (-31 : Rat)/8 -/
+#guard_msgs in #eval (PackedFloat.ofRat 3 4 .RNE (-251) 64).toExtRat
+/-- info: ExtRat.Number (-31 : Rat)/8 -/
+#guard_msgs in #eval (PackedFloat.add .RNE (PackedFloat.ofBits 3 4 0b00000101) (PackedFloat.ofBits 3 4 0b11010000)).toExtRat
+
+-- Rounding Modes
+
 /-- info: ExtRat.Number (-1 : Rat)/16384 -/
 #guard_msgs in #eval (PackedFloat.ofBits 5 2 0b10000100#8).toExtRat
 /-- info: ExtRat.Number (5 : Rat)/8192 -/
 #guard_msgs in #eval (PackedFloat.ofBits 5 2 0b00010001#8).toExtRat
-
 /-- info: 9 / 16384 -/
 #guard_msgs in #eval (-1 : Rat)/16384 + (5 : Rat)/8192
-
 /-- info: ExtRat.Number (1 : Rat)/2048 -/
 #guard_msgs in #eval (PackedFloat.ofRat 5 2 .RNE 9 16384).toExtRat
-
 /-- info: ExtRat.Number (5 : Rat)/8192 -/
 #guard_msgs in #eval (PackedFloat.ofRat 5 2 .RNA 9 16384).toExtRat
-
 /-- info: ExtRat.Number (1 : Rat)/2048 -/
 #guard_msgs in #eval (PackedFloat.add .RNE (PackedFloat.ofBits 5 2 0b10000100#8) (PackedFloat.ofBits 5 2 0b00010001#8)).toExtRat
 /-- info: ExtRat.Number (5 : Rat)/8192 -/
