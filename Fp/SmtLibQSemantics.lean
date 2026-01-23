@@ -4,8 +4,93 @@ import Fp.UnpackedRound
 import Lean
 open Lean
 
+-- Reference paper: https://smt-lib.org/papers/BTRW15.pdf
 
--- https://smt-lib.org/papers/BTRW15.pdf
+structure RoundableUpper (X : Type) where
+  upper : ExtRat → X
+
+structure RoundableLower (X : Type) where
+  lower : ExtRat → X
+
+structure RoundableEmbed (X : Type) where
+  embed : X → ExtRat
+
+structure RoundableLowerHalf (X : Type) where
+  lowerHalf : ExtRat → Bool
+
+structure RoundableTieBreak (X : Type) where
+  tieBreak : ExtRat → Bool
+
+structure RoundableUpperHalf (X : Type) where
+  upperHalf : ExtRat → Bool
+
+structure RoundableIsEven (X : Type) where
+  isEven : X → Bool
+
+structure RoundableIsZero (X : Type) where
+  isZero : X → Bool
+
+
+structure RoundMethod (X : Type) extends
+  RoundableEmbed X,
+  RoundableLower X,
+  RoundableUpper X,
+  RoundableLowerHalf X,
+  RoundableTieBreak X,
+  RoundableUpperHalf X,
+  RoundableIsEven X,
+  RoundableIsZero X where
+
+def RoundMethod.rounderForSign {X : Type} (roundMethod : RoundMethod X) (sign : Bool) (r : ExtRat) : X :=
+  if sign then roundMethod.upper r else roundMethod.lower r
+
+def RoundMethod.roundSmtLib (e s : Nat) (roundMethod : RoundMethod (PackedFloat e s))
+    (rm : RoundingMode) (sign : Bool) (r : ExtRat) : PackedFloat e s :=
+  match rm with
+  | .RNE =>
+      if _hz : r = .Number 0 then roundMethod.rounderForSign sign r
+      else
+        if _hlh : roundMethod.lowerHalf r
+        then roundMethod.lower r
+        else
+         if _htb : roundMethod.tieBreak r
+         then
+            if _heven : roundMethod.isEven (roundMethod.lower r)
+            then roundMethod.lower r
+            else roundMethod.upper r
+         else
+            -- not tie break, not lower, so we are in upper half.
+            -- have : uh r v := by
+            --    have := trichotomy_lh_tb_uh r v
+            --    grind
+            roundMethod.upper r
+  | .RNA =>
+      if _hnan : r = .NaN then roundMethod.lower r
+      else
+         if _hz : r = .Number 0 then roundMethod.rounderForSign sign r
+         else
+            if _rgt0 : (ExtRat.Number 0).lt r
+            then
+              if _hlh : roundMethod.lowerHalf r then roundMethod.lower r else roundMethod.upper r
+            else
+               -- r < 0 := by sorry
+              if _hlh : roundMethod.lowerHalf r ∨ roundMethod.tieBreak r
+              then roundMethod.lower r
+              else roundMethod.upper r
+   | .RTP =>
+      if _h0 : r = .Number 0 then roundMethod.rounderForSign sign r
+      else roundMethod.upper r
+   | .RTN =>
+      if _h0 : r = .Number 0 then roundMethod.rounderForSign sign r
+      else roundMethod.lower r
+   | .RTZ =>
+      if _h0 : r = .Number 0 then roundMethod.rounderForSign sign r
+      else
+         if _rgt0 : r > .Number 0 then roundMethod.lower r else roundMethod.upper r
+
+
+
+
 
 /--
 Return the minimum of a list 'l' on the function 'f',
@@ -126,7 +211,7 @@ namespace ExhaustiveEnumeration
 def EUnpackedFloat.round {E S : Nat} (e s : Nat)
   (rm : RoundingMode) (euf : EUnpackedFloat E S)  : EUnpackedFloat (exponentWidth e s) (s + 1) :=
   if euf.isNaN then
-    EUnpackedFloat.mkNaN 
+    EUnpackedFloat.mkNaN
   else if euf.isInfinite then
     EUnpackedFloat.mkInfinity euf.sign
   else

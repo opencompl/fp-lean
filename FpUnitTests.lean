@@ -7,10 +7,18 @@ def main : IO UInt32 := do
     IO.println "Running the slow semantics to test for idempotence..."
     let out ← QSemanticsFast.ExhaustiveEnumeration.runSlowIdempotent 3 5 RoundingMode.RNE
     success := success && out
-    IO.println "Running the fast semantics to test for idempotence..."
-    -- | test when we give same sizes
-    let out ← QSemanticsFast.ExhaustiveEnumeration.runFastIdempotent 3 5 RoundingMode.RNE
+    IO.println "Running the slow semantics vs agreement for rounding..."
+    let out ← QSemanticsRef.ExhaustiveEnumeration.runRoundAgreesWithUnpackedFloatRound 4 6 4 4 RoundingMode.RNE
     success := success && out
+    -- IO.println "Comparing 'lower' semantics against reference implementation..."
+    -- let out ← QSemanticsFast.ExhaustiveEnumeration.lowerAgreesWithRefTest 3 5
+    -- success := success && out
+
+
+    -- IO.println "Running the fast semantics to test for idempotence..."
+    -- -- | test when we give same sizes
+    -- let out ← QSemanticsFast.ExhaustiveEnumeration.runFastIdempotent 3 5 RoundingMode.RNE
+    -- success := success && out
     -- | test where we reduce mantissa
     -- let out ← QSemanticsFast.ExhaustiveEnumeration.runFastAgreesWithRefTest 3 5 3 3 RoundingMode.RNE
     -- success := success && out
