@@ -18,6 +18,13 @@ structure RoundableEmbed (X : Type) where
 def roundableEmbedPackedFloat : RoundableEmbed (PackedFloat e s) where
   embed (x : PackedFloat e s) : ExtRat := x.toExtRat
 
+structure RoundableAdjunction (X : Type) extends
+  RoundableEmbed X,
+  RoundableLower X,
+  RoundableUpper X
+  where
+
+
 structure RoundableLowerHalf (X : Type) where
   lowerHalf : ExtRat → Bool
 
@@ -48,22 +55,9 @@ def roundableTieBreak_of_roundableLower_roundableUpper_roundableEmbed (X : Type)
     (r - l_ext) = (u_ext - r)
 
 
-structure RoundableUpperHalf (X : Type) where
-  upperHalf : ExtRat → Bool
-
-def roundableUpperHalf_of_roundableLower_roundableUpper_roundableEmbed (X : Type)
-    (lower : RoundableLower X)
-    (upper : RoundableUpper X)
-    (embed : RoundableEmbed X) : RoundableUpperHalf X where
-  upperHalf (r : ExtRat) : Bool :=
-    let l := lower.lower r
-    let u := upper.upper r
-    let l_ext := embed.embed l
-    let u_ext := embed.embed u
-    (r - l_ext) > (u_ext - r)
-
 structure RoundableIsEven (X : Type) where
   isEven : X → Bool
+
 
 
 def roundableIsEven_of_packedFloat
@@ -72,15 +66,16 @@ def roundableIsEven_of_packedFloat
     x.sig.getLsbD 0 = false
 
 
-structure RoundMethod (X : Type) extends
-  RoundableEmbed X,
-  RoundableLower X,
-  RoundableUpper X,
+structure RoundablePredicates (X : Type) extends
   RoundableLowerHalf X,
   RoundableTieBreak X,
-  RoundableUpperHalf X,
   RoundableIsEven X
   where
+
+
+structure RoundMethod (X : Type) extends
+  RoundableAdjunction X,
+  RoundablePredicates X
 
 def RoundMethod.rounderForSign {X : Type} (roundMethod : RoundMethod X) (sign : Bool) (r : ExtRat) : X :=
   if sign then roundMethod.upper r else roundMethod.lower r
@@ -130,7 +125,6 @@ def RoundMethod.roundAux (e s : Nat) (roundMethod : RoundMethod (PackedFloat e s
          if _rgt0 : r > .Number 0 then roundMethod.lower r else roundMethod.upper r
 
 
-
 /--
 Return the minimum of a list 'l' on the function 'f',
 with a default value if the list is empty.
@@ -145,55 +139,85 @@ def List.minOn {α β : Type} (f : α → β) (le : β → β → Bool) (l : Lis
 def List.maxOn {α β : Type} (f : α → β) (le : β → β → Bool) (l : List α) (default : α) : α :=
    List.minOn f (fun a b => le b a) l default
 
-namespace AbstractRoundMethod
-
-def roundableLower : RoundableLower (PackedFloat e s) where
-  lower (r : ExtRat) : PackedFloat e s :=
-    let us : List (PackedFloat e s) := PackedFloat.enumerate e s
-    let filtered := us.filter (fun x => decide (x.toExtRat ≤ r))
+def roundableLowerByEnumeration (embed : RoundableEmbed X) (univ : List X) (smallest : X) : RoundableLower X where
+  lower (r : ExtRat) : X :=
+    let filtered := univ.filter (fun x => decide (embed.embed x ≤ r))
     let min := filtered.maxOn
-     (fun x => x.toExtRat)
-     (fun a b => a ≤ b) (.getInfinity e s true)
+     (fun x => embed.embed x)
+     (fun a b => a ≤ b) smallest
     min
 
-def roundableUpper : RoundableUpper (PackedFloat e s) where
-  upper (r : ExtRat) : PackedFloat e s :=
-     let us : List (PackedFloat e s) := PackedFloat.enumerate e s
-     let filtered := us.filter (fun x => decide (r ≤ x.toExtRat))
+  def roundableUpperByEnumeration
+    (embed : RoundableEmbed X) (univ : List X) (largest : X) : RoundableUpper X where
+  upper (r : ExtRat) : X :=
+     let filtered := univ.filter (fun x => decide (r ≤ embed.embed x))
      let max := filtered.minOn
-      (fun x => x.toExtRat)
-      (fun a b => a ≤ b) (.getInfinity e s false)
+      (fun x => embed.embed x)
+      (fun a b => a ≤ b) largest
     max
 
-def abstractRoundMethod : RoundMethod (PackedFloat e s) where
+
+/--
+Given an embedding and an enumeration of the type 'X', along with smallest and largest elements,
+create a 'RoundableAdjunction' instance for 'X' by using the enumeration to brute-force
+the lower and upper rounding functions.
+-/
+def RoundableAdjunction.ofEmbedByEnumeration (embed : RoundableEmbed X)
+    (smallest : X) (univ : List X) (largest : X) : RoundableAdjunction X where
+  embed := embed.embed
+  lower := (roundableLowerByEnumeration embed univ  smallest).lower
+  upper := (roundableUpperByEnumeration embed univ  largest).upper
+
+
+namespace SlowEnumerationRoundMethod
+
+def roundBySlowEnumeration : RoundMethod (PackedFloat e s) where
   embed := roundableEmbedPackedFloat.embed
-  lower := roundableLower.lower
-  upper := roundableUpper.upper
+  lower := lower |>.lower
+  upper := upper |>.upper
   lowerHalf := (roundableLowerHalf_of_roundableLower_roundableUpper_roundableEmbed (PackedFloat e s)
-    roundableLower roundableUpper roundableEmbedPackedFloat).lowerHalf
+    lower upper roundableEmbedPackedFloat).lowerHalf
   tieBreak :=
     (roundableTieBreak_of_roundableLower_roundableUpper_roundableEmbed (PackedFloat e s)
-      roundableLower roundableUpper roundableEmbedPackedFloat).tieBreak
-  upperHalf := (roundableUpperHalf_of_roundableLower_roundableUpper_roundableEmbed (PackedFloat e s)
-    roundableLower roundableUpper roundableEmbedPackedFloat).upperHalf
+      lower upper roundableEmbedPackedFloat).tieBreak
   isEven := roundableIsEven_of_packedFloat.isEven
-
-end AbstractRoundMethod
+  where
+    lower := roundableLowerByEnumeration roundableEmbedPackedFloat (PackedFloat.enumerate e s) (PackedFloat.getInfinity e s true)
+    upper := roundableUpperByEnumeration roundableEmbedPackedFloat (PackedFloat.enumerate e s) (PackedFloat.getInfinity e s false)
+end SlowEnumerationRoundMethod
 
 namespace SmtLibRoundMethod
 
 /--
-The SMT-Lib definition of the rounding methods,
-which are based on the packed float representations.
+The default SMT-Lib rounding method, written `v_ε,σ(f)`,
+where `vlower` and `vupper` is defined via exhaustive enumeration
+for better computational properties.
+
+We will show later that the `vlower` and `vupper` defined this way agree
+with the galois adjunction expected.
 -/
-def smtLibRoundMethod (e s : Nat) : RoundMethod (PackedFloat e s) where
-  embed := roundableEmbedPackedFloat.embed
-  lower := sorry
-  upper := sorry
-  lowerHalf := sorry
-  tieBreak := sorry
-  upperHalf r := sorry
+def smtLibV (e s : Nat) : RoundableAdjunction (PackedFloat e s) :=
+  RoundableAdjunction.ofEmbedByEnumeration
+    roundableEmbedPackedFloat
+    (smallest := PackedFloat.getInfinity e s true)
+    (univ := PackedFloat.enumerate e s)
+    (largest := PackedFloat.getInfinity e s false)
+
+
+/--
+The SMT-Lib definition of the rounding methods, which are based on the packed float representations.
+-/
+def smtLibRoundMethod (e s : Nat) (v : RoundableAdjunction (PackedFloat e s)) :
+  RoundMethod (PackedFloat e s) where
+  embed := v.embed
+  lower := v.lower
+  upper := v.upper
+  lowerHalf := fun r => v.embed (v.lower r) = ves.embed (ves.lower r)
+  tieBreak := fun r => v.embed (v.lower r) < ves.embed (ves.lower r)
   isEven := roundableIsEven_of_packedFloat.isEven
+  where
+    ves := smtLibV e (s - 1)
+
 end SmtLibRoundMethod
 
 namespace QSemanticsRef
