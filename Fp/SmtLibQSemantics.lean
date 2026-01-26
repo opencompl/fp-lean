@@ -80,7 +80,7 @@ structure RoundMethod (X : Type) extends
 def RoundMethod.rounderForSign {X : Type} (roundMethod : RoundMethod X) (sign : Bool) (r : ExtRat) : X :=
   if sign then roundMethod.upper r else roundMethod.lower r
 
-def RoundMethod.roundAux (e s : Nat) (roundMethod : RoundMethod (PackedFloat e s))
+def RoundMethod.roundAux (roundMethod : RoundMethod (PackedFloat e s))
     (rm : RoundingMode) (sign : Bool) (r : ExtRat) : PackedFloat e s :=
   match rm with
   | .RNE =>
@@ -222,106 +222,7 @@ end SmtLibRoundMethod
 
 namespace QSemanticsRef
 
-/-
-We define the semantics of floating-point operations following the SMT-LIB
-style of semantics here. In particular, close attention is paid to being
-as close to the SMT-LIB definitions as possible.
--/
-
-/-- The lower approximant of 'v'. Returns the largest 'x : X' such that 'v x ≤ r'. -/
-def lower (e s : Nat) (r : ExtRat) : PackedFloat e s :=
-  let us : List (PackedFloat e s) := PackedFloat.enumerate e s
-  let filtered := us.filter (fun x => decide (x.toExtRat ≤ r))
-  let min := filtered.maxOn
-   (fun x => x.toExtRat)
-   (fun a b => a ≤ b) (.getInfinity e s true)
-  min
-
-/-- The upper approximant of 'v'.
-Returns the smallest 'x : X' such that 'r ≤ v x'. -/
-def upper (e s : Nat) (r : ExtRat) : PackedFloat e s :=
-   let us : List (PackedFloat e s) := PackedFloat.enumerate e s
-   let filtered := us.filter (fun x => decide (r ≤ x.toExtRat))
-   let max := filtered.minOn
-    (fun x => x.toExtRat)
-    (fun a b => a ≤ b) (.getInfinity e s false)
-   max
-
-
-/-- Lower half, return 'true' iff we are strictly in the lower half. -/
-def lh (e s : Nat) (r : ExtRat)  : Bool :=
-   (r - (lower e s r).toExtRat) < (upper e s r).toExtRat - r
-
-/-- Tiebreak, return 'true' iff we are exactly in the middle of the lower and upper approximants. -/
-def tb (e s : Nat) (r : ExtRat) : Bool :=
-   r - (lower e s r).toExtRat = (upper e s r).toExtRat - r
-/-- Upper half, return 'true' iff we are strictly in the upper half. -/
-def uh (e s : Nat) (r : ExtRat) : Bool :=
-   (r - (lower e s r).toExtRat) > (upper e s r).toExtRat - r
-
-/-- Check if 'X' is even. -/
-def ev (e s : Nat) (x : PackedFloat e s) : Bool :=
-   match x.toExtRat with
-   | .Number n =>
-       let den := n.den
-       let num := n.num
-       num = 0 ∨ (den = 1 ∧ num.natAbs % 2 = 0)
-   | _ => false
-
-/-- Round signed zero. Picks between the lower and upper approximant,
-based on the sign
-function. -/
-def rsz (e s : Nat) (sign : Bool) (r : ExtRat) : PackedFloat e s :=
-  -- | TODO: should this be flipped?
-  if sign then upper e s r else lower e s r
-
-
-def roundSmtLib (e s : Nat)
-      (rm : RoundingMode) (sign : Bool) (r : ExtRat) : ExtRat → PackedFloat e s :=
-  match rm with
-  | .RNE =>
-      if _hz : r = .Number 0 then rsz e s sign
-      else
-        if _hlh : lh e s r
-        then lower e s
-        else
-         if _htb : tb e s r
-         then
-            if _heven : ev e s (lower e s r)
-            then lower e s
-            else upper e s
-         else
-            -- not tie break, not lower, so we are in upper half.
-            -- have : uh r v := by
-            --    have := trichotomy_lh_tb_uh r v
-            --    grind
-            upper e s
-  | .RNA =>
-      if _hnan : r = .NaN then lower e s
-      else
-         if _hz : r = .Number 0 then rsz e s sign
-         else
-            if _rgt0 : (ExtRat.Number 0).lt r
-            then
-              if _hlh : lh e s r then lower e s else upper e s
-            else
-               -- r < 0 := by sorry
-              if _hlh : lh e s r ∨ tb e s r
-              then lower e s
-              else upper e s
-   | .RTP =>
-      if _h0 : r = .Number 0 then rsz e s sign
-      else upper e s
-   | .RTN =>
-      if _h0 : r = .Number 0 then rsz e s sign
-      else lower e s
-   | .RTZ =>
-      if _h0 : r = .Number 0 then rsz e s sign
-      else
-         if _rgt0 : r > .Number 0 then lower e s else upper e s
-
-
-namespace ExhaustiveEnumeration
+namespace ExhaustiveEnumerationTesting
 
 def EUnpackedFloat.round {E S : Nat} (e s : Nat)
   (rm : RoundingMode) (euf : EUnpackedFloat E S)  : EUnpackedFloat (exponentWidth e s) (s + 1) :=
@@ -335,21 +236,23 @@ def EUnpackedFloat.round {E S : Nat} (e s : Nat)
     roundedPf.unpack
 
 /-- test that 'lower' agrees with reference implementation -/
-def runRoundAgreesWithUnpackedFloatRound (E S : Nat) (e s : Nat) (rm : RoundingMode) : IO Bool := do
+def runRoundAgreesWithUnpackedFloatRound (E S : Nat) (e s : Nat) (rm : RoundingMode)
+  (roundSemantics : RoundMethod (PackedFloat e s))
+  : IO Bool := do
   let pfs : List (PackedFloat E S) := PackedFloat.enumerate E S
   let mut nsuccess : Nat := 0
   let mut nfailure : Nat := 0
   for pf in pfs do
     let r : ExtRat := pf.toExtRat
     let sign := pf.sign
-    let ref := QSemanticsRef.roundSmtLib e s rm sign r r
+    let golden := roundSemantics.roundAux rm sign r
     let ufRounded := pf.unpack |> EUnpackedFloat.round e s rm
     let ufRoundedPacked := ufRounded.pack
-    let res := ref = ufRoundedPacked
+    let res := golden = ufRoundedPacked
     if !res then
       nfailure := nfailure + 1
       IO.println s!"Discrepancy found for {repr pf} (ExtRat: {repr r}), RoundingMode: {repr rm}, sign: {sign}"
-      IO.println s!"  Ref result:       {repr ref}  | ExtRat: {repr ref.toExtRat} | UnpackedFloat : {repr ref.unpack}"
+      IO.println s!"  Golden result:       {repr golden}  | ExtRat: {repr golden.toExtRat} | UnpackedFloat : {repr golden.unpack}"
       IO.println s!"  UnpackedFloat result: {repr ufRoundedPacked} | ExtRat: {repr ufRoundedPacked.toExtRat} | UnpackedFloat : {repr ufRounded}"
     else
       nsuccess := nsuccess + 1
@@ -358,174 +261,27 @@ def runRoundAgreesWithUnpackedFloatRound (E S : Nat) (e s : Nat) (rm : RoundingM
     else (nsuccess.toFloat / (nsuccess + nfailure).toFloat) * 100.0
   IO.println s!"Total tests run: {nsuccess + nfailure}, Successes: {nsuccess}, Failures: {nfailure} ({percentSuccess}% success rate)"
   return nfailure == 0
-end ExhaustiveEnumeration
 
-end QSemanticsRef
-
-
-namespace QSemanticsFast
+#guard_msgs in #eval runRoundAgreesWithUnpackedFloatRound 5 4 5 3 .RNE (SlowEnumerationRoundMethod.roundBySlowEnumeration)
 
 /-
-We define the semantics of floating-point operations following the SMT-LIB
-style of semantics here. In particular, close attention is paid to being
-as close to the SMT-LIB definitions as possible.
--/
-
-/-- The lower approximant of 'v'. Returns the largest 'x : X' such that 'v x ≤ r'. -/
-def lower (e s : Nat) (r : ExtRat) : PackedFloat e s :=
-  let _posInf := PackedFloat.getInfinity e s false
-  let negInf := PackedFloat.getInfinity e s true
-  let max := PackedFloat.getMax e s false
-  let min := PackedFloat.getMax e s true
-  match r with
-  | .NaN => PackedFloat.getNaN e s
-  | .Infinity false => .getInfinity e s false
-  | .Infinity true => .getInfinity e s true
-  | .Number r =>
-     -- | lower approximant.
-      if r < min.toExtRat.number then negInf
-      else if r ≥ max.toExtRat.number then max
-      else
-         let num := r.num
-         let den := r.den
-         let twoPow := Nat.log2 den
-         let numPow := num.natAbs.nextPowerOfTwo
-         let dyadic : Dyadic := r.toDyadic e
-         let roundDown : Dyadic := dyadic.roundDown (e + s + 1)
-         let unpacked : UnpackedFloat (exponentWidth e s) (s + 1) :=  {
-            sign := dyadic.numerator < 0,
-            ex := - (roundDown.precision.getD 0),
-            sig := dyadic.numerator
-         }
-         let eunpacked : EUnpackedFloat (exponentWidth e s) (s + 1) :=
-            unpacked.toEUnpackedFloat
-         eunpacked.pack
-
-def lowerIO (e s : Nat) (r : ExtRat) : IO (PackedFloat e s) := do
-  let _posInf := PackedFloat.getInfinity e s false
-  let negInf := PackedFloat.getInfinity e s true
-  let max := PackedFloat.getMax e s false
-  let min := PackedFloat.getMax e s true
-  match r with
-  | .NaN => return PackedFloat.getNaN e s
-  | .Infinity false => return .getInfinity e s false
-  | .Infinity true => return .getInfinity e s true
-  | .Number r =>
-     -- | lower approximant.
-      if r < min.toExtRat.number then return negInf
-      else if r ≥ max.toExtRat.number then return max
-      else
-         let num := r.num
-         let den := r.den
-         IO.println s!"  lower({r}): num = {num}, den = {den}"
-         let denExp := Nat.log2 den -- we assume that denominator is always power of 2.
-         IO.println s!"  lower({r}): denExp:{denExp} 2^denExp:{2 ^ denExp} den:{den}"
-         let numeratorBits := num.natAbs.nextPowerOfTwo
-         IO.println s!"  lower({r}): numeratorBits: {numeratorBits} | num:{num.natAbs}"
-         let dyadic : Dyadic := r.toDyadic e
-         let roundDown : Dyadic := dyadic.roundDown (e + s + 1)
-         let unpacked : UnpackedFloat (exponentWidth e s) (s + 1) :=  {
-            sign := dyadic.numerator < 0,
-            ex := - (roundDown.precision.getD 0),
-            sig := dyadic.numerator
-         }
-         let eunpacked : EUnpackedFloat (exponentWidth e s) (s + 1) :=
-            unpacked.toEUnpackedFloat
-         return eunpacked.pack
-
-
-/-- The upper approximant of 'v'.
-Returns the smallest 'x : X' such that 'r ≤ v x'. -/
-def upper (e s : Nat) (r : ExtRat) : PackedFloat e s :=
-   (lower e s r.neg).neg
-
-/-- Lower half, return 'true' iff we are strictly in the lower half. -/
-def lh (e s : Nat) (r : ExtRat)  : Bool :=
-   (r - (lower e s r).toExtRat) < (upper e s r).toExtRat - r
-
-/-- Tiebreak, return 'true' iff we are exactly in the middle of the lower and upper approximants. -/
-def tb (e s : Nat) (r : ExtRat) : Bool :=
-   r - (lower e s r).toExtRat = (upper e s r).toExtRat - r
-/-- Upper half, return 'true' iff we are strictly in the upper half. -/
-def uh (e s : Nat) (r : ExtRat) : Bool :=
-   (r - (lower e s r).toExtRat) > (upper e s r).toExtRat - r
-
-/-- Check if 'X' is even. -/
-def ev (e s : Nat) (x : PackedFloat e s) : Bool :=
-  match x.toExtRat with
-  | .Number n =>
-      let den := n.den
-      let num := n.num
-      num = 0 ∨ (den = 1 ∧ num.natAbs % 2 = 0)
-  | _ => false
-
-/-- Round signed zero. Picks between the lower and upper approximant,
-based on the sign
-function. -/
-def rsz (e s : Nat) (sign : Bool) (r : ExtRat) : PackedFloat e s :=
-  -- | TODO: should this be flipped?
-  if sign then upper e s r else lower e s r
-
-def roundSmtLib (e s : Nat)
-      (rm : RoundingMode) (sign : Bool) (r : ExtRat) : ExtRat → PackedFloat e s :=
-  match rm with
-  | .RNE =>
-      if _hz : r = .Number 0 then rsz e s sign
-      else
-        if _hlh : lh e s r
-        then lower e s
-        else
-         if _htb : tb e s r
-         then
-            if _heven : ev e s (lower e s r)
-            then lower e s
-            else upper e s
-         else
-            -- not tie break, not lower, so we are in upper half.
-            -- have : uh r v := by
-            --    have := trichotomy_lh_tb_uh r v
-            --    grind
-            upper e s
-  | .RNA =>
-      if _hnan : r = .NaN then lower e s
-      else
-         if _hz : r = .Number 0 then rsz e s sign
-         else
-            if _rgt0 : (ExtRat.Number 0).lt r
-            then
-              if _hlh : lh e s r then lower e s else upper e s
-            else
-               -- r < 0 := by sorry
-              if _hlh : lh e s r ∨ tb e s r
-              then lower e s
-              else upper e s
-   | .RTP =>
-      if _h0 : r = .Number 0 then rsz e s sign
-      else upper e s
-   | .RTN =>
-      if _h0 : r = .Number 0 then rsz e s sign
-      else lower e s
-   | .RTZ =>
-      if _h0 : r = .Number 0 then rsz e s sign
-      else
-         if _rgt0 : r > .Number 0 then lower e s else upper e s
-
-
-namespace ExhaustiveEnumeration
-
-def lowerAgreesWithRefTest (E S : Nat) : IO Bool := do
+These are left unimplemented, and will be impplemented in a subequent PR
+for the faster rounding.
+def lowerAgreesWithRefTest (E S : Nat)
+  (roundSemanticsTest : RoundMethod (PackedFloat e s))
+  (roundSemanticsGolden : RoundMethod (PackedFloat e s)) : IO Bool := do
   let pfs : List (PackedFloat E S) := PackedFloat.enumerate E S
   let mut nsuccess : Nat := 0
   let mut nfailure : Nat := 0
   for pf in pfs do
     let r : ExtRat := pf.toExtRat
-    let fast ← QSemanticsFast.lowerIO E S r
-    let ref := QSemanticsRef.lower E S r
-    let res := fast = ref
+    let fast := roundSemanticsTest.lower r
+    let golden := roundSemanticsGolden.lower r
+    let res := fast = golden
     if !res then
       nfailure := nfailure + 1
       IO.println s!"Discrepancy found for {repr pf} (ExtRat: {repr r}) in lower approximant"
-      IO.println s!"  Ref result:  {repr ref}  | ExtRat: {repr ref.toExtRat} | UnpackedFloat : {repr ref.unpack}"
+      IO.println s!"  Golden result:  {repr golden}  | ExtRat: {repr golden.toExtRat} | UnpackedFloat : {repr golden.unpack}"
       IO.println s!"  Fast result: {repr fast} | ExtRat: {repr fast.toExtRat} | UnpackedFloat : {repr fast.unpack}"
     else
       nsuccess := nsuccess + 1
@@ -535,19 +291,21 @@ def lowerAgreesWithRefTest (E S : Nat) : IO Bool := do
   IO.println s!"Total tests run: {nsuccess + nfailure}, Successes: {nsuccess}, Failures: {nfailure} ({percentSuccess}% success rate)"
   return nfailure == 0
 
-def upperAgreesWithRefTest (E S : Nat) : IO Bool := do
+def upperAgreesWithRefTest (E S : Nat)
+  (roundSemanticsTest : RoundMethod (PackedFloat e s))
+  (roundSemanticsGolden : RoundMethod (PackedFloat e s)) : IO Bool := do
   let pfs : List (PackedFloat E S) := PackedFloat.enumerate E S
   let mut nsuccess : Nat := 0
   let mut nfailure : Nat := 0
   for pf in pfs do
     let r : ExtRat := pf.toExtRat
-    let fast := QSemanticsFast.upper E S r
-    let ref := QSemanticsRef.upper E S r
-    let res := fast = ref
+    let fast := roundSemanticsTest.upper r
+    let golden := roundSemanticsGolden.upper r
+    let res := fast = golden
     if !res then
       nfailure := nfailure + 1
       IO.println s!"Discrepancy found for {repr pf} (ExtRat: {repr r}) in upper approximant"
-      IO.println s!"  Ref result:  {repr ref}  | ExtRat: {repr ref.toExtRat} | UnpackedFloat : {repr ref.unpack}"
+      IO.println s!"  Golden result:  {repr golden}  | ExtRat: {repr golden.toExtRat} | UnpackedFloat : {repr golden.unpack}"
       IO.println s!"  Fast result: {repr fast} | ExtRat: {repr fast.toExtRat} | UnpackedFloat : {repr fast.unpack}"
     else
       nsuccess := nsuccess + 1
@@ -556,78 +314,6 @@ def upperAgreesWithRefTest (E S : Nat) : IO Bool := do
     else (nsuccess.toFloat / (nsuccess + nfailure).toFloat) * 100.0
   IO.println s!"Total tests run: {nsuccess + nfailure}, Successes: {nsuccess}, Failures: {nfailure} ({percentSuccess}% success rate)"
   return nfailure == 0
+-/
 
-def runFastIdempotent (E S : Nat) (rm : RoundingMode) : IO Bool := do
-  let pfs : List (PackedFloat E S) := PackedFloat.enumerate E S
-  let mut nsuccess : Nat := 0
-  let mut nfailure : Nat := 0
-  for pf in pfs do
-    let r : ExtRat := pf.toExtRat
-    let sign := pf.sign
-    let fast := QSemanticsFast.roundSmtLib E S rm sign r r
-    let res := fast.toExtRat = r
-    if !res then
-      nfailure := nfailure + 1
-      IO.println s!"Idempotency failure for {repr r} RoundingMode: {repr rm}, sign: {sign}"
-      IO.println s!"  original (PF) {repr pf} | rounded(PF) {repr fast}"
-      IO.println s!"  original (Q)  {repr r} | rounded(Q) {repr fast.toExtRat}"
-      IO.println s!"  original (UF) {repr pf.unpack} | rounded(UF) {repr fast.unpack}"
-    else
-      nsuccess := nsuccess + 1
-  let percentSuccess : Float :=
-    if nsuccess + nfailure == 0 then 100.0
-    else (nsuccess.toFloat / (nsuccess + nfailure).toFloat) * 100.0
-  IO.println s!"Total tests run: {nsuccess + nfailure}, Successes: {nsuccess}, Failures: {nfailure} ({percentSuccess}% success rate)"
-  return nfailure == 0
-
-def runSlowIdempotent (E S : Nat) (rm : RoundingMode) : IO Bool := do
-  let pfs : List (PackedFloat E S) := PackedFloat.enumerate E S
-  let mut nsuccess : Nat := 0
-  let mut nfailure : Nat := 0
-  for pf in pfs do
-    let r : ExtRat := pf.toExtRat
-    let sign := pf.sign
-    let ref := QSemanticsRef.roundSmtLib E S rm sign r r
-    let res := ref.toExtRat = r
-    if !res then
-      nfailure := nfailure + 1
-      IO.println s!"Idempotency failure for {repr r} RoundingMode: {repr rm}, sign: {sign}"
-      IO.println s!"  original (PF) {repr pf} | rounded(PF) {repr ref}"
-      IO.println s!"  original (Q)  {repr r} | rounded(Q) {repr ref.toExtRat}"
-      IO.println s!"  original (UF) {repr pf.unpack} | rounded(UF) {repr ref.unpack}"
-    else
-      nsuccess := nsuccess + 1
-  let percentSuccess : Float :=
-    if nsuccess + nfailure == 0 then 100.0
-    else (nsuccess.toFloat / (nsuccess + nfailure).toFloat) * 100.0
-  IO.println s!"Total tests run: {nsuccess + nfailure}, Successes: {nsuccess}, Failures: {nfailure} ({percentSuccess}% success rate)"
-  return nfailure == 0
-
--- return true on success
-def runFastAgreesWithRefTest (E S : Nat) (e s : Nat) (rm : RoundingMode) : IO Bool := do
-  let pfs : List (PackedFloat E S) := PackedFloat.enumerate E S
-  let mut nsuccess : Nat := 0
-  let mut nfailure : Nat := 0
-  for pf in pfs do
-    let r : ExtRat := pf.toExtRat
-    let sign := pf.sign
-    let fast := QSemanticsFast.roundSmtLib e s rm sign r r
-    let ref := QSemanticsRef.roundSmtLib e s rm sign r r
-    let res := fast = ref
-    if !res then
-      nfailure := nfailure + 1
-      IO.println s!"Discrepancy found for {repr pf} (ExtRat: {repr r}), RoundingMode: {repr rm}, sign: {sign}"
-      IO.println s!"  Ref result:  {repr ref}  | ExtRat: {repr ref.toExtRat} | UnpackedFloat : {repr ref.unpack}"
-      IO.println s!"  Fast result: {repr fast} | ExtRat: {repr fast.toExtRat} | UnpackedFloat : {repr fast.unpack}"
-    else
-      nsuccess := nsuccess + 1
-  let percentSuccess : Float :=
-    if nsuccess + nfailure == 0 then 100.0
-    else (nsuccess.toFloat / (nsuccess + nfailure).toFloat) * 100.0
-  IO.println s!"Total tests run: {nsuccess + nfailure}, Successes: {nsuccess}, Failures: {nfailure} ({percentSuccess}% success rate)"
-  return nfailure == 0
-
-
-end ExhaustiveEnumeration
-
-end QSemanticsFast
+end ExhaustiveEnumerationTesting
