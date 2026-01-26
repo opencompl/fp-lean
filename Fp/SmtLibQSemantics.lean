@@ -212,8 +212,8 @@ def smtLibRoundMethod (e s : Nat) (v : RoundableAdjunction (PackedFloat e s)) :
   embed := v.embed
   lower := v.lower
   upper := v.upper
-  lowerHalf := fun r => v.embed (v.lower r) = ves.embed (ves.lower r)
-  tieBreak := fun r => v.embed (v.lower r) < ves.embed (ves.lower r)
+  lowerHalf r := v.embed (v.lower r) = ves.embed (ves.lower r)
+  tieBreak r := v.embed (v.lower r) < ves.embed (ves.lower r)
   isEven := roundableIsEven_of_packedFloat.isEven
   where
     ves := smtLibV e (s - 1)
