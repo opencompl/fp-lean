@@ -15,20 +15,61 @@ structure RoundableLower (X : Type) where
 structure RoundableEmbed (X : Type) where
   embed : X → ExtRat
 
+def roundableEmbedPackedFloat : RoundableEmbed (PackedFloat e s) where
+  embed (x : PackedFloat e s) : ExtRat := x.toExtRat
+
 structure RoundableLowerHalf (X : Type) where
   lowerHalf : ExtRat → Bool
+
+def roundableLowerHalf_of_roundableLower_roundableUpper_roundableEmbed (X : Type)
+    (lower : RoundableLower X)
+    (upper : RoundableUpper X)
+    (embed : RoundableEmbed X) : RoundableLowerHalf X where
+  lowerHalf (r : ExtRat) : Bool :=
+    let l := lower.lower r
+    let u := upper.upper r
+    let l_ext := embed.embed l
+    let u_ext := embed.embed u
+    (r - l_ext) < (u_ext - r)
+
 
 structure RoundableTieBreak (X : Type) where
   tieBreak : ExtRat → Bool
 
+def roundableTieBreak_of_roundableLower_roundableUpper_roundableEmbed (X : Type)
+    (lower : RoundableLower X)
+    (upper : RoundableUpper X)
+    (embed : RoundableEmbed X) : RoundableTieBreak X where
+  tieBreak (r : ExtRat) : Bool :=
+    let l := lower.lower r
+    let u := upper.upper r
+    let l_ext := embed.embed l
+    let u_ext := embed.embed u
+    (r - l_ext) = (u_ext - r)
+
+
 structure RoundableUpperHalf (X : Type) where
   upperHalf : ExtRat → Bool
+
+def roundableUpperHalf_of_roundableLower_roundableUpper_roundableEmbed (X : Type)
+    (lower : RoundableLower X)
+    (upper : RoundableUpper X)
+    (embed : RoundableEmbed X) : RoundableUpperHalf X where
+  upperHalf (r : ExtRat) : Bool :=
+    let l := lower.lower r
+    let u := upper.upper r
+    let l_ext := embed.embed l
+    let u_ext := embed.embed u
+    (r - l_ext) > (u_ext - r)
 
 structure RoundableIsEven (X : Type) where
   isEven : X → Bool
 
-structure RoundableIsZero (X : Type) where
-  isZero : X → Bool
+
+def roundableIsEven_of_packedFloat
+    : RoundableIsEven (PackedFloat e s) where
+  isEven (x : PackedFloat e s) : Bool :=
+    x.sig.getLsbD 0 = false
 
 
 structure RoundMethod (X : Type) extends
@@ -38,13 +79,13 @@ structure RoundMethod (X : Type) extends
   RoundableLowerHalf X,
   RoundableTieBreak X,
   RoundableUpperHalf X,
-  RoundableIsEven X,
-  RoundableIsZero X where
+  RoundableIsEven X
+  where
 
 def RoundMethod.rounderForSign {X : Type} (roundMethod : RoundMethod X) (sign : Bool) (r : ExtRat) : X :=
   if sign then roundMethod.upper r else roundMethod.lower r
 
-def RoundMethod.roundSmtLib (e s : Nat) (roundMethod : RoundMethod (PackedFloat e s))
+def RoundMethod.roundAux (e s : Nat) (roundMethod : RoundMethod (PackedFloat e s))
     (rm : RoundingMode) (sign : Bool) (r : ExtRat) : PackedFloat e s :=
   match rm with
   | .RNE =>
@@ -90,8 +131,6 @@ def RoundMethod.roundSmtLib (e s : Nat) (roundMethod : RoundMethod (PackedFloat 
 
 
 
-
-
 /--
 Return the minimum of a list 'l' on the function 'f',
 with a default value if the list is empty.
@@ -105,6 +144,58 @@ def List.minOn {α β : Type} (f : α → β) (le : β → β → Bool) (l : Lis
 
 def List.maxOn {α β : Type} (f : α → β) (le : β → β → Bool) (l : List α) (default : α) : α :=
    List.minOn f (fun a b => le b a) l default
+
+namespace AbstractRoundMethod
+
+def roundableLower : RoundableLower (PackedFloat e s) where
+  lower (r : ExtRat) : PackedFloat e s :=
+    let us : List (PackedFloat e s) := PackedFloat.enumerate e s
+    let filtered := us.filter (fun x => decide (x.toExtRat ≤ r))
+    let min := filtered.maxOn
+     (fun x => x.toExtRat)
+     (fun a b => a ≤ b) (.getInfinity e s true)
+    min
+
+def roundableUpper : RoundableUpper (PackedFloat e s) where
+  upper (r : ExtRat) : PackedFloat e s :=
+     let us : List (PackedFloat e s) := PackedFloat.enumerate e s
+     let filtered := us.filter (fun x => decide (r ≤ x.toExtRat))
+     let max := filtered.minOn
+      (fun x => x.toExtRat)
+      (fun a b => a ≤ b) (.getInfinity e s false)
+    max
+
+def abstractRoundMethod : RoundMethod (PackedFloat e s) where
+  embed := roundableEmbedPackedFloat.embed
+  lower := roundableLower.lower
+  upper := roundableUpper.upper
+  lowerHalf := (roundableLowerHalf_of_roundableLower_roundableUpper_roundableEmbed (PackedFloat e s)
+    roundableLower roundableUpper roundableEmbedPackedFloat).lowerHalf
+  tieBreak :=
+    (roundableTieBreak_of_roundableLower_roundableUpper_roundableEmbed (PackedFloat e s)
+      roundableLower roundableUpper roundableEmbedPackedFloat).tieBreak
+  upperHalf := (roundableUpperHalf_of_roundableLower_roundableUpper_roundableEmbed (PackedFloat e s)
+    roundableLower roundableUpper roundableEmbedPackedFloat).upperHalf
+  isEven := roundableIsEven_of_packedFloat.isEven
+
+end AbstractRoundMethod
+
+namespace SmtLibRoundMethod
+
+/--
+The SMT-Lib definition of the rounding methods,
+which are based on the packed float representations.
+-/
+def smtLibRoundMethod (e s : Nat) : RoundMethod (PackedFloat e s) where
+  embed := roundableEmbedPackedFloat.embed
+  lower := sorry
+  upper := sorry
+  lowerHalf := sorry
+  tieBreak := sorry
+  upperHalf r := sorry
+  isEven := roundableIsEven_of_packedFloat.isEven
+end SmtLibRoundMethod
+
 namespace QSemanticsRef
 
 /-
