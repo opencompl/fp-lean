@@ -856,7 +856,7 @@ instance {a b : ExtRat} : Decidable (a ≤ b) := by
 
 def eq (x y : ExtRat) : Bool :=
   match x, y with
-  | .NaN, .NaN => true
+  | .NaN, .NaN => true -- NaN = NaN only. (SMT-LIB)
   | .NaN, _ => false
   | _, .NaN => false
   | .Infinity s1, .Infinity s2 => s1 == s2
