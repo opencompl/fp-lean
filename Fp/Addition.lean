@@ -1,7 +1,8 @@
 import Fp.Basic
+import Fp.Negation
 import Fp.UnpackedRound
 
-def UnpackedFloat.add (sign : Bool) (x y : UnpackedFloat e s) : UnpackedFloat (e + 1) (s + 2) :=
+def UnpackedFloat.add (x y : UnpackedFloat e s) : UnpackedFloat (e + 1) (s + 2) :=
   -- Compute absolute exponent difference to determine significant shift amount.
   let expDiff : BitVec (e + 1)  := x.ex.signExtend (e + 1) - y.ex.signExtend (e + 1)
   let absExpDiff := bif expDiff.msb then -expDiff else expDiff
@@ -20,7 +21,7 @@ def UnpackedFloat.add (sign : Bool) (x y : UnpackedFloat e s) : UnpackedFloat (e
   -- Note: we use signed shift for `ySig` here to preserve its sign since it's now a signed integer.
   let sigSum : BitVec (s + 3) := xSig + ySig.sshiftRight' shiftAmount
   -- Sticky bit depends on bits we lose when we right shift `ySig` and `sigSum` (in case of an overflow).
-  let sticky := ySig &&& shiftAmount.orderEncode != 0 || sigSum.msb && sigSum.getLsb 0
+  let sticky := ySig &&& shiftAmount.orderEncode != 0 || sigSum.msb && sigSum[0]
   let sum : UnpackedFloat (e + 1) (s + 2) :=
     {
       -- Sign of sum is sign of the bigger number!
@@ -32,25 +33,28 @@ def UnpackedFloat.add (sign : Bool) (x y : UnpackedFloat e s) : UnpackedFloat (e
     }
   -- If a catastrophic cancellation occured, we have to normalize. In case the sum is `0` (i.e., full
   -- cancellation), the sign depends on the rounding mode.
-  let normSum := bif !sum.sig.msb then sum.normalize sign else sum
+  let normSum := bif !sum.sig.msb then sum.normalize else sum
   -- Sticky bit is independent of normalization: add it at the very end.
   { normSum with sig := normSum.sig ||| (BitVec.ofBool sticky).setWidth' (by omega) }
 
 def EUnpackedFloat.add (m : RoundingMode) (x y : EUnpackedFloat (exponentWidth e s) (s + 1))
   : EUnpackedFloat (exponentWidth e s) (s + 1) :=
-  bif x.isZero && !y.isZero then
-    y
-  else bif !x.isZero && y.isZero then
-    x
-  else bif x.isNaN || y.isNaN || x.isInfinite && y.isInfinite && x.sign != y.sign then
+  bif x.isNaN || y.isNaN || x.isInfinite && y.isInfinite && x.sign != y.sign then
     .mkNaN
   else bif x.isInfinite && y.isInfinite && x.sign == y.sign ||
            x.isInfinite && !y.isInfinite || !x.isInfinite && y.isInfinite then
     .mkInfinity (bif x.isInfinite then x.sign else y.sign)
-  else bif x.isZero && y.isZero then
-    .mkZero (bif m == .RTN then x.sign || y.sign else x.sign && y.sign)
+  else bif x.num == y.num.neg then
+    -- Sum is exactly `0`: follow the special sign rules for `0`.
+    -- Even if both `x` and `y` are `0`, their signs are still different. So, we don't
+    -- need to propegate the sign!
+    .mkZero (m == .RTN)
+  else bif x.isZero then
+    y
+  else bif y.isZero then
+    x
   else
-    UnpackedFloat.round (.add (m == .RTN) x.num y.num) m
+    UnpackedFloat.round (.add x.num y.num) m
 
 namespace PackedFloat
 

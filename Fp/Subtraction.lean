@@ -1,24 +1,12 @@
 import Fp.Addition
 import Fp.Negation
 
-def UnpackedFloat.sub (sign : Bool) (x y : UnpackedFloat e s) : UnpackedFloat (e + 1) (s + 2) :=
-  .add sign x y.neg
+def UnpackedFloat.sub (x y : UnpackedFloat e s) : UnpackedFloat (e + 1) (s + 2) :=
+  .add x y.neg
 
 def EUnpackedFloat.sub (m : RoundingMode) (x y : EUnpackedFloat (exponentWidth e s) (s + 1))
   : EUnpackedFloat (exponentWidth e s) (s + 1) :=
-  bif x.isZero && !y.isZero then
-    y.neg
-  else bif !x.isZero && y.isZero then
-    x
-  else bif x.isNaN || y.isNaN || x.isInfinite && y.isInfinite && x.sign == y.sign then
-    .mkNaN
-  else bif x.isInfinite && y.isInfinite && x.sign != y.sign ||
-           x.isInfinite && !y.isInfinite || !x.isInfinite && y.isInfinite then
-    .mkInfinity (bif x.isInfinite then x.sign else !y.sign)
-  else bif x.isZero && y.isZero then
-    .mkZero (bif m == .RTN then x.sign || !y.sign else x.sign && !y.sign)
-  else
-    UnpackedFloat.round (.sub (m == .RTN) x.num y.num) m
+  EUnpackedFloat.add m x y.neg
 
 namespace PackedFloat
 
