@@ -1,40 +1,61 @@
 import Fp.Basic
-import Fp.Rounding
+import Fp.Packing
 
-/-- Negate the fixed point number -/
-@[bv_normalize]
-def f_neg (a : FixedPoint w e) : FixedPoint w e := { a with sign := !a.sign }
+def UnpackedFloat.neg (x : UnpackedFloat e s) : UnpackedFloat e s :=
+  { x with sign := !x.sign }
 
-/-- Negate the extended fixed point number -/
-@[bv_normalize]
-def e_neg (a : EFixedPoint w e) : EFixedPoint w e :=
-  open EFixedPoint in
-  have := a.num.hExOffset
-  if hN : a.state = .NaN then
-    getNaN (by omega)
-  else if hInf : a.state = .Infinity then
-    getInfinity (!a.num.sign) (by omega)
-  else
-    let _ : a.state = .Number := by
-      cases h : a.state <;> simp_all
-    { a with num := f_neg a.num }
+def UnpackedFloat.abs (x : UnpackedFloat e s) : UnpackedFloat e s :=
+  { x with sign := false }
 
-/-- Negate a floating-point number, by conversion to a fixed-point number. -/
-@[bv_normalize]
-def negfixed (a : PackedFloat e s) (mode : RoundingMode) : PackedFloat e s :=
-  EFixedPoint.round _ _ mode (e_neg a.toEFixed)
+def EUnpackedFloat.neg (x : EUnpackedFloat (exponentWidth e s) (s + 1))
+  : EUnpackedFloat (exponentWidth e s) (s + 1) :=
+  { x with num := x.num.neg }
 
-/--
-Negate a floating-point number, by flipping the sign bit.
+def EUnpackedFloat.abs (x : EUnpackedFloat (exponentWidth e s) (s + 1))
+  : EUnpackedFloat (exponentWidth e s) (s + 1) :=
+  { x with num := x.num.abs }
 
-This implements the same function as `negfixed`, but is much simpler.
--/
-@[bv_normalize]
-def neg (a : PackedFloat e s) : PackedFloat e s :=
-  if a.isNaN then PackedFloat.getNaN _ _
-  else { a with sign := !a.sign }
+namespace PackedFloat
 
-@[bv_normalize]
-def abs (a : PackedFloat e s) : PackedFloat e s :=
-  if a.isNaN then PackedFloat.getNaN _ _
-  else { a with sign := false }
+def neg (x : PackedFloat e s) : PackedFloat e s :=
+  -- At first glance, unpacking a float just to modify its sign might look like
+  -- unnecessary work; after all, you *can* toggle the sign bit directly on the
+  -- packed representation. And if this operation lived in isolation, that would
+  -- indeed be the simpler route.
+  --
+  -- However, most floating‑point operations already require unpacking, and once
+  -- you're working in that representation, it's usually best to stay there.
+  -- Thanks to the identity
+  --
+  --   `∀ uf m, (uf.round m).pack.unpack = uf.round m`
+  --
+  -- we can keep everything in the unpacked form throughout a chain of
+  -- operations and only repack at the very end. Unpacking here helps maintain
+  -- that workflow and avoids bouncing back and forth between representations.
+  --
+  -- TODO: is there a way to hint this optimization strategy to the compiler?
+  x.unpack.neg.pack
+
+instance : Neg (PackedFloat e s) where
+  neg := .neg
+
+def abs (x : PackedFloat e s) : PackedFloat e s :=
+  -- At first glance, unpacking a float just to modify its sign might look like
+  -- unnecessary work; after all, you *can* toggle the sign bit directly on the
+  -- packed representation. And if this operation lived in isolation, that would
+  -- indeed be the simpler route.
+  --
+  -- However, most floating‑point operations already require unpacking, and once
+  -- you're working in that representation, it's usually best to stay there.
+  -- Thanks to the identity
+  --
+  --   `∀ uf m, (uf.round m).pack.unpack = uf.round m`
+  --
+  -- we can keep everything in the unpacked form throughout a chain of
+  -- operations and only repack at the very end. Unpacking here helps maintain
+  -- that workflow and avoids bouncing back and forth between representations.
+  --
+  -- TODO: is there a way to hint this optimization strategy to the compiler?
+  x.unpack.abs.pack
+
+end PackedFloat
