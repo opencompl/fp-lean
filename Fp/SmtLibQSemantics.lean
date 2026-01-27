@@ -381,14 +381,7 @@ def roundMethodsEqual? (E : Nat := 4) (S : Nat := 4) (e : Nat := 4) (s : Nat := 
       return true
 
 
-/--
-info: Discrepancy in tieBreak for { sign := +, ex := 0x2#2, sig := 0xe#4 } (ExtRat: ExtRat.Number (15 : Rat)/4)
-tiebreak1:true ~ rounded1:ExtRat.Number (7 : Rat)/2
-tiebreak2:false ~ rounded2:ExtRat.Number (7 : Rat)/2
-l:ExtRat.Number (7 : Rat)/2 <= ExtRat.Number (15 : Rat)/4 <= ExtRat.Infinity false
----
-info: true
--/
+/-- info: true -/
 #guard_msgs in #eval roundMethodsEqual? 2 4 2 3
   (SmtLibRoundMethod.smtLibRoundMethod _ _ (SmtLibRoundMethod.smtLibV _ _))
   (SlowComputableRound.roundBySlowEnumeration _ _)
@@ -400,7 +393,7 @@ def compareRoundingFunctions
   (E S : Nat) (e s : Nat) (rm : RoundingMode)
   (rounderGolden rounderUnderTest : RoundingMode → (sign  : Bool) → PackedFloat E S → PackedFloat e s)
   : IO Bool := do
-  let pfs : List (PackedFloat E S) := PackedFloat.enumerateAllList E S
+  let pfs : List (PackedFloat E S) := PackedFloat.enumerateNumberList E S
   let mut nsuccess : Nat := 0
   let mut nfailure : Nat := 0
   for pf in pfs do
@@ -408,10 +401,10 @@ def compareRoundingFunctions
     let sign := pf.sign
     let golden := rounderGolden rm sign pf
     let test : PackedFloat e s := rounderUnderTest rm sign pf
-    let res := golden = test
+    let res := golden.equal_denotation test
     if !res then
       nfailure := nfailure + 1
-      if nfailure > 2 then
+      if nfailure > 10 then
         continue
       IO.println s!"---"
       let rgolden := golden.toExtRat
@@ -433,83 +426,79 @@ def compareRoundingFunctions
   IO.println s!"Total tests run: {nsuccess + nfailure}, Successes: {nsuccess}, Failures: {nfailure} ({percentSuccess}% success rate)"
   return nfailure == 0
 
+
 /--
 info: ---
-Discrepancy for (Q: ExtRat.Number (-15 : Rat)/4) (RM: RNE) (Sign: true) { sign := -, ex := 0x2#2, sig := 0xe#4 }
-  Golden: (Q: ExtRat.Number (-7 : Rat)/2) (UF: { state := num, num := { sign := true, ex := 0x1#4, sig := 0xe#4 } }) (PF: { sign := -, ex := 0x2#2, sig := 0x6#3 })
-  Tested: (Q: ExtRat.Infinity true) (UF: { state := ∞, num := { sign := true, ex := 0x0#4, sig := 0x0#4 } }) (PF: { sign := -, ex := 0x3#2, sig := 0x0#3 })
+Discrepancy for (Q: ExtRat.Number (31 : Rat)/8) (RM: RNE) (Sign: false) { sign := +, ex := 0x2#2, sig := 0xf#4 }
+  Golden: (Q: ExtRat.Infinity true) (UF: { state := ∞, num := { sign := true, ex := 0x0#3, sig := 0x0#3 } }) (PF: { sign := -, ex := 0x3#2, sig := 0x0#2 })
+  Tested: (Q: ExtRat.Infinity false) (UF: { state := ∞, num := { sign := false, ex := 0x0#3, sig := 0x0#3 } }) (PF: { sign := +, ex := 0x3#2, sig := 0x0#2 })
   Distance: ✅
-    distGolden : ExtRat.Number (1 : Rat)/4
+    distGolden : ExtRat.Infinity false
+    distTest : ExtRat.Infinity false)
+---
+Discrepancy for (Q: ExtRat.Number (15 : Rat)/4) (RM: RNE) (Sign: false) { sign := +, ex := 0x2#2, sig := 0xe#4 }
+  Golden: (Q: ExtRat.Infinity true) (UF: { state := ∞, num := { sign := true, ex := 0x0#3, sig := 0x0#3 } }) (PF: { sign := -, ex := 0x3#2, sig := 0x0#2 })
+  Tested: (Q: ExtRat.Infinity false) (UF: { state := ∞, num := { sign := false, ex := 0x0#3, sig := 0x0#3 } }) (PF: { sign := +, ex := 0x3#2, sig := 0x0#2 })
+  Distance: ✅
+    distGolden : ExtRat.Infinity false
     distTest : ExtRat.Infinity false)
 ---
 Discrepancy for (Q: ExtRat.Number (-29 : Rat)/8) (RM: RNE) (Sign: true) { sign := -, ex := 0x2#2, sig := 0xd#4 }
-  Golden: (Q: ExtRat.Number (-7 : Rat)/2) (UF: { state := num, num := { sign := true, ex := 0x1#4, sig := 0xe#4 } }) (PF: { sign := -, ex := 0x2#2, sig := 0x6#3 })
-  Tested: (Q: ExtRat.Infinity true) (UF: { state := ∞, num := { sign := true, ex := 0x0#4, sig := 0x0#4 } }) (PF: { sign := -, ex := 0x3#2, sig := 0x0#3 })
-  Distance: ✅
-    distGolden : ExtRat.Number (1 : Rat)/8
-    distTest : ExtRat.Infinity false)
-Total tests run: 90, Successes: 86, Failures: 4 (95.555556% success rate)
----
-info: false
--/
-#guard_msgs in #eval compareRoundingFunctions 2 4 2 3 .RNE
-  (rounderGolden := fun rm sign pf => (SlowComputableRound.roundBySlowEnumeration _ _).roundAux rm sign pf.toExtRat)
-  (rounderUnderTest := fun rm sign pf =>
-      let v := (RoundableAdjunction.ofEmbedByEnumeration (X := PackedFloat _ _)
-          (roundableEmbedPackedFloat)
-          (PackedFloat.getInfinity _ _ true )
-          (PackedFloat.enumerateAllList _ _)
-          (PackedFloat.getInfinity _ _ false))
-      (SmtLibRoundMethod.smtLibRoundMethod _ _ v).roundAux rm sign pf.toExtRat)
-
-
--- RTP, RTN, RTZ all agree.
-/--
-info: ---
-Discrepancy for (Q: ExtRat.Number 61440) (RM: RNE) (Sign: false) { sign := +, ex := 0x1e#5, sig := 0xe#4 }
-  Golden: (Q: ExtRat.Infinity false) (UF: { state := ∞, num := { sign := false, ex := 0x00#6, sig := 0x0#3 } }) (PF: { sign := +, ex := 0x1f#5, sig := 0x0#2 })
-  Tested: (Q: ExtRat.Number 49152) (UF: { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x6#3 } }) (PF: { sign := +, ex := 0x1e#5, sig := 0x2#2 })
-  Distance: ❌
-    distGolden : ExtRat.Infinity false
-    distTest : ExtRat.Number 12288)
----
-Discrepancy for (Q: ExtRat.Number 59392) (RM: RNE) (Sign: false) { sign := +, ex := 0x1e#5, sig := 0xd#4 }
-  Golden: (Q: ExtRat.Infinity false) (UF: { state := ∞, num := { sign := false, ex := 0x00#6, sig := 0x0#3 } }) (PF: { sign := +, ex := 0x1f#5, sig := 0x0#2 })
-  Tested: (Q: ExtRat.Number 49152) (UF: { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x6#3 } }) (PF: { sign := +, ex := 0x1e#5, sig := 0x2#2 })
-  Distance: ❌
-    distGolden : ExtRat.Infinity false
-    distTest : ExtRat.Number 10240)
-Total tests run: 930, Successes: 863, Failures: 67 (92.795699% success rate)
----
-info: false
--/
-#guard_msgs in #eval compareRoundingFunctions 5 4 5 2 .RNE
-  (rounderGolden := fun rm sign pf =>
-      let v := (RoundableAdjunction.ofEmbedByEnumeration (X := PackedFloat _ _)
-          (roundableEmbedPackedFloat)
-          (PackedFloat.getInfinity _ _ true )
-          (PackedFloat.enumerateAllList _ _)
-          (PackedFloat.getInfinity _ _ false))
-      (SmtLibRoundMethod.smtLibRoundMethod _ _ v).roundAux rm sign pf.toExtRat)
-  (rounderUnderTest := fun rm sign pf => (SlowComputableRound.roundBySlowEnumeration _ _).roundAux rm sign pf.toExtRat)
-
-
-/--
-info: ---
-Discrepancy for (Q: ExtRat.Number (29 : Rat)/8) (RM: RNE) (Sign: false) { sign := +, ex := 0x2#2, sig := 0xd#4 }
-  Golden: (Q: ExtRat.Infinity false) (UF: { state := ∞, num := { sign := false, ex := 0x0#3, sig := 0x0#3 } }) (PF: { sign := +, ex := 0x3#2, sig := 0x0#2 })
-  Tested: (Q: ExtRat.Number (7 : Rat)/2) (UF: { state := num, num := { sign := false, ex := 0x1#3, sig := 0x7#3 } }) (PF: { sign := +, ex := 0x2#2, sig := 0x3#2 })
+  Golden: (Q: ExtRat.Infinity true) (UF: { state := ∞, num := { sign := true, ex := 0x0#3, sig := 0x0#3 } }) (PF: { sign := -, ex := 0x3#2, sig := 0x0#2 })
+  Tested: (Q: ExtRat.Number (-7 : Rat)/2) (UF: { state := num, num := { sign := true, ex := 0x1#3, sig := 0x7#3 } }) (PF: { sign := -, ex := 0x2#2, sig := 0x3#2 })
   Distance: ❌
     distGolden : ExtRat.Infinity false
     distTest : ExtRat.Number (1 : Rat)/8)
 ---
-Discrepancy for (Q: ExtRat.Number (7 : Rat)/2) (RM: RNE) (Sign: false) { sign := +, ex := 0x2#2, sig := 0xc#4 }
-  Golden: (Q: ExtRat.Number 3) (UF: { state := num, num := { sign := false, ex := 0x1#3, sig := 0x6#3 } }) (PF: { sign := +, ex := 0x2#2, sig := 0x2#2 })
-  Tested: (Q: ExtRat.Number (7 : Rat)/2) (UF: { state := num, num := { sign := false, ex := 0x1#3, sig := 0x7#3 } }) (PF: { sign := +, ex := 0x2#2, sig := 0x3#2 })
+Discrepancy for (Q: ExtRat.Number (-7 : Rat)/2) (RM: RNE) (Sign: true) { sign := -, ex := 0x2#2, sig := 0xc#4 }
+  Golden: (Q: ExtRat.Infinity true) (UF: { state := ∞, num := { sign := true, ex := 0x0#3, sig := 0x0#3 } }) (PF: { sign := -, ex := 0x3#2, sig := 0x0#2 })
+  Tested: (Q: ExtRat.Number (-7 : Rat)/2) (UF: { state := num, num := { sign := true, ex := 0x1#3, sig := 0x7#3 } }) (PF: { sign := -, ex := 0x2#2, sig := 0x3#2 })
   Distance: ❌
-    distGolden : ExtRat.Number (1 : Rat)/2
+    distGolden : ExtRat.Infinity false
     distTest : ExtRat.Number 0)
-Total tests run: 90, Successes: 66, Failures: 24 (73.333333% success rate)
+---
+Discrepancy for (Q: ExtRat.Number (-27 : Rat)/8) (RM: RNE) (Sign: true) { sign := -, ex := 0x2#2, sig := 0xb#4 }
+  Golden: (Q: ExtRat.Infinity true) (UF: { state := ∞, num := { sign := true, ex := 0x0#3, sig := 0x0#3 } }) (PF: { sign := -, ex := 0x3#2, sig := 0x0#2 })
+  Tested: (Q: ExtRat.Number (-7 : Rat)/2) (UF: { state := num, num := { sign := true, ex := 0x1#3, sig := 0x7#3 } }) (PF: { sign := -, ex := 0x2#2, sig := 0x3#2 })
+  Distance: ❌
+    distGolden : ExtRat.Infinity false
+    distTest : ExtRat.Number (1 : Rat)/8)
+---
+Discrepancy for (Q: ExtRat.Number (-13 : Rat)/4) (RM: RNE) (Sign: true) { sign := -, ex := 0x2#2, sig := 0xa#4 }
+  Golden: (Q: ExtRat.Infinity true) (UF: { state := ∞, num := { sign := true, ex := 0x0#3, sig := 0x0#3 } }) (PF: { sign := -, ex := 0x3#2, sig := 0x0#2 })
+  Tested: (Q: ExtRat.Number -3) (UF: { state := num, num := { sign := true, ex := 0x1#3, sig := 0x6#3 } }) (PF: { sign := -, ex := 0x2#2, sig := 0x2#2 })
+  Distance: ❌
+    distGolden : ExtRat.Infinity false
+    distTest : ExtRat.Number (1 : Rat)/4)
+---
+Discrepancy for (Q: ExtRat.Number (-25 : Rat)/8) (RM: RNE) (Sign: true) { sign := -, ex := 0x2#2, sig := 0x9#4 }
+  Golden: (Q: ExtRat.Infinity true) (UF: { state := ∞, num := { sign := true, ex := 0x0#3, sig := 0x0#3 } }) (PF: { sign := -, ex := 0x3#2, sig := 0x0#2 })
+  Tested: (Q: ExtRat.Number -3) (UF: { state := num, num := { sign := true, ex := 0x1#3, sig := 0x6#3 } }) (PF: { sign := -, ex := 0x2#2, sig := 0x2#2 })
+  Distance: ❌
+    distGolden : ExtRat.Infinity false
+    distTest : ExtRat.Number (1 : Rat)/8)
+---
+Discrepancy for (Q: ExtRat.Number -3) (RM: RNE) (Sign: true) { sign := -, ex := 0x2#2, sig := 0x8#4 }
+  Golden: (Q: ExtRat.Infinity true) (UF: { state := ∞, num := { sign := true, ex := 0x0#3, sig := 0x0#3 } }) (PF: { sign := -, ex := 0x3#2, sig := 0x0#2 })
+  Tested: (Q: ExtRat.Number -3) (UF: { state := num, num := { sign := true, ex := 0x1#3, sig := 0x6#3 } }) (PF: { sign := -, ex := 0x2#2, sig := 0x2#2 })
+  Distance: ❌
+    distGolden : ExtRat.Infinity false
+    distTest : ExtRat.Number 0)
+---
+Discrepancy for (Q: ExtRat.Number (-23 : Rat)/8) (RM: RNE) (Sign: true) { sign := -, ex := 0x2#2, sig := 0x7#4 }
+  Golden: (Q: ExtRat.Infinity true) (UF: { state := ∞, num := { sign := true, ex := 0x0#3, sig := 0x0#3 } }) (PF: { sign := -, ex := 0x3#2, sig := 0x0#2 })
+  Tested: (Q: ExtRat.Number -3) (UF: { state := num, num := { sign := true, ex := 0x1#3, sig := 0x6#3 } }) (PF: { sign := -, ex := 0x2#2, sig := 0x2#2 })
+  Distance: ❌
+    distGolden : ExtRat.Infinity false
+    distTest : ExtRat.Number (1 : Rat)/8)
+---
+Discrepancy for (Q: ExtRat.Number (-11 : Rat)/4) (RM: RNE) (Sign: true) { sign := -, ex := 0x2#2, sig := 0x6#4 }
+  Golden: (Q: ExtRat.Infinity true) (UF: { state := ∞, num := { sign := true, ex := 0x0#3, sig := 0x0#3 } }) (PF: { sign := -, ex := 0x3#2, sig := 0x0#2 })
+  Tested: (Q: ExtRat.Number -3) (UF: { state := num, num := { sign := true, ex := 0x1#3, sig := 0x6#3 } }) (PF: { sign := -, ex := 0x2#2, sig := 0x2#2 })
+  Distance: ❌
+    distGolden : ExtRat.Infinity false
+    distTest : ExtRat.Number (1 : Rat)/4)
+Total tests run: 96, Successes: 48, Failures: 48 (50.000000% success rate)
 ---
 info: false
 ---

@@ -802,7 +802,7 @@ def checkRoundCorrect (EUnpacked SUnpackedNoHidden : Nat) (EOut SOutNoHidden : N
       nfailed := nfailed + 1
       continue
 
-    let expectedPacked : PackedFloat EOut SOutNoHidden :=  
+    let expectedPacked : PackedFloat EOut SOutNoHidden :=
        originalPacked.toEFixed.round (exWidth := EOut) (sigWidth := SOutNoHidden) mode
     let expectedEUnpacked := expectedPacked.unpack
     if outputRoundedPacked.equal_denotation expectedPacked then

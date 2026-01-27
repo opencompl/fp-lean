@@ -662,8 +662,8 @@ def toRat? (pf : PackedFloat e s) : Option Rat :=
 def enumerateAllList (E S : Nat) : List (PackedFloat E S) := Id.run do
   let mut out : List (PackedFloat E S) := []
   for sign in [true, false] do
-    for e in [0: (2 ^ E) - 1] do
-      for sig in [0: (2 ^ S) - 1] do
+    for e in [0: (2 ^ E)] do
+      for sig in [0: (2 ^ S)] do
         let pf : PackedFloat E S := {
           sign := sign
           ex := BitVec.ofNat E e
@@ -676,8 +676,8 @@ def enumerateAllList (E S : Nat) : List (PackedFloat E S) := Id.run do
 def enumerateNumberList (E S : Nat) : List (PackedFloat E S) := Id.run do
   let mut out : List (PackedFloat E S) := []
   for sign in [true, false] do
-    for e in [0: (2 ^ E) - 1] do
-      for sig in [0: (2 ^ S) - 1] do
+    for e in [0: (2 ^ E)] do
+      for sig in [0: (2 ^ S)] do
         let pf : PackedFloat E S := {
           sign := sign
           ex := BitVec.ofNat E e
@@ -693,8 +693,8 @@ and return a sorted array of them.
 def enumerateSortedNumberRatArray (E S : Nat) : Array (PackedFloat E S × Rat) := Id.run do
   let mut out : Array (PackedFloat E S × Rat) := #[]
   for sign in [true, false] do
-    for e in [0: (2 ^ E) - 1] do
-      for sig in [0: (2 ^ S) - 1] do
+    for e in [0: (2 ^ E)] do
+      for sig in [0: (2 ^ S)] do
         let pf : PackedFloat E S := {
           sign := sign
           ex := BitVec.ofNat E e
