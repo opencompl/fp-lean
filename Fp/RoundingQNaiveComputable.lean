@@ -59,7 +59,7 @@ structure Rounder (E S : Nat) where
   f2r : Float2Rat E S := Float2Rat.mk E S
   f2r' : Float2Rat E (S + 1) := Float2Rat.mk E (S + 1)
 
-def Rounder.rnePackedFloat (rounder : Rounder E S) (q : Rat) : PackedFloat E S := Id.run do
+def Rounder.rnePackedFloat (rounder : Rounder E S) (q : Rat) (sign : Bool) : PackedFloat E S := Id.run do
   let lo := rounder.f2r.closestLower q
   let hi := rounder.f2r.closestHigher q
   let lowest := rounder.f2r.minimum
@@ -69,7 +69,11 @@ def Rounder.rnePackedFloat (rounder : Rounder E S) (q : Rat) : PackedFloat E S :
   let lowest' := rounder.f2r'.minimum
   let highest' := rounder.f2r'.maximum
 
+  if q = 0 then
+    return { PackedFloat.getZero E S with sign := sign }
+
   if lo.2 == hi.2 then return lo.1 -- we are perfectly representable.
+
 
   if q < lowest'.2 then
     -- lower than the lowest repr. number in the *larger* system with an extra significand bit
@@ -116,15 +120,15 @@ def testAgainstUnpackedFloatRounding (EIn SIn : Nat) (EOut SOut : Nat) : IO Bool
         (targetSignificandWidth := SOut)
         (pf.1.unpack.num) .RNE
     let circuitPf := EUnpackedFloat.pack (e := EOut) (s := SOut) circuit.1
-    let golden := rounder.rnePackedFloat pf.2
+    let golden := rounder.rnePackedFloat pf.2 pf.1.sign
     if circuitPf == golden then
       nsuccess := nsuccess + 1
     else
-      if nfailure < 2 then
+      if nfailure < 200 then
         IO.println s!"---"
-        IO.println s!"Mismatch on input {repr pf.1.toExtRat}"
-        IO.println s!"  Circuit: {repr circuitPf.toExtRat}"
-        IO.println s!"  Golden : {repr golden.toExtRat}"
+        IO.println s!"Mismatch on input {repr pf.1.toExtRat} | {repr pf.1.unpack}"
+        IO.println s!"  Circuit: {repr circuitPf.toExtRat} | {repr circuitPf.unpack}"
+        IO.println s!"  Golden : {repr golden.toExtRat} | {repr golden.unpack}"
       nfailure := nfailure + 1
 
   let percentSucces := (nsuccess * 100) / (nsuccess + nfailure)
@@ -133,15 +137,827 @@ def testAgainstUnpackedFloatRounding (EIn SIn : Nat) (EOut SOut : Nat) : IO Bool
 
 
 /--
+info: nsuccess = 2, nfailure = 0, success% = 100%
+---
+info: true
+-/
+#guard_msgs in #eval testAgainstUnpackedFloatRounding 1 1 1 1
+
+
+/--
 info: ---
-Mismatch on input ExtRat.Number 0
-  Circuit: ExtRat.Number 0
-  Golden : ExtRat.Number 0
-nsuccess = 5, nfailure = 1, success% = 83%
+Mismatch on input ExtRat.Number -236 | { state := num, num := { sign := true, ex := 0x07#5, sig := 0x3b#6 } }
+  Circuit: ExtRat.Number -224 | { state := num, num := { sign := true, ex := 0x07#5, sig := 0x7#3 } }
+  Golden : ExtRat.Infinity true | { state := ∞, num := { sign := true, ex := 0x00#5, sig := 0x0#3 } }
+---
+Mismatch on input ExtRat.Number -232 | { state := num, num := { sign := true, ex := 0x07#5, sig := 0x3a#6 } }
+  Circuit: ExtRat.Number -224 | { state := num, num := { sign := true, ex := 0x07#5, sig := 0x7#3 } }
+  Golden : ExtRat.Infinity true | { state := ∞, num := { sign := true, ex := 0x00#5, sig := 0x0#3 } }
+---
+Mismatch on input ExtRat.Number -228 | { state := num, num := { sign := true, ex := 0x07#5, sig := 0x39#6 } }
+  Circuit: ExtRat.Number -224 | { state := num, num := { sign := true, ex := 0x07#5, sig := 0x7#3 } }
+  Golden : ExtRat.Infinity true | { state := ∞, num := { sign := true, ex := 0x00#5, sig := 0x0#3 } }
+---
+Mismatch on input ExtRat.Number -224 | { state := num, num := { sign := true, ex := 0x07#5, sig := 0x38#6 } }
+  Circuit: ExtRat.Number -224 | { state := num, num := { sign := true, ex := 0x07#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -192 | { state := num, num := { sign := true, ex := 0x07#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number -220 | { state := num, num := { sign := true, ex := 0x07#5, sig := 0x37#6 } }
+  Circuit: ExtRat.Number -224 | { state := num, num := { sign := true, ex := 0x07#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -192 | { state := num, num := { sign := true, ex := 0x07#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number -216 | { state := num, num := { sign := true, ex := 0x07#5, sig := 0x36#6 } }
+  Circuit: ExtRat.Number -224 | { state := num, num := { sign := true, ex := 0x07#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -192 | { state := num, num := { sign := true, ex := 0x07#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number -212 | { state := num, num := { sign := true, ex := 0x07#5, sig := 0x35#6 } }
+  Circuit: ExtRat.Number -224 | { state := num, num := { sign := true, ex := 0x07#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -192 | { state := num, num := { sign := true, ex := 0x07#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number -118 | { state := num, num := { sign := true, ex := 0x06#5, sig := 0x3b#6 } }
+  Circuit: ExtRat.Number -112 | { state := num, num := { sign := true, ex := 0x06#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -128 | { state := num, num := { sign := true, ex := 0x07#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number -116 | { state := num, num := { sign := true, ex := 0x06#5, sig := 0x3a#6 } }
+  Circuit: ExtRat.Number -112 | { state := num, num := { sign := true, ex := 0x06#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -128 | { state := num, num := { sign := true, ex := 0x07#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number -114 | { state := num, num := { sign := true, ex := 0x06#5, sig := 0x39#6 } }
+  Circuit: ExtRat.Number -112 | { state := num, num := { sign := true, ex := 0x06#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -128 | { state := num, num := { sign := true, ex := 0x07#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number -112 | { state := num, num := { sign := true, ex := 0x06#5, sig := 0x38#6 } }
+  Circuit: ExtRat.Number -112 | { state := num, num := { sign := true, ex := 0x06#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -128 | { state := num, num := { sign := true, ex := 0x07#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number -110 | { state := num, num := { sign := true, ex := 0x06#5, sig := 0x37#6 } }
+  Circuit: ExtRat.Number -112 | { state := num, num := { sign := true, ex := 0x06#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -96 | { state := num, num := { sign := true, ex := 0x06#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number -108 | { state := num, num := { sign := true, ex := 0x06#5, sig := 0x36#6 } }
+  Circuit: ExtRat.Number -112 | { state := num, num := { sign := true, ex := 0x06#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -96 | { state := num, num := { sign := true, ex := 0x06#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number -106 | { state := num, num := { sign := true, ex := 0x06#5, sig := 0x35#6 } }
+  Circuit: ExtRat.Number -112 | { state := num, num := { sign := true, ex := 0x06#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -96 | { state := num, num := { sign := true, ex := 0x06#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number -59 | { state := num, num := { sign := true, ex := 0x05#5, sig := 0x3b#6 } }
+  Circuit: ExtRat.Number -56 | { state := num, num := { sign := true, ex := 0x05#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -64 | { state := num, num := { sign := true, ex := 0x06#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number -58 | { state := num, num := { sign := true, ex := 0x05#5, sig := 0x3a#6 } }
+  Circuit: ExtRat.Number -56 | { state := num, num := { sign := true, ex := 0x05#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -64 | { state := num, num := { sign := true, ex := 0x06#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number -57 | { state := num, num := { sign := true, ex := 0x05#5, sig := 0x39#6 } }
+  Circuit: ExtRat.Number -56 | { state := num, num := { sign := true, ex := 0x05#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -64 | { state := num, num := { sign := true, ex := 0x06#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number -56 | { state := num, num := { sign := true, ex := 0x05#5, sig := 0x38#6 } }
+  Circuit: ExtRat.Number -56 | { state := num, num := { sign := true, ex := 0x05#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -64 | { state := num, num := { sign := true, ex := 0x06#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number -55 | { state := num, num := { sign := true, ex := 0x05#5, sig := 0x37#6 } }
+  Circuit: ExtRat.Number -56 | { state := num, num := { sign := true, ex := 0x05#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -48 | { state := num, num := { sign := true, ex := 0x05#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number -54 | { state := num, num := { sign := true, ex := 0x05#5, sig := 0x36#6 } }
+  Circuit: ExtRat.Number -56 | { state := num, num := { sign := true, ex := 0x05#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -48 | { state := num, num := { sign := true, ex := 0x05#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number -53 | { state := num, num := { sign := true, ex := 0x05#5, sig := 0x35#6 } }
+  Circuit: ExtRat.Number -56 | { state := num, num := { sign := true, ex := 0x05#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -48 | { state := num, num := { sign := true, ex := 0x05#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (-59 : Rat)/2 | { state := num, num := { sign := true, ex := 0x04#5, sig := 0x3b#6 } }
+  Circuit: ExtRat.Number -28 | { state := num, num := { sign := true, ex := 0x04#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -32 | { state := num, num := { sign := true, ex := 0x05#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number -29 | { state := num, num := { sign := true, ex := 0x04#5, sig := 0x3a#6 } }
+  Circuit: ExtRat.Number -28 | { state := num, num := { sign := true, ex := 0x04#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -32 | { state := num, num := { sign := true, ex := 0x05#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-57 : Rat)/2 | { state := num, num := { sign := true, ex := 0x04#5, sig := 0x39#6 } }
+  Circuit: ExtRat.Number -28 | { state := num, num := { sign := true, ex := 0x04#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -32 | { state := num, num := { sign := true, ex := 0x05#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number -28 | { state := num, num := { sign := true, ex := 0x04#5, sig := 0x38#6 } }
+  Circuit: ExtRat.Number -28 | { state := num, num := { sign := true, ex := 0x04#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -32 | { state := num, num := { sign := true, ex := 0x05#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-55 : Rat)/2 | { state := num, num := { sign := true, ex := 0x04#5, sig := 0x37#6 } }
+  Circuit: ExtRat.Number -28 | { state := num, num := { sign := true, ex := 0x04#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -24 | { state := num, num := { sign := true, ex := 0x04#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number -27 | { state := num, num := { sign := true, ex := 0x04#5, sig := 0x36#6 } }
+  Circuit: ExtRat.Number -28 | { state := num, num := { sign := true, ex := 0x04#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -24 | { state := num, num := { sign := true, ex := 0x04#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (-53 : Rat)/2 | { state := num, num := { sign := true, ex := 0x04#5, sig := 0x35#6 } }
+  Circuit: ExtRat.Number -28 | { state := num, num := { sign := true, ex := 0x04#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -24 | { state := num, num := { sign := true, ex := 0x04#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (-59 : Rat)/4 | { state := num, num := { sign := true, ex := 0x03#5, sig := 0x3b#6 } }
+  Circuit: ExtRat.Number -14 | { state := num, num := { sign := true, ex := 0x03#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -16 | { state := num, num := { sign := true, ex := 0x04#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-29 : Rat)/2 | { state := num, num := { sign := true, ex := 0x03#5, sig := 0x3a#6 } }
+  Circuit: ExtRat.Number -14 | { state := num, num := { sign := true, ex := 0x03#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -16 | { state := num, num := { sign := true, ex := 0x04#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-57 : Rat)/4 | { state := num, num := { sign := true, ex := 0x03#5, sig := 0x39#6 } }
+  Circuit: ExtRat.Number -14 | { state := num, num := { sign := true, ex := 0x03#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -16 | { state := num, num := { sign := true, ex := 0x04#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number -14 | { state := num, num := { sign := true, ex := 0x03#5, sig := 0x38#6 } }
+  Circuit: ExtRat.Number -14 | { state := num, num := { sign := true, ex := 0x03#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -16 | { state := num, num := { sign := true, ex := 0x04#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-55 : Rat)/4 | { state := num, num := { sign := true, ex := 0x03#5, sig := 0x37#6 } }
+  Circuit: ExtRat.Number -14 | { state := num, num := { sign := true, ex := 0x03#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -12 | { state := num, num := { sign := true, ex := 0x03#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (-27 : Rat)/2 | { state := num, num := { sign := true, ex := 0x03#5, sig := 0x36#6 } }
+  Circuit: ExtRat.Number -14 | { state := num, num := { sign := true, ex := 0x03#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -12 | { state := num, num := { sign := true, ex := 0x03#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (-53 : Rat)/4 | { state := num, num := { sign := true, ex := 0x03#5, sig := 0x35#6 } }
+  Circuit: ExtRat.Number -14 | { state := num, num := { sign := true, ex := 0x03#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -12 | { state := num, num := { sign := true, ex := 0x03#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (-59 : Rat)/8 | { state := num, num := { sign := true, ex := 0x02#5, sig := 0x3b#6 } }
+  Circuit: ExtRat.Number -7 | { state := num, num := { sign := true, ex := 0x02#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -8 | { state := num, num := { sign := true, ex := 0x03#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-29 : Rat)/4 | { state := num, num := { sign := true, ex := 0x02#5, sig := 0x3a#6 } }
+  Circuit: ExtRat.Number -7 | { state := num, num := { sign := true, ex := 0x02#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -8 | { state := num, num := { sign := true, ex := 0x03#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-57 : Rat)/8 | { state := num, num := { sign := true, ex := 0x02#5, sig := 0x39#6 } }
+  Circuit: ExtRat.Number -7 | { state := num, num := { sign := true, ex := 0x02#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -8 | { state := num, num := { sign := true, ex := 0x03#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number -7 | { state := num, num := { sign := true, ex := 0x02#5, sig := 0x38#6 } }
+  Circuit: ExtRat.Number -7 | { state := num, num := { sign := true, ex := 0x02#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -8 | { state := num, num := { sign := true, ex := 0x03#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-55 : Rat)/8 | { state := num, num := { sign := true, ex := 0x02#5, sig := 0x37#6 } }
+  Circuit: ExtRat.Number -7 | { state := num, num := { sign := true, ex := 0x02#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -6 | { state := num, num := { sign := true, ex := 0x02#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (-27 : Rat)/4 | { state := num, num := { sign := true, ex := 0x02#5, sig := 0x36#6 } }
+  Circuit: ExtRat.Number -7 | { state := num, num := { sign := true, ex := 0x02#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -6 | { state := num, num := { sign := true, ex := 0x02#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (-53 : Rat)/8 | { state := num, num := { sign := true, ex := 0x02#5, sig := 0x35#6 } }
+  Circuit: ExtRat.Number -7 | { state := num, num := { sign := true, ex := 0x02#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -6 | { state := num, num := { sign := true, ex := 0x02#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (-59 : Rat)/16 | { state := num, num := { sign := true, ex := 0x01#5, sig := 0x3b#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/2 | { state := num, num := { sign := true, ex := 0x01#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -4 | { state := num, num := { sign := true, ex := 0x02#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-29 : Rat)/8 | { state := num, num := { sign := true, ex := 0x01#5, sig := 0x3a#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/2 | { state := num, num := { sign := true, ex := 0x01#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -4 | { state := num, num := { sign := true, ex := 0x02#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-57 : Rat)/16 | { state := num, num := { sign := true, ex := 0x01#5, sig := 0x39#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/2 | { state := num, num := { sign := true, ex := 0x01#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -4 | { state := num, num := { sign := true, ex := 0x02#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-7 : Rat)/2 | { state := num, num := { sign := true, ex := 0x01#5, sig := 0x38#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/2 | { state := num, num := { sign := true, ex := 0x01#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -4 | { state := num, num := { sign := true, ex := 0x02#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-55 : Rat)/16 | { state := num, num := { sign := true, ex := 0x01#5, sig := 0x37#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/2 | { state := num, num := { sign := true, ex := 0x01#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -3 | { state := num, num := { sign := true, ex := 0x01#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (-27 : Rat)/8 | { state := num, num := { sign := true, ex := 0x01#5, sig := 0x36#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/2 | { state := num, num := { sign := true, ex := 0x01#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -3 | { state := num, num := { sign := true, ex := 0x01#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (-53 : Rat)/16 | { state := num, num := { sign := true, ex := 0x01#5, sig := 0x35#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/2 | { state := num, num := { sign := true, ex := 0x01#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -3 | { state := num, num := { sign := true, ex := 0x01#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (-59 : Rat)/32 | { state := num, num := { sign := true, ex := 0x00#5, sig := 0x3b#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/4 | { state := num, num := { sign := true, ex := 0x00#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -2 | { state := num, num := { sign := true, ex := 0x01#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-29 : Rat)/16 | { state := num, num := { sign := true, ex := 0x00#5, sig := 0x3a#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/4 | { state := num, num := { sign := true, ex := 0x00#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -2 | { state := num, num := { sign := true, ex := 0x01#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-57 : Rat)/32 | { state := num, num := { sign := true, ex := 0x00#5, sig := 0x39#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/4 | { state := num, num := { sign := true, ex := 0x00#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -2 | { state := num, num := { sign := true, ex := 0x01#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-7 : Rat)/4 | { state := num, num := { sign := true, ex := 0x00#5, sig := 0x38#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/4 | { state := num, num := { sign := true, ex := 0x00#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -2 | { state := num, num := { sign := true, ex := 0x01#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-55 : Rat)/32 | { state := num, num := { sign := true, ex := 0x00#5, sig := 0x37#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/4 | { state := num, num := { sign := true, ex := 0x00#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-3 : Rat)/2 | { state := num, num := { sign := true, ex := 0x00#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (-27 : Rat)/16 | { state := num, num := { sign := true, ex := 0x00#5, sig := 0x36#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/4 | { state := num, num := { sign := true, ex := 0x00#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-3 : Rat)/2 | { state := num, num := { sign := true, ex := 0x00#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (-53 : Rat)/32 | { state := num, num := { sign := true, ex := 0x00#5, sig := 0x35#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/4 | { state := num, num := { sign := true, ex := 0x00#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-3 : Rat)/2 | { state := num, num := { sign := true, ex := 0x00#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (-59 : Rat)/64 | { state := num, num := { sign := true, ex := 0x1f#5, sig := 0x3b#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/8 | { state := num, num := { sign := true, ex := 0x1f#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -1 | { state := num, num := { sign := true, ex := 0x00#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-29 : Rat)/32 | { state := num, num := { sign := true, ex := 0x1f#5, sig := 0x3a#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/8 | { state := num, num := { sign := true, ex := 0x1f#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -1 | { state := num, num := { sign := true, ex := 0x00#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-57 : Rat)/64 | { state := num, num := { sign := true, ex := 0x1f#5, sig := 0x39#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/8 | { state := num, num := { sign := true, ex := 0x1f#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -1 | { state := num, num := { sign := true, ex := 0x00#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-7 : Rat)/8 | { state := num, num := { sign := true, ex := 0x1f#5, sig := 0x38#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/8 | { state := num, num := { sign := true, ex := 0x1f#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number -1 | { state := num, num := { sign := true, ex := 0x00#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-55 : Rat)/64 | { state := num, num := { sign := true, ex := 0x1f#5, sig := 0x37#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/8 | { state := num, num := { sign := true, ex := 0x1f#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-3 : Rat)/4 | { state := num, num := { sign := true, ex := 0x1f#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (-27 : Rat)/32 | { state := num, num := { sign := true, ex := 0x1f#5, sig := 0x36#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/8 | { state := num, num := { sign := true, ex := 0x1f#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-3 : Rat)/4 | { state := num, num := { sign := true, ex := 0x1f#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (-53 : Rat)/64 | { state := num, num := { sign := true, ex := 0x1f#5, sig := 0x35#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/8 | { state := num, num := { sign := true, ex := 0x1f#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-3 : Rat)/4 | { state := num, num := { sign := true, ex := 0x1f#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (-59 : Rat)/128 | { state := num, num := { sign := true, ex := 0x1e#5, sig := 0x3b#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/16 | { state := num, num := { sign := true, ex := 0x1e#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-1 : Rat)/2 | { state := num, num := { sign := true, ex := 0x1f#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-29 : Rat)/64 | { state := num, num := { sign := true, ex := 0x1e#5, sig := 0x3a#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/16 | { state := num, num := { sign := true, ex := 0x1e#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-1 : Rat)/2 | { state := num, num := { sign := true, ex := 0x1f#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-57 : Rat)/128 | { state := num, num := { sign := true, ex := 0x1e#5, sig := 0x39#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/16 | { state := num, num := { sign := true, ex := 0x1e#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-1 : Rat)/2 | { state := num, num := { sign := true, ex := 0x1f#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-7 : Rat)/16 | { state := num, num := { sign := true, ex := 0x1e#5, sig := 0x38#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/16 | { state := num, num := { sign := true, ex := 0x1e#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-1 : Rat)/2 | { state := num, num := { sign := true, ex := 0x1f#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-55 : Rat)/128 | { state := num, num := { sign := true, ex := 0x1e#5, sig := 0x37#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/16 | { state := num, num := { sign := true, ex := 0x1e#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-3 : Rat)/8 | { state := num, num := { sign := true, ex := 0x1e#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (-27 : Rat)/64 | { state := num, num := { sign := true, ex := 0x1e#5, sig := 0x36#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/16 | { state := num, num := { sign := true, ex := 0x1e#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-3 : Rat)/8 | { state := num, num := { sign := true, ex := 0x1e#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (-53 : Rat)/128 | { state := num, num := { sign := true, ex := 0x1e#5, sig := 0x35#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/16 | { state := num, num := { sign := true, ex := 0x1e#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-3 : Rat)/8 | { state := num, num := { sign := true, ex := 0x1e#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (-59 : Rat)/256 | { state := num, num := { sign := true, ex := 0x1d#5, sig := 0x3b#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/32 | { state := num, num := { sign := true, ex := 0x1d#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-1 : Rat)/4 | { state := num, num := { sign := true, ex := 0x1e#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-29 : Rat)/128 | { state := num, num := { sign := true, ex := 0x1d#5, sig := 0x3a#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/32 | { state := num, num := { sign := true, ex := 0x1d#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-1 : Rat)/4 | { state := num, num := { sign := true, ex := 0x1e#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-57 : Rat)/256 | { state := num, num := { sign := true, ex := 0x1d#5, sig := 0x39#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/32 | { state := num, num := { sign := true, ex := 0x1d#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-1 : Rat)/4 | { state := num, num := { sign := true, ex := 0x1e#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-7 : Rat)/32 | { state := num, num := { sign := true, ex := 0x1d#5, sig := 0x38#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/32 | { state := num, num := { sign := true, ex := 0x1d#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-1 : Rat)/4 | { state := num, num := { sign := true, ex := 0x1e#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-55 : Rat)/256 | { state := num, num := { sign := true, ex := 0x1d#5, sig := 0x37#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/32 | { state := num, num := { sign := true, ex := 0x1d#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-3 : Rat)/16 | { state := num, num := { sign := true, ex := 0x1d#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (-27 : Rat)/128 | { state := num, num := { sign := true, ex := 0x1d#5, sig := 0x36#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/32 | { state := num, num := { sign := true, ex := 0x1d#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-3 : Rat)/16 | { state := num, num := { sign := true, ex := 0x1d#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (-53 : Rat)/256 | { state := num, num := { sign := true, ex := 0x1d#5, sig := 0x35#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/32 | { state := num, num := { sign := true, ex := 0x1d#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-3 : Rat)/16 | { state := num, num := { sign := true, ex := 0x1d#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (-59 : Rat)/512 | { state := num, num := { sign := true, ex := 0x1c#5, sig := 0x3b#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/64 | { state := num, num := { sign := true, ex := 0x1c#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-1 : Rat)/8 | { state := num, num := { sign := true, ex := 0x1d#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-29 : Rat)/256 | { state := num, num := { sign := true, ex := 0x1c#5, sig := 0x3a#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/64 | { state := num, num := { sign := true, ex := 0x1c#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-1 : Rat)/8 | { state := num, num := { sign := true, ex := 0x1d#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-57 : Rat)/512 | { state := num, num := { sign := true, ex := 0x1c#5, sig := 0x39#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/64 | { state := num, num := { sign := true, ex := 0x1c#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-1 : Rat)/8 | { state := num, num := { sign := true, ex := 0x1d#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-7 : Rat)/64 | { state := num, num := { sign := true, ex := 0x1c#5, sig := 0x38#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/64 | { state := num, num := { sign := true, ex := 0x1c#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-1 : Rat)/8 | { state := num, num := { sign := true, ex := 0x1d#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-55 : Rat)/512 | { state := num, num := { sign := true, ex := 0x1c#5, sig := 0x37#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/64 | { state := num, num := { sign := true, ex := 0x1c#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-3 : Rat)/32 | { state := num, num := { sign := true, ex := 0x1c#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (-27 : Rat)/256 | { state := num, num := { sign := true, ex := 0x1c#5, sig := 0x36#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/64 | { state := num, num := { sign := true, ex := 0x1c#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-3 : Rat)/32 | { state := num, num := { sign := true, ex := 0x1c#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (-53 : Rat)/512 | { state := num, num := { sign := true, ex := 0x1c#5, sig := 0x35#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/64 | { state := num, num := { sign := true, ex := 0x1c#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-3 : Rat)/32 | { state := num, num := { sign := true, ex := 0x1c#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (-59 : Rat)/1024 | { state := num, num := { sign := true, ex := 0x1b#5, sig := 0x3b#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/128 | { state := num, num := { sign := true, ex := 0x1b#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-1 : Rat)/16 | { state := num, num := { sign := true, ex := 0x1c#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-29 : Rat)/512 | { state := num, num := { sign := true, ex := 0x1b#5, sig := 0x3a#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/128 | { state := num, num := { sign := true, ex := 0x1b#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-1 : Rat)/16 | { state := num, num := { sign := true, ex := 0x1c#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-57 : Rat)/1024 | { state := num, num := { sign := true, ex := 0x1b#5, sig := 0x39#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/128 | { state := num, num := { sign := true, ex := 0x1b#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-1 : Rat)/16 | { state := num, num := { sign := true, ex := 0x1c#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-7 : Rat)/128 | { state := num, num := { sign := true, ex := 0x1b#5, sig := 0x38#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/128 | { state := num, num := { sign := true, ex := 0x1b#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-1 : Rat)/16 | { state := num, num := { sign := true, ex := 0x1c#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-55 : Rat)/1024 | { state := num, num := { sign := true, ex := 0x1b#5, sig := 0x37#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/128 | { state := num, num := { sign := true, ex := 0x1b#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-3 : Rat)/64 | { state := num, num := { sign := true, ex := 0x1b#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (-27 : Rat)/512 | { state := num, num := { sign := true, ex := 0x1b#5, sig := 0x36#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/128 | { state := num, num := { sign := true, ex := 0x1b#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-3 : Rat)/64 | { state := num, num := { sign := true, ex := 0x1b#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (-53 : Rat)/1024 | { state := num, num := { sign := true, ex := 0x1b#5, sig := 0x35#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/128 | { state := num, num := { sign := true, ex := 0x1b#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-3 : Rat)/64 | { state := num, num := { sign := true, ex := 0x1b#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (-59 : Rat)/2048 | { state := num, num := { sign := true, ex := 0x1a#5, sig := 0x3b#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/256 | { state := num, num := { sign := true, ex := 0x1a#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-1 : Rat)/32 | { state := num, num := { sign := true, ex := 0x1b#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-29 : Rat)/1024 | { state := num, num := { sign := true, ex := 0x1a#5, sig := 0x3a#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/256 | { state := num, num := { sign := true, ex := 0x1a#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-1 : Rat)/32 | { state := num, num := { sign := true, ex := 0x1b#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-57 : Rat)/2048 | { state := num, num := { sign := true, ex := 0x1a#5, sig := 0x39#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/256 | { state := num, num := { sign := true, ex := 0x1a#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-1 : Rat)/32 | { state := num, num := { sign := true, ex := 0x1b#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-7 : Rat)/256 | { state := num, num := { sign := true, ex := 0x1a#5, sig := 0x38#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/256 | { state := num, num := { sign := true, ex := 0x1a#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-1 : Rat)/32 | { state := num, num := { sign := true, ex := 0x1b#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-55 : Rat)/2048 | { state := num, num := { sign := true, ex := 0x1a#5, sig := 0x37#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/256 | { state := num, num := { sign := true, ex := 0x1a#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-3 : Rat)/128 | { state := num, num := { sign := true, ex := 0x1a#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (-27 : Rat)/1024 | { state := num, num := { sign := true, ex := 0x1a#5, sig := 0x36#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/256 | { state := num, num := { sign := true, ex := 0x1a#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-3 : Rat)/128 | { state := num, num := { sign := true, ex := 0x1a#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (-53 : Rat)/2048 | { state := num, num := { sign := true, ex := 0x1a#5, sig := 0x35#6 } }
+  Circuit: ExtRat.Number (-7 : Rat)/256 | { state := num, num := { sign := true, ex := 0x1a#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (-3 : Rat)/128 | { state := num, num := { sign := true, ex := 0x1a#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (-27 : Rat)/2048 | { state := num, num := { sign := true, ex := 0x19#5, sig := 0x36#6 } }
+  Circuit: ExtRat.Number (-3 : Rat)/256 | { state := num, num := { sign := true, ex := 0x19#5, sig := 0x6#3 } }
+  Golden : ExtRat.Number (-1 : Rat)/64 | { state := num, num := { sign := true, ex := 0x1a#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-13 : Rat)/1024 | { state := num, num := { sign := true, ex := 0x19#5, sig := 0x34#6 } }
+  Circuit: ExtRat.Number (-3 : Rat)/256 | { state := num, num := { sign := true, ex := 0x19#5, sig := 0x6#3 } }
+  Golden : ExtRat.Number (-1 : Rat)/64 | { state := num, num := { sign := true, ex := 0x1a#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-25 : Rat)/2048 | { state := num, num := { sign := true, ex := 0x19#5, sig := 0x32#6 } }
+  Circuit: ExtRat.Number (-3 : Rat)/256 | { state := num, num := { sign := true, ex := 0x19#5, sig := 0x6#3 } }
+  Golden : ExtRat.Number (-1 : Rat)/64 | { state := num, num := { sign := true, ex := 0x1a#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-3 : Rat)/256 | { state := num, num := { sign := true, ex := 0x19#5, sig := 0x30#6 } }
+  Circuit: ExtRat.Number (-3 : Rat)/256 | { state := num, num := { sign := true, ex := 0x19#5, sig := 0x6#3 } }
+  Golden : ExtRat.Number (-1 : Rat)/64 | { state := num, num := { sign := true, ex := 0x1a#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-23 : Rat)/2048 | { state := num, num := { sign := true, ex := 0x19#5, sig := 0x2e#6 } }
+  Circuit: ExtRat.Number (-3 : Rat)/256 | { state := num, num := { sign := true, ex := 0x19#5, sig := 0x6#3 } }
+  Golden : ExtRat.Number (-1 : Rat)/128 | { state := num, num := { sign := true, ex := 0x19#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-11 : Rat)/1024 | { state := num, num := { sign := true, ex := 0x19#5, sig := 0x2c#6 } }
+  Circuit: ExtRat.Number (-3 : Rat)/256 | { state := num, num := { sign := true, ex := 0x19#5, sig := 0x6#3 } }
+  Golden : ExtRat.Number (-1 : Rat)/128 | { state := num, num := { sign := true, ex := 0x19#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (-21 : Rat)/2048 | { state := num, num := { sign := true, ex := 0x19#5, sig := 0x2a#6 } }
+  Circuit: ExtRat.Number (-3 : Rat)/256 | { state := num, num := { sign := true, ex := 0x19#5, sig := 0x6#3 } }
+  Golden : ExtRat.Number (-1 : Rat)/128 | { state := num, num := { sign := true, ex := 0x19#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (21 : Rat)/2048 | { state := num, num := { sign := false, ex := 0x19#5, sig := 0x2a#6 } }
+  Circuit: ExtRat.Number (3 : Rat)/256 | { state := num, num := { sign := false, ex := 0x19#5, sig := 0x6#3 } }
+  Golden : ExtRat.Number (1 : Rat)/128 | { state := num, num := { sign := false, ex := 0x19#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (11 : Rat)/1024 | { state := num, num := { sign := false, ex := 0x19#5, sig := 0x2c#6 } }
+  Circuit: ExtRat.Number (3 : Rat)/256 | { state := num, num := { sign := false, ex := 0x19#5, sig := 0x6#3 } }
+  Golden : ExtRat.Number (1 : Rat)/128 | { state := num, num := { sign := false, ex := 0x19#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (23 : Rat)/2048 | { state := num, num := { sign := false, ex := 0x19#5, sig := 0x2e#6 } }
+  Circuit: ExtRat.Number (3 : Rat)/256 | { state := num, num := { sign := false, ex := 0x19#5, sig := 0x6#3 } }
+  Golden : ExtRat.Number (1 : Rat)/128 | { state := num, num := { sign := false, ex := 0x19#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (3 : Rat)/256 | { state := num, num := { sign := false, ex := 0x19#5, sig := 0x30#6 } }
+  Circuit: ExtRat.Number (3 : Rat)/256 | { state := num, num := { sign := false, ex := 0x19#5, sig := 0x6#3 } }
+  Golden : ExtRat.Number (1 : Rat)/128 | { state := num, num := { sign := false, ex := 0x19#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (25 : Rat)/2048 | { state := num, num := { sign := false, ex := 0x19#5, sig := 0x32#6 } }
+  Circuit: ExtRat.Number (3 : Rat)/256 | { state := num, num := { sign := false, ex := 0x19#5, sig := 0x6#3 } }
+  Golden : ExtRat.Number (1 : Rat)/64 | { state := num, num := { sign := false, ex := 0x1a#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (13 : Rat)/1024 | { state := num, num := { sign := false, ex := 0x19#5, sig := 0x34#6 } }
+  Circuit: ExtRat.Number (3 : Rat)/256 | { state := num, num := { sign := false, ex := 0x19#5, sig := 0x6#3 } }
+  Golden : ExtRat.Number (1 : Rat)/64 | { state := num, num := { sign := false, ex := 0x1a#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (27 : Rat)/2048 | { state := num, num := { sign := false, ex := 0x19#5, sig := 0x36#6 } }
+  Circuit: ExtRat.Number (3 : Rat)/256 | { state := num, num := { sign := false, ex := 0x19#5, sig := 0x6#3 } }
+  Golden : ExtRat.Number (1 : Rat)/64 | { state := num, num := { sign := false, ex := 0x1a#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (53 : Rat)/2048 | { state := num, num := { sign := false, ex := 0x1a#5, sig := 0x35#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/256 | { state := num, num := { sign := false, ex := 0x1a#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (3 : Rat)/128 | { state := num, num := { sign := false, ex := 0x1a#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (27 : Rat)/1024 | { state := num, num := { sign := false, ex := 0x1a#5, sig := 0x36#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/256 | { state := num, num := { sign := false, ex := 0x1a#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (3 : Rat)/128 | { state := num, num := { sign := false, ex := 0x1a#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (55 : Rat)/2048 | { state := num, num := { sign := false, ex := 0x1a#5, sig := 0x37#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/256 | { state := num, num := { sign := false, ex := 0x1a#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (3 : Rat)/128 | { state := num, num := { sign := false, ex := 0x1a#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (7 : Rat)/256 | { state := num, num := { sign := false, ex := 0x1a#5, sig := 0x38#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/256 | { state := num, num := { sign := false, ex := 0x1a#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (3 : Rat)/128 | { state := num, num := { sign := false, ex := 0x1a#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (57 : Rat)/2048 | { state := num, num := { sign := false, ex := 0x1a#5, sig := 0x39#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/256 | { state := num, num := { sign := false, ex := 0x1a#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (1 : Rat)/32 | { state := num, num := { sign := false, ex := 0x1b#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (29 : Rat)/1024 | { state := num, num := { sign := false, ex := 0x1a#5, sig := 0x3a#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/256 | { state := num, num := { sign := false, ex := 0x1a#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (1 : Rat)/32 | { state := num, num := { sign := false, ex := 0x1b#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (59 : Rat)/2048 | { state := num, num := { sign := false, ex := 0x1a#5, sig := 0x3b#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/256 | { state := num, num := { sign := false, ex := 0x1a#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (1 : Rat)/32 | { state := num, num := { sign := false, ex := 0x1b#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (53 : Rat)/1024 | { state := num, num := { sign := false, ex := 0x1b#5, sig := 0x35#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/128 | { state := num, num := { sign := false, ex := 0x1b#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (3 : Rat)/64 | { state := num, num := { sign := false, ex := 0x1b#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (27 : Rat)/512 | { state := num, num := { sign := false, ex := 0x1b#5, sig := 0x36#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/128 | { state := num, num := { sign := false, ex := 0x1b#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (3 : Rat)/64 | { state := num, num := { sign := false, ex := 0x1b#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (55 : Rat)/1024 | { state := num, num := { sign := false, ex := 0x1b#5, sig := 0x37#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/128 | { state := num, num := { sign := false, ex := 0x1b#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (3 : Rat)/64 | { state := num, num := { sign := false, ex := 0x1b#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (7 : Rat)/128 | { state := num, num := { sign := false, ex := 0x1b#5, sig := 0x38#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/128 | { state := num, num := { sign := false, ex := 0x1b#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (3 : Rat)/64 | { state := num, num := { sign := false, ex := 0x1b#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (57 : Rat)/1024 | { state := num, num := { sign := false, ex := 0x1b#5, sig := 0x39#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/128 | { state := num, num := { sign := false, ex := 0x1b#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (1 : Rat)/16 | { state := num, num := { sign := false, ex := 0x1c#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (29 : Rat)/512 | { state := num, num := { sign := false, ex := 0x1b#5, sig := 0x3a#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/128 | { state := num, num := { sign := false, ex := 0x1b#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (1 : Rat)/16 | { state := num, num := { sign := false, ex := 0x1c#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (59 : Rat)/1024 | { state := num, num := { sign := false, ex := 0x1b#5, sig := 0x3b#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/128 | { state := num, num := { sign := false, ex := 0x1b#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (1 : Rat)/16 | { state := num, num := { sign := false, ex := 0x1c#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (53 : Rat)/512 | { state := num, num := { sign := false, ex := 0x1c#5, sig := 0x35#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/64 | { state := num, num := { sign := false, ex := 0x1c#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (3 : Rat)/32 | { state := num, num := { sign := false, ex := 0x1c#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (27 : Rat)/256 | { state := num, num := { sign := false, ex := 0x1c#5, sig := 0x36#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/64 | { state := num, num := { sign := false, ex := 0x1c#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (3 : Rat)/32 | { state := num, num := { sign := false, ex := 0x1c#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (55 : Rat)/512 | { state := num, num := { sign := false, ex := 0x1c#5, sig := 0x37#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/64 | { state := num, num := { sign := false, ex := 0x1c#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (3 : Rat)/32 | { state := num, num := { sign := false, ex := 0x1c#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (7 : Rat)/64 | { state := num, num := { sign := false, ex := 0x1c#5, sig := 0x38#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/64 | { state := num, num := { sign := false, ex := 0x1c#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (3 : Rat)/32 | { state := num, num := { sign := false, ex := 0x1c#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (57 : Rat)/512 | { state := num, num := { sign := false, ex := 0x1c#5, sig := 0x39#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/64 | { state := num, num := { sign := false, ex := 0x1c#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (1 : Rat)/8 | { state := num, num := { sign := false, ex := 0x1d#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (29 : Rat)/256 | { state := num, num := { sign := false, ex := 0x1c#5, sig := 0x3a#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/64 | { state := num, num := { sign := false, ex := 0x1c#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (1 : Rat)/8 | { state := num, num := { sign := false, ex := 0x1d#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (59 : Rat)/512 | { state := num, num := { sign := false, ex := 0x1c#5, sig := 0x3b#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/64 | { state := num, num := { sign := false, ex := 0x1c#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (1 : Rat)/8 | { state := num, num := { sign := false, ex := 0x1d#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (53 : Rat)/256 | { state := num, num := { sign := false, ex := 0x1d#5, sig := 0x35#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/32 | { state := num, num := { sign := false, ex := 0x1d#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (3 : Rat)/16 | { state := num, num := { sign := false, ex := 0x1d#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (27 : Rat)/128 | { state := num, num := { sign := false, ex := 0x1d#5, sig := 0x36#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/32 | { state := num, num := { sign := false, ex := 0x1d#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (3 : Rat)/16 | { state := num, num := { sign := false, ex := 0x1d#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (55 : Rat)/256 | { state := num, num := { sign := false, ex := 0x1d#5, sig := 0x37#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/32 | { state := num, num := { sign := false, ex := 0x1d#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (3 : Rat)/16 | { state := num, num := { sign := false, ex := 0x1d#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (7 : Rat)/32 | { state := num, num := { sign := false, ex := 0x1d#5, sig := 0x38#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/32 | { state := num, num := { sign := false, ex := 0x1d#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (3 : Rat)/16 | { state := num, num := { sign := false, ex := 0x1d#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (57 : Rat)/256 | { state := num, num := { sign := false, ex := 0x1d#5, sig := 0x39#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/32 | { state := num, num := { sign := false, ex := 0x1d#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (1 : Rat)/4 | { state := num, num := { sign := false, ex := 0x1e#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (29 : Rat)/128 | { state := num, num := { sign := false, ex := 0x1d#5, sig := 0x3a#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/32 | { state := num, num := { sign := false, ex := 0x1d#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (1 : Rat)/4 | { state := num, num := { sign := false, ex := 0x1e#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (59 : Rat)/256 | { state := num, num := { sign := false, ex := 0x1d#5, sig := 0x3b#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/32 | { state := num, num := { sign := false, ex := 0x1d#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (1 : Rat)/4 | { state := num, num := { sign := false, ex := 0x1e#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (53 : Rat)/128 | { state := num, num := { sign := false, ex := 0x1e#5, sig := 0x35#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/16 | { state := num, num := { sign := false, ex := 0x1e#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (3 : Rat)/8 | { state := num, num := { sign := false, ex := 0x1e#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (27 : Rat)/64 | { state := num, num := { sign := false, ex := 0x1e#5, sig := 0x36#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/16 | { state := num, num := { sign := false, ex := 0x1e#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (3 : Rat)/8 | { state := num, num := { sign := false, ex := 0x1e#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (55 : Rat)/128 | { state := num, num := { sign := false, ex := 0x1e#5, sig := 0x37#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/16 | { state := num, num := { sign := false, ex := 0x1e#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (3 : Rat)/8 | { state := num, num := { sign := false, ex := 0x1e#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (7 : Rat)/16 | { state := num, num := { sign := false, ex := 0x1e#5, sig := 0x38#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/16 | { state := num, num := { sign := false, ex := 0x1e#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (3 : Rat)/8 | { state := num, num := { sign := false, ex := 0x1e#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (57 : Rat)/128 | { state := num, num := { sign := false, ex := 0x1e#5, sig := 0x39#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/16 | { state := num, num := { sign := false, ex := 0x1e#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (1 : Rat)/2 | { state := num, num := { sign := false, ex := 0x1f#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (29 : Rat)/64 | { state := num, num := { sign := false, ex := 0x1e#5, sig := 0x3a#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/16 | { state := num, num := { sign := false, ex := 0x1e#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (1 : Rat)/2 | { state := num, num := { sign := false, ex := 0x1f#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (59 : Rat)/128 | { state := num, num := { sign := false, ex := 0x1e#5, sig := 0x3b#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/16 | { state := num, num := { sign := false, ex := 0x1e#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (1 : Rat)/2 | { state := num, num := { sign := false, ex := 0x1f#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (53 : Rat)/64 | { state := num, num := { sign := false, ex := 0x1f#5, sig := 0x35#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/8 | { state := num, num := { sign := false, ex := 0x1f#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (3 : Rat)/4 | { state := num, num := { sign := false, ex := 0x1f#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (27 : Rat)/32 | { state := num, num := { sign := false, ex := 0x1f#5, sig := 0x36#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/8 | { state := num, num := { sign := false, ex := 0x1f#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (3 : Rat)/4 | { state := num, num := { sign := false, ex := 0x1f#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (55 : Rat)/64 | { state := num, num := { sign := false, ex := 0x1f#5, sig := 0x37#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/8 | { state := num, num := { sign := false, ex := 0x1f#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (3 : Rat)/4 | { state := num, num := { sign := false, ex := 0x1f#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (7 : Rat)/8 | { state := num, num := { sign := false, ex := 0x1f#5, sig := 0x38#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/8 | { state := num, num := { sign := false, ex := 0x1f#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (3 : Rat)/4 | { state := num, num := { sign := false, ex := 0x1f#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (57 : Rat)/64 | { state := num, num := { sign := false, ex := 0x1f#5, sig := 0x39#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/8 | { state := num, num := { sign := false, ex := 0x1f#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 1 | { state := num, num := { sign := false, ex := 0x00#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (29 : Rat)/32 | { state := num, num := { sign := false, ex := 0x1f#5, sig := 0x3a#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/8 | { state := num, num := { sign := false, ex := 0x1f#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 1 | { state := num, num := { sign := false, ex := 0x00#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (59 : Rat)/64 | { state := num, num := { sign := false, ex := 0x1f#5, sig := 0x3b#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/8 | { state := num, num := { sign := false, ex := 0x1f#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 1 | { state := num, num := { sign := false, ex := 0x00#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (53 : Rat)/32 | { state := num, num := { sign := false, ex := 0x00#5, sig := 0x35#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/4 | { state := num, num := { sign := false, ex := 0x00#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (3 : Rat)/2 | { state := num, num := { sign := false, ex := 0x00#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (27 : Rat)/16 | { state := num, num := { sign := false, ex := 0x00#5, sig := 0x36#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/4 | { state := num, num := { sign := false, ex := 0x00#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (3 : Rat)/2 | { state := num, num := { sign := false, ex := 0x00#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (55 : Rat)/32 | { state := num, num := { sign := false, ex := 0x00#5, sig := 0x37#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/4 | { state := num, num := { sign := false, ex := 0x00#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (3 : Rat)/2 | { state := num, num := { sign := false, ex := 0x00#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (7 : Rat)/4 | { state := num, num := { sign := false, ex := 0x00#5, sig := 0x38#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/4 | { state := num, num := { sign := false, ex := 0x00#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number (3 : Rat)/2 | { state := num, num := { sign := false, ex := 0x00#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (57 : Rat)/32 | { state := num, num := { sign := false, ex := 0x00#5, sig := 0x39#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/4 | { state := num, num := { sign := false, ex := 0x00#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 2 | { state := num, num := { sign := false, ex := 0x01#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (29 : Rat)/16 | { state := num, num := { sign := false, ex := 0x00#5, sig := 0x3a#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/4 | { state := num, num := { sign := false, ex := 0x00#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 2 | { state := num, num := { sign := false, ex := 0x01#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (59 : Rat)/32 | { state := num, num := { sign := false, ex := 0x00#5, sig := 0x3b#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/4 | { state := num, num := { sign := false, ex := 0x00#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 2 | { state := num, num := { sign := false, ex := 0x01#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (53 : Rat)/16 | { state := num, num := { sign := false, ex := 0x01#5, sig := 0x35#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/2 | { state := num, num := { sign := false, ex := 0x01#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 3 | { state := num, num := { sign := false, ex := 0x01#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (27 : Rat)/8 | { state := num, num := { sign := false, ex := 0x01#5, sig := 0x36#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/2 | { state := num, num := { sign := false, ex := 0x01#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 3 | { state := num, num := { sign := false, ex := 0x01#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (55 : Rat)/16 | { state := num, num := { sign := false, ex := 0x01#5, sig := 0x37#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/2 | { state := num, num := { sign := false, ex := 0x01#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 3 | { state := num, num := { sign := false, ex := 0x01#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (7 : Rat)/2 | { state := num, num := { sign := false, ex := 0x01#5, sig := 0x38#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/2 | { state := num, num := { sign := false, ex := 0x01#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 3 | { state := num, num := { sign := false, ex := 0x01#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (57 : Rat)/16 | { state := num, num := { sign := false, ex := 0x01#5, sig := 0x39#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/2 | { state := num, num := { sign := false, ex := 0x01#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 4 | { state := num, num := { sign := false, ex := 0x02#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (29 : Rat)/8 | { state := num, num := { sign := false, ex := 0x01#5, sig := 0x3a#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/2 | { state := num, num := { sign := false, ex := 0x01#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 4 | { state := num, num := { sign := false, ex := 0x02#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (59 : Rat)/16 | { state := num, num := { sign := false, ex := 0x01#5, sig := 0x3b#6 } }
+  Circuit: ExtRat.Number (7 : Rat)/2 | { state := num, num := { sign := false, ex := 0x01#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 4 | { state := num, num := { sign := false, ex := 0x02#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (53 : Rat)/8 | { state := num, num := { sign := false, ex := 0x02#5, sig := 0x35#6 } }
+  Circuit: ExtRat.Number 7 | { state := num, num := { sign := false, ex := 0x02#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 6 | { state := num, num := { sign := false, ex := 0x02#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (27 : Rat)/4 | { state := num, num := { sign := false, ex := 0x02#5, sig := 0x36#6 } }
+  Circuit: ExtRat.Number 7 | { state := num, num := { sign := false, ex := 0x02#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 6 | { state := num, num := { sign := false, ex := 0x02#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (55 : Rat)/8 | { state := num, num := { sign := false, ex := 0x02#5, sig := 0x37#6 } }
+  Circuit: ExtRat.Number 7 | { state := num, num := { sign := false, ex := 0x02#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 6 | { state := num, num := { sign := false, ex := 0x02#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number 7 | { state := num, num := { sign := false, ex := 0x02#5, sig := 0x38#6 } }
+  Circuit: ExtRat.Number 7 | { state := num, num := { sign := false, ex := 0x02#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 6 | { state := num, num := { sign := false, ex := 0x02#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (57 : Rat)/8 | { state := num, num := { sign := false, ex := 0x02#5, sig := 0x39#6 } }
+  Circuit: ExtRat.Number 7 | { state := num, num := { sign := false, ex := 0x02#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 8 | { state := num, num := { sign := false, ex := 0x03#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (29 : Rat)/4 | { state := num, num := { sign := false, ex := 0x02#5, sig := 0x3a#6 } }
+  Circuit: ExtRat.Number 7 | { state := num, num := { sign := false, ex := 0x02#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 8 | { state := num, num := { sign := false, ex := 0x03#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (59 : Rat)/8 | { state := num, num := { sign := false, ex := 0x02#5, sig := 0x3b#6 } }
+  Circuit: ExtRat.Number 7 | { state := num, num := { sign := false, ex := 0x02#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 8 | { state := num, num := { sign := false, ex := 0x03#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (53 : Rat)/4 | { state := num, num := { sign := false, ex := 0x03#5, sig := 0x35#6 } }
+  Circuit: ExtRat.Number 14 | { state := num, num := { sign := false, ex := 0x03#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 12 | { state := num, num := { sign := false, ex := 0x03#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (27 : Rat)/2 | { state := num, num := { sign := false, ex := 0x03#5, sig := 0x36#6 } }
+  Circuit: ExtRat.Number 14 | { state := num, num := { sign := false, ex := 0x03#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 12 | { state := num, num := { sign := false, ex := 0x03#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (55 : Rat)/4 | { state := num, num := { sign := false, ex := 0x03#5, sig := 0x37#6 } }
+  Circuit: ExtRat.Number 14 | { state := num, num := { sign := false, ex := 0x03#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 12 | { state := num, num := { sign := false, ex := 0x03#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number 14 | { state := num, num := { sign := false, ex := 0x03#5, sig := 0x38#6 } }
+  Circuit: ExtRat.Number 14 | { state := num, num := { sign := false, ex := 0x03#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 12 | { state := num, num := { sign := false, ex := 0x03#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (57 : Rat)/4 | { state := num, num := { sign := false, ex := 0x03#5, sig := 0x39#6 } }
+  Circuit: ExtRat.Number 14 | { state := num, num := { sign := false, ex := 0x03#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 16 | { state := num, num := { sign := false, ex := 0x04#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (29 : Rat)/2 | { state := num, num := { sign := false, ex := 0x03#5, sig := 0x3a#6 } }
+  Circuit: ExtRat.Number 14 | { state := num, num := { sign := false, ex := 0x03#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 16 | { state := num, num := { sign := false, ex := 0x04#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (59 : Rat)/4 | { state := num, num := { sign := false, ex := 0x03#5, sig := 0x3b#6 } }
+  Circuit: ExtRat.Number 14 | { state := num, num := { sign := false, ex := 0x03#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 16 | { state := num, num := { sign := false, ex := 0x04#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (53 : Rat)/2 | { state := num, num := { sign := false, ex := 0x04#5, sig := 0x35#6 } }
+  Circuit: ExtRat.Number 28 | { state := num, num := { sign := false, ex := 0x04#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 24 | { state := num, num := { sign := false, ex := 0x04#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number 27 | { state := num, num := { sign := false, ex := 0x04#5, sig := 0x36#6 } }
+  Circuit: ExtRat.Number 28 | { state := num, num := { sign := false, ex := 0x04#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 24 | { state := num, num := { sign := false, ex := 0x04#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (55 : Rat)/2 | { state := num, num := { sign := false, ex := 0x04#5, sig := 0x37#6 } }
+  Circuit: ExtRat.Number 28 | { state := num, num := { sign := false, ex := 0x04#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 24 | { state := num, num := { sign := false, ex := 0x04#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number 28 | { state := num, num := { sign := false, ex := 0x04#5, sig := 0x38#6 } }
+  Circuit: ExtRat.Number 28 | { state := num, num := { sign := false, ex := 0x04#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 24 | { state := num, num := { sign := false, ex := 0x04#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number (57 : Rat)/2 | { state := num, num := { sign := false, ex := 0x04#5, sig := 0x39#6 } }
+  Circuit: ExtRat.Number 28 | { state := num, num := { sign := false, ex := 0x04#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 32 | { state := num, num := { sign := false, ex := 0x05#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number 29 | { state := num, num := { sign := false, ex := 0x04#5, sig := 0x3a#6 } }
+  Circuit: ExtRat.Number 28 | { state := num, num := { sign := false, ex := 0x04#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 32 | { state := num, num := { sign := false, ex := 0x05#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number (59 : Rat)/2 | { state := num, num := { sign := false, ex := 0x04#5, sig := 0x3b#6 } }
+  Circuit: ExtRat.Number 28 | { state := num, num := { sign := false, ex := 0x04#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 32 | { state := num, num := { sign := false, ex := 0x05#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number 53 | { state := num, num := { sign := false, ex := 0x05#5, sig := 0x35#6 } }
+  Circuit: ExtRat.Number 56 | { state := num, num := { sign := false, ex := 0x05#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 48 | { state := num, num := { sign := false, ex := 0x05#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number 54 | { state := num, num := { sign := false, ex := 0x05#5, sig := 0x36#6 } }
+  Circuit: ExtRat.Number 56 | { state := num, num := { sign := false, ex := 0x05#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 48 | { state := num, num := { sign := false, ex := 0x05#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number 55 | { state := num, num := { sign := false, ex := 0x05#5, sig := 0x37#6 } }
+  Circuit: ExtRat.Number 56 | { state := num, num := { sign := false, ex := 0x05#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 48 | { state := num, num := { sign := false, ex := 0x05#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number 56 | { state := num, num := { sign := false, ex := 0x05#5, sig := 0x38#6 } }
+  Circuit: ExtRat.Number 56 | { state := num, num := { sign := false, ex := 0x05#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 48 | { state := num, num := { sign := false, ex := 0x05#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number 57 | { state := num, num := { sign := false, ex := 0x05#5, sig := 0x39#6 } }
+  Circuit: ExtRat.Number 56 | { state := num, num := { sign := false, ex := 0x05#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 64 | { state := num, num := { sign := false, ex := 0x06#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number 58 | { state := num, num := { sign := false, ex := 0x05#5, sig := 0x3a#6 } }
+  Circuit: ExtRat.Number 56 | { state := num, num := { sign := false, ex := 0x05#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 64 | { state := num, num := { sign := false, ex := 0x06#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number 59 | { state := num, num := { sign := false, ex := 0x05#5, sig := 0x3b#6 } }
+  Circuit: ExtRat.Number 56 | { state := num, num := { sign := false, ex := 0x05#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 64 | { state := num, num := { sign := false, ex := 0x06#5, sig := 0x4#3 } }
+---
+Mismatch on input ExtRat.Number 106 | { state := num, num := { sign := false, ex := 0x06#5, sig := 0x35#6 } }
+  Circuit: ExtRat.Number 112 | { state := num, num := { sign := false, ex := 0x06#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 96 | { state := num, num := { sign := false, ex := 0x06#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number 108 | { state := num, num := { sign := false, ex := 0x06#5, sig := 0x36#6 } }
+  Circuit: ExtRat.Number 112 | { state := num, num := { sign := false, ex := 0x06#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 96 | { state := num, num := { sign := false, ex := 0x06#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number 110 | { state := num, num := { sign := false, ex := 0x06#5, sig := 0x37#6 } }
+  Circuit: ExtRat.Number 112 | { state := num, num := { sign := false, ex := 0x06#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 96 | { state := num, num := { sign := false, ex := 0x06#5, sig := 0x6#3 } }
+---
+Mismatch on input ExtRat.Number 112 | { state := num, num := { sign := false, ex := 0x06#5, sig := 0x38#6 } }
+  Circuit: ExtRat.Number 112 | { state := num, num := { sign := false, ex := 0x06#5, sig := 0x7#3 } }
+  Golden : ExtRat.Number 96 | { state := num, num := { sign := false, ex := 0x06#5, sig := 0x6#3 } }
+nsuccess = 720, nfailure = 210, success% = 77%
 ---
 info: false
 -/
+#guard_msgs in #eval testAgainstUnpackedFloatRounding 4 5 4 2
+
+/--
+info: nsuccess = 6, nfailure = 0, success% = 100%
+---
+info: true
+-/
 #guard_msgs in #eval testAgainstUnpackedFloatRounding 2 1 2 1
+
 
 end ExhaustiveTesting
 
