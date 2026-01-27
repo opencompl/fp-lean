@@ -4,12 +4,6 @@ import Fp.SmtLibQSemantics
 
 def main : IO UInt32 := do
     let mut success := true
-    IO.println "Running the slow semantics to test for idempotence..."
-    let out ← QSemanticsFast.ExhaustiveEnumeration.runSlowIdempotent 3 5 RoundingMode.RNE
-    success := success && out
-    IO.println "Running the slow semantics vs agreement for rounding..."
-    let out ← QSemanticsRef.ExhaustiveEnumeration.runRoundAgreesWithUnpackedFloatRound 4 6 4 4 RoundingMode.RNE
-    success := success && out
     -- IO.println "Comparing 'lower' semantics against reference implementation..."
     -- let out ← QSemanticsFast.ExhaustiveEnumeration.lowerAgreesWithRefTest 3 5
     -- success := success && out

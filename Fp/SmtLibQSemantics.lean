@@ -242,8 +242,8 @@ def roundBySlowEnumeration (e s : Nat) : RoundMethod (PackedFloat e s) where
   where
     smallest := PackedFloat.getInfinity e s true
     largest := PackedFloat.getInfinity e s false
-    lower := roundableLowerByEnumeration roundableEmbedPackedFloat smallest (PackedFloat.enumerate e s)
-    upper := roundableUpperByEnumeration roundableEmbedPackedFloat (PackedFloat.enumerate e s) largest
+    lower := roundableLowerByEnumeration roundableEmbedPackedFloat smallest (PackedFloat.enumerateAllList e s)
+    upper := roundableUpperByEnumeration roundableEmbedPackedFloat (PackedFloat.enumerateAllList e s) largest
 end SlowComputableRound
 
 namespace SmtLibRoundMethod
@@ -260,7 +260,7 @@ def smtLibV (e s : Nat) : RoundableAdjunction (PackedFloat e s) :=
   RoundableAdjunction.ofEmbedByEnumeration
     roundableEmbedPackedFloat
     (smallest := PackedFloat.getInfinity e s true)
-    (univ := PackedFloat.enumerate e s)
+    (univ := PackedFloat.enumerateAllList e s)
     (largest := PackedFloat.getInfinity e s false)
 
 
@@ -326,7 +326,7 @@ def roundMethodsEqual? (E : Nat := 4) (S : Nat := 4) (e : Nat := 4) (s : Nat := 
   -- isEvenEqual? -- good
   where
     lowerEqual? : IO Bool := do
-      for pf in PackedFloat.enumerate E S do
+      for pf in PackedFloat.enumerateAllList E S do
         let r := pf.toExtRat
         let l1 := r1.lower r
         let l2 := r2.lower r
@@ -336,7 +336,7 @@ def roundMethodsEqual? (E : Nat := 4) (S : Nat := 4) (e : Nat := 4) (s : Nat := 
           return false
       return true
     higherEqual? : IO Bool := do
-      for pf in PackedFloat.enumerate E S do
+      for pf in PackedFloat.enumerateAllList E S do
         let r := pf.toExtRat
         let u1 := r1.upper r
         let u2 := r2.upper r
@@ -346,7 +346,7 @@ def roundMethodsEqual? (E : Nat := 4) (S : Nat := 4) (e : Nat := 4) (s : Nat := 
           return false
       return true
     tieBreakEqual? : IO Bool := do
-      for pf in PackedFloat.enumerate E S do
+      for pf in PackedFloat.enumerateAllList E S do
         let r := pf.toExtRat
         let tb1 := r1.tieBreak r
         let tb2 := r2.tieBreak r
@@ -360,7 +360,7 @@ def roundMethodsEqual? (E : Nat := 4) (S : Nat := 4) (e : Nat := 4) (s : Nat := 
         return false
       return true
     lowerHalfEqual? : IO Bool := do
-      for pf in PackedFloat.enumerate E S do
+      for pf in PackedFloat.enumerateAllList E S do
         let r := pf.toExtRat
         let lh1 := r1.lowerHalf r
         let lh2 := r2.lowerHalf r
@@ -370,7 +370,7 @@ def roundMethodsEqual? (E : Nat := 4) (S : Nat := 4) (e : Nat := 4) (s : Nat := 
           return false
       return true
     isEvenEqual? : IO Bool := do
-      for pf in PackedFloat.enumerate e s do
+      for pf in PackedFloat.enumerateAllList e s do
         let r := pf.toExtRat
         let lh1 := r1.isEven pf
         let lh2 := r2.isEven pf
@@ -400,7 +400,7 @@ def compareRoundingFunctions
   (E S : Nat) (e s : Nat) (rm : RoundingMode)
   (rounderGolden rounderUnderTest : RoundingMode → (sign  : Bool) → PackedFloat E S → PackedFloat e s)
   : IO Bool := do
-  let pfs : List (PackedFloat E S) := PackedFloat.enumerate E S
+  let pfs : List (PackedFloat E S) := PackedFloat.enumerateAllList E S
   let mut nsuccess : Nat := 0
   let mut nfailure : Nat := 0
   for pf in pfs do
@@ -458,7 +458,7 @@ info: false
       let v := (RoundableAdjunction.ofEmbedByEnumeration (X := PackedFloat _ _)
           (roundableEmbedPackedFloat)
           (PackedFloat.getInfinity _ _ true )
-          (PackedFloat.enumerate _ _)
+          (PackedFloat.enumerateAllList _ _)
           (PackedFloat.getInfinity _ _ false))
       (SmtLibRoundMethod.smtLibRoundMethod _ _ v).roundAux rm sign pf.toExtRat)
 
@@ -488,7 +488,7 @@ info: false
       let v := (RoundableAdjunction.ofEmbedByEnumeration (X := PackedFloat _ _)
           (roundableEmbedPackedFloat)
           (PackedFloat.getInfinity _ _ true )
-          (PackedFloat.enumerate _ _)
+          (PackedFloat.enumerateAllList _ _)
           (PackedFloat.getInfinity _ _ false))
       (SmtLibRoundMethod.smtLibRoundMethod _ _ v).roundAux rm sign pf.toExtRat)
   (rounderUnderTest := fun rm sign pf => (SlowComputableRound.roundBySlowEnumeration _ _).roundAux rm sign pf.toExtRat)
@@ -522,7 +522,7 @@ Note: This linter can be disabled with `set_option linter.unusedVariables false`
       let v := (RoundableAdjunction.ofEmbedByEnumeration (X := PackedFloat _ _)
           (roundableEmbedPackedFloat)
           (PackedFloat.getInfinity _ _ true )
-          (PackedFloat.enumerate _ _)
+          (PackedFloat.enumerateAllList _ _)
           (PackedFloat.getInfinity _ _ false))
       (SmtLibRoundMethod.smtLibRoundMethod _ _ v).roundAux rm sign pf.toExtRat)
   (rounderUnderTest := fun rm sign pf =>

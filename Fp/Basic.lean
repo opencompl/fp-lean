@@ -463,7 +463,7 @@ def isNorm (pf : PackedFloat e s) : Bool :=
   pf.ex != .allOnes e && pf.ex != .zero e
 
 /-- negate the sign bit of a packed float -/
-def neg (pf : PackedFloat e s) : PackedFloat e s :=
+def negateSign (pf : PackedFloat e s) : PackedFloat e s :=
   {
     sign := !pf.sign
     ex := pf.ex
@@ -659,7 +659,7 @@ def toRat? (pf : PackedFloat e s) : Option Rat :=
   pf.toEFixed.toRat?
 
 /-- enumerate all packed floats. -/
-def enumerate (E S : Nat) : List (PackedFloat E S) := Id.run do
+def enumerateAllList (E S : Nat) : List (PackedFloat E S) := Id.run do
   let mut out : List (PackedFloat E S) := []
   for sign in [true, false] do
     for e in [0: (2 ^ E) - 1] do
@@ -671,6 +671,39 @@ def enumerate (E S : Nat) : List (PackedFloat E S) := Id.run do
         }
         out := pf :: out
   out
+
+/-- Enumerate those packed floats which represent numbers (normals or subnormals). -/
+def enumerateNumberList (E S : Nat) : List (PackedFloat E S) := Id.run do
+  let mut out : List (PackedFloat E S) := []
+  for sign in [true, false] do
+    for e in [0: (2 ^ E) - 1] do
+      for sig in [0: (2 ^ S) - 1] do
+        let pf : PackedFloat E S := {
+          sign := sign
+          ex := BitVec.ofNat E e
+          sig := BitVec.ofNat S sig
+        }
+        if pf.isNormOrSubnorm then
+          out := pf :: out
+  return out
+
+/-- Enumerate those packed floats which represent numbers,
+and return a sorted array of them.
+-/
+def enumerateSortedNumberRatArray (E S : Nat) : Array (PackedFloat E S × Rat) := Id.run do
+  let mut out : Array (PackedFloat E S × Rat) := #[]
+  for sign in [true, false] do
+    for e in [0: (2 ^ E) - 1] do
+      for sig in [0: (2 ^ S) - 1] do
+        let pf : PackedFloat E S := {
+          sign := sign
+          ex := BitVec.ofNat E e
+          sig := BitVec.ofNat S sig
+        }
+        if pf.isNormOrSubnorm then
+          let r : Rat := pf.toRat?.getD 0
+          out := out.push (pf, r)
+  out |>.qsort (fun (_, r) (_, s) => r < s)
 
 end PackedFloat
 
