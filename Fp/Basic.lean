@@ -775,6 +775,24 @@ deriving DecidableEq, Repr
 
 namespace ExtRat
 
+def isNumber (e : ExtRat) : Bool :=
+  match e with
+  | .Number _ => true
+  | .NaN => false
+  | .Infinity _sign => false
+
+def isNaN (e : ExtRat) : Bool :=
+  match e with
+  | .NaN => true
+  | .Infinity _sign => false
+  | .Number _ => false
+
+def isInfinity (e : ExtRat) : Bool :=
+  match e with
+  | .Infinity _sign => true
+  | .NaN => false
+  | .Number _ => false
+
 def number (e : ExtRat) : Rat :=
   match e with
   | .NaN => 0
