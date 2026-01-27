@@ -1,6 +1,7 @@
 import Fp.Basic
 import Fp.Rounding
 import Fp.UnpackedRound
+import Fp.Utils
 import Lean
 open Lean
 
@@ -93,7 +94,7 @@ def roundableTieBreak_of_roundableLower_roundableUpper_roundableEmbed (X : Type)
     let u := upper.upper r
     let l_ext := embed.embed l
     let u_ext := embed.embed u
-    (l_ext != u_ext) && (r - l_ext) = (u_ext - r)
+    (l_ext.eq u_ext) || (r - l_ext).eq (u_ext - r)
 
 
 /--
@@ -131,22 +132,29 @@ def RoundMethod.roundAux (roundMethod : RoundMethod (PackedFloat e s))
     (rm : RoundingMode) (sign : Bool) (r : ExtRat) : PackedFloat e s :=
   match rm with
   | .RNE =>
-      if _hz : r = .Number 0 then roundMethod.rounderForSign sign r
-      else
-        if _hlh : roundMethod.lowerHalf r
-        then roundMethod.lower r
-        else
-         if _htb : roundMethod.tieBreak r
-         then
-            if _heven : roundMethod.isEven (roundMethod.lower r)
-            then roundMethod.lower r
-            else roundMethod.upper r
-         else
-            -- not tie break, not lower, so we are in upper half.
-            -- have : uh r v := by
-            --    have := trichotomy_lh_tb_uh r v
-            --    grind
-            roundMethod.upper r
+      if r.isNaN then roundMethod.lower r
+      else if r = .Number 0 then roundMethod.rounderForSign sign r
+      else if r != .Number 0 && roundMethod.lowerHalf r then roundMethod.lower r
+      else if r != .Number 0 && roundMethod.tieBreak r && roundMethod.isEven (roundMethod.lower r) then roundMethod.lower r
+      else if r != .Number 0 && roundMethod.tieBreak r && roundMethod.isEven (roundMethod.upper r) then roundMethod.upper r
+      else if r != .Number 0 && !roundMethod.lowerHalf r && !roundMethod.tieBreak r then roundMethod.upper r
+      else .mkNaN
+      -- if _hz : r = .Number 0 then roundMethod.rounderForSign sign r
+      -- else
+      --   if _hlh : roundMethod.lowerHalf r
+      --   then roundMethod.lower r
+      --   else
+      --    if _htb : roundMethod.tieBreak r
+      --    then
+      --       if _heven : roundMethod.isEven (roundMethod.lower r)
+      --       then roundMethod.lower r
+      --       else roundMethod.upper r
+      --    else
+      --       -- not tie break, not lower, so we are in upper half.
+      --       -- have : uh r v := by
+      --       --    have := trichotomy_lh_tb_uh r v
+      --       --    grind
+      --       roundMethod.upper r
   | .RNA =>
       if _hnan : r = .NaN then roundMethod.lower r
       else
@@ -266,9 +274,24 @@ def smtLibRoundMethod (e s : Nat) (v : RoundableAdjunction (PackedFloat e s)) :
   lower := v.lower
   upper := v.upper
   lowerHalf r := v.embed (v.lower r) = ves.embed (ves.lower r)
+  /-
+  The SMT-LIb specification would have one write:
+  ```lean
+  (v.embed (v.lower r) < ves.embed (ves.lower r)) =
+  (ves.embed (ves.upper r) < (ves.embed (v.upper r)))
+  ```
+
+  however, this does not type check at `ves.embed (v.upper r)`,
+  since `v.upper r` has type `PackedFloat e s`, while `ves.embed`
+  expects an argument of type `PackedFloat e (s + 1)`.
+
+  We correct this mistake, and use `v.embed` instead,
+  since the purpose of this definition is to compare the
+  ExtRat values of the embeddings.
+  -/
   tieBreak r :=
     (v.embed (v.lower r) < ves.embed (ves.lower r)) =
-    (ves.embed (ves.upper r) = (ves.embed (ves.upper r)))
+    (ves.embed (ves.upper r) < (v.embed (v.upper r)))
   isEven := roundableIsEven_of_packedFloat.isEven
   where
     ves : RoundableAdjunction (PackedFloat e (s + 1)) := smtLibV e (s + 1)
@@ -357,28 +380,6 @@ def roundMethodsEqual? (E : Nat := 4) (S : Nat := 4) (e : Nat := 4) (s : Nat := 
           return false
       return true
 
-def checkLowerHalfFalseOnRepresentable (E : Nat := 4) (S : Nat := 4) : IO Unit := do
-  let smtlib := (SmtLibRoundMethod.smtLibRoundMethod E S
-    (SmtLibRoundMethod.smtLibV E S))
-  let bollu := (SlowComputableRound.roundBySlowEnumeration E S)
-  for pf in PackedFloat.enumerate E S do
-    let r := pf.toExtRat
-    let lowerHalfSmtLib := smtlib.lowerHalf r
-    let lowerHalfBollu := bollu.lowerHalf r
-    if !lowerHalfSmtLib then do
-      IO.println s!"ERROR (SMT-LIB) {repr pf} ({repr r})"
-      return
-
-    if !lowerHalfBollu then do
-      IO.println s!"ERROR (Bollu) {repr pf} ({repr r})"
-      let l := bollu.lower r
-      let h := bollu.upper r
-      IO.println s!"   l:{repr l.toExtRat} <= mid:{repr r} <= r:{repr h.toExtRat}"
-      let d1 := (r - l.toExtRat)
-      let d2 := (h.toExtRat - r)
-      IO.println s!"   mid - l := {repr d1} | h - mid := {repr d2}"
-      return
-
 
 /--
 info: Discrepancy in tieBreak for { sign := +, ex := 0x2#2, sig := 0xe#4 } (ExtRat: ExtRat.Number (15 : Rat)/4)
@@ -410,9 +411,20 @@ def compareRoundingFunctions
     let res := golden = test
     if !res then
       nfailure := nfailure + 1
-      IO.println s!"Discrepancy found for {repr pf} (ExtRat: {repr r}), RoundingMode: {repr rm}, sign: {sign}"
-      IO.println s!"  Golden result:       {repr golden}  | ExtRat: {repr golden.toExtRat} | UnpackedFloat : {repr golden.unpack}"
-      IO.println s!"  Tested result: {repr test} | ExtRat: {repr test.toExtRat} | UnpackedFloat : {repr test}"
+      if nfailure > 2 then
+        continue
+      IO.println s!"---"
+      let rgolden := golden.toExtRat
+      let rtest := test.toExtRat
+      let distGolden := (r - rgolden).abs
+      let distTest :=  (r - rtest).abs
+      let correct := distGolden ≤ distTest
+      IO.println s!"Discrepancy for (Q: {repr r}) (RM: {repr rm}) (Sign: {sign}) {repr pf}"
+      IO.println s!"  Golden: (Q: {repr golden.toExtRat}) (UF: {repr golden.unpack}) (PF: {repr golden})"
+      IO.println s!"  Tested: (Q: {repr test.toExtRat}) (UF: {repr test.unpack}) (PF: {repr test})"
+      IO.println s!"  Distance: {if correct then "✅" else "❌"}"
+      IO.println s!"    distGolden : {repr distGolden}"
+      IO.println s!"    distTest : {repr distTest})"
     else
       nsuccess := nsuccess + 1
   let percentSuccess : Float :=
@@ -422,237 +434,25 @@ def compareRoundingFunctions
   return nfailure == 0
 
 /--
-info: Total tests run: 90, Successes: 90, Failures: 0 (100.000000% success rate)
+info: ---
+Discrepancy for (Q: ExtRat.Number (-15 : Rat)/4) (RM: RNE) (Sign: true) { sign := -, ex := 0x2#2, sig := 0xe#4 }
+  Golden: (Q: ExtRat.Number (-7 : Rat)/2) (UF: { state := num, num := { sign := true, ex := 0x1#4, sig := 0xe#4 } }) (PF: { sign := -, ex := 0x2#2, sig := 0x6#3 })
+  Tested: (Q: ExtRat.Infinity true) (UF: { state := ∞, num := { sign := true, ex := 0x0#4, sig := 0x0#4 } }) (PF: { sign := -, ex := 0x3#2, sig := 0x0#3 })
+  Distance: ✅
+    distGolden : ExtRat.Number (1 : Rat)/4
+    distTest : ExtRat.Infinity false)
 ---
-info: true
--/
-#guard_msgs in #eval compareRoundingFunctions 2 4 2 4 .RNE
-  (rounderGolden := fun rm sign pf => (SlowComputableRound.roundBySlowEnumeration _ _).roundAux rm sign pf.toExtRat)
-  (rounderUnderTest := fun rm sign pf =>
-      let v := (RoundableAdjunction.ofEmbedByEnumeration (X := PackedFloat _ _)
-          (roundableEmbedPackedFloat)
-          (PackedFloat.getInfinity _ _ true )
-          (PackedFloat.enumerate _ _)
-          (PackedFloat.getInfinity _ _ false))
-      (SmtLibRoundMethod.smtLibRoundMethod _ _ v).roundAux rm sign pf.toExtRat)
-
-
-/--
-info: Discrepancy found for { sign := +, ex := 0x6#3, sig := 0xe#4 } (ExtRat: ExtRat.Number 15), RoundingMode: RNA, sign: false
-  Golden result:       { sign := +, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := false, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := +, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity false | UnpackedFloat : { sign := +, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := +, ex := 0x6#3, sig := 0xd#4 } (ExtRat: ExtRat.Number (29 : Rat)/2), RoundingMode: RNA, sign: false
-  Golden result:       { sign := +, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := false, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := +, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity false | UnpackedFloat : { sign := +, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := +, ex := 0x6#3, sig := 0xc#4 } (ExtRat: ExtRat.Number 14), RoundingMode: RNA, sign: false
-  Golden result:       { sign := +, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := false, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := +, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity false | UnpackedFloat : { sign := +, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := +, ex := 0x6#3, sig := 0xb#4 } (ExtRat: ExtRat.Number (27 : Rat)/2), RoundingMode: RNA, sign: false
-  Golden result:       { sign := +, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := false, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := +, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity false | UnpackedFloat : { sign := +, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := +, ex := 0x6#3, sig := 0xa#4 } (ExtRat: ExtRat.Number 13), RoundingMode: RNA, sign: false
-  Golden result:       { sign := +, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := false, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := +, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity false | UnpackedFloat : { sign := +, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := +, ex := 0x6#3, sig := 0x9#4 } (ExtRat: ExtRat.Number (25 : Rat)/2), RoundingMode: RNA, sign: false
-  Golden result:       { sign := +, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := false, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := +, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity false | UnpackedFloat : { sign := +, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := +, ex := 0x6#3, sig := 0x8#4 } (ExtRat: ExtRat.Number 12), RoundingMode: RNA, sign: false
-  Golden result:       { sign := +, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := false, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := +, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity false | UnpackedFloat : { sign := +, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := +, ex := 0x6#3, sig := 0x7#4 } (ExtRat: ExtRat.Number (23 : Rat)/2), RoundingMode: RNA, sign: false
-  Golden result:       { sign := +, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := false, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := +, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity false | UnpackedFloat : { sign := +, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := +, ex := 0x6#3, sig := 0x6#4 } (ExtRat: ExtRat.Number 11), RoundingMode: RNA, sign: false
-  Golden result:       { sign := +, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := false, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := +, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity false | UnpackedFloat : { sign := +, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := +, ex := 0x6#3, sig := 0x5#4 } (ExtRat: ExtRat.Number (21 : Rat)/2), RoundingMode: RNA, sign: false
-  Golden result:       { sign := +, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := false, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := +, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity false | UnpackedFloat : { sign := +, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := +, ex := 0x6#3, sig := 0x4#4 } (ExtRat: ExtRat.Number 10), RoundingMode: RNA, sign: false
-  Golden result:       { sign := +, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := false, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := +, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity false | UnpackedFloat : { sign := +, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := +, ex := 0x6#3, sig := 0x3#4 } (ExtRat: ExtRat.Number (19 : Rat)/2), RoundingMode: RNA, sign: false
-  Golden result:       { sign := +, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := false, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := +, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity false | UnpackedFloat : { sign := +, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := +, ex := 0x6#3, sig := 0x2#4 } (ExtRat: ExtRat.Number 9), RoundingMode: RNA, sign: false
-  Golden result:       { sign := +, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := false, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := +, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity false | UnpackedFloat : { sign := +, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := +, ex := 0x6#3, sig := 0x1#4 } (ExtRat: ExtRat.Number (17 : Rat)/2), RoundingMode: RNA, sign: false
-  Golden result:       { sign := +, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := false, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := +, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity false | UnpackedFloat : { sign := +, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := +, ex := 0x6#3, sig := 0x0#4 } (ExtRat: ExtRat.Number 8), RoundingMode: RNA, sign: false
-  Golden result:       { sign := +, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := false, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := +, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity false | UnpackedFloat : { sign := +, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := +, ex := 0x5#3, sig := 0xe#4 } (ExtRat: ExtRat.Number (15 : Rat)/2), RoundingMode: RNA, sign: false
-  Golden result:       { sign := +, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := false, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := +, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity false | UnpackedFloat : { sign := +, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := +, ex := 0x5#3, sig := 0xd#4 } (ExtRat: ExtRat.Number (29 : Rat)/4), RoundingMode: RNA, sign: false
-  Golden result:       { sign := +, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := false, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := +, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity false | UnpackedFloat : { sign := +, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := +, ex := 0x5#3, sig := 0xc#4 } (ExtRat: ExtRat.Number 7), RoundingMode: RNA, sign: false
-  Golden result:       { sign := +, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := false, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := +, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity false | UnpackedFloat : { sign := +, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := +, ex := 0x5#3, sig := 0xb#4 } (ExtRat: ExtRat.Number (27 : Rat)/4), RoundingMode: RNA, sign: false
-  Golden result:       { sign := +, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := false, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := +, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity false | UnpackedFloat : { sign := +, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := +, ex := 0x5#3, sig := 0xa#4 } (ExtRat: ExtRat.Number (13 : Rat)/2), RoundingMode: RNA, sign: false
-  Golden result:       { sign := +, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := false, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := +, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity false | UnpackedFloat : { sign := +, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := +, ex := 0x5#3, sig := 0x9#4 } (ExtRat: ExtRat.Number (25 : Rat)/4), RoundingMode: RNA, sign: false
-  Golden result:       { sign := +, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := false, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := +, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity false | UnpackedFloat : { sign := +, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := +, ex := 0x5#3, sig := 0x8#4 } (ExtRat: ExtRat.Number 6), RoundingMode: RNA, sign: false
-  Golden result:       { sign := +, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := false, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := +, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity false | UnpackedFloat : { sign := +, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := +, ex := 0x5#3, sig := 0x7#4 } (ExtRat: ExtRat.Number (23 : Rat)/4), RoundingMode: RNA, sign: false
-  Golden result:       { sign := +, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := false, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := +, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity false | UnpackedFloat : { sign := +, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := +, ex := 0x5#3, sig := 0x6#4 } (ExtRat: ExtRat.Number (11 : Rat)/2), RoundingMode: RNA, sign: false
-  Golden result:       { sign := +, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := false, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := +, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity false | UnpackedFloat : { sign := +, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := +, ex := 0x5#3, sig := 0x5#4 } (ExtRat: ExtRat.Number (21 : Rat)/4), RoundingMode: RNA, sign: false
-  Golden result:       { sign := +, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := false, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := +, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity false | UnpackedFloat : { sign := +, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := +, ex := 0x5#3, sig := 0x4#4 } (ExtRat: ExtRat.Number 5), RoundingMode: RNA, sign: false
-  Golden result:       { sign := +, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := false, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := +, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity false | UnpackedFloat : { sign := +, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := +, ex := 0x5#3, sig := 0x3#4 } (ExtRat: ExtRat.Number (19 : Rat)/4), RoundingMode: RNA, sign: false
-  Golden result:       { sign := +, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := false, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := +, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity false | UnpackedFloat : { sign := +, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := +, ex := 0x5#3, sig := 0x2#4 } (ExtRat: ExtRat.Number (9 : Rat)/2), RoundingMode: RNA, sign: false
-  Golden result:       { sign := +, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := false, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := +, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity false | UnpackedFloat : { sign := +, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := +, ex := 0x5#3, sig := 0x1#4 } (ExtRat: ExtRat.Number (17 : Rat)/4), RoundingMode: RNA, sign: false
-  Golden result:       { sign := +, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := false, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := +, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity false | UnpackedFloat : { sign := +, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := +, ex := 0x5#3, sig := 0x0#4 } (ExtRat: ExtRat.Number 4), RoundingMode: RNA, sign: false
-  Golden result:       { sign := +, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := false, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := +, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity false | UnpackedFloat : { sign := +, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := +, ex := 0x2#3, sig := 0xd#4 } (ExtRat: ExtRat.Number (29 : Rat)/32), RoundingMode: RNA, sign: false
-  Golden result:       { sign := +, ex := 0x0#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (7 : Rat)/8 | UnpackedFloat : { state := num, num := { sign := false, ex := 0xf#4, sig := 0x1c#5 } }
-  Tested result: { sign := +, ex := 0x1#2, sig := 0x0#4 } | ExtRat: ExtRat.Number 1 | UnpackedFloat : { sign := +, ex := 0x1#2, sig := 0x0#4 }
-Discrepancy found for { sign := -, ex := 0x6#3, sig := 0xe#4 } (ExtRat: ExtRat.Number -15), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (-15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := true, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := -, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity true | UnpackedFloat : { sign := -, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := -, ex := 0x6#3, sig := 0xd#4 } (ExtRat: ExtRat.Number (-29 : Rat)/2), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (-15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := true, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := -, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity true | UnpackedFloat : { sign := -, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := -, ex := 0x6#3, sig := 0xc#4 } (ExtRat: ExtRat.Number -14), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (-15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := true, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := -, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity true | UnpackedFloat : { sign := -, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := -, ex := 0x6#3, sig := 0xb#4 } (ExtRat: ExtRat.Number (-27 : Rat)/2), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (-15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := true, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := -, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity true | UnpackedFloat : { sign := -, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := -, ex := 0x6#3, sig := 0xa#4 } (ExtRat: ExtRat.Number -13), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (-15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := true, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := -, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity true | UnpackedFloat : { sign := -, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := -, ex := 0x6#3, sig := 0x9#4 } (ExtRat: ExtRat.Number (-25 : Rat)/2), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (-15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := true, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := -, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity true | UnpackedFloat : { sign := -, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := -, ex := 0x6#3, sig := 0x8#4 } (ExtRat: ExtRat.Number -12), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (-15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := true, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := -, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity true | UnpackedFloat : { sign := -, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := -, ex := 0x6#3, sig := 0x7#4 } (ExtRat: ExtRat.Number (-23 : Rat)/2), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (-15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := true, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := -, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity true | UnpackedFloat : { sign := -, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := -, ex := 0x6#3, sig := 0x6#4 } (ExtRat: ExtRat.Number -11), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (-15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := true, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := -, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity true | UnpackedFloat : { sign := -, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := -, ex := 0x6#3, sig := 0x5#4 } (ExtRat: ExtRat.Number (-21 : Rat)/2), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (-15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := true, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := -, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity true | UnpackedFloat : { sign := -, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := -, ex := 0x6#3, sig := 0x4#4 } (ExtRat: ExtRat.Number -10), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (-15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := true, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := -, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity true | UnpackedFloat : { sign := -, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := -, ex := 0x6#3, sig := 0x3#4 } (ExtRat: ExtRat.Number (-19 : Rat)/2), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (-15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := true, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := -, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity true | UnpackedFloat : { sign := -, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := -, ex := 0x6#3, sig := 0x2#4 } (ExtRat: ExtRat.Number -9), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (-15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := true, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := -, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity true | UnpackedFloat : { sign := -, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := -, ex := 0x6#3, sig := 0x1#4 } (ExtRat: ExtRat.Number (-17 : Rat)/2), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (-15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := true, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := -, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity true | UnpackedFloat : { sign := -, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := -, ex := 0x6#3, sig := 0x0#4 } (ExtRat: ExtRat.Number -8), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (-15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := true, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := -, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity true | UnpackedFloat : { sign := -, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := -, ex := 0x5#3, sig := 0xe#4 } (ExtRat: ExtRat.Number (-15 : Rat)/2), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (-15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := true, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := -, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity true | UnpackedFloat : { sign := -, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := -, ex := 0x5#3, sig := 0xd#4 } (ExtRat: ExtRat.Number (-29 : Rat)/4), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (-15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := true, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := -, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity true | UnpackedFloat : { sign := -, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := -, ex := 0x5#3, sig := 0xc#4 } (ExtRat: ExtRat.Number -7), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (-15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := true, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := -, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity true | UnpackedFloat : { sign := -, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := -, ex := 0x5#3, sig := 0xb#4 } (ExtRat: ExtRat.Number (-27 : Rat)/4), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (-15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := true, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := -, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity true | UnpackedFloat : { sign := -, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := -, ex := 0x5#3, sig := 0xa#4 } (ExtRat: ExtRat.Number (-13 : Rat)/2), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (-15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := true, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := -, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity true | UnpackedFloat : { sign := -, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := -, ex := 0x5#3, sig := 0x9#4 } (ExtRat: ExtRat.Number (-25 : Rat)/4), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (-15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := true, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := -, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity true | UnpackedFloat : { sign := -, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := -, ex := 0x5#3, sig := 0x8#4 } (ExtRat: ExtRat.Number -6), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (-15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := true, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := -, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity true | UnpackedFloat : { sign := -, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := -, ex := 0x5#3, sig := 0x7#4 } (ExtRat: ExtRat.Number (-23 : Rat)/4), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (-15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := true, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := -, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity true | UnpackedFloat : { sign := -, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := -, ex := 0x5#3, sig := 0x6#4 } (ExtRat: ExtRat.Number (-11 : Rat)/2), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (-15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := true, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := -, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity true | UnpackedFloat : { sign := -, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := -, ex := 0x5#3, sig := 0x5#4 } (ExtRat: ExtRat.Number (-21 : Rat)/4), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (-15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := true, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := -, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity true | UnpackedFloat : { sign := -, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := -, ex := 0x5#3, sig := 0x4#4 } (ExtRat: ExtRat.Number -5), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (-15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := true, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := -, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity true | UnpackedFloat : { sign := -, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := -, ex := 0x5#3, sig := 0x3#4 } (ExtRat: ExtRat.Number (-19 : Rat)/4), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (-15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := true, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := -, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity true | UnpackedFloat : { sign := -, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := -, ex := 0x5#3, sig := 0x2#4 } (ExtRat: ExtRat.Number (-9 : Rat)/2), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (-15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := true, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := -, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity true | UnpackedFloat : { sign := -, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := -, ex := 0x5#3, sig := 0x1#4 } (ExtRat: ExtRat.Number (-17 : Rat)/4), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (-15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := true, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := -, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity true | UnpackedFloat : { sign := -, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := -, ex := 0x5#3, sig := 0x0#4 } (ExtRat: ExtRat.Number -4), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x2#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (-15 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := true, ex := 0x1#4, sig := 0x1e#5 } }
-  Tested result: { sign := -, ex := 0x3#2, sig := 0x0#4 } | ExtRat: ExtRat.Infinity true | UnpackedFloat : { sign := -, ex := 0x3#2, sig := 0x0#4 }
-Discrepancy found for { sign := -, ex := 0x2#3, sig := 0xd#4 } (ExtRat: ExtRat.Number (-29 : Rat)/32), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x0#2, sig := 0xe#4 }  | ExtRat: ExtRat.Number (-7 : Rat)/8 | UnpackedFloat : { state := num, num := { sign := true, ex := 0xf#4, sig := 0x1c#5 } }
-  Tested result: { sign := -, ex := 0x1#2, sig := 0x0#4 } | ExtRat: ExtRat.Number -1 | UnpackedFloat : { sign := -, ex := 0x1#2, sig := 0x0#4 }
-Discrepancy found for { sign := -, ex := 0x1#3, sig := 0xd#4 } (ExtRat: ExtRat.Number (-29 : Rat)/64), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x0#2, sig := 0x7#4 }  | ExtRat: ExtRat.Number (-7 : Rat)/16 | UnpackedFloat : { state := num, num := { sign := true, ex := 0xe#4, sig := 0x1c#5 } }
-  Tested result: { sign := -, ex := 0x0#2, sig := 0x8#4 } | ExtRat: ExtRat.Number (-1 : Rat)/2 | UnpackedFloat : { sign := -, ex := 0x0#2, sig := 0x8#4 }
-Discrepancy found for { sign := -, ex := 0x1#3, sig := 0x9#4 } (ExtRat: ExtRat.Number (-25 : Rat)/64), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x0#2, sig := 0x6#4 }  | ExtRat: ExtRat.Number (-3 : Rat)/8 | UnpackedFloat : { state := num, num := { sign := true, ex := 0xe#4, sig := 0x18#5 } }
-  Tested result: { sign := -, ex := 0x0#2, sig := 0x7#4 } | ExtRat: ExtRat.Number (-7 : Rat)/16 | UnpackedFloat : { sign := -, ex := 0x0#2, sig := 0x7#4 }
-Discrepancy found for { sign := -, ex := 0x1#3, sig := 0x5#4 } (ExtRat: ExtRat.Number (-21 : Rat)/64), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x0#2, sig := 0x5#4 }  | ExtRat: ExtRat.Number (-5 : Rat)/16 | UnpackedFloat : { state := num, num := { sign := true, ex := 0xe#4, sig := 0x14#5 } }
-  Tested result: { sign := -, ex := 0x0#2, sig := 0x6#4 } | ExtRat: ExtRat.Number (-3 : Rat)/8 | UnpackedFloat : { sign := -, ex := 0x0#2, sig := 0x6#4 }
-Discrepancy found for { sign := -, ex := 0x1#3, sig := 0x1#4 } (ExtRat: ExtRat.Number (-17 : Rat)/64), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x0#2, sig := 0x4#4 }  | ExtRat: ExtRat.Number (-1 : Rat)/4 | UnpackedFloat : { state := num, num := { sign := true, ex := 0xe#4, sig := 0x10#5 } }
-  Tested result: { sign := -, ex := 0x0#2, sig := 0x5#4 } | ExtRat: ExtRat.Number (-5 : Rat)/16 | UnpackedFloat : { sign := -, ex := 0x0#2, sig := 0x5#4 }
-Discrepancy found for { sign := -, ex := 0x0#3, sig := 0xd#4 } (ExtRat: ExtRat.Number (-13 : Rat)/64), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x0#2, sig := 0x3#4 }  | ExtRat: ExtRat.Number (-3 : Rat)/16 | UnpackedFloat : { state := num, num := { sign := true, ex := 0xd#4, sig := 0x18#5 } }
-  Tested result: { sign := -, ex := 0x0#2, sig := 0x4#4 } | ExtRat: ExtRat.Number (-1 : Rat)/4 | UnpackedFloat : { sign := -, ex := 0x0#2, sig := 0x4#4 }
-Discrepancy found for { sign := -, ex := 0x0#3, sig := 0x9#4 } (ExtRat: ExtRat.Number (-9 : Rat)/64), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x0#2, sig := 0x2#4 }  | ExtRat: ExtRat.Number (-1 : Rat)/8 | UnpackedFloat : { state := num, num := { sign := true, ex := 0xd#4, sig := 0x10#5 } }
-  Tested result: { sign := -, ex := 0x0#2, sig := 0x3#4 } | ExtRat: ExtRat.Number (-3 : Rat)/16 | UnpackedFloat : { sign := -, ex := 0x0#2, sig := 0x3#4 }
-Discrepancy found for { sign := -, ex := 0x0#3, sig := 0x5#4 } (ExtRat: ExtRat.Number (-5 : Rat)/64), RoundingMode: RNA, sign: true
-  Golden result:       { sign := -, ex := 0x0#2, sig := 0x1#4 }  | ExtRat: ExtRat.Number (-1 : Rat)/16 | UnpackedFloat : { state := num, num := { sign := true, ex := 0xc#4, sig := 0x10#5 } }
-  Tested result: { sign := -, ex := 0x0#2, sig := 0x2#4 } | ExtRat: ExtRat.Number (-1 : Rat)/8 | UnpackedFloat : { sign := -, ex := 0x0#2, sig := 0x2#4 }
-Discrepancy found for { sign := -, ex := 0x0#3, sig := 0x1#4 } (ExtRat: ExtRat.Number (-1 : Rat)/64), RoundingMode: RNA, sign: true
-  Golden result:       { sign := +, ex := 0x0#2, sig := 0x0#4 }  | ExtRat: ExtRat.Number 0 | UnpackedFloat : { state := num, num := { sign := false, ex := 0x0#4, sig := 0x00#5 } }
-  Tested result: { sign := -, ex := 0x0#2, sig := 0x1#4 } | ExtRat: ExtRat.Number (-1 : Rat)/16 | UnpackedFloat : { sign := -, ex := 0x0#2, sig := 0x1#4 }
-Total tests run: 210, Successes: 140, Failures: 70 (66.666667% success rate)
+Discrepancy for (Q: ExtRat.Number (-29 : Rat)/8) (RM: RNE) (Sign: true) { sign := -, ex := 0x2#2, sig := 0xd#4 }
+  Golden: (Q: ExtRat.Number (-7 : Rat)/2) (UF: { state := num, num := { sign := true, ex := 0x1#4, sig := 0xe#4 } }) (PF: { sign := -, ex := 0x2#2, sig := 0x6#3 })
+  Tested: (Q: ExtRat.Infinity true) (UF: { state := ∞, num := { sign := true, ex := 0x0#4, sig := 0x0#4 } }) (PF: { sign := -, ex := 0x3#2, sig := 0x0#3 })
+  Distance: ✅
+    distGolden : ExtRat.Number (1 : Rat)/8
+    distTest : ExtRat.Infinity false)
+Total tests run: 90, Successes: 86, Failures: 4 (95.555556% success rate)
 ---
 info: false
 -/
-#guard_msgs in #eval compareRoundingFunctions 3 4 2 4 .RNA
+#guard_msgs in #eval compareRoundingFunctions 2 4 2 3 .RNE
   (rounderGolden := fun rm sign pf => (SlowComputableRound.roundBySlowEnumeration _ _).roundAux rm sign pf.toExtRat)
   (rounderUnderTest := fun rm sign pf =>
       let v := (RoundableAdjunction.ofEmbedByEnumeration (X := PackedFloat _ _)
@@ -663,12 +463,73 @@ info: false
       (SmtLibRoundMethod.smtLibRoundMethod _ _ v).roundAux rm sign pf.toExtRat)
 
 
-/-
-#guard_msgs in #eval runRoundAgreesWithUnpackedFloatRound 5 4 5 2 .RNE
-    (SmtLibRoundMethod.smtLibRoundMethod _ _
-      (RoundableAdjunction.ofEmbedByEnumeration (X := PackedFloat 5 2) (roundableEmbedPackedFloat)
-      (PackedFloat.getInfinity _ _ true ) (PackedFloat.enumerate _ _) (PackedFloat.getInfinity _ _ false)))
+-- RTP, RTN, RTZ all agree.
+/--
+info: ---
+Discrepancy for (Q: ExtRat.Number 61440) (RM: RNE) (Sign: false) { sign := +, ex := 0x1e#5, sig := 0xe#4 }
+  Golden: (Q: ExtRat.Infinity false) (UF: { state := ∞, num := { sign := false, ex := 0x00#6, sig := 0x0#3 } }) (PF: { sign := +, ex := 0x1f#5, sig := 0x0#2 })
+  Tested: (Q: ExtRat.Number 49152) (UF: { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x6#3 } }) (PF: { sign := +, ex := 0x1e#5, sig := 0x2#2 })
+  Distance: ❌
+    distGolden : ExtRat.Infinity false
+    distTest : ExtRat.Number 12288)
+---
+Discrepancy for (Q: ExtRat.Number 59392) (RM: RNE) (Sign: false) { sign := +, ex := 0x1e#5, sig := 0xd#4 }
+  Golden: (Q: ExtRat.Infinity false) (UF: { state := ∞, num := { sign := false, ex := 0x00#6, sig := 0x0#3 } }) (PF: { sign := +, ex := 0x1f#5, sig := 0x0#2 })
+  Tested: (Q: ExtRat.Number 49152) (UF: { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x6#3 } }) (PF: { sign := +, ex := 0x1e#5, sig := 0x2#2 })
+  Distance: ❌
+    distGolden : ExtRat.Infinity false
+    distTest : ExtRat.Number 10240)
+Total tests run: 930, Successes: 863, Failures: 67 (92.795699% success rate)
+---
+info: false
 -/
+#guard_msgs in #eval compareRoundingFunctions 5 4 5 2 .RNE
+  (rounderGolden := fun rm sign pf =>
+      let v := (RoundableAdjunction.ofEmbedByEnumeration (X := PackedFloat _ _)
+          (roundableEmbedPackedFloat)
+          (PackedFloat.getInfinity _ _ true )
+          (PackedFloat.enumerate _ _)
+          (PackedFloat.getInfinity _ _ false))
+      (SmtLibRoundMethod.smtLibRoundMethod _ _ v).roundAux rm sign pf.toExtRat)
+  (rounderUnderTest := fun rm sign pf => (SlowComputableRound.roundBySlowEnumeration _ _).roundAux rm sign pf.toExtRat)
+
+
+/--
+info: ---
+Discrepancy for (Q: ExtRat.Number (29 : Rat)/8) (RM: RNE) (Sign: false) { sign := +, ex := 0x2#2, sig := 0xd#4 }
+  Golden: (Q: ExtRat.Infinity false) (UF: { state := ∞, num := { sign := false, ex := 0x0#3, sig := 0x0#3 } }) (PF: { sign := +, ex := 0x3#2, sig := 0x0#2 })
+  Tested: (Q: ExtRat.Number (7 : Rat)/2) (UF: { state := num, num := { sign := false, ex := 0x1#3, sig := 0x7#3 } }) (PF: { sign := +, ex := 0x2#2, sig := 0x3#2 })
+  Distance: ❌
+    distGolden : ExtRat.Infinity false
+    distTest : ExtRat.Number (1 : Rat)/8)
+---
+Discrepancy for (Q: ExtRat.Number (7 : Rat)/2) (RM: RNE) (Sign: false) { sign := +, ex := 0x2#2, sig := 0xc#4 }
+  Golden: (Q: ExtRat.Number 3) (UF: { state := num, num := { sign := false, ex := 0x1#3, sig := 0x6#3 } }) (PF: { sign := +, ex := 0x2#2, sig := 0x2#2 })
+  Tested: (Q: ExtRat.Number (7 : Rat)/2) (UF: { state := num, num := { sign := false, ex := 0x1#3, sig := 0x7#3 } }) (PF: { sign := +, ex := 0x2#2, sig := 0x3#2 })
+  Distance: ❌
+    distGolden : ExtRat.Number (1 : Rat)/2
+    distTest : ExtRat.Number 0)
+Total tests run: 90, Successes: 66, Failures: 24 (73.333333% success rate)
+---
+info: false
+---
+warning: unused variable `sign`
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+-/
+#guard_msgs in #eval compareRoundingFunctions 2 4 2 2 .RNE
+  (rounderGolden := fun rm sign pf =>
+      let v := (RoundableAdjunction.ofEmbedByEnumeration (X := PackedFloat _ _)
+          (roundableEmbedPackedFloat)
+          (PackedFloat.getInfinity _ _ true )
+          (PackedFloat.enumerate _ _)
+          (PackedFloat.getInfinity _ _ false))
+      (SmtLibRoundMethod.smtLibRoundMethod _ _ v).roundAux rm sign pf.toExtRat)
+  (rounderUnderTest := fun rm sign pf =>
+    EUnpackedFloat.round _ _ (rm := rm) (euf := pf.unpack) |>.pack
+  )
+  -- (rounderUnderTest := fun rm sign pf => (SlowComputableRound.roundBySlowEnumeration _ _).roundAux rm sign pf.toExtRat)
+
 
 
 end ExhaustiveEnumerationTesting

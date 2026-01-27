@@ -868,9 +868,16 @@ def le (x y : ExtRat) : Bool :=
 instance : LE ExtRat where
   le a b := le a b
 
+
 instance {a b : ExtRat} : Decidable (a ≤ b) := by
   unfold LE.le instLE
   infer_instance
+
+def abs (x : ExtRat) : ExtRat :=
+  match x with
+  | .NaN => .NaN
+  | .Infinity _sign => .Infinity False
+  | .Number r => .Number r.abs
 
 def eq (x y : ExtRat) : Bool :=
   match x, y with
