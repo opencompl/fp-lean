@@ -293,12 +293,13 @@ def EUnpackedFloat.round {E S : Nat} (e s : Nat)
 
 def roundMethodsEqual? (E : Nat := 4) (S : Nat := 4) (e : Nat := 4) (s : Nat := 2)
   (r1 r2 : RoundMethod (PackedFloat e s)): IO Bool := do
-  let mut success : Bool := true
+  let success : Bool := true
   -- success := success || (← lowerHalfEqual?) -- good
-  success := success || (← tieBreakEqual?) -- good
+  let success := success || (← lowerEqual?) -- good
+  let success := success || (← higherEqual?) -- good
+  let success := success || (← tieBreakEqual?) -- good
   return success
-  -- lowerEqual? -- good
-  -- higherEqual? -- good
+
   -- isEvenEqual? -- good
   where
     lowerEqual? : IO Bool := do
@@ -326,9 +327,13 @@ def roundMethodsEqual? (E : Nat := 4) (S : Nat := 4) (e : Nat := 4) (s : Nat := 
         let r := pf.toExtRat
         let tb1 := r1.tieBreak r
         let tb2 := r2.tieBreak r
+        let out1 := r1.roundAux .RNE pf.sign r
+        let out2 := r2.roundAux .RNE pf.sign r
         if tb1 != tb2 then
           IO.println s!"Discrepancy in tieBreak for {repr pf} (ExtRat: {repr r})"
-          IO.println s!"{repr tb1} vs {repr tb2}"
+          IO.println s!"tiebreak1:{repr tb1} ~ rounded1:{repr out1.toExtRat}"
+          IO.println s!"tiebreak2:{repr tb2} ~ rounded2:{repr out2.toExtRat}"
+          IO.println s!"l:{repr (r1.lower r).toExtRat} <= {repr r} <= {repr (r1.upper r).toExtRat}"
         return false
       return true
     lowerHalfEqual? : IO Bool := do
@@ -375,12 +380,19 @@ def checkLowerHalfFalseOnRepresentable (E : Nat := 4) (S : Nat := 4) : IO Unit :
       return
 
 
-/-- info: true -/
-#guard_msgs in #eval roundMethodsEqual? 4 4 4 4
-  (SmtLibRoundMethod.smtLibRoundMethod 4 4 (SmtLibRoundMethod.smtLibV 4 4))
-  (SlowComputableRound.roundBySlowEnumeration 4 4)
+/--
+info: Discrepancy in tieBreak for { sign := +, ex := 0x2#2, sig := 0xe#4 } (ExtRat: ExtRat.Number (15 : Rat)/4)
+tiebreak1:true ~ rounded1:ExtRat.Number (7 : Rat)/2
+tiebreak2:false ~ rounded2:ExtRat.Number (7 : Rat)/2
+l:ExtRat.Number (7 : Rat)/2 <= ExtRat.Number (15 : Rat)/4 <= ExtRat.Infinity false
+---
+info: true
+-/
+#guard_msgs in #eval roundMethodsEqual? 2 4 2 3
+  (SmtLibRoundMethod.smtLibRoundMethod _ _ (SmtLibRoundMethod.smtLibV _ _))
+  (SlowComputableRound.roundBySlowEnumeration _ _)
 
-#exit
+-- #exit
 
 /-- test that 'lower' agrees with reference implementation -/
 def compareRoundingFunctions
