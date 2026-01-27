@@ -73,6 +73,17 @@ the two closest representable values `embed (lower r)` and `embed (upper r)`. -/
 structure RoundableTieBreak (X : Type) where
   tieBreak : ExtRat → Bool
 
+/--
+Recall that tie break is used to determine if we are exactly in the middle
+between the lower and upper approximants.
+
+In the implementation, this corresponds to the guard bit being 1 and
+the  sticky bit being zero.
+
+If we are representable, then the lower and upper approximants overlap.
+In this case, the guard bit is 0, and thus we return false.
+
+-/
 def roundableTieBreak_of_roundableLower_roundableUpper_roundableEmbed (X : Type)
     (lower : RoundableLower X)
     (upper : RoundableUpper X)
@@ -82,7 +93,7 @@ def roundableTieBreak_of_roundableLower_roundableUpper_roundableEmbed (X : Type)
     let u := upper.upper r
     let l_ext := embed.embed l
     let u_ext := embed.embed u
-    (r - l_ext) = (u_ext - r)
+    (l_ext != u_ext) && (r - l_ext) = (u_ext - r)
 
 
 /--
@@ -283,7 +294,8 @@ def EUnpackedFloat.round {E S : Nat} (e s : Nat)
 def roundMethodsEqual? (E : Nat := 4) (S : Nat := 4) (e : Nat := 4) (s : Nat := 2)
   (r1 r2 : RoundMethod (PackedFloat e s)): IO Bool := do
   let mut success : Bool := true
-  success := success || (← lowerHalfEqual?)
+  -- success := success || (← lowerHalfEqual?) -- good
+  success := success || (← tieBreakEqual?) -- good
   return success
   -- lowerEqual? -- good
   -- higherEqual? -- good
