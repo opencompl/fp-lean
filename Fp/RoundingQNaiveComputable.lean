@@ -31,7 +31,7 @@ when we find a number less than or equal to 'q'.
 -/
 def Float2Rat.closestLower (r : Float2Rat E S) (q : Rat) : (PackedFloat E S × Rat) := Id.run do
   let arr := r.sortedNumbers
-  let mut min : PackedFloat E S × Rat := arr[0]!
+  let mut min : PackedFloat E S × Rat := arr[arr.size - 1]!
   for i in (List.range arr.size).reverse do
     let (pf, pfVal) := arr[i]!
     if pfVal <= q then
@@ -46,7 +46,7 @@ the largest representable packed float).
 -/
 def Float2Rat.closestHigher (r : Float2Rat E S) (q : Rat) : PackedFloat E S × Rat := Id.run do
   let arr := r.sortedNumbers
-  let mut max : PackedFloat E S × Rat := arr[arr.size - 1]!
+  let mut max : PackedFloat E S × Rat := arr[0]!
   for i in [0: arr.size] do
     let (pf, pfVal) := arr[i]!
     if pfVal >= q then
@@ -120,9 +120,11 @@ def testAgainstUnpackedFloatRounding (EIn SIn : Nat) (EOut SOut : Nat) : IO Bool
     if circuitPf == golden then
       nsuccess := nsuccess + 1
     else
-      IO.println s!"Mismatch on input {repr pf.1.toExtRat}"
-      IO.println s!"  Circuit: {repr circuitPf.toExtRat}"
-      IO.println s!"  Golden : {repr golden.toExtRat}"
+      if nfailure < 2 then
+        IO.println s!"---"
+        IO.println s!"Mismatch on input {repr pf.1.toExtRat}"
+        IO.println s!"  Circuit: {repr circuitPf.toExtRat}"
+        IO.println s!"  Golden : {repr golden.toExtRat}"
       nfailure := nfailure + 1
 
   let percentSucces := (nsuccess * 100) / (nsuccess + nfailure)
@@ -130,7 +132,16 @@ def testAgainstUnpackedFloatRounding (EIn SIn : Nat) (EOut SOut : Nat) : IO Bool
   return nfailure == 0
 
 
-#guard_msgs in #eval testAgainstUnpackedFloatRounding 4 4 4 2
+/--
+info: ---
+Mismatch on input ExtRat.Number 0
+  Circuit: ExtRat.Number 0
+  Golden : ExtRat.Number 0
+nsuccess = 5, nfailure = 1, success% = 83%
+---
+info: false
+-/
+#guard_msgs in #eval testAgainstUnpackedFloatRounding 2 1 2 1
 
 end ExhaustiveTesting
 
