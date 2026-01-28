@@ -3,7 +3,7 @@ import Fp.Rounding
 import Lean
 import Mathlib.Data.Real.Basic
 import Mathlib.Data.Real.Sqrt
-import Fp.SmtLibQSemantics
+import Fp.SmtLibSemantics
 
 /-!
 We build the theory of SMT-LIB's definition of floating point semantics,
@@ -11,7 +11,10 @@ including, crucially, rounding and the semantics of the basic operations
 (+, -, *, / sqrt).
 
 We follow the development from
-[An Automatable Formal Semantics for IEEE-754 Floating Point Arithmetic](https://ieeexplore.ieee.org/abstract/document/7203811/) by Brain et. al.
+"An Automatable Formal Semantics for IEEE-754 Floating-Point Arithmetic" [1]
+by Brain et. al.
+
+[1]: https://smt-lib.org/papers/BTRW15.pdf
 -/
 
 
@@ -21,7 +24,7 @@ open Lean
 /-- Extended real numbers, including +∞, -∞ and NaN -/
 @[grind]
 inductive ExtReal
-| Finite (r : Real) : ExtReal
+| Number (r : Real) : ExtReal
 | Infinity (neg : Bool) : ExtReal
 | NaN : ExtReal
 
@@ -40,12 +43,22 @@ def le (a b : ExtReal) : Prop :=
   | .Infinity a, .Infinity b =>
       -- either LHS is -∞ or RHS is +∞, or they are equal
       (a = true) ∨ (a = b)
-   | .minusInfty, .Finite _ => true -- everything is >= -∞
-   | .plusInfty, .Finite _ => false -- +∞ is not <= anything finite
-   | .Finite _, .minusInfty => false -- finite is not <= -∞
-   | .Finite _, .plusInfty => true -- everything is <= +∞
-   | .Finite r1, .Finite r2 => r1 ≤ r2
+   | .minusInfty, Number _ => true -- everything is >= -∞
+   | .plusInfty, Number _ => false -- +∞ is not <= anything finite
+   | Number _, .minusInfty => false -- finite is not <= -∞
+   | Number _, .plusInfty => true -- everything is <= +∞
+   | Number r1, Number r2 => r1 ≤ r2
 
+
+noncomputable def eq (a b : ExtReal) : Bool :=
+   match a, b with
+   | .NaN, .NaN => true
+   | .NaN, _ => false
+   | _, .NaN => false
+   | .Infinity signA, .Infinity signB => signA = signB
+   | .Infinity _, _ => false
+   | _, .Infinity _ => false
+   | Number r1, Number r2 => r1 = r2
 
 instance : LE ExtReal where
    le := ExtReal.le
@@ -54,16 +67,19 @@ def add (a b : ExtReal) : ExtReal :=
    match a, b with
    | .NaN, _ => .NaN
    | _, .NaN => .NaN
-   | .Finite r1, .Finite r2 => .Finite (r1 + r2)
+   | Number r1, Number r2 => Number (r1 + r2)
    | .Infinity signA, .Infinity signB =>
       if signA = signB then .Infinity signA else .NaN
-   | .Finite _, .Infinity signB => .Infinity signB
-   | .Infinity signA, .Finite _ => .Infinity signA
+   | Number _, .Infinity signB => .Infinity signB
+   | .Infinity signA, Number _ => .Infinity signA
+
+instance : Add ExtReal where
+   add := ExtReal.add
 
 def neg (a : ExtReal) : ExtReal :=
    match a with
    | .NaN => .NaN
-   | .Finite r => .Finite (-r)
+   | Number r => Number (-r)
    | .Infinity sign => .Infinity (!sign)
 
 
@@ -73,12 +89,12 @@ noncomputable def mul (a b : ExtReal) : ExtReal :=
    match a, b with
    | .NaN, _ => .NaN
    | _, .NaN => .NaN
-   | .Finite r1, .Finite r2 => .Finite (r1 * r2)
+   | Number r1, Number r2 => Number (r1 * r2)
    | .Infinity signA, .Infinity signB =>
       .Infinity (signA != signB)
-   | .Finite r, .Infinity signB =>
+   | Number r, .Infinity signB =>
       if r = 0 then .NaN else .Infinity (if r < 0 then !signB else signB)
-   | .Infinity signA, .Finite r =>
+   | .Infinity signA, Number r =>
       if r = 0 then .NaN else .Infinity (if r < 0 then !signA else signA)
 
 instance : Sub ExtReal where
@@ -87,12 +103,12 @@ instance : Sub ExtReal where
 noncomputable def inv (a : ExtReal) : ExtReal :=
    match a with
    | .NaN => .NaN
-   | .Finite r =>
+   | Number r =>
       -- Note carefully, that 1/0 = +∞ in SMT-LIB.
       if r = 0 then .plusInfty
-      else .Finite (1 / r)
+      else Number (1 / r)
    | .Infinity sign =>
-      if sign then .Finite 0 else .Finite 0
+      if sign then Number 0 else Number 0
 
 
 noncomputable def div (a b : ExtReal) : ExtReal := a.mul b.inv
@@ -104,8 +120,8 @@ Returns NaN for negative inputs and +∞ for +∞.
 noncomputable def sqrt (a : ExtReal) : ExtReal :=
    match a with
    | .NaN => .NaN
-   | .Finite r =>
-      if r < 0 then .NaN else .Finite (Real.sqrt r)
+   | Number r =>
+      if r < 0 then .NaN else Number (Real.sqrt r)
    | .Infinity sign =>
       if sign then .NaN else .Infinity false
 
@@ -114,86 +130,86 @@ def lt (a b : ExtReal) : Prop := a ≤ b ∧ a ≠ b
 instance : LT ExtReal where
    lt := ExtReal.lt
 
+/-- ExtReal is like ExtReal, but with more elements. -/
+instance : ExtendedRatLike ExtReal where
+   isNaN r :=
+      match r with
+      | .NaN => true
+      | _ => false
+   extendedEq r1 r2 := r1.eq r2
+   ofExtRat q :=
+      match q with
+      | .NaN => .NaN
+      | .Number q => .Number q
+      | .Infinity sign => .Infinity sign
+
+
+
+
 end ExtReal
 
-/--
-Typeclass for types that have a sign function, which mimics the sign bit
-in floating point representations.
--/
-class IsFpKind (X : Type) [SupSet X] [InfSet X] where
-   /-- return True if negative. Sign is meant to be thought of as '-1^(sign x)'. -/
-   sign : X → Bool
+
+noncomputable def roundMethodExtReal (e s : Nat) : RoundMethod (PackedFloat e s) ExtReal :=
+   SmtLibRoundMethod.smtLibRoundMethod e s (R := ExtReal) (v := SmtLibRoundMethod.smtLibV) (ves := SmtLibRoundMethod.smtLibV)
+
+noncomputable def roundSmtLibExtReal (rm : RoundingMode)
+      (sign : Bool)
+      (x : ExtReal) :
+      PackedFloat e s :=
+   (roundMethodExtReal e s).roundAux rm sign x
 
 
-namespace IsFpKind
-
-variable {X : Type} [SupSet X] [InfSet X]
-
-/-- The lower approximant of 'v'. Returns the largest 'x : X' such that 'v x ≤ r'. -/
-def lower {X : Type} [SupSet X] (v : X → ExtReal) (r : ExtReal) : X :=
-   sSup (fun (x : X) => v x ≤ r)
-
-/-- The upper approximant of 'v'.
-Returns the smallest 'x : X' such that 'r ≤ v x'. -/
-def upper {X : Type} [InfSet X] (v : X → ExtReal) (r : ExtReal ) : X :=
-   sInf (fun (x : X) => r ≤ v x)
-
-
-
-noncomputable def fpUnaryOp {X : Type} [SupSet X] [InfSet X] [IsFpKind X]
+noncomputable def fpUnaryOp {e s}
       (rm : RoundingMode)
-      (v : X → ExtReal)
       (f : ExtReal → ExtReal) :
-      X → X :=
+      PackedFloat e s → PackedFloat e s :=
    fun x =>
-      let sign : Bool := IsFpKind.sign x
-      let y := f (v x)
-      roundSmtLib rm sign y v <| y
+      let sign : Bool := x.sign
+      let y := f ((roundMethodExtReal e s).embed x)
+      roundSmtLibExtReal rm sign y
 
-noncomputable def fpBinaryOp {X : Type} [SupSet X] [InfSet X] [IsFpKind X]
+noncomputable def fpBinaryOp {e s}
       (rm : RoundingMode)
-      (v : X → ExtReal)
       (f : ExtReal → ExtReal → ExtReal) :
-      X → X → X :=
+      PackedFloat e s → PackedFloat e s → PackedFloat e s :=
    fun x y =>
-      let z := f (v x) (v y)
-      let sign : Bool := IsFpKind.sign x
-      roundSmtLib rm sign z v <| z
+      let z := f ((roundMethodExtReal e s).embed x) ((roundMethodExtReal e s).embed y)
+      let sign : Bool := IsFpKind. x
+      roundSmtLibExtReal rm sign z
 
-noncomputable def fpAdd {X : Type} [SupSet X] [InfSet X] [IsFpKind X]
-      (rm : RoundingMode)
-      (v : X → ExtReal) :
-      X → X → X :=
+noncomputable def fpAdd (x : PackedFloat e s)
+      (rm : RoundingMode) :
+      PackedFloat e s → PackedFloat e s → PackedFloat e s :=
    fpBinaryOp rm v ExtReal.add
 
-noncomputable def fpSub {X : Type} [SupSet X] [InfSet X] [IsFpKind X]
+noncomputable def fpSub (x : PackedFloat e s)
       (rm : RoundingMode)
-      (v : X → ExtReal) :
-      X → X → X :=
+      (v : PackedFloat e s → ExtReal) :
+      PackedFloat e s → PackedFloat e s → PackedFloat e s :=
    fpBinaryOp rm v ExtReal.sub
 
-noncomputable def fpMul {X : Type} [SupSet X] [InfSet X] [IsFpKind X]
+noncomputable def fpMul (x : PackedFloat e s)
       (rm : RoundingMode)
-      (v : X → ExtReal) :
-      X → X → X :=
+      (v : PackedFloat e s → ExtReal) :
+      PackedFloat e s → PackedFloat e s → PackedFloat e s :=
    fpBinaryOp rm v ExtReal.mul
 
-noncomputable def fpInv {X : Type} [SupSet X] [InfSet X] [IsFpKind X]
+noncomputable def fpInv (x : PackedFloat e s)
       (rm : RoundingMode)
-      (v : X → ExtReal) :
-      X → X :=
+      (v : PackedFloat e s → ExtReal) :
+      PackedFloat e s → PackedFloat e s :=
    fpUnaryOp rm v ExtReal.inv
 
-noncomputable def fpNeg {X : Type} [SupSet X] [InfSet X] [IsFpKind X]
+noncomputable def fpNeg (x : PackedFloat e s)
       (rm : RoundingMode)
-      (v : X → ExtReal) :
-      X → X :=
+      (v : PackedFloat e s → ExtReal) :
+      PackedFloat e s → PackedFloat e s :=
    fpUnaryOp rm v ExtReal.neg
 
-noncomputable def fpDiv {X : Type} [SupSet X] [InfSet X] [IsFpKind X]
+noncomputable def fpDiv (x : PackedFloat e s)
       (rm : RoundingMode)
-      (v : X → ExtReal) :
-      X → X → X :=
+      (v : PackedFloat e s → ExtReal) :
+      PackedFloat e s → PackedFloat e s → PackedFloat e s :=
    fpBinaryOp rm v ExtReal.div
 
 end IsFpKind

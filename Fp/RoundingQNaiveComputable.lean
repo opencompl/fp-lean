@@ -8,6 +8,131 @@ import Fp.UnpackedRound
 
 namespace Fp
 
+/--
+
+/--
+Recall that tie break is used to determine if we are exactly in the middle
+between the lower and upper approximants.
+
+In the implementation, this corresponds to the guard bit being 1 and
+the  sticky bit being zero.
+
+If we are representable, then the lower and upper approximants overlap.
+In this case, the guard bit is 0, and thus we return false.
+
+-/
+def roundableTieBreak_of_roundableLower_roundableUpper_roundableEmbed (X : Type) (R : Type) [ExtendedRatLike R]
+    (lower : RoundableLower X R)
+    (upper : RoundableUpper X R)
+    (embed : RoundableEmbed X R) : RoundableTieBreak X R where
+  tieBreak (r : R) : Prop :=
+    let l := lower.lower r
+    let u := upper.upper r
+    let l_ext := embed.embed l
+    let u_ext := embed.embed u
+    (ExtendedRatLike.extendedEq l_ext u_ext) ∨ ExtendedRatLike.extendedEq (r - l_ext) (u_ext - r)
+
+
+
+open ExtendedRatLike in
+/--
+The lower half predicate return `True` if the rational `r` is strictly
+between the lower approximant `l` and upper approximant `u`.
+
+Recall that this is used to check if the number needs to be rounded up.
+- If `l < u`, then we check that `r` is closer to `l` than to `u`.
+- If `l = u`, then we return `True`, since the number is perfectly representable,
+  and thus does not need to be rounded up.
+-/
+def roundableLowerHalf_of_roundableLower_roundableUpper_roundableEmbed (X R : Type)
+    [ExtendedRatLike R]
+    (lower : RoundableLower X R)
+    (upper : RoundableUpper X R)
+    (embed : RoundableEmbed X R) : RoundableLowerHalf X R where
+  lowerHalf (r : R) : Prop :=
+    let l := lower.lower r
+    let u := upper.upper r
+    let l_ext := embed.embed l
+    let u_ext := embed.embed u
+    extendedEq l_ext r ∨ -- either the number is perfectly representable.
+    -- if it is not, then in the interval, check that we are
+    -- strictly in the lower half.
+    (r - l_ext) < (u_ext - r)
+
+
+
+/--
+
+Return the minimum of a list 'l' on the function 'f',
+with a default value if the list is empty.
+-/
+def List.minOn {α β : Type} (l : List α)  (f : α → β) (le : β → β → Bool) (default : α) : α :=
+  match l with
+  | [] => default
+  | x :: xs =>
+      let restMin : α := List.minOn xs f le default
+      if le (f x) (f restMin) then x else restMin
+
+def List.maxOn {α β : Type} (l : List α)  (f : α → β) (le : β → β → Bool) (default : α) : α :=
+   List.minOn l f (fun a b => le b a) default
+
+def roundableLowerByEnumeration [ExtendedRatLike R]
+  [DecidableRel (fun (a b : R) => a < b)]
+  [DecidableRel (fun (a b : R) => a ≤ b)]
+  (embed : RoundableEmbed X R)
+  (smallest : X) (univ : List X)  : RoundableLower X R where
+  -- | smallest element
+  lower (r : R) : X :=
+    let filtered := univ.filter (fun x => decide (embed.embed x ≤ r))
+    let min := List.maxOn filtered
+     (fun x => embed.embed x)
+     (fun a b => a < b) smallest
+    min
+
+  def roundableUpperByEnumeration [ExtendedRatLike R] [DecidableRel (fun (a b : R) => a < b)]
+    [DecidableRel (fun (a b : R) => a ≤ b)]
+    (embed : RoundableEmbed X R) (univ : List X) (largest : X) : RoundableUpper X R where
+  upper (r : R) : X :=
+     let filtered := univ.filter (fun x => decide (r < embed.embed x))
+     let max := List.minOn filtered
+      (fun x => embed.embed x)
+      (fun a b => a < b) largest
+    max
+
+
+/--
+Given an embedding and an enumeration of the type 'X', along with smallest and largest elements,
+create a 'RoundableAdjunction' instance for 'X' by using the enumeration to brute-force
+the lower and upper rounding functions.
+-/
+def RoundableAdjunction.ofEmbedByEnumeration (embed : RoundableEmbed X R)
+    [ExtendedRatLike R] [DecidableRel (fun (a b : R) => a < b)] [DecidableRel (fun (a b : R) => a ≤ b)]
+    (smallest : X) (univ : List X) (largest : X) : RoundableAdjunction X R where
+  embed := embed.embed
+  lower := (roundableLowerByEnumeration embed smallest univ).lower
+  upper := (roundableUpperByEnumeration embed univ largest).upper
+
+namespace SlowComputableRound
+
+def roundByEnumeration (e s : Nat) :
+  RoundMethod (PackedFloat e s) ExtRat where
+  embed := roundableEmbedPackedFloatRatLike.embed
+  lower := lower |>.lower
+  upper := upper |>.upper
+  lowerHalf := (roundableLowerHalf_of_roundableLower_roundableUpper_roundableEmbed (PackedFloat e s) ExtRat
+    lower upper roundableEmbedPackedFloatRatLike).lowerHalf
+  tieBreak :=
+    (roundableTieBreak_of_roundableLower_roundableUpper_roundableEmbed (PackedFloat e s) ExtRat
+      lower upper roundableEmbedPackedFloatRatLike).tieBreak
+  isEven := roundableIsEven_of_packedFloat.isEven
+  where
+    smallest := PackedFloat.getInfinity e s true
+    largest := PackedFloat.getInfinity e s false
+    lower := roundableLowerByEnumeration roundableEmbedPackedFloatRatLike smallest (PackedFloat.enumerateAllList e s)
+    upper := roundableUpperByEnumeration roundableEmbedPackedFloatRatLike (PackedFloat.enumerateAllList e s) largest
+end SlowComputableRound
+-/
+
 
 namespace ExhaustiveEnumerationTesting
 

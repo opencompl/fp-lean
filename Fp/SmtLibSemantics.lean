@@ -73,59 +73,10 @@ of the interval `(embed (lower r), embed (upper r))`. -/
 structure RoundableLowerHalf (X : Type) (R : Type) where
   lowerHalf : R → Prop
 
-open ExtendedRatLike in
-/--
-The lower half predicate return `True` if the rational `r` is strictly
-between the lower approximant `l` and upper approximant `u`.
-
-Recall that this is used to check if the number needs to be rounded up.
-- If `l < u`, then we check that `r` is closer to `l` than to `u`.
-- If `l = u`, then we return `True`, since the number is perfectly representable,
-  and thus does not need to be rounded up.
--/
-def roundableLowerHalf_of_roundableLower_roundableUpper_roundableEmbed (X R : Type)
-    [ExtendedRatLike R]
-    (lower : RoundableLower X R)
-    (upper : RoundableUpper X R)
-    (embed : RoundableEmbed X R) : RoundableLowerHalf X R where
-  lowerHalf (r : R) : Prop :=
-    let l := lower.lower r
-    let u := upper.upper r
-    let l_ext := embed.embed l
-    let u_ext := embed.embed u
-    extendedEq l_ext r ∨ -- either the number is perfectly representable.
-    -- if it is not, then in the interval, check that we are
-    -- strictly in the lower half.
-    (r - l_ext) < (u_ext - r)
-
-
 /-- Check if the given rational `r` is exactly in between
 the two closest representable values `embed (lower r)` and `embed (upper r)`. -/
 structure RoundableTieBreak (X : Type) (R : Type) where
   tieBreak : R → Prop
-
-/--
-Recall that tie break is used to determine if we are exactly in the middle
-between the lower and upper approximants.
-
-In the implementation, this corresponds to the guard bit being 1 and
-the  sticky bit being zero.
-
-If we are representable, then the lower and upper approximants overlap.
-In this case, the guard bit is 0, and thus we return false.
-
--/
-def roundableTieBreak_of_roundableLower_roundableUpper_roundableEmbed (X : Type) (R : Type) [ExtendedRatLike R]
-    (lower : RoundableLower X R)
-    (upper : RoundableUpper X R)
-    (embed : RoundableEmbed X R) : RoundableTieBreak X R where
-  tieBreak (r : R) : Prop :=
-    let l := lower.lower r
-    let u := upper.upper r
-    let l_ext := embed.embed l
-    let u_ext := embed.embed u
-    (ExtendedRatLike.extendedEq l_ext u_ext) ∨ ExtendedRatLike.extendedEq (r - l_ext) (u_ext - r)
-
 
 /--
 Check if the number `X` is even when written in scientific notation with a power of two.
@@ -157,115 +108,48 @@ structure RoundMethod (X : Type) (R : Type) extends
 def RoundMethod.rounderForSign {X : Type} (roundMethod : RoundMethod X R) (sign : Bool) (r : R) : X :=
   if sign then roundMethod.upper r else roundMethod.lower r
 
-open Classical ExtendedRatLike in
+open  ExtendedRatLike in
 /-- define the rounding function for a given choice of 'RoundMethod'. -/
-noncomputable def RoundMethod.round (roundMethod : RoundMethod (PackedFloat e s) R) [ExtendedRatLike R]
+def RoundMethod.round {e s R} (roundMethod : RoundMethod (PackedFloat e s) R) [inst : ExtendedRatLike R]
+    [DecidablePred inst.isZero]
+    [DecidablePred inst.isNaN]
+    [DecidablePred roundMethod.lowerHalf]
+    [DecidablePred roundMethod.tieBreak]
+    [DecidablePred inst.gtZero]
+    [DecidablePred inst.ltZero]
     (rm : RoundingMode) (sign : Bool) (r : R) : PackedFloat e s :=
   match rm with
   | .RNE =>
       if isNaN r then roundMethod.lower r
       else if isZero r then roundMethod.rounderForSign sign r
-      else if ! (isZero r) && roundMethod.lowerHalf r then roundMethod.lower r
-      else if ! (isZero r) && roundMethod.tieBreak r && roundMethod.isEven (roundMethod.lower r) then roundMethod.lower r
-      else if ! (isZero r) && roundMethod.tieBreak r && roundMethod.isEven (roundMethod.upper r) then roundMethod.upper r
-      else if ! (isZero r) && !roundMethod.lowerHalf r && !roundMethod.tieBreak r then roundMethod.upper r
+      else if ! decide (isZero r) && roundMethod.lowerHalf r then roundMethod.lower r
+      else if ! decide (isZero r) && roundMethod.tieBreak r && roundMethod.isEven (roundMethod.lower r) then roundMethod.lower r
+      else if ! decide (isZero r) && roundMethod.tieBreak r && roundMethod.isEven (roundMethod.upper r) then roundMethod.upper r
+      else if ! decide (isZero r) && !roundMethod.lowerHalf r && !roundMethod.tieBreak r then roundMethod.upper r
       else .mkNaN
   | .RNA =>
-      if _hnan : isNaN r then roundMethod.lower r
-      else
-         if _hz : isZero r then roundMethod.rounderForSign sign r
-         else
-            if _rgt0 : ExtendedRatLike.gtZero r
-            then
-              if _hlh : roundMethod.lowerHalf r then roundMethod.lower r else roundMethod.upper r
-            else
-               -- r < 0 := by sorry
-              if _hlh : roundMethod.lowerHalf r ∨ roundMethod.tieBreak r
-              then roundMethod.lower r
-              else roundMethod.upper r
+      if gtZero r && !(roundMethod.lowerHalf r) then roundMethod.upper r
+      else if gtZero r && (roundMethod.lowerHalf r) then roundMethod.lower r
+      else if isZero r then roundMethod.rounderForSign sign r
+      else if isNaN r then roundMethod.lower r
+      else if ltZero r && ! (roundMethod.lowerHalf r) && ! (roundMethod.tieBreak r) then roundMethod.upper r
+      else if ltZero r && (roundMethod.lowerHalf r) || (roundMethod.tieBreak r) then roundMethod.lower r
+      else .mkNaN
+
    | .RTP =>
-      if _h0 : isZero r then roundMethod.rounderForSign sign r
+      if isZero r then roundMethod.rounderForSign sign r
       else roundMethod.upper r
    | .RTN =>
-      if _h0 : isZero r then roundMethod.rounderForSign sign r
+      if isZero r then roundMethod.rounderForSign sign r
       else roundMethod.lower r
    | .RTZ =>
-      if _h0 : isZero r then roundMethod.rounderForSign sign r
-      else
-         if _rgt0 : ExtendedRatLike.gtZero r  then roundMethod.lower r else roundMethod.upper r
-
-/--
-Return the minimum of a list 'l' on the function 'f',
-with a default value if the list is empty.
--/
-def List.minOn {α β : Type} (f : α → β) (le : β → β → Bool) (l : List α) (default : α) : α :=
-  match l with
-  | [] => default
-  | x :: xs =>
-      let restMin : α := minOn f le xs default
-      if le (f x) (f restMin) then x else restMin
-
-def List.maxOn {α β : Type} (f : α → β) (le : β → β → Bool) (l : List α) (default : α) : α :=
-   List.minOn f (fun a b => le b a) l default
-
-def roundableLowerByEnumeration [ExtendedRatLike R]
-  [DecidableRel (fun (a b : R) => a < b)]
-  [DecidableRel (fun (a b : R) => a ≤ b)]
-  (embed : RoundableEmbed X R)
-  (smallest : X) (univ : List X)  : RoundableLower X R where
-  -- | smallest element
-  lower (r : R) : X :=
-    let filtered := univ.filter (fun x => decide (embed.embed x ≤ r))
-    let min := filtered.maxOn
-     (fun x => embed.embed x)
-     (fun a b => a < b) smallest
-    min
-
-  def roundableUpperByEnumeration [ExtendedRatLike R] [DecidableRel (fun (a b : R) => a < b)]
-    [DecidableRel (fun (a b : R) => a ≤ b)]
-    (embed : RoundableEmbed X R) (univ : List X) (largest : X) : RoundableUpper X R where
-  upper (r : R) : X :=
-     let filtered := univ.filter (fun x => decide (r < embed.embed x))
-     let max := filtered.minOn
-      (fun x => embed.embed x)
-      (fun a b => a < b) largest
-    max
-
-
-/--
-Given an embedding and an enumeration of the type 'X', along with smallest and largest elements,
-create a 'RoundableAdjunction' instance for 'X' by using the enumeration to brute-force
-the lower and upper rounding functions.
--/
-def RoundableAdjunction.ofEmbedByEnumeration (embed : RoundableEmbed X R)
-    [ExtendedRatLike R] [DecidableRel (fun (a b : R) => a < b)] [DecidableRel (fun (a b : R) => a ≤ b)]
-    (smallest : X) (univ : List X) (largest : X) : RoundableAdjunction X R where
-  embed := embed.embed
-  lower := (roundableLowerByEnumeration embed smallest univ).lower
-  upper := (roundableUpperByEnumeration embed univ largest).upper
-
-namespace SlowComputableRound
-
-def roundByEnumeration (e s : Nat) :
-  RoundMethod (PackedFloat e s) ExtRat where
-  embed := roundableEmbedPackedFloatRatLike.embed
-  lower := lower |>.lower
-  upper := upper |>.upper
-  lowerHalf := (roundableLowerHalf_of_roundableLower_roundableUpper_roundableEmbed (PackedFloat e s) ExtRat
-    lower upper roundableEmbedPackedFloatRatLike).lowerHalf
-  tieBreak :=
-    (roundableTieBreak_of_roundableLower_roundableUpper_roundableEmbed (PackedFloat e s) ExtRat
-      lower upper roundableEmbedPackedFloatRatLike).tieBreak
-  isEven := roundableIsEven_of_packedFloat.isEven
-  where
-    smallest := PackedFloat.getInfinity e s true
-    largest := PackedFloat.getInfinity e s false
-    lower := roundableLowerByEnumeration roundableEmbedPackedFloatRatLike smallest (PackedFloat.enumerateAllList e s)
-    upper := roundableUpperByEnumeration roundableEmbedPackedFloatRatLike (PackedFloat.enumerateAllList e s) largest
-end SlowComputableRound
+      if gtZero r then roundMethod.lower r
+      else if isZero r then roundMethod.rounderForSign sign r
+      else roundMethod.upper r
 
 namespace SmtLibRoundMethod
 
+/-- 'lower' is a valid greatest lower bound for 'r'. -/
 def IsLawfulLower [ExtendedRatLike R] [RE : RoundableEmbed X R] (r : R) (lower : X) : Prop :=
   RE.embed lower ≤ r ∧ (∀ (lower' : X), RE.embed lower' ≤ r → RE.embed lower' ≤ RE.embed lower)
 
@@ -273,11 +157,11 @@ open Classical in
 noncomputable def smtLibLower [Inhabited X] [ExtendedRatLike R] [RoundableEmbed X R] : RoundableLower X R where
   lower (r : R) : X :=
     if hp : ∃ (x : X), IsLawfulLower r x then
-      /- Use hilbert epsilon to pick -/
       Classical.choose hp
     else
       default
 
+/-- 'upper' is a valid least upper bound for 'r'. -/
 def IsLawfulUpper [ExtendedRatLike R] [RE : RoundableEmbed X R] (r : R) (upper : X) : Prop :=
   r ≤ RE.embed upper ∧ (∀ (upper' : X), r ≤ RE.embed upper' → RE.embed upper ≤ RE.embed upper')
 
@@ -340,6 +224,7 @@ end SmtLibRoundMethod
 
 namespace SmtLibFunctions
 
+
 def neg (x : PackedFloat e s) : PackedFloat e s :=
   if x.isNaN then x else { x with sign := !x.sign }
 
@@ -349,45 +234,48 @@ def abs (x : PackedFloat e s) : PackedFloat e s :=
 def addSign (rm : RoundingMode) (f g : PackedFloat e s) : Bool :=
   if rm = .RTN then f.sign || g.sign else f.sign && g.sign
 
-noncomputable def add {e s} [ExtendedRatLike R] (roundMethod : RoundMethod (PackedFloat e s) R)
-      (rm : RoundingMode) :
-      PackedFloat e s → PackedFloat e s → PackedFloat e s :=
-   fun x y =>
-      let z :=  ((roundMethod.embed x) + (roundMethod.embed y))
-      let sign : Bool := addSign rm x y
-      roundMethod.round rm sign z
-
 def subSign (rm : RoundingMode) (f g : PackedFloat e s) : Bool :=
   addSign rm f (neg g)
-
-noncomputable def sub {e s} [ExtendedRatLike R] (roundMethod : RoundMethod (PackedFloat e s) R)
-      (rm : RoundingMode) :
-      PackedFloat e s → PackedFloat e s → PackedFloat e s :=
-   fun x y =>
-      let z :=  ((roundMethod.embed x) - (roundMethod.embed y))
-      let sign : Bool := subSign rm x (neg y)
-      roundMethod.round rm sign z
 
 def xorSign (f g : PackedFloat e s) : Bool :=
   f.sign != g.sign
 
-noncomputable def mul {e s} [ExtendedRatLike R] (roundMethod : RoundMethod (PackedFloat e s) R)
-      (rm : RoundingMode) :
-      PackedFloat e s → PackedFloat e s → PackedFloat e s :=
-    fun x y =>
+
+section Operations
+
+variable {e s : Nat} {R : Type} [inst : ExtendedRatLike R] (roundMethod : RoundMethod (PackedFloat e s) R)
+      [DecidablePred roundMethod.lowerHalf]
+      [DecidablePred roundMethod.tieBreak]
+      [DecidablePred inst.isNaN]
+      [DecidablePred inst.isZero]
+      [DecidablePred inst.gtZero]
+      [DecidablePred inst.ltZero]
+      (rm : RoundingMode)
+
+def add (x y : PackedFloat e s) : PackedFloat e s :=
+      let z :=  ((roundMethod.embed x) + (roundMethod.embed y))
+      let sign : Bool := addSign rm x y
+      roundMethod.round rm sign z
+
+def sub (x y : PackedFloat e s) : PackedFloat e s :=
+      let z :=  ((roundMethod.embed x) - (roundMethod.embed y))
+      let sign : Bool := subSign rm x (neg y)
+      roundMethod.round rm sign z
+
+def mul (x y : PackedFloat e s) : PackedFloat e s :=
       let z :=  ((roundMethod.embed x) * (roundMethod.embed y))
       let sign : Bool := xorSign x y
       roundMethod.round rm sign z
 
-noncomputable def div {e s} [ExtendedRatLike R] (roundMethod : RoundMethod (PackedFloat e s) R)
-      (rm : RoundingMode) :
-      PackedFloat e s → PackedFloat e s → PackedFloat e s :=
-   fun x y =>
+def div (x y : PackedFloat e s) : PackedFloat e s :=
       let z :=  ((roundMethod.embed x) / (roundMethod.embed y))
       if xorSign x y then
-        neg (roundMethod.round rm true (- z))
+        neg (roundMethod.round rm true  (-z))
       else
         roundMethod.round rm false z
+
+end Operations
+
 
 end SmtLibFunctions
 end SmtLibSemantics
