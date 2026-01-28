@@ -808,6 +808,9 @@ deriving DecidableEq, Repr
 
 namespace ExtRat
 
+instance : Zero ExtRat where
+  zero := .Number 0
+
 def isNumber (e : ExtRat) : Bool :=
   match e with
   | .Number _ => true

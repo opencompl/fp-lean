@@ -16,27 +16,29 @@ by Brain et. al.
 [1]: https://smt-lib.org/papers/BTRW15.pdf
 -/
 
-class ExtendedRatLike (R : Type) extends Add R, Sub R, Mul R, Div R, LT R, LE R, Neg R where
-  /-- Check if number is a NaN-/
+/--
+An extended number system to be instantiated with extended rationals, reals, or ints.
+-/
+class ExtendedNumber (R : Type) extends Add R, Sub R, LT R, LE R, Neg R, Zero R where
+  /-- Check if number is a NaN -/
   isNaN : R → Prop
   /-- Check if two numbers are equal, with extended semantics for inf and NaN -/
   extendedEq : R → R → Prop
-  /-- make a rational. -/
-  ofExtRat : ExtRat → R
+  /-- make a rational. -/ -- TODO by abdal: make this 'ofInt'
+  -- ofExtRat : ExtRat → R
 
-def ExtendedRatLike.isZero {R : Type} [ExtendedRatLike R] (r : R) : Prop :=
-  ExtendedRatLike.extendedEq r (ExtendedRatLike.ofExtRat (ExtRat.Number 0))
+def ExtendedNumber.isZero {R : Type} [ExtendedNumber R] (r : R) : Prop :=
+  ExtendedNumber.extendedEq r (Zero.zero)
 
-def ExtendedRatLike.ltZero {R : Type} [ExtendedRatLike R] (r : R) : Prop :=
-  r < (ExtendedRatLike.ofExtRat (ExtRat.Number 0))
+def ExtendedNumber.ltZero {R : Type} [ExtendedNumber R] (r : R) : Prop :=
+  r < (Zero.zero)
 
-def ExtendedRatLike.gtZero {R : Type} [ExtendedRatLike R] (r : R) : Prop :=
-  (ExtendedRatLike.ofExtRat (ExtRat.Number 0)) < r
+def ExtendedNumber.gtZero {R : Type} [ExtendedNumber R] (r : R) : Prop :=
+  (Zero.zero) < r
 
-instance : ExtendedRatLike ExtRat where
+instance : ExtendedNumber ExtRat where
   isNaN r := r.isNaN
   extendedEq r1 r2 := r1.eq r2
-  ofExtRat r := r
 
 /-- Embed the type `X` into the extended rationals. -/
 class RoundableEmbed (X : Type) (R : Type) where
@@ -56,8 +58,8 @@ structure RoundableLower (X : Type) (R : Type) where
   lower : R → X
 
 /-- The default embedding of packed floats into the extended rationals. -/
-instance roundableEmbedPackedFloatRatLike [ExtendedRatLike R] : RoundableEmbed (PackedFloat e s) R where
-  embed (x : PackedFloat e s) : R := ExtendedRatLike.ofExtRat x.toExtRat
+instance  : RoundableEmbed (PackedFloat e s) ExtRat where
+  embed (x : PackedFloat e s) : ExtRat := x.toExtRat
 
 
 /-- A rounding adjunction is a triple (lower, embed, upper), where
@@ -108,9 +110,9 @@ structure RoundMethod (X : Type) (R : Type) extends
 def RoundMethod.rounderForSign {X : Type} (roundMethod : RoundMethod X R) (sign : Bool) (r : R) : X :=
   if sign then roundMethod.upper r else roundMethod.lower r
 
-open  ExtendedRatLike in
+open  ExtendedNumber in
 /-- define the rounding function for a given choice of 'RoundMethod'. -/
-def RoundMethod.round {e s R} (roundMethod : RoundMethod (PackedFloat e s) R) [inst : ExtendedRatLike R]
+def RoundMethod.round {e s R} (roundMethod : RoundMethod (PackedFloat e s) R) [inst : ExtendedNumber R]
     [DecidablePred inst.isZero]
     [DecidablePred inst.isNaN]
     [DecidablePred roundMethod.lowerHalf]
@@ -126,7 +128,7 @@ def RoundMethod.round {e s R} (roundMethod : RoundMethod (PackedFloat e s) R) [i
       else if ! decide (isZero r) && roundMethod.tieBreak r && roundMethod.isEven (roundMethod.lower r) then roundMethod.lower r
       else if ! decide (isZero r) && roundMethod.tieBreak r && roundMethod.isEven (roundMethod.upper r) then roundMethod.upper r
       else if ! decide (isZero r) && !roundMethod.lowerHalf r && !roundMethod.tieBreak r then roundMethod.upper r
-      else .mkNaN
+      else .mkNaN -- does not occur.
   | .RNA =>
       if gtZero r && !(roundMethod.lowerHalf r) then roundMethod.upper r
       else if gtZero r && (roundMethod.lowerHalf r) then roundMethod.lower r
@@ -134,8 +136,7 @@ def RoundMethod.round {e s R} (roundMethod : RoundMethod (PackedFloat e s) R) [i
       else if isNaN r then roundMethod.lower r
       else if ltZero r && ! (roundMethod.lowerHalf r) && ! (roundMethod.tieBreak r) then roundMethod.upper r
       else if ltZero r && (roundMethod.lowerHalf r) || (roundMethod.tieBreak r) then roundMethod.lower r
-      else .mkNaN
-
+      else .mkNaN -- does not occur.
    | .RTP =>
       if isZero r then roundMethod.rounderForSign sign r
       else roundMethod.upper r
@@ -150,11 +151,11 @@ def RoundMethod.round {e s R} (roundMethod : RoundMethod (PackedFloat e s) R) [i
 namespace SmtLibRoundMethod
 
 /-- 'lower' is a valid greatest lower bound for 'r'. -/
-def IsLawfulLower [ExtendedRatLike R] [RE : RoundableEmbed X R] (r : R) (lower : X) : Prop :=
+def IsLawfulLower [ExtendedNumber R] [RE : RoundableEmbed X R] (r : R) (lower : X) : Prop :=
   RE.embed lower ≤ r ∧ (∀ (lower' : X), RE.embed lower' ≤ r → RE.embed lower' ≤ RE.embed lower)
 
 open Classical in
-noncomputable def smtLibLower [Inhabited X] [ExtendedRatLike R] [RoundableEmbed X R] : RoundableLower X R where
+noncomputable def smtLibLower [Inhabited X] [ExtendedNumber R] [RoundableEmbed X R] : RoundableLower X R where
   lower (r : R) : X :=
     if hp : ∃ (x : X), IsLawfulLower r x then
       Classical.choose hp
@@ -162,11 +163,11 @@ noncomputable def smtLibLower [Inhabited X] [ExtendedRatLike R] [RoundableEmbed 
       default
 
 /-- 'upper' is a valid least upper bound for 'r'. -/
-def IsLawfulUpper [ExtendedRatLike R] [RE : RoundableEmbed X R] (r : R) (upper : X) : Prop :=
+def IsLawfulUpper [ExtendedNumber R] [RE : RoundableEmbed X R] (r : R) (upper : X) : Prop :=
   r ≤ RE.embed upper ∧ (∀ (upper' : X), r ≤ RE.embed upper' → RE.embed upper ≤ RE.embed upper')
 
 open Classical in
-noncomputable def smtLibUpper {X R} [Inhabited X] [ExtendedRatLike R] [RoundableEmbed X R] : RoundableUpper X R where
+noncomputable def smtLibUpper {X R} [Inhabited X] [ExtendedNumber R] [RoundableEmbed X R] : RoundableUpper X R where
   upper (r : R) : X :=
     if hp : ∃ (x : X), IsLawfulUpper r x then
       /- Use hilbert epsilon to pick -/
@@ -182,7 +183,7 @@ for better computational properties.
 We will show later that the `vlower` and `vupper` defined this way agree
 with the galois adjunction expected.
 -/
-noncomputable def smtLibV [Inhabited X] [ExtendedRatLike R] [RoundableEmbed X R] :
+noncomputable def smtLibV [Inhabited X] [ExtendedNumber R] [RoundableEmbed X R] :
     RoundableAdjunction X R where
   embed := RoundableEmbed.embed
   lower := smtLibLower.lower
@@ -194,7 +195,8 @@ The lower and upper half are defined according to 'v'.
 -/
 def smtLibRoundMethod (e s : Nat)
     (v : RoundableAdjunction (PackedFloat e s) R)
-    (ves : RoundableAdjunction (PackedFloat e (s + 1)) R) [ExtendedRatLike R] :
+    (ves : RoundableAdjunction (PackedFloat e (s + 1)) R)
+    [ExtendedNumber R] :
   RoundMethod (PackedFloat e s) R where
   embed := v.embed
   lower := v.lower
@@ -218,7 +220,6 @@ def smtLibRoundMethod (e s : Nat)
     (v.embed (v.lower r) < ves.embed (ves.lower r)) =
     (ves.embed (ves.upper r) < (v.embed (v.upper r)))
   isEven := roundableIsEven_of_packedFloat.isEven
-  where
 
 end SmtLibRoundMethod
 
@@ -243,7 +244,7 @@ def xorSign (f g : PackedFloat e s) : Bool :=
 
 section Operations
 
-variable {e s : Nat} {R : Type} [inst : ExtendedRatLike R] (roundMethod : RoundMethod (PackedFloat e s) R)
+variable {e s : Nat} {R : Type} [inst : ExtendedNumber R] (roundMethod : RoundMethod (PackedFloat e s) R)
       [DecidablePred roundMethod.lowerHalf]
       [DecidablePred roundMethod.tieBreak]
       [DecidablePred inst.isNaN]
@@ -262,12 +263,12 @@ def sub (x y : PackedFloat e s) : PackedFloat e s :=
       let sign : Bool := subSign rm x (neg y)
       roundMethod.round rm sign z
 
-def mul (x y : PackedFloat e s) : PackedFloat e s :=
+def mul [Mul R] (x y : PackedFloat e s) : PackedFloat e s :=
       let z :=  ((roundMethod.embed x) * (roundMethod.embed y))
       let sign : Bool := xorSign x y
       roundMethod.round rm sign z
 
-def div (x y : PackedFloat e s) : PackedFloat e s :=
+def div [Div R] (x y : PackedFloat e s) : PackedFloat e s :=
       let z :=  ((roundMethod.embed x) / (roundMethod.embed y))
       if xorSign x y then
         neg (roundMethod.round rm true  (-z))

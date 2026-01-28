@@ -34,6 +34,9 @@ inductive ExtReal
 
 namespace ExtReal
 
+instance : Zero ExtReal where
+  zero := .Number 0
+
 @[match_pattern, simp]
 def plusInfty : ExtReal := .Infinity false
 
@@ -144,22 +147,26 @@ instance : LT ExtReal where
    lt := ExtReal.lt
 
 /-- ExtReal is like ExtReal, but with more elements. -/
-noncomputable instance : ExtendedRatLike ExtReal where
+noncomputable instance : ExtendedNumber ExtReal where
    isNaN r :=
       match r with
       | .NaN => true
       | _ => false
    extendedEq r1 r2 := r1.eq r2
-   ofExtRat q :=
-      match q with
+
+instance : RoundableEmbed (PackedFloat e s) ExtReal where
+   embed := fun pf =>
+      match pf.toExtRat with
       | .NaN => .NaN
-      | .Number q => .Number q
       | .Infinity sign => .Infinity sign
+      | .Number r => .Number r
 
 end ExtReal
 
 noncomputable def smtLibRealRounder : RoundMethod (PackedFloat e s) ExtReal :=
-   SmtLibRoundMethod.smtLibRoundMethod e s SmtLibRoundMethod.smtLibV SmtLibRoundMethod.smtLibV
+   SmtLibRoundMethod.smtLibRoundMethod e s
+      SmtLibRoundMethod.smtLibV
+      SmtLibRoundMethod.smtLibV
 
 namespace RealSemantics
 open Classical
