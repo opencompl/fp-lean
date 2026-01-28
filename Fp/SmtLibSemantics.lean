@@ -24,8 +24,6 @@ class ExtendedNumber (R : Type) extends Add R, Sub R, LT R, LE R, Neg R, Zero R 
   isNaN : R → Prop
   /-- Check if two numbers are equal, with extended semantics for inf and NaN -/
   extendedEq : R → R → Prop
-  /-- make a rational. -/ -- TODO by abdal: make this 'ofInt'
-  -- ofExtRat : ExtRat → R
 
 def ExtendedNumber.isZero {R : Type} [ExtendedNumber R] (r : R) : Prop :=
   ExtendedNumber.extendedEq r (Zero.zero)
@@ -83,7 +81,6 @@ structure RoundableTieBreak (X : Type) (R : Type) where
 /--
 Check if the number `X` is even when written in scientific notation with a power of two.
 This assumes that `X` has a representation where we can check the least significant bit of the significand.
-(@bollu question: Why is this a generic structure according to SMT-LIB?)
 -/
 structure RoundableIsEven (X : Type) where
   isEven : X → Bool
@@ -191,7 +188,6 @@ noncomputable def smtLibV [Inhabited X] [ExtendedNumber R] [RoundableEmbed X R] 
 
 /--
 The SMT-Lib definition of the rounding methods for any choice of rounding adjunction 'v'.
-The lower and upper half are defined according to 'v'.
 -/
 def smtLibRoundMethod (e s : Nat)
     (v : RoundableAdjunction (PackedFloat e s) R)
@@ -240,7 +236,6 @@ def subSign (rm : RoundingMode) (f g : PackedFloat e s) : Bool :=
 
 def xorSign (f g : PackedFloat e s) : Bool :=
   f.sign != g.sign
-
 
 section Operations
 
