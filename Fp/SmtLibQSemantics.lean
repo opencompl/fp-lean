@@ -299,7 +299,9 @@ noncomputable def smtLibV [Inhabited X] [ExtendedRatLike R] [RoundableEmbed X R]
 The SMT-Lib definition of the rounding methods for any choice of rounding adjunction 'v'.
 The lower and upper half are defined according to 'v'.
 -/
-noncomputable def smtLibRoundMethod (e s : Nat) (v : RoundableAdjunction (PackedFloat e s) R) [ExtendedRatLike R] :
+def smtLibRoundMethod (e s : Nat)
+    (v : RoundableAdjunction (PackedFloat e s) R)
+    (ves : RoundableAdjunction (PackedFloat e (s + 1)) R) [ExtendedRatLike R] :
   RoundMethod (PackedFloat e s) R where
   embed := v.embed
   lower := v.lower
@@ -311,7 +313,6 @@ noncomputable def smtLibRoundMethod (e s : Nat) (v : RoundableAdjunction (Packed
   (v.embed (v.lower r) < ves.embed (ves.lower r)) =
   (ves.embed (ves.upper r) < (ves.embed (v.upper r)))
   ```
-
   however, this does not type check at `ves.embed (v.upper r)`,
   since `v.upper r` has type `PackedFloat e s`, while `ves.embed`
   expects an argument of type `PackedFloat e (s + 1)`.
@@ -325,7 +326,6 @@ noncomputable def smtLibRoundMethod (e s : Nat) (v : RoundableAdjunction (Packed
     (ves.embed (ves.upper r) < (v.embed (v.upper r)))
   isEven := roundableIsEven_of_packedFloat.isEven
   where
-    ves : RoundableAdjunction (PackedFloat e (s + 1)) R := smtLibV
 
 end SmtLibRoundMethod
 
