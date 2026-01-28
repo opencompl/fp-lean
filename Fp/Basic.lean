@@ -885,6 +885,9 @@ def inv (x : ExtRat) : ExtRat :=
 def div (x y : ExtRat) : ExtRat :=
   x.mul (y.inv)
 
+instance : Div ExtRat where
+  div a b := div a b
+
 def le (x y : ExtRat) : Bool :=
   match x, y with
   | .NaN, .NaN => true -- NaN ≤ NaN only.

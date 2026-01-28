@@ -5,9 +5,18 @@ import Fp.Utils
 import Lean
 open Lean
 
--- Reference paper: https://smt-lib.org/papers/BTRW15.pdf
 
-class ExtendedRatLike (R : Type) extends Add R, Sub R, LT R, LE R where
+namespace Fp
+namespace SmtLibSemantics
+/-
+We follow the development from
+"An Automatable Formal Semantics for IEEE-754 Floating-Point Arithmetic" [1]
+by Brain et. al.
+
+[1]: https://smt-lib.org/papers/BTRW15.pdf
+-/
+
+class ExtendedRatLike (R : Type) extends Add R, Sub R, Mul R, Div R, LT R, LE R, Neg R where
   /-- Check if number is a NaN-/
   isNaN : R → Prop
   /-- Check if two numbers are equal, with extended semantics for inf and NaN -/
@@ -150,7 +159,7 @@ def RoundMethod.rounderForSign {X : Type} (roundMethod : RoundMethod X R) (sign 
 
 open Classical ExtendedRatLike in
 /-- define the rounding function for a given choice of 'RoundMethod'. -/
-noncomputable def RoundMethod.roundAux (roundMethod : RoundMethod (PackedFloat e s) R) [ExtendedRatLike R]
+noncomputable def RoundMethod.round (roundMethod : RoundMethod (PackedFloat e s) R) [ExtendedRatLike R]
     (rm : RoundingMode) (sign : Bool) (r : R) : PackedFloat e s :=
   match rm with
   | .RNE =>
@@ -273,7 +282,7 @@ def IsLawfulUpper [ExtendedRatLike R] [RE : RoundableEmbed X R] (r : R) (upper :
   r ≤ RE.embed upper ∧ (∀ (upper' : X), r ≤ RE.embed upper' → RE.embed upper ≤ RE.embed upper')
 
 open Classical in
-noncomputable def smtLibUpper [Inhabited X] [ExtendedRatLike R] [RoundableEmbed X R] : RoundableUpper X R where
+noncomputable def smtLibUpper {X R} [Inhabited X] [ExtendedRatLike R] [RoundableEmbed X R] : RoundableUpper X R where
   upper (r : R) : X :=
     if hp : ∃ (x : X), IsLawfulUpper r x then
       /- Use hilbert epsilon to pick -/
@@ -329,178 +338,57 @@ def smtLibRoundMethod (e s : Nat)
 
 end SmtLibRoundMethod
 
-namespace QSemanticsRef
+namespace SmtLibFunctions
 
-namespace ExhaustiveEnumerationTesting
+def neg (x : PackedFloat e s) : PackedFloat e s :=
+  if x.isNaN then x else { x with sign := !x.sign }
 
-def EUnpackedFloat.round {E S : Nat} (e s : Nat)
-  (rm : RoundingMode) (euf : EUnpackedFloat E S)  : EUnpackedFloat (exponentWidth e s) (s + 1) :=
-  if euf.isNaN then
-    EUnpackedFloat.mkNaN
-  else if euf.isInfinite then
-    EUnpackedFloat.mkInfinity euf.sign
-  else
-    let uf : UnpackedFloat E S := euf.num
-    let roundedPf : PackedFloat e s := uf.round rm |>.pack
-    roundedPf.unpack
+def abs (x : PackedFloat e s) : PackedFloat e s :=
+  if x.isNaN then x else { x with sign := false }
 
-/-
-def roundMethodsEqual? (E : Nat := 4) (S : Nat := 4) (e : Nat := 4) (s : Nat := 2)
-  (r1 r2 : RoundMethod (PackedFloat e s) ExtRat)
-  [DecidablePred r1.tieBreak]
-  [DecidablePred r2.tieBreak]
-  [DecidablePred r1.lowerHalf]
-  [DecidablePred r2.lowerHalf]
-  : IO Bool := do
-  let success : Bool := true
-  -- success := success || (← lowerHalfEqual?) -- good
-  let success := success || (← lowerEqual?) -- good
-  let success := success || (← higherEqual?) -- good
-  let success := success || (← tieBreakEqual?) -- good
-  return success
+def addSign (rm : RoundingMode) (f g : PackedFloat e s) : Bool :=
+  if rm = .RTN then f.sign || g.sign else f.sign && g.sign
 
-  -- isEvenEqual? -- good
-  where
-    lowerEqual? : IO Bool := do
-      for pf in PackedFloat.enumerateAllList E S do
-        let r := pf.toExtRat
-        let l1 := r1.lower r
-        let l2 := r2.lower r
-        if l1 != l2 then
-          IO.println s!"Discrepancy in lower for {repr pf} (ExtRat: {repr r})"
-          IO.println s!"{repr l1} vs {repr l2}"
-          return false
-      return true
-    higherEqual? : IO Bool := do
-      for pf in PackedFloat.enumerateAllList E S do
-        let r := pf.toExtRat
-        let u1 := r1.upper r
-        let u2 := r2.upper r
-        if u1 != u2 then
-          IO.println s!"Discrepancy in upper for {repr pf} (ExtRat: {repr r})"
-          IO.println s!"{repr u1} vs {repr u2}"
-          return false
-      return true
-    tieBreakEqual? : IO Bool := do
-      for pf in PackedFloat.enumerateAllList E S do
-        let r := pf.toExtRat
-        let tb1 := decide (r1.tieBreak r)
-        let tb2 := decide (r2.tieBreak r)
-        let out1 := r1.roundAux .RNE pf.sign r
-        let out2 := r2.roundAux .RNE pf.sign r
-        if tb1 != tb2 then
-          IO.println s!"Discrepancy in tieBreak for {repr pf} (ExtRat: {repr r})"
-          IO.println s!"tiebreak1:{repr tb1} ~ rounded1:{repr out1.toExtRat}"
-          IO.println s!"tiebreak2:{repr tb2} ~ rounded2:{repr out2.toExtRat}"
-          IO.println s!"l:{repr (r1.lower r).toExtRat} <= {repr r} <= {repr (r1.upper r).toExtRat}"
-        return false
-      return true
-    lowerHalfEqual? : IO Bool := do
-      for pf in PackedFloat.enumerateAllList E S do
-        let r := pf.toExtRat
-        let lh1 := r1.lowerHalf r
-        let lh2 := r2.lowerHalf r
-        if lh1 != lh2 then
-          IO.println s!"Discrepancy in lowerHalf for {repr pf} (ExtRat: {repr r})"
-          IO.println s!"{repr lh1} vs {repr lh2}"
-          return false
-      return true
-    isEvenEqual? : IO Bool := do
-      for pf in PackedFloat.enumerateAllList e s do
-        let r := pf.toExtRat
-        let lh1 := r1.isEven pf
-        let lh2 := r2.isEven pf
-        if lh1 != lh2 then
-          IO.println s!"Discrepancy in lowerHalf for {repr pf} (ExtRat: {repr r})"
-          IO.println s!"{repr lh1} vs {repr lh2}"
-          return false
-      return true
+noncomputable def add {e s} [ExtendedRatLike R] (roundMethod : RoundMethod (PackedFloat e s) R)
+      (rm : RoundingMode) :
+      PackedFloat e s → PackedFloat e s → PackedFloat e s :=
+   fun x y =>
+      let z :=  ((roundMethod.embed x) + (roundMethod.embed y))
+      let sign : Bool := addSign rm x y
+      roundMethod.round rm sign z
 
+def subSign (rm : RoundingMode) (f g : PackedFloat e s) : Bool :=
+  addSign rm f (neg g)
 
-/-- info: true -/
-#guard_msgs in #eval roundMethodsEqual? 2 4 2 3
-  (SmtLibRoundMethod.smtLibRoundMethod _ _ (SmtLibRoundMethod.smtLibV _ _))
-  (SlowComputableRound.roundByEnumeration _ _)
--/
+noncomputable def sub {e s} [ExtendedRatLike R] (roundMethod : RoundMethod (PackedFloat e s) R)
+      (rm : RoundingMode) :
+      PackedFloat e s → PackedFloat e s → PackedFloat e s :=
+   fun x y =>
+      let z :=  ((roundMethod.embed x) - (roundMethod.embed y))
+      let sign : Bool := subSign rm x (neg y)
+      roundMethod.round rm sign z
 
+def xorSign (f g : PackedFloat e s) : Bool :=
+  f.sign != g.sign
 
--- #exit
+noncomputable def mul {e s} [ExtendedRatLike R] (roundMethod : RoundMethod (PackedFloat e s) R)
+      (rm : RoundingMode) :
+      PackedFloat e s → PackedFloat e s → PackedFloat e s :=
+    fun x y =>
+      let z :=  ((roundMethod.embed x) * (roundMethod.embed y))
+      let sign : Bool := xorSign x y
+      roundMethod.round rm sign z
 
-/-- test that 'lower' agrees with reference implementation -/
-def compareRoundingFunctions
-  (E S : Nat) (e s : Nat) (rm : RoundingMode)
-  (rounderGolden rounderUnderTest : RoundingMode → (sign  : Bool) → PackedFloat E S → PackedFloat e s)
-  : IO Bool := do
-  let pfs : List (PackedFloat E S) := PackedFloat.enumerateNumberList E S
-  let mut nsuccess : Nat := 0
-  let mut nfailure : Nat := 0
-  for pf in pfs do
-    let r := pf.toExtRat
-    let sign := pf.sign
-    let golden := rounderGolden rm sign pf
-    let test : PackedFloat e s := rounderUnderTest rm sign pf
-    let res := golden.equal_denotation test
-    if !res then
-      nfailure := nfailure + 1
-      if nfailure > 10 then
-        continue
-      IO.println s!"---"
-      let rgolden := golden.toExtRat
-      let rtest := test.toExtRat
-      let distGolden := (r - rgolden).abs
-      let distTest :=  (r - rtest).abs
-      let correct := distGolden ≤ distTest
-      IO.println s!"Discrepancy for (Q: {repr r}) (RM: {repr rm}) (Sign: {sign}) {repr pf}"
-      IO.println s!"  Golden: (Q: {repr golden.toExtRat}) (UF: {repr golden.unpack}) (PF: {repr golden})"
-      IO.println s!"  Tested: (Q: {repr test.toExtRat}) (UF: {repr test.unpack}) (PF: {repr test})"
-      IO.println s!"  Distance: {if correct then "✅" else "❌"}"
-      IO.println s!"    distGolden : {repr distGolden}"
-      IO.println s!"    distTest : {repr distTest})"
-    else
-      nsuccess := nsuccess + 1
-  let percentSuccess : Float :=
-    if nsuccess + nfailure == 0 then 100.0
-    else (nsuccess.toFloat / (nsuccess + nfailure).toFloat) * 100.0
-  IO.println s!"Total tests run: {nsuccess + nfailure}, Successes: {nsuccess}, Failures: {nfailure} ({percentSuccess}% success rate)"
-  return nfailure == 0
+noncomputable def div {e s} [ExtendedRatLike R] (roundMethod : RoundMethod (PackedFloat e s) R)
+      (rm : RoundingMode) :
+      PackedFloat e s → PackedFloat e s → PackedFloat e s :=
+   fun x y =>
+      let z :=  ((roundMethod.embed x) / (roundMethod.embed y))
+      if xorSign x y then
+        neg (roundMethod.round rm true (- z))
+      else
+        roundMethod.round rm false z
 
-/-
-/--
-error: Unknown constant `PackedFloat.enumerate`
----
-error: Unknown identifier `SlowComputableRound.roundBySlowEnumeration`
--/
-#guard_msgs in #eval compareRoundingFunctions 5 4 5 2 .RNE
-  (rounderGolden := fun rm sign pf =>
-      let v := (RoundableAdjunction.ofEmbedByEnumeration (X := PackedFloat _ _)
-          (roundableEmbedPackedFloatRatLike)
-          (PackedFloat.getInfinity _ _ true )
-          (PackedFloat.enumerate _ _)
-          (PackedFloat.getInfinity _ _ false))
-      (SmtLibRoundMethod.smtLibRoundMethod _ _ v).roundAux rm sign pf.toExtRat)
-  (rounderUnderTest := fun rm sign pf => (SlowComputableRound.roundBySlowEnumeration _ _).roundAux rm sign pf.toExtRat)
--/
-
-/-
-/--
-error: aborting evaluation since the expression depends on the 'sorry' axiom, which can lead to runtime instability and crashes.
-
-To attempt to evaluate anyway despite the risks, use the '#eval!' command.
----
-error: failed to compile definition, consider marking it as 'noncomputable' because it depends on 'RoundMethod.roundAux', which is 'noncomputable'
--/
-#guard_msgs in #eval compareRoundingFunctions 4 4 4 2 .RNE
-  (rounderGolden := fun rm sign pf =>
-      let v := (RoundableAdjunction.ofEmbedByEnumeration (X := PackedFloat _ _)
-          (roundableEmbedPackedFloatRatLike)
-          (PackedFloat.getInfinity _ _ true )
-          (PackedFloat.enumerateAllList _ _)
-          (PackedFloat.getInfinity _ _ false))
-      (SmtLibRoundMethod.smtLibRoundMethod _ _ v).roundAux rm sign pf.toExtRat)
-  (rounderUnderTest := fun rm sign pf =>
-    EUnpackedFloat.round _ _ (rm := rm) (euf := pf.unpack) |>.pack
-  )
-  -- (rounderUnderTest := fun rm sign pf => (SlowComputableRound.roundByEnumeration _ _).roundAux rm sign pf.toExtRat)
--/
-
-end ExhaustiveEnumerationTesting
+end SmtLibFunctions
+end SmtLibSemantics
+end Fp
