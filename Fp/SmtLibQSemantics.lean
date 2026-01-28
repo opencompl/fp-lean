@@ -464,7 +464,7 @@ def compareRoundingFunctions
   IO.println s!"Total tests run: {nsuccess + nfailure}, Successes: {nsuccess}, Failures: {nfailure} ({percentSuccess}% success rate)"
   return nfailure == 0
 
-
+/-
 /--
 error: Unknown constant `PackedFloat.enumerate`
 ---
@@ -479,7 +479,7 @@ error: Unknown identifier `SlowComputableRound.roundBySlowEnumeration`
           (PackedFloat.getInfinity _ _ false))
       (SmtLibRoundMethod.smtLibRoundMethod _ _ v).roundAux rm sign pf.toExtRat)
   (rounderUnderTest := fun rm sign pf => (SlowComputableRound.roundBySlowEnumeration _ _).roundAux rm sign pf.toExtRat)
-
+-/
 
 /-
 /--

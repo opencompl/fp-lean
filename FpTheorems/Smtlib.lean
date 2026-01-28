@@ -3,6 +3,7 @@ import Fp.Rounding
 import Lean
 import Mathlib.Data.Real.Basic
 import Mathlib.Data.Real.Sqrt
+import Fp.SmtLibQSemantics
 
 /-!
 We build the theory of SMT-LIB's definition of floating point semantics,
@@ -137,74 +138,6 @@ Returns the smallest 'x : X' such that 'r ≤ v x'. -/
 def upper {X : Type} [InfSet X] (v : X → ExtReal) (r : ExtReal ) : X :=
    sInf (fun (x : X) => r ≤ v x)
 
-/-- Lower half, return 'true' iff we are strictly in the lower half. -/
-def lh {X : Type} [InfSet X] [SupSet X] (r : ExtReal) (v : X → ExtReal) : Prop :=
-   r - v (lower v r) < v (upper v r) - r
-
-/-- Tiebreak, return 'true' iff we are exactly in the middle of the lower and upper approximants. -/
-def tb {X : Type} [InfSet X] [SupSet X] (r : ExtReal) (v : X → ExtReal) : Prop :=
-   r - v (lower v r) = v (upper v r) - r
-
-/-- Upper half, return 'true' iff we are strictly in the upper half. -/
-def uh {X : Type} [InfSet X] [SupSet X] (r : ExtReal) (v : X → ExtReal) : Prop :=
-   r - v (lower v r) > v (upper v r) - r
-
-/-- Check if 'X' is even. -/
-def ev {X : Type} (x : X) (v : X → ExtReal) : Prop :=
-  ∃ (z : Int), v x = .Finite (2 * z)
-
-/-- Round signed zero. Picks between the lower and upper approximant,
-based on the sign
-function. -/
-def rsz {X : Type} [SupSet X] [InfSet X] (sign : Bool) (v : X → ExtReal) : ExtReal → X :=
-  fun r =>
-    if sign then upper v r else lower v r
-
-
-open Classical in
-noncomputable def roundSmtLib {X : Type} [SupSet X] [InfSet X]
-      (rm : RoundingMode) (sign : Bool) (r : ExtReal) (v : X → ExtReal) : ExtReal → X :=
-  match rm with
-  | .RNE =>
-      if _hz : r = .Finite 0 then rsz sign v
-      else
-        if _hlh : lh r v
-        then lower v
-        else
-         if _htb : tb r v
-         then
-            if _heven : ev (lower v r) v
-            then lower v
-            else upper v
-         else
-            -- not tie break, not lower, so we are in upper half.
-            -- have : uh r v := by
-            --    have := trichotomy_lh_tb_uh r v
-            --    grind
-            upper v
-  | .RNA =>
-      if _hnan : r = .NaN then lower v
-      else
-         if _hz : r = .Finite 0 then rsz sign v
-         else
-            if _rgt0 : r > .Finite 0
-            then
-              if _hlh : lh r v then lower v else upper v
-            else
-               -- r < 0 := by sorry
-              if _hlh : lh r v ∨ tb r v
-              then lower v
-              else upper v
-   | .RTP =>
-      if _h0 : r = .Finite 0 then rsz sign v
-      else upper v
-   | .RTN =>
-      if _h0 : r = .Finite 0 then rsz sign v
-      else lower v
-   | .RTZ =>
-      if _h0 : r = .Finite 0 then rsz sign v
-      else
-         if _rgt0 : r > .Finite 0 then lower v else upper v
 
 
 noncomputable def fpUnaryOp {X : Type} [SupSet X] [InfSet X] [IsFpKind X]
