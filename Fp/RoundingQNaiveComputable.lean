@@ -139,12 +139,22 @@ def testAgainstUnpackedFloatRounding (EIn SIn : Nat) (EOut SOut : Nat) : IO Bool
 
 /--
 info: ---
+lo':-1 lo:-1 q:-1 hi:-1 hi':-1
+Mismatch on input ExtRat.Number (-1 : Rat)/2 | { state := num, num := { sign := true, ex := 0x3#2, sig := 0x2#2 } }
+  Circuit: ExtRat.Number 0 | { state := num, num := { sign := true, ex := 0x0#2, sig := 0x0#2 } }
+  Golden : ExtRat.Number (-1 : Rat)/2 | { state := num, num := { sign := true, ex := 0x3#2, sig := 0x2#2 } }
+---
 lo':0 lo:0 q:0 hi:0 hi':0
 ---
 lo':0 lo:0 q:0 hi:0 hi':0
-nsuccess = 2, nfailure = 0, success% = 100%
 ---
-info: true
+lo':1 lo:1 q:1 hi:1 hi':1
+Mismatch on input ExtRat.Number (1 : Rat)/2 | { state := num, num := { sign := false, ex := 0x3#2, sig := 0x2#2 } }
+  Circuit: ExtRat.Number 0 | { state := num, num := { sign := false, ex := 0x0#2, sig := 0x0#2 } }
+  Golden : ExtRat.Number (1 : Rat)/2 | { state := num, num := { sign := false, ex := 0x3#2, sig := 0x2#2 } }
+nsuccess = 2, nfailure = 2, success% = 50%
+---
+info: false
 -/
 #guard_msgs in #eval testAgainstUnpackedFloatRounding 1 1 1 1
 
