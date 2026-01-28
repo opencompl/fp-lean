@@ -1,6 +1,5 @@
 import Fp
-import Fp.SmtLibQSemantics
-
+import Fp.SmtLibSemantics
 
 def main : IO UInt32 := do
     let mut success := true

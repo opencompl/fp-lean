@@ -20,6 +20,10 @@ by Brain et. al.
 
 open Lean
 
+namespace Fp
+
+namespace SmtLibSemantics
+
 
 /-- Extended real numbers, including +∞, -∞ and NaN -/
 @[grind]
@@ -82,8 +86,13 @@ def neg (a : ExtReal) : ExtReal :=
    | Number r => Number (-r)
    | .Infinity sign => .Infinity (!sign)
 
+instance : Neg ExtReal where
+   neg := ExtReal.neg
 
 def sub (a b : ExtReal) : ExtReal := a.add b.neg
+
+instance : Sub ExtReal where
+   sub := ExtReal.sub
 
 noncomputable def mul (a b : ExtReal) : ExtReal :=
    match a, b with
@@ -97,8 +106,9 @@ noncomputable def mul (a b : ExtReal) : ExtReal :=
    | .Infinity signA, Number r =>
       if r = 0 then .NaN else .Infinity (if r < 0 then !signA else signA)
 
-instance : Sub ExtReal where
-   sub := ExtReal.sub
+noncomputable instance : Mul ExtReal where
+   mul := ExtReal.mul
+
 
 noncomputable def inv (a : ExtReal) : ExtReal :=
    match a with
@@ -112,6 +122,9 @@ noncomputable def inv (a : ExtReal) : ExtReal :=
 
 
 noncomputable def div (a b : ExtReal) : ExtReal := a.mul b.inv
+
+noncomputable instance : Div ExtReal where
+   div := ExtReal.div
 
 /--
 Square root function for extended reals.
@@ -131,7 +144,7 @@ instance : LT ExtReal where
    lt := ExtReal.lt
 
 /-- ExtReal is like ExtReal, but with more elements. -/
-instance : ExtendedRatLike ExtReal where
+noncomputable instance : ExtendedRatLike ExtReal where
    isNaN r :=
       match r with
       | .NaN => true
@@ -143,73 +156,27 @@ instance : ExtendedRatLike ExtReal where
       | .Number q => .Number q
       | .Infinity sign => .Infinity sign
 
-
-
-
 end ExtReal
 
+noncomputable def smtLibRealRounder : RoundMethod (PackedFloat e s) ExtReal :=
+   SmtLibRoundMethod.smtLibRoundMethod e s SmtLibRoundMethod.smtLibV SmtLibRoundMethod.smtLibV
 
-noncomputable def roundMethodExtReal (e s : Nat) : RoundMethod (PackedFloat e s) ExtReal :=
-   SmtLibRoundMethod.smtLibRoundMethod e s (R := ExtReal) (v := SmtLibRoundMethod.smtLibV) (ves := SmtLibRoundMethod.smtLibV)
-
-noncomputable def roundSmtLibExtReal (rm : RoundingMode)
-      (sign : Bool)
-      (x : ExtReal) :
-      PackedFloat e s :=
-   (roundMethodExtReal e s).roundAux rm sign x
+namespace RealSemantics
+open Classical
 
 
-noncomputable def fpUnaryOp {e s}
-      (rm : RoundingMode)
-      (f : ExtReal → ExtReal) :
-      PackedFloat e s → PackedFloat e s :=
-   fun x =>
-      let sign : Bool := x.sign
-      let y := f ((roundMethodExtReal e s).embed x)
-      roundSmtLibExtReal rm sign y
+noncomputable def add  (rm : RoundingMode) (x y : PackedFloat e s) : PackedFloat e s :=
+   SmtLibSemantics.SmtLibFunctions.add (roundMethod := smtLibRealRounder) rm x y
 
-noncomputable def fpBinaryOp {e s}
-      (rm : RoundingMode)
-      (f : ExtReal → ExtReal → ExtReal) :
-      PackedFloat e s → PackedFloat e s → PackedFloat e s :=
-   fun x y =>
-      let z := f ((roundMethodExtReal e s).embed x) ((roundMethodExtReal e s).embed y)
-      let sign : Bool := IsFpKind. x
-      roundSmtLibExtReal rm sign z
+noncomputable def sub (rm : RoundingMode) (x y : PackedFloat e s) : PackedFloat e s :=
+   SmtLibSemantics.SmtLibFunctions.sub (roundMethod := smtLibRealRounder) rm x y
 
-noncomputable def fpAdd (x : PackedFloat e s)
-      (rm : RoundingMode) :
-      PackedFloat e s → PackedFloat e s → PackedFloat e s :=
-   fpBinaryOp rm v ExtReal.add
+noncomputable def mul (rm : RoundingMode) (x y : PackedFloat e s) : PackedFloat e s :=
+   SmtLibSemantics.SmtLibFunctions.mul (roundMethod := smtLibRealRounder) rm x y
 
-noncomputable def fpSub (x : PackedFloat e s)
-      (rm : RoundingMode)
-      (v : PackedFloat e s → ExtReal) :
-      PackedFloat e s → PackedFloat e s → PackedFloat e s :=
-   fpBinaryOp rm v ExtReal.sub
+noncomputable def div (rm : RoundingMode) (x y : PackedFloat e s) : PackedFloat e s :=
+   SmtLibSemantics.SmtLibFunctions.div (roundMethod := smtLibRealRounder) rm x y
 
-noncomputable def fpMul (x : PackedFloat e s)
-      (rm : RoundingMode)
-      (v : PackedFloat e s → ExtReal) :
-      PackedFloat e s → PackedFloat e s → PackedFloat e s :=
-   fpBinaryOp rm v ExtReal.mul
-
-noncomputable def fpInv (x : PackedFloat e s)
-      (rm : RoundingMode)
-      (v : PackedFloat e s → ExtReal) :
-      PackedFloat e s → PackedFloat e s :=
-   fpUnaryOp rm v ExtReal.inv
-
-noncomputable def fpNeg (x : PackedFloat e s)
-      (rm : RoundingMode)
-      (v : PackedFloat e s → ExtReal) :
-      PackedFloat e s → PackedFloat e s :=
-   fpUnaryOp rm v ExtReal.neg
-
-noncomputable def fpDiv (x : PackedFloat e s)
-      (rm : RoundingMode)
-      (v : PackedFloat e s → ExtReal) :
-      PackedFloat e s → PackedFloat e s → PackedFloat e s :=
-   fpBinaryOp rm v ExtReal.div
-
-end IsFpKind
+end RealSemantics
+end SmtLibSemantics
+end Fp
