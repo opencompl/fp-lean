@@ -1,7 +1,8 @@
-import Fp.Basic
+import Fp.Comparison
 import Fp.Negation
 import Fp.UnpackedRound
 
+@[bv_normalize]
 def UnpackedFloat.add (x y : UnpackedFloat e s) : UnpackedFloat (e + 1) (s + 2) :=
   -- Compute absolute exponent difference to determine significant shift amount.
   let expDiff : BitVec (e + 1)  := x.ex.signExtend (e + 1) - y.ex.signExtend (e + 1)
@@ -37,6 +38,15 @@ def UnpackedFloat.add (x y : UnpackedFloat e s) : UnpackedFloat (e + 1) (s + 2) 
   -- Sticky bit is independent of normalization: add it at the very end.
   { normSum with sig := normSum.sig ||| (BitVec.ofBool sticky).setWidth' (by omega) }
 
+@[bv_normalize]
+theorem Prod.fst_cond_eq_cond_fst {t e : α × β} : (bif b then t else e).fst = bif b then t.fst else e.fst :=
+  Bool.apply_cond Prod.fst
+
+@[bv_normalize]
+theorem Prod.snd_cond_eq_cond_snd {t e : α × β} : (bif b then t else e).snd = bif b then t.snd else e.snd :=
+  Bool.apply_cond Prod.snd
+
+@[bv_normalize]
 def EUnpackedFloat.add (m : RoundingMode) (x y : EUnpackedFloat (exponentWidth e s) (s + 1))
   : EUnpackedFloat (exponentWidth e s) (s + 1) :=
   bif x.isNaN || y.isNaN || x.isInfinite && y.isInfinite && x.sign != y.sign then
@@ -44,7 +54,7 @@ def EUnpackedFloat.add (m : RoundingMode) (x y : EUnpackedFloat (exponentWidth e
   else bif x.isInfinite && y.isInfinite && x.sign == y.sign ||
            x.isInfinite && !y.isInfinite || !x.isInfinite && y.isInfinite then
     .mkInfinity (bif x.isInfinite then x.sign else y.sign)
-  else bif x.num == y.num.neg then
+  else bif UnpackedFloat.structBeq x.num y.num.neg then
     -- Sum is exactly `0`: follow the special sign rules for `0`.
     -- Even if both `x` and `y` are `0`, their signs are still different. So, we don't
     -- need to propegate the sign!
@@ -58,11 +68,15 @@ def EUnpackedFloat.add (m : RoundingMode) (x y : EUnpackedFloat (exponentWidth e
 
 namespace PackedFloat
 
+@[bv_normalize]
 def add (m : RoundingMode) (x y : PackedFloat e s) : PackedFloat e s :=
   (EUnpackedFloat.add m x.unpack y.unpack).pack
 
 instance : Add (PackedFloat e s) where
   add := .add .RNE
+
+@[bv_normalize]
+theorem PackedFloat.add_def {x y : PackedFloat e s} : x + y = PackedFloat.add .RNE x y := rfl
 
 end PackedFloat
 

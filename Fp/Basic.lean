@@ -411,9 +411,9 @@ def getInfinity (exWidth sigWidth : Nat) (sign : Bool)
 Returns the (positive) zero value for the given floating point format.
 -/
 @[simp, bv_normalize]
-def getZero (exWidth sigWidth : Nat)
+def getZero (exWidth sigWidth : Nat) (sign : Bool)
   : PackedFloat exWidth sigWidth where
-  sign := False
+  sign := sign
   ex := 0
   sig := 0
 
@@ -719,7 +719,7 @@ structure UnpackedFloat (e s : Nat) where
   sign : Bool
   ex : BitVec e
   sig : BitVec s
-  deriving DecidableEq, Inhabited, Repr
+  deriving Inhabited, Repr
 
 attribute [bv_normalize] UnpackedFloat.ext_iff
 
@@ -751,7 +751,7 @@ manipulation.
 structure EUnpackedFloat (e s : Nat) where
   state : State
   num   : UnpackedFloat e s
-deriving DecidableEq, Repr
+deriving Repr
 
 inductive ExtDyadic where
   | NaN : ExtDyadic
@@ -879,7 +879,7 @@ def bias (e : Nat) : Nat :=
 
 namespace PackedFloat
 
-def mkNaN (sign := false) (sig := 1#s <<< (s - 1)) : PackedFloat e s :=
+def mkNaN (sign := false) (sig := BitVec.intMin s) : PackedFloat e s :=
   { sign, ex := BitVec.allOnes e, sig }
 
 def toExtDyadic (pf : PackedFloat e s) : ExtDyadic :=
@@ -928,16 +928,6 @@ def enumerate (e s : Nat) : Array (UnpackedFloat e s) := Id.run do
   return out
 
 @[bv_normalize]
-theorem ext_iff_beq {x y : UnpackedFloat e s}
-  : (x == y) = (x.sign == y.sign && x.ex == y.ex && (x.sig == y.sig)) := by
-  cases h : (x == y) <;> simp_all [UnpackedFloat.ext_iff]
-
-@[bv_normalize]
-theorem bne_to_beq {x y : UnpackedFloat e s}
-  : (x != y) = !(x == y) := by
-  cases h : (x != y) <;> simp_all [UnpackedFloat.ext_iff]
-
-@[bv_normalize]
 theorem eq_cond_sign {x y : UnpackedFloat e s} :
   (bif b then x else y).sign = bif b then x.sign else y.sign := by
   cases b <;> rfl
@@ -956,13 +946,13 @@ theorem eq_cond_sig {x y : UnpackedFloat e s} :
 def mkZero (sign : Bool) : UnpackedFloat e s :=
   {
     sign := sign
-    ex := 0
-    sig := 0
+    ex := BitVec.intMin e
+    sig := 0#s
   }
 
 @[bv_normalize]
 def isZero (uf : UnpackedFloat e s) : Bool :=
-  uf.ex == 0 && uf.sig == 0
+  uf.ex == BitVec.intMin e && uf.sig == 0#s
 
 @[bv_normalize]
 def normalize (uf : UnpackedFloat e s) (sign := uf.sign) : UnpackedFloat e s :=
@@ -991,16 +981,6 @@ def toRat (uf : UnpackedFloat e s) : Rat :=
 end UnpackedFloat
 
 namespace EUnpackedFloat
-
-@[bv_normalize]
-theorem ext_iff_beq {x y : EUnpackedFloat e s}
-  : (x == y) = (x.state == y.state && x.num == y.num) := by
-  cases h : (x == y) <;> simp_all [EUnpackedFloat.ext_iff]
-
-@[bv_normalize]
-theorem bne_to_beq {x y : EUnpackedFloat e s}
-  : (x != y) = !(x == y) := by
-  cases h : (x != y) <;> simp_all [EUnpackedFloat.ext_iff]
 
 @[bv_normalize]
 theorem eq_state_ex {x y : EUnpackedFloat e s} :

@@ -1,76 +1,183 @@
 import Fp.Basic
-import Fp.Rounding
-import Fp.Addition
+import Fp.Packing
 
-@[simp, bv_normalize]
-def f_lt (a b : FixedPoint w e) : Bool :=
-  (a.sign && b.sign && b.val < a.val) ∨
-  (a.sign && ¬b.sign && (a.val ≠ 0 || b.val ≠ 0)) ∨
-  (¬a.sign && ¬b.sign && a.val < b.val)
-
-@[simp, bv_normalize]
-def e_lt (a b : EFixedPoint w e) : Bool :=
-  a.state != .NaN && b.state != .NaN && (
-    (a.state = .Infinity && a.num.sign && (b.state = .Number || ¬b.num.sign)) ||
-    (b.state = .Infinity && ¬b.num.sign && (a.state = .Number || a.num.sign)) ||
-    (a.state = .Number && b.state = .Number && f_lt a.num b.num)
-  )
-
-@[simp, bv_normalize]
-def e_le (a b : EFixedPoint w e) : Bool :=
-  a.equal b || e_lt a b
-
-@[simp, bv_normalize]
-def lt (a b : PackedFloat w e) : Bool :=
-  let comp (x y : PackedFloat w e) :=
-    x.ex < y.ex || (x.ex == y.ex && x.sig < y.sig)
-  ¬a.isNaN && ¬b.isNaN && (
-    (a.sign && b.sign && comp b a) ||
-    (a.sign && ¬b.sign && (¬a.isZero || ¬b.isZero)) ||
-    (¬a.sign && ¬b.sign && comp a b)
-  )
-
-@[simp, bv_normalize]
-def gt (a b : PackedFloat w e) : Bool :=
-  let comp (x y : PackedFloat w e) :=
-    x.ex < y.ex || (x.ex == y.ex && x.sig < y.sig)
-  ¬a.isNaN && ¬b.isNaN && (
-    (a.sign && b.sign && comp a b) ||
-    (¬a.sign && b.sign && (¬a.isZero || ¬b.isZero)) ||
-    (¬a.sign && ¬b.sign && comp b a)
-  )
-
-@[simp, bv_normalize]
-def eq (a b : PackedFloat w e) : Bool :=
-  ¬a.isNaN && ¬b.isNaN && (
-    (a.sign == b.sign && a.ex == b.ex && a.sig == b.sig) ||
-    (a.ex == 0 && b.ex == 0 && a.sig == 0 && b.sig == 0)
-  )
-
-@[simp, bv_normalize]
-def le (a b : PackedFloat w e) : Bool :=
-  eq a b || lt a b
-
-@[simp, bv_normalize]
-def ge (a b : PackedFloat w e) : Bool :=
-  eq a b || gt a b
+namespace UnpackedFloat
 
 @[bv_normalize]
-def flt_min (a b : PackedFloat e s) : PackedFloat e s :=
-  if a.isNaN && b.isNaN then PackedFloat.getNaN e s
-  else if b.isNaN || lt a b || (a.isZero && b.isZero && a.isSignMinus) then a
-  else b
+def bltAux (xLTyOnDiffZeros : Bool) (x y : UnpackedFloat e s) : Bool :=
+  bif x.sign && y.sign then
+    BitVec.slt y.ex x.ex ||
+    y.ex == x.ex && BitVec.ult y.sig x.sig
+  else bif x.sign && !y.sign then
+    xLTyOnDiffZeros || !x.isZero || !y.isZero
+  else bif !x.sign && y.sign then
+    xLTyOnDiffZeros && x.isZero && y.isZero
+  else
+    BitVec.slt x.ex y.ex ||
+    x.ex == y.ex && BitVec.ult x.sig y.sig
 
 @[bv_normalize]
-def flt_max (a b : PackedFloat e s) : PackedFloat e s :=
-  if a.isNaN && b.isNaN then PackedFloat.getNaN e s
-  else if b.isNaN || gt a b || (a.isZero && b.isZero && b.isSignMinus) then a
-  else b
+def bleAux (xLEyOnDiffZeros : Bool) (x y : UnpackedFloat e s) : Bool :=
+  bif x.sign && y.sign then
+    BitVec.slt y.ex x.ex ||
+    y.ex == x.ex && BitVec.ule y.sig x.sig
+  else bif x.sign && !y.sign then
+    xLEyOnDiffZeros || !x.isZero || !y.isZero
+  else bif !x.sign && y.sign then
+    xLEyOnDiffZeros && x.isZero && y.isZero
+  else
+    BitVec.slt x.ex y.ex ||
+    x.ex == y.ex && BitVec.ule x.sig y.sig
 
-theorem e_lt_nan (a : EFixedPoint w e)
-  : ¬(e_lt a (EFixedPoint.getNaN a.num.hExOffset)) := by
-  simp [e_lt]
+@[bv_normalize]
+def structBeq (x y : UnpackedFloat e s) : Bool :=
+  x.sign == y.sign && x.ex == y.ex && x.sig == y.sig
 
-theorem nan_e_lt (a : EFixedPoint w e)
-  : ¬(e_lt (EFixedPoint.getNaN a.num.hExOffset) a) := by
-  simp [e_lt]
+@[bv_normalize]
+def beq (x y : UnpackedFloat e s) : Bool :=
+  x.isZero && y.isZero ||
+  x.sign == y.sign && x.ex == y.ex && x.sig == y.sig
+
+@[bv_normalize]
+def bgeAux (xGEyOnDiffZeros : Bool) (x y : UnpackedFloat e s) : Bool :=
+  bleAux (!xGEyOnDiffZeros) y x
+
+@[bv_normalize]
+def bgtAux (xGTyOnDiffZeros : Bool) (x y : UnpackedFloat e s) : Bool :=
+  bltAux (!xGTyOnDiffZeros) y x
+
+@[bv_normalize]
+def minAux (xOnDiffZeros : Bool) (x y : UnpackedFloat e s) : UnpackedFloat e s :=
+  bif bgtAux xOnDiffZeros x y then y else x
+
+@[bv_normalize]
+def maxAux (xOnDiffZeros : Bool) (x y : UnpackedFloat e s) : UnpackedFloat e s :=
+  bif bltAux xOnDiffZeros x y then y else x
+
+end UnpackedFloat
+
+namespace EUnpackedFloat
+
+@[bv_normalize]
+def bltAux (xLTyOnDiffZeros : Bool) (x y : EUnpackedFloat e s) : Bool :=
+  bif x.isNaN || y.isNaN then
+    false
+  else bif x.isInfinite || y.isInfinite then
+    x.isInfinite && x.sign && (!y.isInfinite || !y.sign) ||
+    (!x.isInfinite || x.sign) && y.isInfinite && !y.sign
+  else
+    UnpackedFloat.bltAux xLTyOnDiffZeros x.num y.num
+
+@[bv_normalize]
+def bleAux (xLEyOnDiffZeros : Bool) (x y : EUnpackedFloat e s) : Bool :=
+  bif x.isNaN || y.isNaN then
+    false
+  else bif x.isInfinite || y.isInfinite then
+    x.isInfinite && x.sign ||
+    y.isInfinite && !y.sign
+  else
+    UnpackedFloat.bleAux xLEyOnDiffZeros x.num y.num
+
+@[bv_normalize]
+def smtBeq (x y : EUnpackedFloat e s) : Bool :=
+  x.isNaN && y.isNaN ||
+  x.isInfinite && y.isInfinite && x.sign == y.sign ||
+  UnpackedFloat.beq x.num y.num
+
+@[bv_normalize]
+def smtBne (x y : EUnpackedFloat e s) : Bool :=
+  !smtBeq x y
+
+@[bv_normalize]
+def ieeeBeq (x y : EUnpackedFloat e s) : Bool :=
+  !x.isNaN && !y.isNaN &&
+  (x.isInfinite && y.isInfinite && x.sign == y.sign ||
+   UnpackedFloat.beq x.num y.num)
+
+@[bv_normalize]
+def bgeAux (xGEyOnDiffZeros : Bool) (x y : EUnpackedFloat e s) : Bool :=
+  bleAux (!xGEyOnDiffZeros) y x
+
+@[bv_normalize]
+def bgtAux (xGTyOnDiffZeros : Bool) (x y : EUnpackedFloat e s) : Bool :=
+  bltAux (!xGTyOnDiffZeros) y x
+
+@[bv_normalize]
+def minAux (xOnDiffZeros : Bool) (x y : EUnpackedFloat e s) : EUnpackedFloat e s :=
+  bif x.isNaN || bgtAux xOnDiffZeros x y then y else x
+
+@[bv_normalize]
+def maxAux (xOnDiffZeros : Bool) (x y : EUnpackedFloat e s) : EUnpackedFloat e s :=
+  bif x.isNaN || bltAux xOnDiffZeros x y then y else x
+
+end EUnpackedFloat
+
+namespace PackedFloat
+
+@[bv_normalize]
+def bltAux (xLTyOnDiffZeros : Bool) (x y : PackedFloat e s) : Bool :=
+  EUnpackedFloat.bltAux xLTyOnDiffZeros x.unpack y.unpack
+
+@[bv_normalize]
+def bleAux (xLEyOnDiffZeros : Bool) (x y : PackedFloat e s) : Bool :=
+  EUnpackedFloat.bleAux xLEyOnDiffZeros x.unpack y.unpack
+
+@[bv_normalize]
+def smtBeq (x y : PackedFloat e s) : Bool :=
+  EUnpackedFloat.smtBeq x.unpack y.unpack
+
+@[bv_normalize]
+def smtBne (x y : PackedFloat e s) : Bool :=
+  EUnpackedFloat.smtBne x.unpack y.unpack
+
+@[bv_normalize]
+def ieeeBeq (x y : PackedFloat e s) : Bool :=
+  EUnpackedFloat.ieeeBeq x.unpack y.unpack
+
+@[bv_normalize]
+def bgeAux (xGEyOnDiffZeros : Bool) (x y : PackedFloat e s) : Bool :=
+  bleAux (!xGEyOnDiffZeros) y x
+
+@[bv_normalize]
+def bgtAux (xGTyOnDiffZeros : Bool) (x y : PackedFloat e s) : Bool :=
+  bltAux (!xGTyOnDiffZeros) y x
+
+@[bv_normalize]
+def minAux (xOnDiffZeros : Bool) (x y : PackedFloat e s) : PackedFloat e s :=
+  (EUnpackedFloat.minAux xOnDiffZeros x.unpack y.unpack).pack
+
+@[bv_normalize]
+def maxAux (xOnDiffZeros : Bool) (x y : PackedFloat e s) : PackedFloat e s :=
+  (EUnpackedFloat.maxAux xOnDiffZeros x.unpack y.unpack).pack
+
+@[bv_normalize]
+def smtBlt (x y : PackedFloat e s) : Bool :=
+  bltAux false x y
+
+@[bv_normalize]
+def smtBle (x y : PackedFloat e s) : Bool :=
+  bleAux true x y
+
+@[bv_normalize]
+def smtBge (x y : PackedFloat e s) : Bool :=
+  bgeAux true x y
+
+@[bv_normalize]
+def smtBgt (x y : PackedFloat e s) : Bool :=
+  bgtAux false x y
+
+@[bv_normalize]
+def smtMin (xOnDiffZeros : Bool) (x y : PackedFloat e s) : PackedFloat e s :=
+  minAux xOnDiffZeros x y
+
+@[bv_normalize]
+def smtMax (xOnDiffZeros : Bool) (x y : PackedFloat e s) : PackedFloat e s :=
+  maxAux xOnDiffZeros x y
+
+def smtIsNeg (x : PackedFloat e s) : Bool :=
+  !x.isNaN && x.sign
+
+def smtIsPos (x : PackedFloat e s) : Bool :=
+  !x.isNaN && x.sign
+
+end PackedFloat

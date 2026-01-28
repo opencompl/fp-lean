@@ -41,7 +41,7 @@ def EUnpackedFloat.pack (uf : EUnpackedFloat (exponentWidth e s) (s + 1))
             -- Truncate msbs used to normalize subnormals
             (uf.exp + BitVec.ofNat _ (bias e)).truncate _
     sig := bif uf.isNaN then
-            1#s <<< (s - 1)
+            BitVec.intMin s
            else bif uf.isInfinite || uf.isZero then
             0#s
            else bif inNormalRange then
