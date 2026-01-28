@@ -767,6 +767,9 @@ deriving DecidableEq, Repr
 
 namespace ExtRat
 
+instance : Zero ExtRat where
+  zero := .Number 0
+
 def add (x y : ExtRat) : ExtRat :=
   match x, y with
   | .NaN, _ => .NaN
@@ -861,6 +864,11 @@ instance : Min ExtRat where
 
 instance : Max ExtRat where
   max a b := if a ≤ b then b else a
+
+def isNaN (r : ExtRat) : Bool :=
+  match r with
+  | .NaN => true
+  | _    => false
 
 end ExtRat
 
