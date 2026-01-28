@@ -412,7 +412,7 @@ theorem BitVec.getMsbD_extractMsbTo0BV_eq_decide {w : Nat}
 
 /-- a > b -/
 @[bv_normalize]
-def BitVec.sgt {w : Nat} (a b : BitVec w) : Bool :=
+private def BitVec.sgt {w : Nat} (a b : BitVec w) : Bool :=
   b.slt a
 
 
@@ -802,7 +802,7 @@ def checkRoundCorrect (EUnpacked SUnpackedNoHidden : Nat) (EOut SOutNoHidden : N
       nfailed := nfailed + 1
       continue
 
-    let expectedPacked : PackedFloat EOut SOutNoHidden :=  
+    let expectedPacked : PackedFloat EOut SOutNoHidden :=
        originalPacked.toEFixed.round (exWidth := EOut) (sigWidth := SOutNoHidden) mode
     let expectedEUnpacked := expectedPacked.unpack
     if outputRoundedPacked.equal_denotation expectedPacked then

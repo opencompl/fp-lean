@@ -2,6 +2,7 @@ import Fp.Basic
 import Fp.UnpackedRound
 import Fp.Rounding
 
+@[bv_normalize]
 def UnpackedFloat.div (x y : UnpackedFloat e s) : UnpackedFloat (e + 1) (s + 2) :=
   -- Extend sig width by 2 bits to account for two things:
   -- - Potential normalization at first, then
@@ -26,6 +27,7 @@ def UnpackedFloat.div (x y : UnpackedFloat e s) : UnpackedFloat (e + 1) (s + 2) 
     sig := (quot <<< BitVec.ofBool !quot.msb) ||| (BitVec.ofBool (rem != 0)).setWidth' (by omega)
   }
 
+@[bv_normalize]
 def EUnpackedFloat.div (m : RoundingMode) (x y : EUnpackedFloat (exponentWidth e s) (s + 1))
   : EUnpackedFloat (exponentWidth e s) (s + 1) :=
   bif x.isNaN || y.isNaN || x.isInfinite && y.isInfinite || x.isZero && y.isZero then
@@ -39,11 +41,15 @@ def EUnpackedFloat.div (m : RoundingMode) (x y : EUnpackedFloat (exponentWidth e
 
 namespace PackedFloat
 
+@[bv_normalize]
 def div (m : RoundingMode) (x y : PackedFloat e s) : PackedFloat e s :=
   (EUnpackedFloat.div m x.unpack y.unpack).pack
 
 instance : Div (PackedFloat e s) where
   div := .div .RNE
+
+@[bv_normalize]
+theorem PackedFloat.div_def {x y : PackedFloat e s} : x / y = PackedFloat.div .RNE x y := rfl
 
 end PackedFloat
 
