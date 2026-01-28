@@ -229,7 +229,7 @@ def RoundableAdjunction.ofEmbedByEnumeration (embed : RoundableEmbed X)
 
 namespace SlowComputableRound
 
-def roundBySlowEnumeration (e s : Nat) : RoundMethod (PackedFloat e s) where
+def roundByQEnumeration (e s : Nat) : RoundMethod (PackedFloat e s) where
   embed := roundableEmbedPackedFloat.embed
   lower := lower |>.lower
   upper := upper |>.upper
@@ -384,7 +384,7 @@ def roundMethodsEqual? (E : Nat := 4) (S : Nat := 4) (e : Nat := 4) (s : Nat := 
 /-- info: true -/
 #guard_msgs in #eval roundMethodsEqual? 2 4 2 3
   (SmtLibRoundMethod.smtLibRoundMethod _ _ (SmtLibRoundMethod.smtLibV _ _))
-  (SlowComputableRound.roundBySlowEnumeration _ _)
+  (SlowComputableRound.roundByQEnumeration _ _)
 
 -- #exit
 
@@ -428,77 +428,44 @@ def compareRoundingFunctions
 
 
 /--
+error: Unknown constant `PackedFloat.enumerate`
+---
+error: Unknown identifier `SlowComputableRound.roundBySlowEnumeration`
+-/
+#guard_msgs in #eval compareRoundingFunctions 5 4 5 2 .RNE
+  (rounderGolden := fun rm sign pf =>
+      let v := (RoundableAdjunction.ofEmbedByEnumeration (X := PackedFloat _ _)
+          (roundableEmbedPackedFloat)
+          (PackedFloat.getInfinity _ _ true )
+          (PackedFloat.enumerate _ _)
+          (PackedFloat.getInfinity _ _ false))
+      (SmtLibRoundMethod.smtLibRoundMethod _ _ v).roundAux rm sign pf.toExtRat)
+  (rounderUnderTest := fun rm sign pf => (SlowComputableRound.roundBySlowEnumeration _ _).roundAux rm sign pf.toExtRat)
+
+
+/--
 info: ---
-Discrepancy for (Q: ExtRat.Number (31 : Rat)/8) (RM: RNE) (Sign: false) { sign := +, ex := 0x2#2, sig := 0xf#4 }
-  Golden: (Q: ExtRat.Infinity true) (UF: { state := ∞, num := { sign := true, ex := 0x0#3, sig := 0x0#3 } }) (PF: { sign := -, ex := 0x3#2, sig := 0x0#2 })
-  Tested: (Q: ExtRat.Infinity false) (UF: { state := ∞, num := { sign := false, ex := 0x0#3, sig := 0x0#3 } }) (PF: { sign := +, ex := 0x3#2, sig := 0x0#2 })
+Discrepancy for (Q: ExtRat.Number (-1 : Rat)/512) (RM: RNE) (Sign: true) { sign := -, ex := 0x0#4, sig := 0x2#4 }
+  Golden: (Q: ExtRat.Number 0) (UF: { state := num, num := { sign := false, ex := 0x00#5, sig := 0x0#3 } }) (PF: { sign := +, ex := 0x0#4, sig := 0x0#2 })
+  Tested: (Q: ExtRat.Number 0) (UF: { state := num, num := { sign := true, ex := 0x00#5, sig := 0x0#3 } }) (PF: { sign := -, ex := 0x0#4, sig := 0x0#2 })
   Distance: ✅
-    distGolden : ExtRat.Infinity false
-    distTest : ExtRat.Infinity false)
+    distGolden : ExtRat.Number (1 : Rat)/512
+    distTest : ExtRat.Number (1 : Rat)/512)
 ---
-Discrepancy for (Q: ExtRat.Number (15 : Rat)/4) (RM: RNE) (Sign: false) { sign := +, ex := 0x2#2, sig := 0xe#4 }
-  Golden: (Q: ExtRat.Infinity true) (UF: { state := ∞, num := { sign := true, ex := 0x0#3, sig := 0x0#3 } }) (PF: { sign := -, ex := 0x3#2, sig := 0x0#2 })
-  Tested: (Q: ExtRat.Infinity false) (UF: { state := ∞, num := { sign := false, ex := 0x0#3, sig := 0x0#3 } }) (PF: { sign := +, ex := 0x3#2, sig := 0x0#2 })
+Discrepancy for (Q: ExtRat.Number (-1 : Rat)/1024) (RM: RNE) (Sign: true) { sign := -, ex := 0x0#4, sig := 0x1#4 }
+  Golden: (Q: ExtRat.Number 0) (UF: { state := num, num := { sign := false, ex := 0x00#5, sig := 0x0#3 } }) (PF: { sign := +, ex := 0x0#4, sig := 0x0#2 })
+  Tested: (Q: ExtRat.Number 0) (UF: { state := num, num := { sign := true, ex := 0x00#5, sig := 0x0#3 } }) (PF: { sign := -, ex := 0x0#4, sig := 0x0#2 })
   Distance: ✅
-    distGolden : ExtRat.Infinity false
-    distTest : ExtRat.Infinity false)
+    distGolden : ExtRat.Number (1 : Rat)/1024
+    distTest : ExtRat.Number (1 : Rat)/1024)
 ---
-Discrepancy for (Q: ExtRat.Number (-29 : Rat)/8) (RM: RNE) (Sign: true) { sign := -, ex := 0x2#2, sig := 0xd#4 }
-  Golden: (Q: ExtRat.Infinity true) (UF: { state := ∞, num := { sign := true, ex := 0x0#3, sig := 0x0#3 } }) (PF: { sign := -, ex := 0x3#2, sig := 0x0#2 })
-  Tested: (Q: ExtRat.Number (-7 : Rat)/2) (UF: { state := num, num := { sign := true, ex := 0x1#3, sig := 0x7#3 } }) (PF: { sign := -, ex := 0x2#2, sig := 0x3#2 })
-  Distance: ❌
-    distGolden : ExtRat.Infinity false
-    distTest : ExtRat.Number (1 : Rat)/8)
----
-Discrepancy for (Q: ExtRat.Number (-7 : Rat)/2) (RM: RNE) (Sign: true) { sign := -, ex := 0x2#2, sig := 0xc#4 }
-  Golden: (Q: ExtRat.Infinity true) (UF: { state := ∞, num := { sign := true, ex := 0x0#3, sig := 0x0#3 } }) (PF: { sign := -, ex := 0x3#2, sig := 0x0#2 })
-  Tested: (Q: ExtRat.Number (-7 : Rat)/2) (UF: { state := num, num := { sign := true, ex := 0x1#3, sig := 0x7#3 } }) (PF: { sign := -, ex := 0x2#2, sig := 0x3#2 })
-  Distance: ❌
-    distGolden : ExtRat.Infinity false
+Discrepancy for (Q: ExtRat.Number 0) (RM: RNE) (Sign: true) { sign := -, ex := 0x0#4, sig := 0x0#4 }
+  Golden: (Q: ExtRat.Number 0) (UF: { state := num, num := { sign := false, ex := 0x00#5, sig := 0x0#3 } }) (PF: { sign := +, ex := 0x0#4, sig := 0x0#2 })
+  Tested: (Q: ExtRat.Number 0) (UF: { state := num, num := { sign := true, ex := 0x00#5, sig := 0x0#3 } }) (PF: { sign := -, ex := 0x0#4, sig := 0x0#2 })
+  Distance: ✅
+    distGolden : ExtRat.Number 0
     distTest : ExtRat.Number 0)
----
-Discrepancy for (Q: ExtRat.Number (-27 : Rat)/8) (RM: RNE) (Sign: true) { sign := -, ex := 0x2#2, sig := 0xb#4 }
-  Golden: (Q: ExtRat.Infinity true) (UF: { state := ∞, num := { sign := true, ex := 0x0#3, sig := 0x0#3 } }) (PF: { sign := -, ex := 0x3#2, sig := 0x0#2 })
-  Tested: (Q: ExtRat.Number (-7 : Rat)/2) (UF: { state := num, num := { sign := true, ex := 0x1#3, sig := 0x7#3 } }) (PF: { sign := -, ex := 0x2#2, sig := 0x3#2 })
-  Distance: ❌
-    distGolden : ExtRat.Infinity false
-    distTest : ExtRat.Number (1 : Rat)/8)
----
-Discrepancy for (Q: ExtRat.Number (-13 : Rat)/4) (RM: RNE) (Sign: true) { sign := -, ex := 0x2#2, sig := 0xa#4 }
-  Golden: (Q: ExtRat.Infinity true) (UF: { state := ∞, num := { sign := true, ex := 0x0#3, sig := 0x0#3 } }) (PF: { sign := -, ex := 0x3#2, sig := 0x0#2 })
-  Tested: (Q: ExtRat.Number -3) (UF: { state := num, num := { sign := true, ex := 0x1#3, sig := 0x6#3 } }) (PF: { sign := -, ex := 0x2#2, sig := 0x2#2 })
-  Distance: ❌
-    distGolden : ExtRat.Infinity false
-    distTest : ExtRat.Number (1 : Rat)/4)
----
-Discrepancy for (Q: ExtRat.Number (-25 : Rat)/8) (RM: RNE) (Sign: true) { sign := -, ex := 0x2#2, sig := 0x9#4 }
-  Golden: (Q: ExtRat.Infinity true) (UF: { state := ∞, num := { sign := true, ex := 0x0#3, sig := 0x0#3 } }) (PF: { sign := -, ex := 0x3#2, sig := 0x0#2 })
-  Tested: (Q: ExtRat.Number -3) (UF: { state := num, num := { sign := true, ex := 0x1#3, sig := 0x6#3 } }) (PF: { sign := -, ex := 0x2#2, sig := 0x2#2 })
-  Distance: ❌
-    distGolden : ExtRat.Infinity false
-    distTest : ExtRat.Number (1 : Rat)/8)
----
-Discrepancy for (Q: ExtRat.Number -3) (RM: RNE) (Sign: true) { sign := -, ex := 0x2#2, sig := 0x8#4 }
-  Golden: (Q: ExtRat.Infinity true) (UF: { state := ∞, num := { sign := true, ex := 0x0#3, sig := 0x0#3 } }) (PF: { sign := -, ex := 0x3#2, sig := 0x0#2 })
-  Tested: (Q: ExtRat.Number -3) (UF: { state := num, num := { sign := true, ex := 0x1#3, sig := 0x6#3 } }) (PF: { sign := -, ex := 0x2#2, sig := 0x2#2 })
-  Distance: ❌
-    distGolden : ExtRat.Infinity false
-    distTest : ExtRat.Number 0)
----
-Discrepancy for (Q: ExtRat.Number (-23 : Rat)/8) (RM: RNE) (Sign: true) { sign := -, ex := 0x2#2, sig := 0x7#4 }
-  Golden: (Q: ExtRat.Infinity true) (UF: { state := ∞, num := { sign := true, ex := 0x0#3, sig := 0x0#3 } }) (PF: { sign := -, ex := 0x3#2, sig := 0x0#2 })
-  Tested: (Q: ExtRat.Number -3) (UF: { state := num, num := { sign := true, ex := 0x1#3, sig := 0x6#3 } }) (PF: { sign := -, ex := 0x2#2, sig := 0x2#2 })
-  Distance: ❌
-    distGolden : ExtRat.Infinity false
-    distTest : ExtRat.Number (1 : Rat)/8)
----
-Discrepancy for (Q: ExtRat.Number (-11 : Rat)/4) (RM: RNE) (Sign: true) { sign := -, ex := 0x2#2, sig := 0x6#4 }
-  Golden: (Q: ExtRat.Infinity true) (UF: { state := ∞, num := { sign := true, ex := 0x0#3, sig := 0x0#3 } }) (PF: { sign := -, ex := 0x3#2, sig := 0x0#2 })
-  Tested: (Q: ExtRat.Number -3) (UF: { state := num, num := { sign := true, ex := 0x1#3, sig := 0x6#3 } }) (PF: { sign := -, ex := 0x2#2, sig := 0x2#2 })
-  Distance: ❌
-    distGolden : ExtRat.Infinity false
-    distTest : ExtRat.Number (1 : Rat)/4)
-Total tests run: 96, Successes: 48, Failures: 48 (50.000000% success rate)
+Total tests run: 480, Successes: 477, Failures: 3 (99.375000% success rate)
 ---
 info: false
 ---
@@ -506,7 +473,7 @@ warning: unused variable `sign`
 
 Note: This linter can be disabled with `set_option linter.unusedVariables false`
 -/
-#guard_msgs in #eval compareRoundingFunctions 2 4 2 2 .RNE
+#guard_msgs in #eval compareRoundingFunctions 4 4 4 2 .RNE
   (rounderGolden := fun rm sign pf =>
       let v := (RoundableAdjunction.ofEmbedByEnumeration (X := PackedFloat _ _)
           (roundableEmbedPackedFloat)
@@ -517,7 +484,7 @@ Note: This linter can be disabled with `set_option linter.unusedVariables false`
   (rounderUnderTest := fun rm sign pf =>
     EUnpackedFloat.round _ _ (rm := rm) (euf := pf.unpack) |>.pack
   )
-  -- (rounderUnderTest := fun rm sign pf => (SlowComputableRound.roundBySlowEnumeration _ _).roundAux rm sign pf.toExtRat)
+  -- (rounderUnderTest := fun rm sign pf => (SlowComputableRound.roundByQEnumeration _ _).roundAux rm sign pf.toExtRat)
 
 
 

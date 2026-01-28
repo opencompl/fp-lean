@@ -838,8 +838,8 @@ def add (x y : ExtRat) : ExtRat :=
   | _, .NaN => .NaN
   | .Infinity s1, .Infinity s2 =>
     if s1 == s2 then .Infinity s1 else .NaN
-  | .Infinity s, _ => .Infinity s
-  | _, .Infinity s => .Infinity s
+  | .Infinity s, .Number _ => .Infinity s
+  | .Number _, .Infinity s => .Infinity s
   | .Number r1, .Number r2 => .Number (r1 + r2)
 
 instance : Add ExtRat where
@@ -891,16 +891,16 @@ def le (x y : ExtRat) : Bool :=
   | .NaN, _ => false
   | _, .NaN => false
   | .Infinity s1, .Infinity s2 =>
-      if s1 == s2 then true else s1 -- +∞ ≤ -∞ is false, -∞ ≤ +∞ is true
-  | .Infinity false, .Number _ => false -- +∞ ≤ anything else is false
-  | .Number _, .Infinity false => true  -- anything else ≤ +∞ is true
-  | .Infinity true, .Number _ => true   -- -∞ ≤ anything else is
-  | .Number _, .Infinity true => true  -- anything else ≤ -∞ is true
+      if s1 = false then true
+      else s2 = true
+  | .Infinity false, .Number _ => false -- +∞ ≤ number is false
+  | .Number _, .Infinity false => true  -- number ≤ +∞ is true
+  | .Infinity true, .Number _ => true   -- -∞ ≤ number is true
+  | .Number _, .Infinity true => false  -- number ≤ -∞ is false
   | .Number r1, .Number r2 => r1 <= r2
 
 instance : LE ExtRat where
   le a b := le a b
-
 
 instance {a b : ExtRat} : Decidable (a ≤ b) := by
   unfold LE.le instLE
@@ -909,7 +909,7 @@ instance {a b : ExtRat} : Decidable (a ≤ b) := by
 def abs (x : ExtRat) : ExtRat :=
   match x with
   | .NaN => .NaN
-  | .Infinity _sign => .Infinity False
+  | .Infinity _sign => .Infinity false
   | .Number r => .Number r.abs
 
 def eq (x y : ExtRat) : Bool :=
