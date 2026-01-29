@@ -220,30 +220,32 @@ def test_roundCircuitAgainstSmtlib : IO Unit := do
   -- round from e2m4 to e2m2
   let e2m4 : FPFormat := { e := 2, m := 4 }
   let e2m2 : FPFormat := { e := 2, m := 2 }
-  let mut nsuccess := 0
-  let mut nfailure := 0
-  for x in [0:2^e2m4.nbits] do
-    let pf := e2m4.packedFloatOfNat x
-    if pf.isNaN then continue
-    let roundSmt : PackedFloat e2m2.e e2m2.m := Fp.SmtLibSemanticsComputable.computableSmtLibRound .RNE pf.sign pf.unpack.toExtRat
-    let roundCircuit : PackedFloat e2m2.e e2m2.m := (pf.unpack |>.round .RNE (targetExponentWidth := e2m2.e) (targetSignificandWidth := e2m2.m)).pack
+  for rm in allRoundingModes do
+    IO.println s!"Testing rounding mode {repr rm}"
+    let mut nsuccess := 0
+    let mut nfailure := 0
+    for x in [0:2^e2m4.nbits] do
+      let pf := e2m4.packedFloatOfNat x
+      if pf.isNaN then continue
+      let roundSmt : PackedFloat e2m2.e e2m2.m := Fp.SmtLibSemanticsComputable.computableSmtLibRound rm pf.sign pf.unpack.toExtRat
+      let roundCircuit : PackedFloat e2m2.e e2m2.m := (pf.unpack |>.round rm (targetExponentWidth := e2m2.e) (targetSignificandWidth := e2m2.m)).pack
 
-    if roundSmt.equal_denotation roundCircuit then 
-      nsuccess := nsuccess + 1 
-      IO.println s!"----------"
-      IO.println s!"MATCH on input {repr pf.unpack.toExtRat}; {repr pf.unpack}"
-      IO.println s!"  - result: {repr roundSmt.unpack.toExtRat}; {repr roundSmt.unpack}"
-    else 
-      nfailure := nfailure + 1
-      IO.println s!"----------"
-      IO.println s!"MISMATCH on input {repr pf.unpack.toExtRat}; {repr pf.unpack}"
-      IO.println s!"  - SMT-LIB result: {repr roundSmt.unpack.toExtRat}; {repr roundSmt.unpack}"
-      IO.println s!"  - Circuit   result: {repr roundCircuit.unpack.toExtRat}; {repr roundCircuit.unpack}"
-  IO.println s!"Final roundCircuitAgainstSmtLib: {nsuccess} successes, {nfailure} failures"
-  let percentSuccess : Float := 
-    if nsuccess + nfailure == 0 then 100.0 
-    else (nsuccess.toFloat / (nsuccess + nfailure).toFloat) * 100.0
-  IO.println s!"{percentSuccess}% success rate"
+      if roundSmt.equal_denotation roundCircuit then 
+        nsuccess := nsuccess + 1 
+        -- IO.println s!"----------"
+        -- IO.println s!"MATCH on input {repr pf.unpack.toExtRat}; {repr pf.unpack}"
+        -- IO.println s!"  - result: {repr roundSmt.unpack.toExtRat}; {repr roundSmt.unpack}"
+      else 
+        nfailure := nfailure + 1
+        -- IO.println s!"----------"
+        -- IO.println s!"MISMATCH on input {repr pf.unpack.toExtRat}; {repr pf.unpack}"
+        -- IO.println s!"  - SMT-LIB result: {repr roundSmt.unpack.toExtRat}; {repr roundSmt.unpack}"
+        -- IO.println s!"  - Circuit   result: {repr roundCircuit.unpack.toExtRat}; {repr roundCircuit.unpack}"
+    IO.println s!"Final roundCircuitAgainstSmtLib for RM({repr rm}): {nsuccess} successes, {nfailure} failures"
+    let percentSuccess : Float := 
+      if nsuccess + nfailure == 0 then 100.0 
+      else (nsuccess.toFloat / (nsuccess + nfailure).toFloat) * 100.0
+    IO.println s!"  {percentSuccess}% success rate"
 
 
 
