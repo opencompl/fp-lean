@@ -34,25 +34,41 @@ def PackedFloatEnumeration.maxNumber (enum : PackedFloatEnumeration e s) : Packe
 def PackedFloatEnumeration.greatestLowerBound (enum : PackedFloatEnumeration e s)
     (r : Rat) : Option (PackedFloat e s × Rat) := Id.run do
   let arr := enum.enumeration
-  let mut glb := none
+  let mut glb? := none
   for hi : i in [0:arr.size] do
-    let (pf, rpf) := arr[i]
-    if rpf <= r then
-      glb := some (pf, rpf)
-  glb
+    let (curPf, curRat) := arr[i]
+    if curRat <= r then
+        -- is a lower bound
+        glb? :=
+          match glb? with
+          | none => some (curPf, curRat)
+          | some (_, glbRat) =>
+            -- is larger than the current lower bound.
+            if curRat > glbRat then
+              some (curPf, curRat)
+            else
+              glb?
+  glb?
 
 def PackedFloatEnumeration.leastUpperBound (
     enum : PackedFloatEnumeration e s)
     (r : Rat) : Option (PackedFloat e s × Rat) := Id.run do
   let arr := enum.enumeration
-  let mut lub := none
-  for i in [0:arr.size] do
-    -- index from the back.
-    let (pf, rpf) := arr[arr.size - 1 - i]!
-    if rpf >= r then
-      lub := some (pf, rpf)
-      break
-  lub
+  let mut lub? := none
+  for hi : i in [0:arr.size] do
+    let (curPf, curRat) := arr[i]
+    if curRat >= r then
+        -- is an upper bound
+        lub? :=
+          match lub? with
+          | none => some (curPf, curRat)
+          | some (_, lubRat) =>
+            -- is smaller than the current upper bound.
+            if curRat < lubRat then
+              some (curPf, curRat)
+            else
+              lub?
+  lub?
 
 /-
 This file defines a computable version of the SMT-LIB semantics,
