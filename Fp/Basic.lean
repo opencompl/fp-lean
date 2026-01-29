@@ -650,20 +650,6 @@ def toDyadic? (pf : PackedFloat e s) : Option Dyadic :=
 def toRat? (pf : PackedFloat e s) : Option Rat :=
   pf.toEFixed.toRat?
 
-/-- enumerate all packed floats. -/
-def enumerate (E S : Nat) : List (PackedFloat E S) := Id.run do
-  let mut out : List (PackedFloat E S) := []
-  for sign in [true, false] do
-    for e in [0: (2 ^ E) - 1] do
-      for sig in [0: (2 ^ S) - 1] do
-        let pf : PackedFloat E S := {
-          sign := sign
-          ex := BitVec.ofNat E e
-          sig := BitVec.ofNat S sig
-        }
-        out := pf :: out
-  out
-
 end PackedFloat
 
 /--
