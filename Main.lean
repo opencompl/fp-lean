@@ -221,7 +221,8 @@ def test_roundCircuitAgainstSmtlib : IO Unit := do
   let e2m4 : FPFormat := { e := 3, m := 6 }
   let e2m2 : FPFormat := { e := 3, m := 4 }
   for rm in allRoundingModes do
-    IO.println s!"Testing rounding mode {repr rm}"
+    IO.println "==="
+    IO.println s!"🧪 ROUNDING MODE {repr rm}"
     let mut nsuccess := 0
     let mut nfailure := 0
     for x in [0:2^e2m4.nbits] do
@@ -230,25 +231,23 @@ def test_roundCircuitAgainstSmtlib : IO Unit := do
       let roundSmt : PackedFloat e2m2.e e2m2.m := Fp.SmtLibSemanticsComputable.computableSmtLibRound rm pf.sign pf.unpack.toExtRat
       let roundCircuit : PackedFloat e2m2.e e2m2.m := (pf.unpack |>.round rm (targetExponentWidth := e2m2.e) (targetSignificandWidth := e2m2.m)).pack
 
-      if roundSmt.equal_denotation roundCircuit then 
-        nsuccess := nsuccess + 1 
-        if nsuccess < 1 then 
-          IO.println s!"----------"
-          IO.println s!"MATCH on input {repr pf.unpack.toExtRat}; {repr pf.unpack}"
-          IO.println s!"  - result: {repr roundSmt.unpack.toExtRat}; {repr roundSmt.unpack}"
-      else 
+      if roundSmt.equal_denotation roundCircuit then
+        nsuccess := nsuccess + 1
+        if nsuccess < 1 then
+          IO.println s!""
+          IO.println s!"  ✅({repr rm}) (Q: {repr pf.unpack.toExtRat}); {repr pf.unpack}"
+          IO.println s!"    - (Q: {repr roundSmt.unpack.toExtRat}); {repr roundSmt.unpack}"
+      else
         nfailure := nfailure + 1
         if nfailure < 3 then
-         IO.println s!"----------"
-         IO.println s!"MISMATCH on input {repr pf.unpack.toExtRat}; {repr pf.unpack}"
-         IO.println s!"  - SMT-LIB result: {repr roundSmt.unpack.toExtRat}; {repr roundSmt.unpack}"
-         IO.println s!"  - Circuit   result: {repr roundCircuit.unpack.toExtRat}; {repr roundCircuit.unpack}"
-    IO.println s!"Final roundCircuitAgainstSmtLib for RM({repr rm}): {nsuccess} successes, {nfailure} failures"
-    let percentSuccess : Float := 
-      if nsuccess + nfailure == 0 then 100.0 
+         IO.println s!""
+         IO.println s!"  ❌({repr rm} (Q: {repr pf.unpack.toExtRat}); {repr pf.unpack}"
+         IO.println s!"    - SMT-LIB  (Q: {repr roundSmt.unpack.toExtRat}); {repr roundSmt.unpack}"
+         IO.println s!"    - Circuit  (Q: {repr roundCircuit.unpack.toExtRat}); {repr roundCircuit.unpack}"
+    let percentSuccess : Float :=
+      if nsuccess + nfailure == 0 then 100.0
       else (nsuccess.toFloat / (nsuccess + nfailure).toFloat) * 100.0
-    IO.println s!"  {percentSuccess}% success rate"
-
+    IO.println s!"  📜 Final({repr rm}): {nsuccess} successes, {nfailure} failures, {percentSuccess}% success rate"
 
 
  def printResults (results : Thunk (List OpResult)) : IO Unit := do
@@ -273,7 +272,7 @@ def get_long_operation (args : List String) : IO Unit := do
   | ["sqrt"] => printResults <| test_unop_multi $ (test_sqrt e3m4)
   | ["sub"] => printResults <| test_binop $ (test_sub e3m4)
   | ["roundToInt"] => printResults <| test_unop_multi $ (test_roundToInt e3m4)
-  | ["roundCircuitAgainstSmtLib"] => test_roundCircuitAgainstSmtlib 
+  | ["roundCircuitAgainstSmtLib"] => test_roundCircuitAgainstSmtlib
   | _ => return ()
 
 def main (args : List String) : IO Unit := do
