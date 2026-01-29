@@ -106,8 +106,6 @@ def computableV : RoundableAdjunction (PackedFloat e s) ExtRat where
   upper := upperFromEmbedByEnumeration (PackedFloatEnumeration.mk e s) |>.upper
   embed := PackedFloat.toExtRat
 
-#check SmtLibSemantics.SmtLibRoundMethod.smtLibRoundMethod
-
 abbrev computableSmtLibRoundMethod (e s : Nat) :
     RoundMethod (PackedFloat e s) ExtRat :=
   SmtLibRoundMethod.smtLibRoundMethod e s
