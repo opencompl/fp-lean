@@ -10,5 +10,5 @@ import Fp.Rounding
 import Fp.Sqrt
 import Fp.Subtraction
 import Fp.SmtLibSemantics
-import Fp.Tests
+import Fp.SmtLibSemantics
 -- import Fp.Proofs
