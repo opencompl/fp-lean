@@ -232,15 +232,17 @@ def test_roundCircuitAgainstSmtlib : IO Unit := do
 
       if roundSmt.equal_denotation roundCircuit then 
         nsuccess := nsuccess + 1 
-        -- IO.println s!"----------"
-        -- IO.println s!"MATCH on input {repr pf.unpack.toExtRat}; {repr pf.unpack}"
-        -- IO.println s!"  - result: {repr roundSmt.unpack.toExtRat}; {repr roundSmt.unpack}"
+        if nsuccess < 1 then 
+          IO.println s!"----------"
+          IO.println s!"MATCH on input {repr pf.unpack.toExtRat}; {repr pf.unpack}"
+          IO.println s!"  - result: {repr roundSmt.unpack.toExtRat}; {repr roundSmt.unpack}"
       else 
         nfailure := nfailure + 1
-        -- IO.println s!"----------"
-        -- IO.println s!"MISMATCH on input {repr pf.unpack.toExtRat}; {repr pf.unpack}"
-        -- IO.println s!"  - SMT-LIB result: {repr roundSmt.unpack.toExtRat}; {repr roundSmt.unpack}"
-        -- IO.println s!"  - Circuit   result: {repr roundCircuit.unpack.toExtRat}; {repr roundCircuit.unpack}"
+        if nfailure < 3 then
+         IO.println s!"----------"
+         IO.println s!"MISMATCH on input {repr pf.unpack.toExtRat}; {repr pf.unpack}"
+         IO.println s!"  - SMT-LIB result: {repr roundSmt.unpack.toExtRat}; {repr roundSmt.unpack}"
+         IO.println s!"  - Circuit   result: {repr roundCircuit.unpack.toExtRat}; {repr roundCircuit.unpack}"
     IO.println s!"Final roundCircuitAgainstSmtLib for RM({repr rm}): {nsuccess} successes, {nfailure} failures"
     let percentSuccess : Float := 
       if nsuccess + nfailure == 0 then 100.0 
