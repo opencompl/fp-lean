@@ -34,9 +34,36 @@ def ExtendedNumber.ltZero {R : Type} [ExtendedNumber R] (r : R) : Prop :=
 def ExtendedNumber.gtZero {R : Type} [ExtendedNumber R] (r : R) : Prop :=
   (Zero.zero) < r
 
-instance : ExtendedNumber ExtRat where
+instance [hEx : ExtendedNumber R] [DecidableRel ((· < ·) : R → R → Prop)] :
+    DecidablePred (hEx.ltZero : R → Prop) := by
+  unfold ExtendedNumber.ltZero
+  infer_instance
+instance [hEx : ExtendedNumber R] [DecidableRel ((· < ·) : R → R → Prop)] :
+    DecidablePred (hEx.gtZero : R → Prop) := by
+  unfold ExtendedNumber.gtZero
+  infer_instance
+
+instance [hEx : ExtendedNumber R] [DecidableRel hEx.extendedEq] :
+    DecidablePred hEx.isZero := by
+  unfold ExtendedNumber.isZero
+  infer_instance
+
+
+instance instExtendedRat : ExtendedNumber ExtRat where
   isNaN r := r.isNaN
   extendedEq r1 r2 := r1.eq r2
+
+instance : Decidable (instExtendedRat.isZero r) := by
+  simp [ExtendedNumber.isZero, ExtendedNumber.extendedEq]
+  infer_instance
+
+instance : Decidable (instExtendedRat.isNaN r) := by
+  simp [ExtendedNumber.isNaN]
+  infer_instance
+
+instance : DecidableRel instExtendedRat.extendedEq := by
+  simp [ExtendedNumber.extendedEq]
+  infer_instance
 
 /-- Embed the type `X` into the extended rationals. -/
 class RoundableEmbed (X : Type) (R : Type) where
@@ -197,7 +224,7 @@ def smtLibRoundMethod (e s : Nat)
   embed := v.embed
   lower := v.lower
   upper := v.upper
-  lowerHalf r := v.embed (v.lower r) = ves.embed (ves.lower r)
+  lowerHalf r := ExtendedNumber.extendedEq (v.embed (v.lower r))  (ves.embed (ves.lower r))
   /-
   The SMT-LIb specification would have one write:
   ```lean
@@ -216,6 +243,25 @@ def smtLibRoundMethod (e s : Nat)
     (v.embed (v.lower r) < ves.embed (ves.lower r)) =
     (ves.embed (ves.upper r) < (v.embed (v.upper r)))
   isEven := roundableIsEven_of_packedFloat.isEven
+
+instance [hExtended : ExtendedNumber R]
+    [DecidableRel hExtended.extendedEq]
+    {v : RoundableAdjunction (PackedFloat e s) R}
+    {ves : RoundableAdjunction (PackedFloat e (s + 1)) R} :
+    DecidablePred ((smtLibRoundMethod e s v ves).lowerHalf) := by
+  simp [smtLibRoundMethod]
+  infer_instance
+
+set_option trace.Meta.synthInstance true in
+instance [hExtended : ExtendedNumber R]
+    [hdec : ((r s : R) → Decidable (r < s))]
+    {v : RoundableAdjunction (PackedFloat e s) R}
+    {ves : RoundableAdjunction (PackedFloat e (s + 1)) R} :
+    DecidablePred ((smtLibRoundMethod e s v ves).tieBreak) := by
+  simp [smtLibRoundMethod]
+  infer_instance
+
+  -- infer_instance
 
 end SmtLibRoundMethod
 

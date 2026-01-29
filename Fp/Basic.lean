@@ -839,6 +839,10 @@ def le (x y : ExtRat) : Bool :=
 instance : LE ExtRat where
   le a b := le a b
 
+instance {a b : ExtRat}: Decidable (a ≤ b) := by
+  simp [· ≤ ·]
+  infer_instance
+
 instance {a b : ExtRat} : Decidable (a ≤ b) := by
   unfold LE.le instLE
   infer_instance
@@ -858,6 +862,10 @@ def lt (x y : ExtRat) : Bool :=
 
 instance : LT ExtRat where
   lt a b := lt a b
+
+instance {a b : ExtRat }: Decidable (a < b) := by
+  simp [· < ·]
+  infer_instance
 
 instance : Min ExtRat where
   min a b := if a ≤ b then a else b
