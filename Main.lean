@@ -218,8 +218,8 @@ def e3m4 : FP8Format where
 
 def test_roundCircuitAgainstSmtlib : IO Unit := do
   -- round from e2m4 to e2m2
-  let e2m4 : FPFormat := { e := 2, m := 4 }
-  let e2m2 : FPFormat := { e := 2, m := 2 }
+  let e2m4 : FPFormat := { e := 3, m := 6 }
+  let e2m2 : FPFormat := { e := 3, m := 4 }
   for rm in allRoundingModes do
     IO.println s!"Testing rounding mode {repr rm}"
     let mut nsuccess := 0

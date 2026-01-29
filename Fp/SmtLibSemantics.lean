@@ -8,6 +8,7 @@ open Lean
 
 namespace Fp
 namespace SmtLibSemantics
+
 /-
 We follow the development from
 "An Automatable Formal Semantics for IEEE-754 Floating-Point Arithmetic" [1]

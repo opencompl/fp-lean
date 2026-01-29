@@ -770,6 +770,9 @@ namespace ExtRat
 instance : Zero ExtRat where
   zero := .Number 0
 
+@[simp]
+theorem ExtRat.zero_def : (Zero.zero : ExtRat) = .Number 0 := rfl
+
 def add (x y : ExtRat) : ExtRat :=
   match x, y with
   | .NaN, _ => .NaN
@@ -783,6 +786,9 @@ def add (x y : ExtRat) : ExtRat :=
 instance : Add ExtRat where
   add a b := add a b
 
+@[simp]
+theorem ExtRat.add_def {a b : ExtRat} : a.add b = a + b := rfl
+
 def neg (x : ExtRat) : ExtRat :=
   match x with
   | .NaN => .NaN
@@ -795,8 +801,14 @@ def sub (x y : ExtRat) : ExtRat :=
 instance : Neg ExtRat where
   neg a := neg a
 
+@[simp]
+theorem ExtRat.neg_def {a : ExtRat} : a.neg = -a := rfl
+
 instance : Sub ExtRat where
   sub a b := sub a b
+
+@[simp]
+theorem ExtRat.sub_def {a b : ExtRat} : a.sub b = a - b := rfl
 
 def mul (x y : ExtRat) : ExtRat :=
   match x, y with
@@ -812,6 +824,9 @@ def mul (x y : ExtRat) : ExtRat :=
 instance : Mul ExtRat where
   mul a b := mul a b
 
+@[simp]
+theorem ExtRat.mul_def {a b : ExtRat} : a.mul b = a * b := rfl
+
 def inv (x : ExtRat) : ExtRat :=
   match x with
   | .NaN => .NaN
@@ -822,6 +837,11 @@ def inv (x : ExtRat) : ExtRat :=
 
 def div (x y : ExtRat) : ExtRat :=
   x.mul (y.inv)
+
+instance : Div ExtRat where
+  div a b := div a b
+
+@[simp] theorem ExtRat.div_def {a b : ExtRat} : a.div b = a / b := rfl
 
 def le (x y : ExtRat) : Bool :=
   match x, y with
@@ -839,12 +859,12 @@ def le (x y : ExtRat) : Bool :=
 instance : LE ExtRat where
   le a b := le a b
 
-instance {a b : ExtRat}: Decidable (a ≤ b) := by
-  simp [· ≤ ·]
-  infer_instance
 
-instance {a b : ExtRat} : Decidable (a ≤ b) := by
-  unfold LE.le instLE
+@[simp]
+theorem ExtRat.le_def {a b : ExtRat} : a.le b = (a ≤ b) := rfl
+
+instance {a b : ExtRat}: Decidable (a ≤ b) := by
+  simp only [← ExtRat.le_def]
   infer_instance
 
 def eq (x y : ExtRat) : Bool :=
@@ -863,20 +883,101 @@ def lt (x y : ExtRat) : Bool :=
 instance : LT ExtRat where
   lt a b := lt a b
 
+@[simp]
+theorem ExtRat.lt_def {a b : ExtRat} : a.lt b = (a < b) := rfl
+
 instance {a b : ExtRat }: Decidable (a < b) := by
-  simp [· < ·]
+  simp only [· < ·]
   infer_instance
 
 instance : Min ExtRat where
   min a b := if a ≤ b then a else b
 
+/-- Unfold min into ite. Not a simp lemma, since we may want to rewrite
+with higher level reasoning principles. -/
+theorem ExtRat.min_eq_ite {a b : ExtRat} : min a b = if a ≤ b then a else b := rfl
+
 instance : Max ExtRat where
   max a b := if a ≤ b then b else a
+
+theorem ExtRat.max_eq_ite {a b : ExtRat} : max a b = if a ≤ b then b else a := rfl
 
 def isNaN (r : ExtRat) : Bool :=
   match r with
   | .NaN => true
   | _    => false
+
+section NanBehaviour
+
+/-# Table 1 of SMT-LIB spec -/
+
+theorem NaN_add (x : ExtRat) : (.NaN + x) = .NaN := by
+  rw [← ExtRat.add_def, ExtRat.add]
+
+theorem add_NaN (x : ExtRat) : (x + .NaN) = ExtRat.NaN := by
+  rw [← ExtRat.add_def]
+  unfold ExtRat.add
+  grind [ExtRat]
+
+theorem neg_NaN : -ExtRat.NaN = ExtRat.NaN := by
+  rw [← ExtRat.neg_def, ExtRat.neg]
+
+@[simp]
+theorem NaN_mul (x : ExtRat) : (.NaN * x) = .NaN := by
+  rw [← ExtRat.mul_def, ExtRat.mul]
+
+@[simp]
+theorem mul_NaN (x : ExtRat) : (x * .NaN) = .NaN := by
+  rw [← ExtRat.mul_def]
+  unfold ExtRat.mul
+  grind [ExtRat]
+
+@[simp]
+theorem le_NaN (x : ExtRat) : ExtRat.NaN ≤ x ↔ x = ExtRat.NaN := by
+  rw [← ExtRat.le_def]
+  unfold ExtRat.le
+  grind
+
+@[simp]
+theorem NaN_le (x : ExtRat) : x ≤ ExtRat.NaN ↔ x = ExtRat.NaN := by
+  rw [← ExtRat.le_def]
+  unfold ExtRat.le
+  grind
+
+end NanBehaviour
+
+section DefinedSymbolsBehaviour
+/-# Table 2 -/
+
+theorem sub_eq_add_neg (x y : ExtRat) : (x - y) = (x + -y) := by
+  rw [← ExtRat.sub_def, ← ExtRat.add_def, ← ExtRat.neg_def]
+  unfold ExtRat.sub
+  grind
+
+theorem div_eq_mul_inv (x y : ExtRat) : (x / y) = (x * y.inv) := by
+  rw [← ExtRat.div_def, ← ExtRat.mul_def]
+  unfold ExtRat.div
+  grind
+
+@[simp]
+theorem ge_eq_le_symm (x y : ExtRat) : (x ≥ y) = (y ≤ x) := by
+  simp only [(· ≥ ·)]
+
+theorem lt_eq_le_and_not_eq (x y : ExtRat) : (x < y) = (x ≤ y ∧ ¬ (x = y)) := by
+  simp only [(· < ·), (· ≤ ·)]
+  unfold ExtRat.lt ExtRat.le ExtRat.eq
+  grind
+
+theorem gt_eq_ge_and_not_eq (x y : ExtRat) : (x > y) = (x ≥ y ∧ ¬ (x = y)) := by
+  simp only [(· > ·), (· ≥ ·), (· < ·), (· ≤ ·)]
+  unfold ExtRat.le ExtRat.lt ExtRat.le ExtRat.eq
+  grind
+
+end DefinedSymbolsBehaviour
+section InfinityBehaviour
+/-# Table 3 -/
+end InfinityBehaviour
+
 
 end ExtRat
 
