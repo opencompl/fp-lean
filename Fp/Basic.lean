@@ -866,9 +866,7 @@ instance : Max ExtRat where
   max a b := if a ≤ b then b else a
 
 def isNaN (r : ExtRat) : Bool :=
-  match r with
-  | .NaN => true
-  | _    => false
+  r = .NAN
 
 end ExtRat
 
