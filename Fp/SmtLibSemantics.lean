@@ -127,12 +127,13 @@ structure RoundablePredicates (X : Type) (R : Type) extends
   RoundableIsEven X
   where
 
-
 structure RoundMethod (X : Type) (R : Type) extends
   RoundableAdjunction X R,
   RoundablePredicates X R
 
-def RoundMethod.rounderForSign {X : Type} (roundMethod : RoundMethod X R) (sign : Bool) (r : R) : X :=
+def RoundMethod.rounderForSign {X : Type}
+    (roundMethod : RoundMethod X R)
+    (sign : Bool) (r : R) : X :=
   if sign then roundMethod.upper r else roundMethod.lower r
 
 open  ExtendedNumber in

@@ -70,6 +70,10 @@ def PackedFloatEnumeration.leastUpperBound (
               lub?
   lub?
 
+def mkZero (sign : Bool) (e s : Nat) : PackedFloat e s :=
+  EUnpackedFloat.mkNumber (UnpackedFloat.mkZero sign) |>.pack
+
+
 /-
 This file defines a computable version of the SMT-LIB semantics,
 which is used for comparing results from SMT solvers with those from Lean's floating-point library.
@@ -85,8 +89,12 @@ def lowerFromEmbedByEnumeration {e s}
     | .Number r =>
       -- for a number, if it is below the min number, return -inf
       match enum.greatestLowerBound r with
-      | some (pf, _) => pf
+      | some (pf, rpf) =>
+        if rpf = 0
+        then mkZero false e s -- lower bound is -0
+        else pf
       | none => PackedFloat.getInfinity _ _ true
+
 
 def upperFromEmbedByEnumeration {e s}
     (enum : PackedFloatEnumeration e s) :
@@ -98,7 +106,10 @@ def upperFromEmbedByEnumeration {e s}
     | .Number r =>
       -- for a number, if it is above the max number, return +inf
       match enum.leastUpperBound r with
-      | some (pf, _) => pf
+      | some (pf, rpf) =>
+          if rpf = 0
+          then mkZero true e s -- upper bound is +0
+          else pf
       | none => PackedFloat.getInfinity _ _ false
 
 def computableV : RoundableAdjunction (PackedFloat e s) ExtRat where
