@@ -410,7 +410,7 @@ theorem BitVec.getMsbD_extractMsbTo0BV_eq_decide {w : Nat}
 
 /-- a > b -/
 @[bv_normalize]
-def BitVec.sgt {w : Nat} (a b : BitVec w) : Bool :=
+private def BitVec.sgt {w : Nat} (a b : BitVec w) : Bool :=
   b.slt a
 
 

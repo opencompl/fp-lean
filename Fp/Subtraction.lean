@@ -1,20 +1,26 @@
 import Fp.Addition
 import Fp.Negation
 
+@[bv_normalize]
 def UnpackedFloat.sub (x y : UnpackedFloat e s) : UnpackedFloat (e + 1) (s + 2) :=
   .add x y.neg
 
+@[bv_normalize]
 def EUnpackedFloat.sub (m : RoundingMode) (x y : EUnpackedFloat (exponentWidth e s) (s + 1))
   : EUnpackedFloat (exponentWidth e s) (s + 1) :=
   EUnpackedFloat.add m x y.neg
 
 namespace PackedFloat
 
+@[bv_normalize]
 def sub (m : RoundingMode) (x y : PackedFloat e s) : PackedFloat e s :=
   (EUnpackedFloat.sub m x.unpack y.unpack).pack
 
 instance : Sub (PackedFloat e s) where
   sub := .sub .RNE
+
+@[bv_normalize]
+theorem PackedFloat.sub_def {x y : PackedFloat e s} : x - y = PackedFloat.sub .RNE x y := rfl
 
 end PackedFloat
 

@@ -2,6 +2,7 @@ import Fp.Addition
 import Fp.Convert
 import Fp.Multiplication
 
+@[bv_normalize]
 def UnpackedFloat.fma (x y z : UnpackedFloat e s) : UnpackedFloat (e + 2) (2 * s + 2) :=
   -- TODO: the renormalization step in `UnpackedFloat.add` requires `e + 2` to be large enough
   -- to store `-(2 ^ (e + 1) + 2 * s + 1)`. Is the `e` we get here from `exponentWidth` in
@@ -12,6 +13,7 @@ def UnpackedFloat.fma (x y z : UnpackedFloat e s) : UnpackedFloat (e + 2) (2 * s
   -- It seems to hold for up to `1000` bits.
   UnpackedFloat.add (UnpackedFloat.mul x y) (z.extendWidths (by omega) (by omega))
 
+@[bv_normalize]
 def EUnpackedFloat.fma (m : RoundingMode) (x y z : EUnpackedFloat (exponentWidth e s) (s + 1))
   : EUnpackedFloat (exponentWidth e s) (s + 1) :=
   let xySign := x.num.sign ^^ y.num.sign
@@ -29,7 +31,7 @@ def EUnpackedFloat.fma (m : RoundingMode) (x y z : EUnpackedFloat (exponentWidth
     z
   else bif z.isZero then
     UnpackedFloat.round (.mul x.num y.num) m
-  else bif (.mul x.num y.num) == (z.num.neg.extendWidths (by omega) (by omega)) then
+  else bif UnpackedFloat.structBeq (.mul x.num y.num) (z.num.neg.extendWidths (by omega) (by omega)) then
     -- None of `x`, `y`, `x * y`, and `z` is an exact `0`. However, `x * y + z` is
     -- *still* exactly `0`! We must follow addition rules for sign of `0` in that case.
     -- Since `UnpackedFloat.mul` always returns exact results and extending ex/sig widths
@@ -40,5 +42,6 @@ def EUnpackedFloat.fma (m : RoundingMode) (x y z : EUnpackedFloat (exponentWidth
   else
     UnpackedFloat.round (.fma x.num y.num z.num) m
 
+@[bv_normalize]
 def PackedFloat.fma (m : RoundingMode) (x y z : PackedFloat e s) : PackedFloat e s :=
   (EUnpackedFloat.fma m x.unpack y.unpack z.unpack).pack

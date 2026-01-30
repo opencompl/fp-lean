@@ -82,7 +82,7 @@ def test_lt (f : FP8Format) (m : RoundingMode) (a b : BitVec 8) : OpResult :=
   {
     oper := "lt"
     mode := m
-    result := [a, b].map toDigits ++ [(lt a' b').toNat.digitChar.toString]
+    result := [a, b].map toDigits ++ [(PackedFloat.bltAux false a' b').toNat.digitChar.toString]
   }
 
 def test_min (f : FP8Format) (m : RoundingMode) (a b : BitVec 8) : OpResult :=
@@ -91,7 +91,7 @@ def test_min (f : FP8Format) (m : RoundingMode) (a b : BitVec 8) : OpResult :=
   {
     oper := "min"
     mode := m
-    result := [a, b, f.h.mp (flt_min a' b').toBits'].map toDigits
+    result := [a, b, f.h.mp (PackedFloat.minAux a'.sign a' b').toBits'].map toDigits
   }
 
 def test_max (f : FP8Format) (m : RoundingMode) (a b : BitVec 8) : OpResult :=
@@ -100,7 +100,7 @@ def test_max (f : FP8Format) (m : RoundingMode) (a b : BitVec 8) : OpResult :=
   {
     oper := "max"
     mode := m
-    result := [a, b, f.h.mp (flt_max a' b').toBits'].map toDigits
+    result := [a, b, f.h.mp (PackedFloat.maxAux a'.sign a' b').toBits'].map toDigits
   }
 
 def test_neg (f : FP8Format) (m : RoundingMode) (a : BitVec 8) : OpResult :=
@@ -294,8 +294,8 @@ def main (args : List String) : IO Unit := do
 /-- info: { sign := +, ex := 0x01#5, sig := 0x2#2 } -/
 #guard_msgs in #eval EFixedPoint.round 5 2 .RNE (PackedFloat.toEFixed {sign := false, ex := 1#5, sig := 2#2})
 /-- info: { sign := +, ex := 0x1f#5, sig := 0x2#2 } -/
-#guard_msgs in #eval PackedFloat.mul .RTZ (PackedFloat.getZero 5 2) (PackedFloat.getInfinity 5 2 true)
+#guard_msgs in #eval PackedFloat.mul .RTZ (PackedFloat.getZero 5 2 false) (PackedFloat.getInfinity 5 2 true)
 /-- info: { sign := +, ex := 0x1f#5, sig := 0x0#2 } -/
-#guard_msgs in #eval PackedFloat.div .RTZ oneE5M2 (PackedFloat.getZero 5 2)
+#guard_msgs in #eval PackedFloat.div .RTZ oneE5M2 (PackedFloat.getZero 5 2 false)
 /-- info: { sign := +, ex := 0x00#5, sig := 0x1#2 } -/
 #guard_msgs in #eval PackedFloat.mul .RNE (PackedFloat.ofBits 5 2 0b00000001#8) (PackedFloat.ofBits 5 2 0b00111001#8)

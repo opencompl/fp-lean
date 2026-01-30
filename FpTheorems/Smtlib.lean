@@ -56,7 +56,6 @@ def le (a b : ExtReal) : Prop :=
    | Number _, .plusInfty => true -- everything is <= +∞
    | Number r1, Number r2 => r1 ≤ r2
 
-
 noncomputable def eq (a b : ExtReal) : Bool :=
    match a, b with
    | .NaN, .NaN => true
@@ -112,7 +111,6 @@ noncomputable def mul (a b : ExtReal) : ExtReal :=
 noncomputable instance : Mul ExtReal where
    mul := ExtReal.mul
 
-
 noncomputable def inv (a : ExtReal) : ExtReal :=
    match a with
    | .NaN => .NaN
@@ -148,10 +146,7 @@ instance : LT ExtReal where
 
 /-- ExtReal is like ExtReal, but with more elements. -/
 noncomputable instance : ExtendedNumber ExtReal where
-   isNaN r :=
-      match r with
-      | .NaN => true
-      | _ => false
+   isNaN r := r = .NaN
    extendedEq r1 r2 := r1.eq r2
 
 instance : RoundableEmbed (PackedFloat e s) ExtReal where
@@ -170,7 +165,6 @@ noncomputable def smtLibRealRounder : RoundMethod (PackedFloat e s) ExtReal :=
 
 namespace RealSemantics
 open Classical
-
 
 noncomputable def add  (rm : RoundingMode) (x y : PackedFloat e s) : PackedFloat e s :=
    SmtLibSemantics.SmtLibFunctions.add (roundMethod := smtLibRealRounder) rm x y
