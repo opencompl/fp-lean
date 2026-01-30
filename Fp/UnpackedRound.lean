@@ -178,8 +178,12 @@ def rounderSpecialCases
     | RoundingMode.RNE => true
     | RoundingMode.RNA => true
     | RoundingMode.RTZ => true
-    | RoundingMode.RTP => roundedResult.sign
-    | RoundingMode.RTN => !roundedResult.sign
+    | RoundingMode.RTP =>
+      -- if the rounded result is negative,
+      -- then return 0 instead.
+      roundedResult.sign
+    | RoundingMode.RTN =>
+      !roundedResult.sign
 
   let inf : EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
     EUnpackedFloat.mkInfinity roundedResult.sign
@@ -199,15 +203,9 @@ def rounderSpecialCases
   if isZero then
     zero
   else if underflow then
-    if returnZero then
-      zero
-    else
-      min
+    if returnZero then zero else min
   else if overflow then
-    if returnInf then
-      inf
-    else
-      max
+    if returnInf then inf else max
   else
     EUnpackedFloat.mkNumber <| roundedResult
 
@@ -772,7 +770,7 @@ def EUnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSi
       inUf mode
   else if inEuf.isNaN then EUnpackedFloat.mkNaN
   else EUnpackedFloat.mkInfinity inEuf.sign
-    
+
 /--
 Prove that the debug mode round function is equal to the core round function.
 -/
@@ -815,7 +813,7 @@ def checkRoundCorrect (EUnpacked SUnpackedNoHidden : Nat) (EOut SOutNoHidden : N
       nfailed := nfailed + 1
       continue
 
-    let expectedPacked : PackedFloat EOut SOutNoHidden :=  
+    let expectedPacked : PackedFloat EOut SOutNoHidden :=
        originalPacked.toEFixed.round (exWidth := EOut) (sigWidth := SOutNoHidden) mode
     let expectedEUnpacked := expectedPacked.unpack
     if outputRoundedPacked.equal_denotation expectedPacked then

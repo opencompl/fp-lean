@@ -16,8 +16,8 @@ def PackedFloatEnumeration.mk (e s : Nat) : PackedFloatEnumeration e s where
   enumeration := Id.run do
     let mut arr : Array (PackedFloat e s × Rat) := #[]
     for sign in [true, false] do
-      for exp in [0:2^e] do
-        for sig in [0:2^s] do
+      for exp in [:2^e] do
+        for sig in [:2^s] do
           let pf : PackedFloat e s := PackedFloat.mk sign exp sig
           let er := pf.toExtRat
           let ExtRat.Number r := er
@@ -35,7 +35,7 @@ def PackedFloatEnumeration.greatestLowerBound (enum : PackedFloatEnumeration e s
     (r : Rat) : Option (PackedFloat e s × Rat) := Id.run do
   let arr := enum.enumeration
   let mut glb? := none
-  for hi : i in [0:arr.size] do
+  for hi : i in [:arr.size] do
     let (curPf, curRat) := arr[i]
     if curRat <= r then
         -- is a lower bound
@@ -91,7 +91,7 @@ def lowerFromEmbedByEnumeration {e s}
       match enum.greatestLowerBound r with
       | some (pf, rpf) =>
         if rpf = 0
-        then mkZero false e s -- lower bound is -0
+        then mkZero false e s -- lower bound is +0 (footnote 5)
         else pf
       | none => PackedFloat.getInfinity _ _ true
 
@@ -108,7 +108,7 @@ def upperFromEmbedByEnumeration {e s}
       match enum.leastUpperBound r with
       | some (pf, rpf) =>
           if rpf = 0
-          then mkZero true e s -- upper bound is +0
+          then mkZero true e s -- upper bound is -0 (footnote 5)
           else pf
       | none => PackedFloat.getInfinity _ _ false
 

@@ -216,10 +216,10 @@ def e3m4 : FP8Format where
 
 
 
-def test_roundCircuitAgainstSmtlib : IO Unit := do
+def test_roundCircuitAgainstSmtlib (ein sin eout sout : Nat) : IO Unit := do
   -- round from e2m4 to e2m2
-  let e2m4 : FPFormat := { e := 3, m := 6 }
-  let e2m2 : FPFormat := { e := 3, m := 4 }
+  let e2m4 : FPFormat := { e := ein, m := sin }
+  let e2m2 : FPFormat := { e := eout, m := sout }
   for rm in allRoundingModes do
     IO.println "==="
     IO.println s!"🧪 ROUNDING MODE {repr rm}"
@@ -272,7 +272,14 @@ def get_long_operation (args : List String) : IO Unit := do
   | ["sqrt"] => printResults <| test_unop_multi $ (test_sqrt e3m4)
   | ["sub"] => printResults <| test_binop $ (test_sub e3m4)
   | ["roundToInt"] => printResults <| test_unop_multi $ (test_roundToInt e3m4)
-  | ["roundCircuitAgainstSmtLib"] => test_roundCircuitAgainstSmtlib
+  | ["roundCircuitAgainstSmtLib"] =>
+      -- {sin, sout} > {ein, eout}
+      -- sin + 2 <= sout
+      test_roundCircuitAgainstSmtlib (ein := 3) (sin := 6) (eout := 3) (sout := 4)
+      -- test_roundCircuitAgainstSmtlib (ein := 4) (sin := 5) (eout := 4) (sout := 3)
+      test_roundCircuitAgainstSmtlib (ein := 3) (sin := 6) (eout := 3) (sout := 4)
+      -- test_roundCircuitAgainstSmtlib (ein := 4) (sin := 5) (eout := 2) (sout := 5)
+
   | _ => return ()
 
 def main (args : List String) : IO Unit := do
