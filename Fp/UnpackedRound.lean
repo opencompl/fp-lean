@@ -178,8 +178,12 @@ def rounderSpecialCases
     | RoundingMode.RNE => true
     | RoundingMode.RNA => true
     | RoundingMode.RTZ => true
-    | RoundingMode.RTP => roundedResult.sign
-    | RoundingMode.RTN => !roundedResult.sign
+    | RoundingMode.RTP =>
+      -- if the rounded result is negative,
+      -- then return 0 instead.
+      roundedResult.sign
+    | RoundingMode.RTN =>
+      !roundedResult.sign
 
   let inf : EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
     EUnpackedFloat.mkInfinity roundedResult.sign
@@ -199,15 +203,9 @@ def rounderSpecialCases
   if isZero then
     zero
   else if underflow then
-    if returnZero then
-      zero
-    else
-      min
+    if returnZero then zero else min
   else if overflow then
-    if returnInf then
-      inf
-    else
-      max
+    if returnInf then inf else max
   else
     EUnpackedFloat.mkNumber <| roundedResult
 
@@ -760,6 +758,19 @@ def UnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSig
     (underflow := underflow)
     (isZero := inUf.isZero)
   result
+
+/-- Round an EUnpacked float, by ignoring NaN and infinity. -/
+def EUnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSignificandWidth : Nat}
+  (inEuf : EUnpackedFloat expWidth sigWidth)
+  (mode : RoundingMode) :
+  EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
+  if inEuf.isNumber then
+    let inUf := inEuf.num
+    UnpackedFloat.round (targetExponentWidth := targetExponentWidth) (targetSignificandWidth := targetSignificandWidth)
+      inUf mode
+  else if inEuf.isNaN then EUnpackedFloat.mkNaN
+  else EUnpackedFloat.mkInfinity inEuf.sign
+
 /--
 Prove that the debug mode round function is equal to the core round function.
 -/

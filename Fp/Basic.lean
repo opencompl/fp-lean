@@ -650,20 +650,6 @@ def toDyadic? (pf : PackedFloat e s) : Option Dyadic :=
 def toRat? (pf : PackedFloat e s) : Option Rat :=
   pf.toEFixed.toRat?
 
-/-- enumerate all packed floats. -/
-def enumerate (E S : Nat) : List (PackedFloat E S) := Id.run do
-  let mut out : List (PackedFloat E S) := []
-  for sign in [true, false] do
-    for e in [0: (2 ^ E) - 1] do
-      for sig in [0: (2 ^ S) - 1] do
-        let pf : PackedFloat E S := {
-          sign := sign
-          ex := BitVec.ofNat E e
-          sig := BitVec.ofNat S sig
-        }
-        out := pf :: out
-  out
-
 end PackedFloat
 
 /--
@@ -770,6 +756,17 @@ namespace ExtRat
 instance : Zero ExtRat where
   zero := .Number 0
 
+theorem ExtRat.zero_def : ExtRat.Number 0 = (0 : ExtRat) := rfl
+
+@[match_pattern]
+abbrev plusInfinity : ExtRat :=
+  .Infinity False
+
+@[match_pattern]
+abbrev minusInfinity : ExtRat :=
+  .Infinity True
+
+
 def add (x y : ExtRat) : ExtRat :=
   match x, y with
   | .NaN, _ => .NaN
@@ -783,6 +780,9 @@ def add (x y : ExtRat) : ExtRat :=
 instance : Add ExtRat where
   add a b := add a b
 
+@[simp]
+theorem ExtRat.add_def {a b : ExtRat} : a.add b = a + b := rfl
+
 def neg (x : ExtRat) : ExtRat :=
   match x with
   | .NaN => .NaN
@@ -795,22 +795,35 @@ def sub (x y : ExtRat) : ExtRat :=
 instance : Neg ExtRat where
   neg a := neg a
 
+@[simp]
+theorem ExtRat.neg_def {a : ExtRat} : a.neg = -a := rfl
+
 instance : Sub ExtRat where
   sub a b := sub a b
+
+@[simp]
+theorem ExtRat.sub_def {a b : ExtRat} : a.sub b = a - b := rfl
 
 def mul (x y : ExtRat) : ExtRat :=
   match x, y with
   | .NaN, _ => .NaN
   | _, .NaN => .NaN
-  | .Infinity s1, .Infinity s2 => .Infinity (s1 == s2)
-  | .Infinity s, .Number r =>
-    if r == 0 then .NaN else .Infinity (s == (r < 0))
-  | .Number r, .Infinity s =>
-    if r == 0 then .NaN else .Infinity (s == (r < 0))
+  | .Infinity isInfNeg, .Infinity isInfNeg' => .Infinity (isInfNeg ^^ isInfNeg')
+  | .Infinity isInfNeg, .Number r =>
+    if r = 0 then .NaN else
+      let isNumNeg := r < 0
+      .Infinity (isInfNeg ^^ isNumNeg)
+  | .Number r, .Infinity isInfNeg =>
+    if r = 0 then .NaN else
+      let isNumNeg := r < 0
+      .Infinity (isInfNeg ^^ isNumNeg)
   | .Number r1, .Number r2 => .Number (r1 * r2)
 
 instance : Mul ExtRat where
   mul a b := mul a b
+
+@[simp]
+theorem ExtRat.mul_def {a b : ExtRat} : a.mul b = a * b := rfl
 
 def inv (x : ExtRat) : ExtRat :=
   match x with
@@ -823,6 +836,11 @@ def inv (x : ExtRat) : ExtRat :=
 def div (x y : ExtRat) : ExtRat :=
   x.mul (y.inv)
 
+instance : Div ExtRat where
+  div a b := div a b
+
+@[simp] theorem ExtRat.div_def {a b : ExtRat} : a.div b = a / b := rfl
+
 def le (x y : ExtRat) : Bool :=
   match x, y with
   | .NaN, .NaN => true -- NaN ≤ NaN only.
@@ -830,17 +848,21 @@ def le (x y : ExtRat) : Bool :=
   | _, .NaN => false
   | .Infinity s1, .Infinity s2 =>
       if s1 == s2 then true else s1 -- +∞ ≤ -∞ is false, -∞ ≤ +∞ is true
-  | .Infinity false, .Number _ => false -- +∞ ≤ anything else is false
-  | .Number _, .Infinity false => true  -- anything else ≤ +∞ is true
-  | .Infinity true, .Number _ => true   -- -∞ ≤ anything else is
-  | .Number _, .Infinity true => true  -- anything else ≤ -∞ is true
+  | .plusInfinity, .Number _ => false -- +∞ ≤ anything else is false
+  | .Number _, .plusInfinity => true  -- no number is ≤ +∞
+  | .minusInfinity, .Number _ => true   -- -∞ ≤ anything else is
+  | .Number _, .minusInfinity => false -- no number is ≤ -∞
   | .Number r1, .Number r2 => r1 <= r2
 
 instance : LE ExtRat where
   le a b := le a b
 
-instance {a b : ExtRat} : Decidable (a ≤ b) := by
-  unfold LE.le instLE
+
+@[simp]
+theorem ExtRat.le_def {a b : ExtRat} : a.le b = (a ≤ b) := rfl
+
+instance {a b : ExtRat}: Decidable (a ≤ b) := by
+  simp only [← ExtRat.le_def]
   infer_instance
 
 def eq (x y : ExtRat) : Bool :=
@@ -859,11 +881,270 @@ def lt (x y : ExtRat) : Bool :=
 instance : LT ExtRat where
   lt a b := lt a b
 
+@[simp]
+theorem ExtRat.lt_def {a b : ExtRat} : a.lt b = (a < b) := rfl
+
+instance {a b : ExtRat }: Decidable (a < b) := by
+  simp only [· < ·]
+  infer_instance
+
 instance : Min ExtRat where
   min a b := if a ≤ b then a else b
 
+/-- Unfold min into ite. Not a simp lemma, since we may want to rewrite
+with higher level reasoning principles. -/
+theorem ExtRat.min_eq_ite {a b : ExtRat} : min a b = if a ≤ b then a else b := rfl
+
 instance : Max ExtRat where
   max a b := if a ≤ b then b else a
+
+theorem ExtRat.max_eq_ite {a b : ExtRat} : max a b = if a ≤ b then b else a := rfl
+
+section NanBehaviour
+
+/-# Table 1 of SMT-LIB spec -/
+
+theorem NaN_add (x : ExtRat) : (.NaN + x) = .NaN := by
+  rw [← ExtRat.add_def, ExtRat.add]
+
+theorem add_NaN (x : ExtRat) : (x + .NaN) = ExtRat.NaN := by
+  rw [← ExtRat.add_def]
+  unfold ExtRat.add
+  grind [ExtRat]
+
+theorem neg_NaN : -ExtRat.NaN = ExtRat.NaN := by
+  rw [← ExtRat.neg_def, ExtRat.neg]
+
+@[simp]
+theorem NaN_mul (x : ExtRat) : (.NaN * x) = .NaN := by
+  rw [← ExtRat.mul_def, ExtRat.mul]
+
+@[simp]
+theorem mul_NaN (x : ExtRat) : (x * .NaN) = .NaN := by
+  rw [← ExtRat.mul_def]
+  unfold ExtRat.mul
+  grind [ExtRat]
+
+@[simp]
+theorem le_NaN (x : ExtRat) : ExtRat.NaN ≤ x ↔ x = ExtRat.NaN := by
+  rw [← ExtRat.le_def]
+  unfold ExtRat.le
+  grind
+
+@[simp]
+theorem NaN_le (x : ExtRat) : x ≤ ExtRat.NaN ↔ x = ExtRat.NaN := by
+  rw [← ExtRat.le_def]
+  unfold ExtRat.le
+  grind
+
+end NanBehaviour
+
+section DefinedSymbolsBehaviour
+/-# Table 2 -/
+
+theorem sub_eq_add_neg (x y : ExtRat) : (x - y) = (x + -y) := by
+  rw [← ExtRat.sub_def, ← ExtRat.add_def, ← ExtRat.neg_def]
+  unfold ExtRat.sub
+  grind
+
+theorem div_eq_mul_inv (x y : ExtRat) : (x / y) = (x * y.inv) := by
+  rw [← ExtRat.div_def, ← ExtRat.mul_def]
+  unfold ExtRat.div
+  grind
+
+@[simp]
+theorem ge_eq_le_symm (x y : ExtRat) : (x ≥ y) = (y ≤ x) := by
+  simp only [(· ≥ ·)]
+
+theorem lt_eq_le_and_not_eq (x y : ExtRat) : (x < y) = (x ≤ y ∧ ¬ (x = y)) := by
+  simp only [(· < ·), (· ≤ ·)]
+  unfold ExtRat.lt ExtRat.le ExtRat.eq
+  grind
+
+theorem gt_eq_ge_and_not_eq (x y : ExtRat) : (x > y) = (x ≥ y ∧ ¬ (x = y)) := by
+  simp only [(· > ·), (· ≥ ·), (· < ·), (· ≤ ·)]
+  unfold ExtRat.le ExtRat.lt ExtRat.le ExtRat.eq
+  grind
+
+end DefinedSymbolsBehaviour
+section InfinityBehaviour
+/-# Table 3 -/
+
+@[simp]
+theorem plus_inf_le_iff_eq (x : ExtRat) : (.Infinity false ≤ x) ↔ x = .Infinity false := by
+  rw [← ExtRat.le_def]
+  unfold ExtRat.le
+  grind
+
+theorem le_neg_inf_iff_eq (x : ExtRat) : (x ≤ .Infinity true) ↔ x = .Infinity true := by
+  rw [← ExtRat.le_def]
+  unfold ExtRat.le
+  grind
+
+theorem number_le_plus_inf (r : Rat) : (ExtRat.Number r ≤ ExtRat.Infinity false) := by
+  rw [← ExtRat.le_def]
+  unfold ExtRat.le
+  grind
+
+theorem neg_inf_le_number (r : Rat) : (ExtRat.Infinity true ≤ ExtRat.Number r) := by
+  rw [← ExtRat.le_def]
+  unfold ExtRat.le
+  grind
+
+@[simp]
+theorem neg_plus_inf_eq_minus_inf : - (ExtRat.Infinity false) = (ExtRat.Infinity true) := by
+  rw [← ExtRat.neg_def]
+  unfold ExtRat.neg
+  grind
+
+@[simp]
+theorem neg_minus_inf_eq_plus_inf : - (ExtRat.Infinity true) = (ExtRat.Infinity false) := by
+  rw [← ExtRat.neg_def]
+  unfold ExtRat.neg
+  grind
+
+@[simp]
+theorem inv_plus_inf_eq_zero : (ExtRat.Infinity false).inv = ExtRat.Number 0 := by
+  unfold ExtRat.inv
+  grind
+
+@[simp]
+theorem inv_minus_inf_eq_zero : (ExtRat.Infinity true).inv = ExtRat.Number 0 := by
+  unfold ExtRat.inv
+  grind
+
+@[simp]
+theorem inv_inf_eq_zero (s : Bool) : (ExtRat.Infinity s).inv = ExtRat.Number 0 := by
+  unfold ExtRat.inv
+  grind
+
+theorem add_comm (x y : ExtRat) : x + y = y + x := by
+  rw [← ExtRat.add_def, ← ExtRat.add_def]
+  unfold ExtRat.add
+  grind
+
+@[simp]
+theorem add_inf_eq_inf_of_ne_of_ne (x : ExtRat)
+    (hxInf : x ≠ .Infinity true) (hxNan : x ≠ .NaN) :
+    x + .Infinity false = .Infinity false := by
+  rw [← ExtRat.add_def]
+  unfold ExtRat.add
+  grind [ExtRat]
+
+@[simp]
+theorem add_inf_eq_nan_of_eq (x : ExtRat) (hxInf : x = .Infinity true) :
+    x + .Infinity false = .NaN := by
+  rw [← ExtRat.add_def]
+  unfold ExtRat.add
+  grind [ExtRat]
+
+theorem add_neg_inf_eq_nan_of_eq (x : ExtRat) (hxInf : x = .Infinity false) :
+    x + .Infinity true = .NaN := by
+  rw [← ExtRat.add_def]
+  unfold ExtRat.add
+  grind [ExtRat]
+
+theorem add_neg_inf_eq_neg_inf_of_ne_of_ne (x : ExtRat)
+    (hxInf : x ≠ .Infinity false) (hxNan : x ≠ .NaN) :
+    x + .Infinity true = .Infinity true := by
+  rw [← ExtRat.add_def]
+  unfold ExtRat.add
+  grind [ExtRat]
+
+
+/-- +∞ × +∞ = +∞-/
+@[simp]
+theorem inf_mul_inf_eq_inf :
+    ExtRat.Infinity false * ExtRat.Infinity false = ExtRat.Infinity false := by
+  rw [← ExtRat.mul_def]
+  unfold ExtRat.mul
+  grind
+
+/-- +∞ × -∞ = -∞-/
+@[simp]
+theorem inf_mul_neg_inf_eq_neg_inf :
+    ExtRat.Infinity false * ExtRat.Infinity true = ExtRat.Infinity true := by
+  rw [← ExtRat.mul_def]
+  unfold ExtRat.mul
+  grind
+
+/-- -∞ × +∞ = -∞-/
+@[simp]
+theorem neg_inf_mul_inf_eq_neg_inf :
+    ExtRat.Infinity true * ExtRat.Infinity false = ExtRat.Infinity true := by
+  rw [← ExtRat.mul_def]
+  unfold ExtRat.mul
+  grind
+
+/-- -∞ × -∞ = +∞-/
+@[simp]
+theorem neg_inf_mul_neg_inf_eq_inf :
+    ExtRat.Infinity true * ExtRat.Infinity true = ExtRat.Infinity false := by
+  rw [← ExtRat.mul_def]
+  unfold ExtRat.mul
+  grind
+
+/-- ±∞ × 0 = NaN -/
+@[simp]
+theorem inf_mul_zero_eq_nan :
+    ExtRat.Infinity b * ExtRat.Number 0 = ExtRat.NaN := by
+  rw [← ExtRat.mul_def]
+  unfold ExtRat.mul
+  grind
+
+/-- ±∞ × NaN = NaN -/
+@[simp]
+theorem inf_mul_nan_eq_nan :
+    ExtRat.Infinity b * ExtRat.NaN = ExtRat.NaN := by
+  rw [← ExtRat.mul_def]
+  unfold ExtRat.mul
+  grind
+
+/-- positive × +∞ = +∞ -/
+@[simp]
+theorem mul_inf_eq_inf_of_lt (x : ExtRat)
+    (hxNan : x ≠ .NaN) (hxZero : 0 < x) :
+    x * .Infinity false = .Infinity false := by
+  rw [← ExtRat.mul_def]
+  rw [← ExtRat.lt_def, ← ExtRat.zero_def] at hxZero
+  unfold ExtRat.mul
+  unfold ExtRat.lt ExtRat.le ExtRat.eq at hxZero
+  grind [ExtRat]
+
+/-- negative × +∞ = -∞ -/
+theorem mul_inf_eq_neg_inf_of_lt (x : ExtRat)
+    (hxNan : x ≠ .NaN) (hxZero : x < 0) :
+    x * .Infinity false = .Infinity true := by
+  rw [← ExtRat.mul_def]
+  rw [← ExtRat.lt_def, ← ExtRat.zero_def] at hxZero
+  unfold ExtRat.mul
+  unfold ExtRat.lt ExtRat.le ExtRat.eq at hxZero
+  -- grind [ExtRat] TODO: why doesn't grind work here?
+  cases x
+  · grind
+  · grind
+  · -- grind -- theory propagation does not work properly here,
+    -- the rational fact 'a < 0' is not deduced
+    simp only [Bool.false_bne]
+    simp only [Bool.and_eq_true, decide_eq_true_eq, Bool.not_eq_eq_eq_not, Bool.not_true,
+      beq_eq_false_iff_ne, ne_eq] at hxZero
+    simp only [hxZero, ↓reduceIte, Infinity.injEq, decide_eq_true_eq]
+    grind
+
+@[simp]
+theorem zero_inv_eq_inf : (ExtRat.Number 0).inv = ExtRat.Infinity false := by
+  unfold ExtRat.inv
+  grind
+
+
+theorem mul_comm (x y : ExtRat) : x * y = y * x := by
+  rw [← ExtRat.mul_def, ← ExtRat.mul_def]
+  unfold ExtRat.mul
+  grind
+
+
+end InfinityBehaviour
+
 
 def isNaN (r : ExtRat) : Bool :=
   r = .NaN

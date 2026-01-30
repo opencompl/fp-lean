@@ -1,13 +1,22 @@
 import Fp
+import Fp.Tests
 
 structure OpResult where
   oper : String
   mode : RoundingMode
   result : List String
 
-structure FP8Format where
+structure FPFormat where
   e : Nat
   m : Nat
+
+def FPFormat.nbits (f : FPFormat) : Nat :=
+  1 + f.e + f.m
+
+def FPFormat.packedFloatOfNat (f : FPFormat) (n : Nat) : PackedFloat f.e f.m :=
+  PackedFloat.ofBits f.e f.m (BitVec.ofNat (f.nbits) n)
+
+structure FP8Format extends FPFormat where
   h8 : 1 + e + m = 8
 
 namespace FP8Format
@@ -205,30 +214,77 @@ def e3m4 : FP8Format where
   m := 4
   h8 := by omega
 
-def get_long_operation (args : List String) : Thunk (List OpResult) :=
+
+
+def test_roundCircuitAgainstSmtlib (ein sin eout sout : Nat) : IO Unit := do
+  -- round from e2m4 to e2m2
+  let e2m4 : FPFormat := { e := ein, m := sin }
+  let e2m2 : FPFormat := { e := eout, m := sout }
+  for rm in allRoundingModes do
+    IO.println "==="
+    IO.println s!"🧪 ROUNDING MODE {repr rm}"
+    let mut nsuccess := 0
+    let mut nfailure := 0
+    for x in [0:2^e2m4.nbits] do
+      let pf := e2m4.packedFloatOfNat x
+      if pf.isNaN then continue
+      let roundSmt : PackedFloat e2m2.e e2m2.m := Fp.SmtLibSemanticsComputable.computableSmtLibRound rm pf.sign pf.unpack.toExtRat
+      let roundCircuit : PackedFloat e2m2.e e2m2.m := (pf.unpack |>.round rm (targetExponentWidth := e2m2.e) (targetSignificandWidth := e2m2.m)).pack
+
+      if roundSmt.equal_denotation roundCircuit then
+        nsuccess := nsuccess + 1
+        if nsuccess < 1 then
+          IO.println s!""
+          IO.println s!"  ✅({repr rm}) (Q: {repr pf.unpack.toExtRat}); {repr pf.unpack}"
+          IO.println s!"    - (Q: {repr roundSmt.unpack.toExtRat}); {repr roundSmt.unpack}"
+      else
+        nfailure := nfailure + 1
+        if nfailure < 10 then
+         IO.println s!""
+         IO.println s!"  ❌({repr rm} (Q: {repr pf.unpack.toExtRat}); {repr pf.unpack}"
+         IO.println s!"    - SMT-LIB  (Q: {repr roundSmt.unpack.toExtRat}); {repr roundSmt.unpack}"
+         IO.println s!"    - Circuit  (Q: {repr roundCircuit.unpack.toExtRat}); {repr roundCircuit.unpack}"
+    let percentSuccess : Float :=
+      if nsuccess + nfailure == 0 then 100.0
+      else (nsuccess.toFloat / (nsuccess + nfailure).toFloat) * 100.0
+    IO.println s!"  📜 Final({repr rm}): {nsuccess} successes, {nfailure} failures, {percentSuccess}% success rate"
+
+
+ def printResults (results : Thunk (List OpResult)) : IO Unit := do
+  for res in results.get do
+    IO.println (repr res)
+
+def get_long_operation (args : List String) : IO Unit := do
   match args with
-  | ["e5m2"] => test_all e5m2
-  | ["e3m4"] => test_all e3m4
-  | ["fma_e5m2"]  => test_ternop (test_fma e5m2) ()
-  | ["fma_e3m4"]  => test_ternop (test_fma e3m4) ()
-  | ["abs"] => test_unop_multi $ (test_abs e3m4)
-  | ["add"] => test_binop $ (test_add e3m4)
-  | ["div"] => test_binop $ (test_div e3m4)
-  | ["lt"] => test_binop $ (test_lt e3m4)
-  | ["max"] => test_binop $ (test_max e3m4)
-  | ["min"] => test_binop $ (test_min e3m4)
-  | ["mul"] => test_binop $ (test_mul e3m4)
-  | ["neg"] => test_unop_multi $ (test_neg e3m4)
-  | ["rem"] => test_binop $ (test_rem e3m4)
-  | ["sqrt"] => test_unop_multi $ (test_sqrt e3m4)
-  | ["sub"] => test_binop $ (test_sub e3m4)
-  | ["roundToInt"] => test_unop_multi $ (test_roundToInt e3m4)
-  | _ => Thunk.pure []
+  | ["e5m2"] => printResults <| test_all e5m2
+  | ["e3m4"] => printResults <| test_all e3m4
+  | ["fma_e5m2"]  => printResults <| test_ternop (test_fma e5m2) ()
+  | ["fma_e3m4"]  => printResults <| test_ternop (test_fma e3m4) ()
+  | ["abs"] => printResults <| test_unop_multi $ (test_abs e3m4)
+  | ["add"] => printResults <| test_binop $ (test_add e3m4)
+  | ["div"] => printResults <| test_binop $ (test_div e3m4)
+  | ["lt"] => printResults <| test_binop $ (test_lt e3m4)
+  | ["max"] => printResults <| test_binop $ (test_max e3m4)
+  | ["min"] => printResults <| test_binop $ (test_min e3m4)
+  | ["mul"] => printResults <| test_binop $ (test_mul e3m4)
+  | ["neg"] => printResults <| test_unop_multi $ (test_neg e3m4)
+  | ["rem"] => printResults <| test_binop $ (test_rem e3m4)
+  | ["sqrt"] => printResults <| test_unop_multi $ (test_sqrt e3m4)
+  | ["sub"] => printResults <| test_binop $ (test_sub e3m4)
+  | ["roundToInt"] => printResults <| test_unop_multi $ (test_roundToInt e3m4)
+  | ["roundCircuitAgainstSmtLib"] =>
+      -- {sin, sout} > {ein, eout}
+      -- sin + 2 <= sout
+      test_roundCircuitAgainstSmtlib (ein := 3) (sin := 6) (eout := 3) (sout := 4)
+      -- test_roundCircuitAgainstSmtlib (ein := 4) (sin := 5) (eout := 4) (sout := 3)
+      test_roundCircuitAgainstSmtlib (ein := 3) (sin := 6) (eout := 3) (sout := 4)
+      -- test_roundCircuitAgainstSmtlib (ein := 4) (sin := 5) (eout := 2) (sout := 5)
+
+  | _ => return ()
 
 def main (args : List String) : IO Unit := do
   if args != [] then do
-    for res in Thunk.get (get_long_operation args) do
-      IO.println (repr res)
+    get_long_operation args
   else do
       IO.println "Please run with command line arg e5m2 or e3m4"
 
