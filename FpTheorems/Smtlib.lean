@@ -148,7 +148,7 @@ instance : LT ExtReal where
 
 /-- ExtReal is like ExtReal, but with more elements. -/
 noncomputable instance : ExtendedNumber ExtReal where
-   isNaN r := r = .NAN
+   isNaN r := r = .NaN
    extendedEq r1 r2 := r1.eq r2
 
 instance : RoundableEmbed (PackedFloat e s) ExtReal where
