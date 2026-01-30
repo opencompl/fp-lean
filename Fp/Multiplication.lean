@@ -2,6 +2,7 @@ import Fp.Basic
 import Fp.UnpackedRound
 import Fp.Rounding
 
+@[bv_normalize]
 def UnpackedFloat.mul (x y : UnpackedFloat e s) : UnpackedFloat (e + 1) (2 * s) :=
   let sigProd := x.sig.setWidth' (by omega) * y.sig.setWidth' (by omega)
   {
@@ -16,6 +17,7 @@ def UnpackedFloat.mul (x y : UnpackedFloat e s) : UnpackedFloat (e + 1) (2 * s) 
     sig := sigProd <<< BitVec.ofBool !sigProd.msb
   }
 
+@[bv_normalize]
 def EUnpackedFloat.mul (m : RoundingMode) (x y : EUnpackedFloat (exponentWidth e s) (s + 1))
   : EUnpackedFloat (exponentWidth e s) (s + 1) :=
   bif x.isNaN || y.isNaN || x.isInfinite && y.isZero || y.isInfinite && x.isZero then
@@ -29,11 +31,15 @@ def EUnpackedFloat.mul (m : RoundingMode) (x y : EUnpackedFloat (exponentWidth e
 
 namespace PackedFloat
 
+@[bv_normalize]
 def mul (m : RoundingMode) (x y : PackedFloat e s) : PackedFloat e s :=
   (EUnpackedFloat.mul m x.unpack y.unpack).pack
 
 instance : Mul (PackedFloat e s) where
   mul := .mul .RNE
+
+@[bv_normalize]
+theorem PackedFloat.mul_def {x y : PackedFloat e s} : x * y = PackedFloat.mul .RNE x y := rfl
 
 end PackedFloat
 
