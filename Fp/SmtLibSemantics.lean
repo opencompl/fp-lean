@@ -150,18 +150,18 @@ def RoundMethod.round {e s R} (roundMethod : RoundMethod (PackedFloat e s) R) [i
   | .RNE =>
       if isNaN r then roundMethod.lower r
       else if isZero r then roundMethod.rounderForSign sign r
-      else if ! decide (isZero r) && roundMethod.lowerHalf r then roundMethod.lower r
-      else if ! decide (isZero r) && roundMethod.tieBreak r && roundMethod.isEven (roundMethod.lower r) then roundMethod.lower r
-      else if ! decide (isZero r) && roundMethod.tieBreak r && roundMethod.isEven (roundMethod.upper r) then roundMethod.upper r
-      else if ! decide (isZero r) && !roundMethod.lowerHalf r && !roundMethod.tieBreak r then roundMethod.upper r
+      else if ¬ (isZero r) ∧ roundMethod.lowerHalf r then roundMethod.lower r
+      else if ¬ (isZero r) ∧ roundMethod.tieBreak r ∧ roundMethod.isEven (roundMethod.lower r) then roundMethod.lower r
+      else if ¬ (isZero r) ∧ roundMethod.tieBreak r ∧ roundMethod.isEven (roundMethod.upper r) then roundMethod.upper r
+      else if ¬ (isZero r) ∧ !roundMethod.lowerHalf r ∧ !roundMethod.tieBreak r then roundMethod.upper r
       else .mkNaN -- does not occur.
   | .RNA =>
-      if gtZero r && !(roundMethod.lowerHalf r) then roundMethod.upper r
-      else if gtZero r && (roundMethod.lowerHalf r) then roundMethod.lower r
+      if gtZero r ∧ ¬ (roundMethod.lowerHalf r) then roundMethod.upper r
+      else if gtZero r ∧ (roundMethod.lowerHalf r) then roundMethod.lower r
       else if isZero r then roundMethod.rounderForSign sign r
       else if isNaN r then roundMethod.lower r
-      else if ltZero r && ! (roundMethod.lowerHalf r) && ! (roundMethod.tieBreak r) then roundMethod.upper r
-      else if ltZero r && (roundMethod.lowerHalf r) || (roundMethod.tieBreak r) then roundMethod.lower r
+      else if ltZero r ∧ ¬ (roundMethod.lowerHalf r) ∧ ¬ (roundMethod.tieBreak r) then roundMethod.upper r
+      else if ltZero r ∧ ((roundMethod.lowerHalf r) ∨ (roundMethod.tieBreak r)) then roundMethod.lower r
       else .mkNaN -- does not occur.
    | .RTP =>
       if isZero r then roundMethod.rounderForSign sign r
