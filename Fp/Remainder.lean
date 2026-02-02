@@ -1,8 +1,24 @@
 import Fp.Basic
 import Fp.Rounding
+import Fp.Division
+import Fp.UnpackedRound
+
+def UnpackedFloat.remainder (a b : UnpackedFloat e s) : UnpackedFloat e s :=
+  let rnd := a.div b
+  let rne := rnd.round .RNE
+  sorry
+
+def EUnpackedFloat.remainder 
+    (a b : EUnpackedFloat (exponentWidth e s) (s + 1)) (rm : RoundingMode) :
+    EUnpackedFloat (exponentWidth e s) (s + 1) := 
+  if a.isNaN || b.isNaN || a.isInfinite || b.isZero then .mkNaN
+  else if a.isZero || b.isInfinite then a 
+  else 
+    let uf := UnpackedFloat.remainder a.num b.num
+    uf.round rm
 
 @[bv_normalize]
-def remainder (a b : PackedFloat e s) : PackedFloat e s :=
+def remainderFixed (a b : PackedFloat e s) : PackedFloat e s :=
   if a.isNaN || b.isNaN || a.isInfinite || b.isZero then PackedFloat.getNaN e s
   else if a.isZero || b.isInfinite then a
   else if a.ex + 1 < b.ex then a

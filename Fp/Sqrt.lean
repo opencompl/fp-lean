@@ -1,5 +1,6 @@
 import Fp.Basic
 import Fp.Rounding
+import Fp.UnpackedRound
 
 /--
 Implementation of integer square root. Remainder bit appended to the end of the result.
@@ -17,6 +18,28 @@ def sqrt_iter (i : Nat) (x : BitVec n) (w : BitVec n) : BitVec (n+1) :=
 def bit_sqrt (x : BitVec n) : BitVec (n+1) :=
   sqrt_iter ((n-1)/2) x 0
 
+def UnpackedFloat.sqrt (x : UnpackedFloat e s) : 
+    UnpackedFloat e (s + 2) :=
+  let exponentEven : Bool := x.ex.getLsbD 0 == false
+  -- sshiftRight does floor division:
+  -- -3 = -4 + 1 = <101>
+  -- <110> = -4 + 2 = -2
+  -- -3 sshiftRight 1 = <110> = -2
+  let exponentHalved : BitVec e := x.ex.sshiftRight 1
+  let alignedSig : BitVec ((s + 1) + 1) := (x.sig.zeroExtend (s + 1)) ++ 0#1
+  -- if the exponent is even, then do nothing.
+  -- Otherwise, if exponent is odd, say 9, then we write the 
+  -- number as 'sig * twoPow(2 * halfExp + 1)',
+  -- which becomes (2 * sig) * twoPow(2 * halfExp)
+  let alignedSig := if exponentEven then alignedSig else alignedSig <<< 1
+  -- since 'alignedSig' is in [1, 4), its square root is in [1, 2)
+  -- so no need for rounding.
+  let resultWithSig := bit_sqrt alignedSig
+  let out : UnpackedFloat e (s + 2) := 
+    { sign := false, ex := exponentHalved, sig := resultWithSig.setWidth (s + 2) }
+  out
+
+/-
 @[bv_normalize]
 def sqrt_impl (x : PackedFloat e s) (m : RoundingMode) : PackedFloat e s :=
   let sig' :=
@@ -52,13 +75,14 @@ def sqrt_impl (x : PackedFloat e s) (m : RoundingMode) : PackedFloat e s :=
       }
     }
   EFixedPoint.round e s m result
+-/
 
 @[bv_normalize]
 def sqrt (x : PackedFloat e s) (m : RoundingMode) : PackedFloat e s :=
   if x.isZero then x
-  else if x.sign || x.isNaN then PackedFloat.getNaN e s
-  else if x.isInfinite then PackedFloat.getInfinity e s false
-  else sqrt_impl x m
+  else if (x.sign && !x.isZero) || x.isNaN then PackedFloat.getNaN e s
+  else if (x.isInfinite && !x.sign) then PackedFloat.getInfinity e s false
+  else (UnpackedFloat.sqrt x.unpack.num) |> UnpackedFloat.round (mode := m) |>.pack
 
 theorem square_sqrt_is_id (x : BitVec 5)
   : bit_sqrt (x.setWidth 10 * x.setWidth _) = x.setWidth _ <<< 1 := by
