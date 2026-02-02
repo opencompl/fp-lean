@@ -3,19 +3,6 @@ import Fp.Rounding
 import Fp.Division
 import Fp.UnpackedRound
 
-def UnpackedFloat.remainder (a b : UnpackedFloat e s) : UnpackedFloat e s :=
-  let rnd := a.div b
-  let rne := rnd.round .RNE
-  sorry
-
-def EUnpackedFloat.remainder 
-    (a b : EUnpackedFloat (exponentWidth e s) (s + 1)) (rm : RoundingMode) :
-    EUnpackedFloat (exponentWidth e s) (s + 1) := 
-  if a.isNaN || b.isNaN || a.isInfinite || b.isZero then .mkNaN
-  else if a.isZero || b.isInfinite then a 
-  else 
-    let uf := UnpackedFloat.remainder a.num b.num
-    uf.round rm
 
 @[bv_normalize]
 def remainderFixed (a b : PackedFloat e s) : PackedFloat e s :=
@@ -60,4 +47,4 @@ def remainderFixed (a b : PackedFloat e s) : PackedFloat e s :=
     EFixedPoint.round e s .RTZ result
 
 /-- info: { sign := -, ex := 0x00#5, sig := 0x1#2 } -/
-#guard_msgs in #eval remainder (PackedFloat.ofBits 5 2 0b00000011) (PackedFloat.ofBits 5 2 0b00000100)
+#guard_msgs in #eval remainderFixed (PackedFloat.ofBits 5 2 0b00000011) (PackedFloat.ofBits 5 2 0b00000100)
