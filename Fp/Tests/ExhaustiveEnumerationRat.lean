@@ -105,7 +105,7 @@ def UnpackedRatTestSummary.toFormat (summary : UnpackedRatTestSummary ein sin)
       break
     let maxPrec : Nat := sin * 5
     let delta := (record.producedRat - record.expectedRat).abs
-    let deltaDyadic := delta.toDyadic maxPrec
+    let _deltaDyadic := delta.toDyadic maxPrec
     out := out ++
       f!"    args: {formatArgs record.args}, produced: {record.producedRat}, expected: {record.expectedRat}, δ: {delta}={(Float.ofInt delta.num) / (Float.ofNat delta.den)}: {record.precision (maxPrec := maxPrec)}, expected precision {sin + 2} \n"
     nPrinted := nPrinted + 1

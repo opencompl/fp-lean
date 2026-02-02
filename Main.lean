@@ -274,6 +274,7 @@ def get_long_operation (args : List String) : IO Unit := do
   | ["roundToInt"] => printResults <| test_unop_multi $ (test_roundToInt e3m4)
   | ["addRat"] => IO.println (← Fp.ExhaustiveEnumerationRat.testAdd 3 4).toFormat
   | ["mulRat"] => IO.println (← Fp.ExhaustiveEnumerationRat.testMul 3 4).toFormat
+  | ["divRat"] => IO.println (← Fp.ExhaustiveEnumerationRat.testDiv 3 4).toFormat
   | ["roundCircuitAgainstSmtLib"] =>
       test_roundCircuitAgainstSmtlib (ein := 3) (sin := 6) (eout := 3) (sout := 4)
       test_roundCircuitAgainstSmtlib (ein := 3) (sin := 6) (eout := 3) (sout := 4)

@@ -254,7 +254,6 @@ instance [hExtended : ExtendedNumber R]
   simp [smtLibRoundMethod]
   infer_instance
 
-set_option trace.Meta.synthInstance true in
 instance [hExtended : ExtendedNumber R]
     [hdec : ((r s : R) → Decidable (r < s))]
     {v : RoundableAdjunction (PackedFloat e s) R}
@@ -262,8 +261,6 @@ instance [hExtended : ExtendedNumber R]
     DecidablePred ((smtLibRoundMethod e s v ves).tieBreak) := by
   simp [smtLibRoundMethod]
   infer_instance
-
-  -- infer_instance
 
 end SmtLibRoundMethod
 
