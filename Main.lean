@@ -215,6 +215,11 @@ def e3m4 : FP8Format where
   h8 := by omega
 
 
+ def printResults (results : Thunk (List OpResult)) : IO Unit := do
+  for res in results.get do
+    IO.println (repr res)
+
+
 
 def test_roundCircuitAgainstSmtlib (ein sin eout sout : Nat) : IO Unit := do
   -- round from e2m4 to e2m2
@@ -249,11 +254,6 @@ def test_roundCircuitAgainstSmtlib (ein sin eout sout : Nat) : IO Unit := do
       else (nsuccess.toFloat / (nsuccess + nfailure).toFloat) * 100.0
     IO.println s!"  📜 Final({repr rm}): {nsuccess} successes, {nfailure} failures, {percentSuccess}% success rate"
 
-
- def printResults (results : Thunk (List OpResult)) : IO Unit := do
-  for res in results.get do
-    IO.println (repr res)
-
 def get_long_operation (args : List String) : IO Unit := do
   match args with
   | ["e5m2"] => printResults <| test_all e5m2
@@ -272,13 +272,11 @@ def get_long_operation (args : List String) : IO Unit := do
   | ["sqrt"] => printResults <| test_unop_multi $ (test_sqrt e3m4)
   | ["sub"] => printResults <| test_binop $ (test_sub e3m4)
   | ["roundToInt"] => printResults <| test_unop_multi $ (test_roundToInt e3m4)
+  | ["addRat"] => IO.println (← Fp.ExhaustiveEnumerationRat.testAdd 3 4).toFormat
+  | ["mulRat"] => IO.println (← Fp.ExhaustiveEnumerationRat.testMul 3 4).toFormat
   | ["roundCircuitAgainstSmtLib"] =>
-      -- {sin, sout} > {ein, eout}
-      -- sin + 2 <= sout
       test_roundCircuitAgainstSmtlib (ein := 3) (sin := 6) (eout := 3) (sout := 4)
-      -- test_roundCircuitAgainstSmtlib (ein := 4) (sin := 5) (eout := 4) (sout := 3)
       test_roundCircuitAgainstSmtlib (ein := 3) (sin := 6) (eout := 3) (sout := 4)
-      -- test_roundCircuitAgainstSmtlib (ein := 4) (sin := 5) (eout := 2) (sout := 5)
 
   | _ => return ()
 
