@@ -1,4 +1,4 @@
-## `fp.lean` [![core library](https://github.com/opencompl/fp.lean/actions/workflows/ci.yml/badge.svg)](https://github.com/opencompl/fp.lean/actions/workflows/ci.yml) [![docs](https://github.com/opencompl/fp.lean/actions/workflows/docs.yml/badge.svg)](https://github.com/opencompl/fp.lean/actions/workflows/docs.yml)
+## `fp.lean` [![core library](https://github.com/opencompl/fp.lean/actions/workflows/ci.yml/badge.svg)](https://github.com/opencompl/fp.lean/actions/workflows/ci.yml) 
 
 A library for bitblasting IEEE754 floating point multiplication.
 
@@ -11,8 +11,6 @@ theorem mul_one_is_id (a : PackedFloat 5 2) (m : RoundingMode) (ha : ¬a.isNaN)
   simp [mul, round, BitVec.cons, oneE5M2, -BitVec.shiftLeft_eq', -BitVec.ushiftRight_eq']
   bv_decide
 ```
-
-- [Link to auto-generated documentation](https://opencompl.github.io/fp.lean/Fp/Multiplication.html)
 
 #### References
 
