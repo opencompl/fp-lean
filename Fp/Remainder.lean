@@ -1,8 +1,11 @@
 import Fp.Basic
 import Fp.Rounding
+import Fp.Division
+import Fp.UnpackedRound
+
 
 @[bv_normalize]
-def remainder (a b : PackedFloat e s) : PackedFloat e s :=
+def remainderFixed (a b : PackedFloat e s) : PackedFloat e s :=
   if a.isNaN || b.isNaN || a.isInfinite || b.isZero then PackedFloat.getNaN e s
   else if a.isZero || b.isInfinite then a
   else if a.ex + 1 < b.ex then a
@@ -44,4 +47,4 @@ def remainder (a b : PackedFloat e s) : PackedFloat e s :=
     EFixedPoint.round e s .RTZ result
 
 /-- info: { sign := -, ex := 0x00#5, sig := 0x1#2 } -/
-#guard_msgs in #eval remainder (PackedFloat.ofBits 5 2 0b00000011) (PackedFloat.ofBits 5 2 0b00000100)
+#guard_msgs in #eval remainderFixed (PackedFloat.ofBits 5 2 0b00000011) (PackedFloat.ofBits 5 2 0b00000100)

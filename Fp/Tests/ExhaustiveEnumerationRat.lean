@@ -5,6 +5,7 @@ import Fp.Basic
 import Fp.Addition
 import Fp.Multiplication
 import Fp.Division
+import Fp.Sqrt
 import Fp.Tests.PackedFloatEnumeration
 
 namespace Fp
@@ -171,6 +172,33 @@ def testDiv (ein sin : Nat) : IO (UnpackedRatTestSummary ein sin) := do
       let result := UnpackedRatTestResult.mk (Array.mk [(pf1, r1), (pf2, r2)]) produced expected
       results := results.push result
   return summarizeUnpackedRatTestResults "div" results
+
+/--
+Compute a rational approximation of sqrt(r) using Newton's method.
+-/
+def ratSqrt (r : Rat) (iters : Nat := 20) : Rat :=
+  if r ≤ 0 then 0
+  else Id.run do
+    let mut x : Rat := r
+    for _ in [:iters] do
+      x := (x + r / x) / 2
+    return x
+
+/--
+Produce the results from taking the square root of all packed floats
+for the given exponent and significand sizes.
+-/
+def testSqrt (ein sin : Nat) : IO (UnpackedRatTestSummary ein sin) := do
+  let mut results : Array (UnpackedRatTestResult ein sin) := #[]
+  let enum : PackedFloatEnumeration ein sin := PackedFloatEnumeration.mk ein sin
+  for (pf, r) in enum.enumeration do
+    if r ≤ 0 then continue
+    let uf := pf.unpack.num
+    let produced := UnpackedFloat.sqrt uf
+    let expected := ratSqrt r
+    let result := UnpackedRatTestResult.mk (Array.mk [(pf, r)]) produced expected
+    results := results.push result
+  return summarizeUnpackedRatTestResults "sqrt" results
 
 end ExhaustiveEnumerationRat
 end Fp

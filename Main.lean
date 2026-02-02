@@ -1,4 +1,5 @@
 import Fp
+import Fp.Remainder
 import Fp.Tests
 
 structure OpResult where
@@ -141,7 +142,7 @@ def test_rem (f : FP8Format) (m : RoundingMode) (a b : BitVec 8) : OpResult :=
   {
     oper := "rem"
     mode := m
-    result := [a, b, f.h.mp (remainder a' b').toBits'].map toDigits
+    result := [a, b, f.h.mp (remainderFixed a' b').toBits'].map toDigits
   }
 
 def test_binop (f : RoundingMode → BitVec 8 → BitVec 8 → OpResult) : Thunk (List OpResult) :=
@@ -275,6 +276,7 @@ def get_long_operation (args : List String) : IO Unit := do
   | ["addRat"] => IO.println (← Fp.ExhaustiveEnumerationRat.testAdd 3 4).toFormat
   | ["mulRat"] => IO.println (← Fp.ExhaustiveEnumerationRat.testMul 3 4).toFormat
   | ["divRat"] => IO.println (← Fp.ExhaustiveEnumerationRat.testDiv 3 4).toFormat
+  | ["sqrtRat"] => IO.println (← Fp.ExhaustiveEnumerationRat.testSqrt 3 4).toFormat
   | ["roundCircuitAgainstSmtLib"] =>
       test_roundCircuitAgainstSmtlib (ein := 3) (sin := 6) (eout := 3) (sout := 4)
       test_roundCircuitAgainstSmtlib (ein := 3) (sin := 6) (eout := 3) (sout := 4)
