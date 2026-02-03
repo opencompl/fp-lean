@@ -68,6 +68,9 @@ structure UnpackedRatTestSummary (ein sin : Nat) where
   successes : Nat := 0
   records : Array (UnpackedRatTestResult ein sin) := #[]
 
+def UnpackedRatTestSummary.passed (summary : UnpackedRatTestSummary ein sin) : Bool :=
+  summary.failures == 0
+
 /--
 Make an empty summary for the given operation.
 -/
