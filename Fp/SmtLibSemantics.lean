@@ -19,15 +19,27 @@ by Brain et. al.
 
 /--
 An extended number system to be instantiated with extended rationals, reals, or ints.
+
+The two equality notions differ in their treatment of NaN:
+- `smtLibEq`: NaN = NaN (SMT-LIB semantics, structural equality)
+- `ieeeEq`: NaN ≠ NaN (IEEE 754 semantics, behavioral equality)
+
+SMT-LIB uses NaN = NaN because there is a single NaN element in the carrier set.
+IEEE 754 uses NaN ≠ NaN because NaN represents "not a number" and comparing
+undefined values should return false.
 -/
 class ExtendedNumber (R : Type) extends Add R, Sub R, LT R, LE R, Neg R, Zero R where
   /-- Check if number is a NaN -/
   isNaN : R → Prop
-  /-- Check if two numbers are equal, with extended semantics for inf and NaN -/
-  extendedEq : R → R → Prop
+  /-- SMT-LIB equality: NaN = NaN (structural equality on the carrier set) -/
+  smtLibEq : R → R → Prop
+
+/-- IEEE equality: NaN ≠ NaN (behavioral equality following IEEE 754) -/
+def ExtendedNumber.ieeeEq {R : Type} [inst : ExtendedNumber R] (r1 r2 : R) : Prop :=
+  ¬inst.isNaN r1 ∧ ¬inst.isNaN r2 ∧ inst.smtLibEq r1 r2
 
 def ExtendedNumber.isZero {R : Type} [ExtendedNumber R] (r : R) : Prop :=
-  ExtendedNumber.extendedEq r (Zero.zero)
+  ExtendedNumber.smtLibEq r (Zero.zero)
 
 def ExtendedNumber.ltZero {R : Type} [ExtendedNumber R] (r : R) : Prop :=
   r < (Zero.zero)
@@ -44,7 +56,7 @@ instance [hEx : ExtendedNumber R] [DecidableRel ((· < ·) : R → R → Prop)] 
   unfold ExtendedNumber.gtZero
   infer_instance
 
-instance [hEx : ExtendedNumber R] [DecidableRel hEx.extendedEq] :
+instance [hEx : ExtendedNumber R] [DecidableRel hEx.smtLibEq] :
     DecidablePred hEx.isZero := by
   unfold ExtendedNumber.isZero
   infer_instance
@@ -52,18 +64,23 @@ instance [hEx : ExtendedNumber R] [DecidableRel hEx.extendedEq] :
 
 instance instExtendedRat : ExtendedNumber ExtRat where
   isNaN r := r.isNaN
-  extendedEq r1 r2 := r1.eq r2
+  smtLibEq r1 r2 := r1.eq r2
 
 instance : Decidable (instExtendedRat.isZero r) := by
-  simp [ExtendedNumber.isZero, ExtendedNumber.extendedEq]
+  simp [ExtendedNumber.isZero, ExtendedNumber.smtLibEq]
   infer_instance
 
 instance : Decidable (instExtendedRat.isNaN r) := by
   simp [ExtendedNumber.isNaN]
   infer_instance
 
-instance : DecidableRel instExtendedRat.extendedEq := by
-  simp [ExtendedNumber.extendedEq]
+instance : DecidableRel instExtendedRat.smtLibEq := by
+  simp [ExtendedNumber.smtLibEq]
+  infer_instance
+
+instance [hEx : ExtendedNumber R] [DecidablePred hEx.isNaN] [DecidableRel hEx.smtLibEq] :
+    DecidableRel hEx.ieeeEq := by
+  unfold ExtendedNumber.ieeeEq
   infer_instance
 
 /-- Embed the type `X` into the extended rationals. -/
@@ -226,7 +243,7 @@ def smtLibRoundMethod (e s : Nat)
   embed := v.embed
   lower := v.lower
   upper := v.upper
-  lowerHalf r := ExtendedNumber.extendedEq (v.embed (v.lower r))  (ves.embed (ves.lower r))
+  lowerHalf r := ExtendedNumber.smtLibEq (v.embed (v.lower r))  (ves.embed (ves.lower r))
   /-
   The SMT-LIb specification would have one write:
   ```lean
@@ -247,7 +264,7 @@ def smtLibRoundMethod (e s : Nat)
   isEven := roundableIsEven_of_packedFloat.isEven
 
 instance [hExtended : ExtendedNumber R]
-    [DecidableRel hExtended.extendedEq]
+    [DecidableRel hExtended.smtLibEq]
     {v : RoundableAdjunction (PackedFloat e s) R}
     {ves : RoundableAdjunction (PackedFloat e (s + 1)) R} :
     DecidablePred ((smtLibRoundMethod e s v ves).lowerHalf) := by
@@ -319,5 +336,172 @@ end Operations
 
 
 end SmtLibFunctions
+
+/-!
+## Binary Relations (Section from BTRW15)
+
+Following the BTRW15 paper, we define binary relations for comparing floating-point
+numbers. These are defined in terms of the embedding `v : X → R` into the extended
+number system R (e.g., extended rationals or reals).
+
+These relations are different from the equality and ordering relations on `X`
+(i.e., structural equality) and those on `R` (i.e., `=` and `≤`). Despite their
+names, they are not actually equality or ordering relations as they do not
+contain `(NaN, NaN)`, and `eq`, `leq`, `geq` contain both `(+0, -0)` and `(-0, +0)`.
+
+```
+eq_{ε,σ}  = {(f,g) ∈ F_{ε,σ} × F_{ε,σ} | v(f) = v(g)}
+leq_{ε,σ} = {(f,g) ∈ F_{ε,σ} × F_{ε,σ} | v(f) ≤ v(g)}
+lt_{ε,σ}  = {(f,g) ∈ F_{ε,σ} × F_{ε,σ} | v(f) < v(g)}
+geq_{ε,σ} = {(f,g) ∈ F_{ε,σ} × F_{ε,σ} | v(f) ≥ v(g)}
+gt_{ε,σ}  = {(f,g) ∈ F_{ε,σ} × F_{ε,σ} | v(f) > v(g)}
+```
+-/
+section BinaryRelations
+
+variable {X R : Type} [inst : ExtendedNumber R] (v : RoundableEmbed X R)
+
+/-- `FpSmtLibEqRel v f g` holds iff `v(f) = v(g)` using SMT-LIB equality.
+This uses SMT-LIB semantics where NaN = NaN (since there's a single NaN in the carrier set).
+Note: All NaN bit patterns map to the same `ExtRat.NaN`, so different NaN representations are equal. -/
+def FpSmtLibEqRel (f g : X) : Prop :=
+  inst.smtLibEq (v.embed f) (v.embed g)
+
+/-- `FpIeeeEqRel v f g` holds iff `v(f) = v(g)` using IEEE equality.
+This uses IEEE 754 semantics where NaN ≠ NaN.
+This matches the paper's `eq_{ε,σ}` which "does not contain (NaN, NaN)". -/
+def FpIeeeEqRel (f g : X) : Prop :=
+  inst.ieeeEq (v.embed f) (v.embed g)
+
+/-- `FpLeqRel v f g` holds iff `v(f) ≤ v(g)` in the extended number system. -/
+def FpLeqRel (f g : X) : Prop :=
+  v.embed f ≤ v.embed g
+
+/-- `FpLtRel v f g` holds iff `v(f) < v(g)` in the extended number system. -/
+def FpLtRel (f g : X) : Prop :=
+  v.embed f < v.embed g
+
+/-- `FpGeqRel v f g` holds iff `v(f) ≥ v(g)` in the extended number system. -/
+def FpGeqRel (f g : X) : Prop :=
+  v.embed g ≤ v.embed f
+
+/-- `FpGtRel v f g` holds iff `v(f) > v(g)` in the extended number system. -/
+def FpGtRel (f g : X) : Prop :=
+  v.embed g < v.embed f
+
+/-- `FpIsNaN v f` holds iff `v(f)` is NaN in the extended number system. -/
+def FpIsNaN (f : X) : Prop :=
+  inst.isNaN (v.embed f)
+
+end BinaryRelations
+
+section BinaryRelationsDecidable
+
+variable {X R : Type} [inst : ExtendedNumber R] (v : RoundableEmbed X R)
+
+instance [DecidableRel inst.smtLibEq] : Decidable (FpSmtLibEqRel v f g) := by
+  unfold FpSmtLibEqRel; infer_instance
+
+instance [DecidablePred inst.isNaN] [DecidableRel inst.smtLibEq] :
+    Decidable (FpIeeeEqRel v f g) := by
+  unfold FpIeeeEqRel ExtendedNumber.ieeeEq; infer_instance
+
+instance [DecidableRel ((· ≤ ·) : R → R → Prop)] : Decidable (FpLeqRel v f g) := by
+  unfold FpLeqRel; infer_instance
+
+instance [DecidableRel ((· < ·) : R → R → Prop)] : Decidable (FpLtRel v f g) := by
+  unfold FpLtRel; infer_instance
+
+instance [DecidableRel ((· ≤ ·) : R → R → Prop)] : Decidable (FpGeqRel v f g) := by
+  unfold FpGeqRel; infer_instance
+
+instance [DecidableRel ((· < ·) : R → R → Prop)] : Decidable (FpGtRel v f g) := by
+  unfold FpGtRel; infer_instance
+
+instance [DecidablePred inst.isNaN] : Decidable (FpIsNaN v f) := by
+  unfold FpIsNaN; infer_instance
+
+end BinaryRelationsDecidable
+
+/-!
+## Min/Max Relations
+
+Following the BTRW15 paper specification, min and max are defined as relations
+rather than functions because when one input is -0 and the other is +0,
+the result is underspecified. IEEE-754 allows either value to be returned,
+and compliant implementations vary (e.g., x87 vs SSE units may differ).
+
+```
+max_{ε,σ}(f,g) = f   if gt_{ε,σ}(f,g) or g = NaN
+              = g   if gt_{ε,σ}(g,f) or f = NaN
+              = h   where h ∈ {f,g}, if eq_{ε,σ}(f,g)
+
+min_{ε,σ}(f,g) = f   if lt_{ε,σ}(f,g) or g = NaN
+              = g   if lt_{ε,σ}(g,f) or f = NaN
+              = h   where h ∈ {f,g}, if eq_{ε,σ}(f,g)
+```
+
+Note: The underspecification is an issue only when one input is -0 and the other
+is +0. We consider as acceptable any model that satisfies these specifications,
+regardless of whether it returns -0 or +0 for (-0, +0) and (+0, -0).
+-/
+section MinMaxRelations
+
+variable {X R : Type} [inst : ExtendedNumber R] (v : RoundableEmbed X R)
+
+/--
+`FpMaxRel v f g h` holds when `h` is a valid result of `max(f, g)` according to
+the BTRW15 SMT-LIB floating point semantics, parameterized by embedding `v`.
+
+We use `FpSmtLibEqRel` (SMT-LIB equality where NaN = NaN) rather than structural equality
+because implementations may normalize NaN values to a canonical form. Since all NaN bit
+patterns embed to the same value, they are equal under `FpSmtLibEqRel`.
+-/
+def FpMaxRel (f g h : X) : Prop :=
+  -- Case 1: f if gt(f,g) or g is NaN
+  (FpGtRel v f g ∨ FpIsNaN v g) ∧ FpSmtLibEqRel v h f
+  ∨
+  -- Case 2: g if gt(g,f) or f is NaN
+  (FpGtRel v g f ∨ FpIsNaN v f) ∧ FpSmtLibEqRel v h g
+  ∨
+  -- Case 3: h ∈ {f, g} if eq(f,g) (underspecified for ±0 case)
+  (FpSmtLibEqRel v f g ∧ (FpSmtLibEqRel v h f ∨ FpSmtLibEqRel v h g))
+
+/--
+`FpMinRel v f g h` holds when `h` is a valid result of `min(f, g)` according to
+the BTRW15 SMT-LIB floating point semantics, parameterized by embedding `v`.
+
+We use `FpSmtLibEqRel` (SMT-LIB equality where NaN = NaN) rather than structural equality
+because implementations may normalize NaN values to a canonical form. Since all NaN bit
+patterns embed to the same value, they are equal under `FpSmtLibEqRel`.
+-/
+def FpMinRel (f g h : X) : Prop :=
+  -- Case 1: f if lt(f,g) or g is NaN
+  (FpLtRel v f g ∨ FpIsNaN v g) ∧ FpSmtLibEqRel v h f
+  ∨
+  -- Case 2: g if lt(g,f) or f is NaN
+  (FpLtRel v g f ∨ FpIsNaN v f) ∧ FpSmtLibEqRel v h g
+  ∨
+  -- Case 3: h ∈ {f, g} if eq(f,g) (underspecified for ±0 case)
+  (FpSmtLibEqRel v f g ∧ (FpSmtLibEqRel v h f ∨ FpSmtLibEqRel v h g))
+
+end MinMaxRelations
+
+section MinMaxRelationsDecidable
+
+variable {X R : Type} [inst : ExtendedNumber R] (v : RoundableEmbed X R)
+
+instance [DecidableRel ((· < ·) : R → R → Prop)]
+    [DecidablePred inst.isNaN] [DecidableRel inst.smtLibEq] :
+    Decidable (FpMaxRel v f g h) := by
+  unfold FpMaxRel FpGtRel FpIsNaN FpSmtLibEqRel; infer_instance
+
+instance [DecidableRel ((· < ·) : R → R → Prop)]
+    [DecidablePred inst.isNaN] [DecidableRel inst.smtLibEq] :
+    Decidable (FpMinRel v f g h) := by
+  unfold FpMinRel FpLtRel FpIsNaN FpSmtLibEqRel; infer_instance
+
+end MinMaxRelationsDecidable
+
 end SmtLibSemantics
 end Fp
