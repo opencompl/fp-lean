@@ -369,7 +369,41 @@ def FpGtRel (f g : X) : Prop :=
 def FpIsNaN (f : X) : Prop :=
   inst.isNaN (v.embed f)
 
+/-- `FpSemanticEq v f g` holds iff `f` and `g` are semantically equal:
+either they have equal embeddings, or both are NaN.
+This is needed because NaN bit patterns may differ but are semantically equivalent. -/
+def FpSemanticEq (f g : X) : Prop :=
+  inst.extendedEq (v.embed f) (v.embed g) ∨ (FpIsNaN v f ∧ FpIsNaN v g)
+
 end BinaryRelations
+
+section BinaryRelationsDecidable
+
+variable {X R : Type} [inst : ExtendedNumber R] (v : RoundableEmbed X R)
+
+instance [DecidableRel inst.extendedEq] : Decidable (FpEqRel v f g) := by
+  unfold FpEqRel; infer_instance
+
+instance [DecidableRel ((· ≤ ·) : R → R → Prop)] : Decidable (FpLeqRel v f g) := by
+  unfold FpLeqRel; infer_instance
+
+instance [DecidableRel ((· < ·) : R → R → Prop)] : Decidable (FpLtRel v f g) := by
+  unfold FpLtRel; infer_instance
+
+instance [DecidableRel ((· ≤ ·) : R → R → Prop)] : Decidable (FpGeqRel v f g) := by
+  unfold FpGeqRel; infer_instance
+
+instance [DecidableRel ((· < ·) : R → R → Prop)] : Decidable (FpGtRel v f g) := by
+  unfold FpGtRel; infer_instance
+
+instance [DecidablePred inst.isNaN] : Decidable (FpIsNaN v f) := by
+  unfold FpIsNaN; infer_instance
+
+instance [DecidableRel inst.extendedEq] [DecidablePred inst.isNaN] :
+    Decidable (FpSemanticEq v f g) := by
+  unfold FpSemanticEq FpIsNaN; infer_instance
+
+end BinaryRelationsDecidable
 
 /-!
 ## Min/Max Relations
@@ -400,32 +434,56 @@ variable {X R : Type} [inst : ExtendedNumber R] (v : RoundableEmbed X R)
 /--
 `FpMaxRel v f g h` holds when `h` is a valid result of `max(f, g)` according to
 the BTRW15 SMT-LIB floating point semantics, parameterized by embedding `v`.
+
+Note: We use `FpSemanticEq` instead of structural equality because implementations
+may normalize NaN values to a canonical form, so the returned NaN may have a different
+bit pattern than the input NaN while being semantically equivalent.
 -/
 def FpMaxRel (f g h : X) : Prop :=
   -- Case 1: f if gt(f,g) or g is NaN
-  (FpGtRel v f g ∨ FpIsNaN v g) ∧ h = f
+  (FpGtRel v f g ∨ FpIsNaN v g) ∧ FpSemanticEq v h f
   ∨
   -- Case 2: g if gt(g,f) or f is NaN
-  (FpGtRel v g f ∨ FpIsNaN v f) ∧ h = g
+  (FpGtRel v g f ∨ FpIsNaN v f) ∧ FpSemanticEq v h g
   ∨
   -- Case 3: h ∈ {f, g} if eq(f,g) (underspecified for ±0 case)
-  (FpEqRel v f g ∧ (h = f ∨ h = g))
+  (FpEqRel v f g ∧ (FpSemanticEq v h f ∨ FpSemanticEq v h g))
 
 /--
 `FpMinRel v f g h` holds when `h` is a valid result of `min(f, g)` according to
 the BTRW15 SMT-LIB floating point semantics, parameterized by embedding `v`.
+
+Note: We use `FpSemanticEq` instead of structural equality because implementations
+may normalize NaN values to a canonical form, so the returned NaN may have a different
+bit pattern than the input NaN while being semantically equivalent.
 -/
 def FpMinRel (f g h : X) : Prop :=
   -- Case 1: f if lt(f,g) or g is NaN
-  (FpLtRel v f g ∨ FpIsNaN v g) ∧ h = f
+  (FpLtRel v f g ∨ FpIsNaN v g) ∧ FpSemanticEq v h f
   ∨
   -- Case 2: g if lt(g,f) or f is NaN
-  (FpLtRel v g f ∨ FpIsNaN v f) ∧ h = g
+  (FpLtRel v g f ∨ FpIsNaN v f) ∧ FpSemanticEq v h g
   ∨
   -- Case 3: h ∈ {f, g} if eq(f,g) (underspecified for ±0 case)
-  (FpEqRel v f g ∧ (h = f ∨ h = g))
+  (FpEqRel v f g ∧ (FpSemanticEq v h f ∨ FpSemanticEq v h g))
 
 end MinMaxRelations
+
+section MinMaxRelationsDecidable
+
+variable {X R : Type} [inst : ExtendedNumber R] (v : RoundableEmbed X R)
+
+instance [DecidableRel ((· < ·) : R → R → Prop)]
+    [DecidablePred inst.isNaN] [DecidableRel inst.extendedEq] :
+    Decidable (FpMaxRel v f g h) := by
+  unfold FpMaxRel FpGtRel FpIsNaN FpEqRel FpSemanticEq; infer_instance
+
+instance [DecidableRel ((· < ·) : R → R → Prop)]
+    [DecidablePred inst.isNaN] [DecidableRel inst.extendedEq] :
+    Decidable (FpMinRel v f g h) := by
+  unfold FpMinRel FpLtRel FpIsNaN FpEqRel FpSemanticEq; infer_instance
+
+end MinMaxRelationsDecidable
 
 end SmtLibSemantics
 end Fp

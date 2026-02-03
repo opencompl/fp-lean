@@ -278,6 +278,10 @@ def get_long_operation (args : List String) : IO Unit := do
   | ["roundCircuitAgainstSmtLib"] =>
       test_roundCircuitAgainstSmtlib (ein := 3) (sin := 6) (eout := 3) (sout := 4)
       test_roundCircuitAgainstSmtlib (ein := 3) (sin := 6) (eout := 3) (sout := 4)
+  | ["fpMaxRel"] =>
+      IO.println (← Fp.SmtLibSemanticsComputable.testFpMaxRel 3 4).toFormat
+  | ["fpMinRel"] =>
+      IO.println (← Fp.SmtLibSemanticsComputable.testFpMinRel 3 4).toFormat
 
   | _ => return ()
 
