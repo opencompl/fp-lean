@@ -1,0 +1,58 @@
+name: Unit Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  merge_group:
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    name: SMT-LIB Relation Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install elan
+        run: |
+          set -o pipefail
+          curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf \
+            | sh -s -- --default-toolchain none -y
+          ~/.elan/bin/lean --version
+          echo "$HOME/.elan/bin" >> $GITHUB_PATH
+
+      - name: Cache `.lake` folder
+        id: cache-lake
+        uses: actions/cache@v4
+        with:
+          path: .lake
+          key: ${{ runner.os }}-lake-${{ hashFiles('lake-manifest.json') }}-4
+
+      - name: Build
+        run: lake build
+
+      - name: Run FpMaxRel test (xfail)
+        run: ./.lake/build/bin/fp-lean --xfail fpMaxRel
+
+      - name: Run FpMinRel test (xfail)
+        run: ./.lake/build/bin/fp-lean --xfail fpMinRel
+
+      - name: Run FpLtRel test (xfail)
+        run: ./.lake/build/bin/fp-lean --xfail fpLtRel
+
+      - name: Run FpIeeeEqRel test (xfail)
+        run: ./.lake/build/bin/fp-lean --xfail fpIeeeEqRel
+
+      - name: Run Rational Add test
+        run: ./.lake/build/bin/fp-lean addRat
+
+      - name: Run Rational Mul test
+        run: ./.lake/build/bin/fp-lean mulRat
+
+      - name: Run Rational Div test
+        run: ./.lake/build/bin/fp-lean divRat
