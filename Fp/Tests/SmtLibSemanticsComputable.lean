@@ -284,6 +284,7 @@ def testFpSmtLibEqRel (e s : Nat) : IO (BinaryRelTestSummary e s) :=
 def testFpIeeeEqRel (e s : Nat) : IO (BinaryRelTestSummary e s) :=
   testBinaryRel e s "FpIeeeEqRel (ieeeBeq)" PackedFloat.ieeeBeq FpIeeeEqRel
 
+
 end SmtLibSemanticsComputable
 
 end Fp
