@@ -183,6 +183,101 @@ def testFpMinRel (e s : Nat) : IO (MinMaxTestSummary e s) := do
           }
   return summary
 
+/-!
+## Binary Relation Tests
+
+We test that the concrete comparison implementations satisfy the abstract SMT-LIB relations.
+For each relation, we verify bi-implication: `boolFn f g = true ↔ Rel v f g`.
+-/
+
+/-- Test result for binary relation tests. -/
+structure BinaryRelTestResult (e s : Nat) where
+  f : PackedFloat e s
+  g : PackedFloat e s
+  boolResult : Bool
+  relationHolds : Bool
+
+/-- Summary of binary relation test results. -/
+structure BinaryRelTestSummary (e s : Nat) where
+  op : String
+  failures : Nat := 0
+  successes : Nat := 0
+  failedRecords : Array (BinaryRelTestResult e s) := #[]
+
+def BinaryRelTestSummary.toFormat (summary : BinaryRelTestSummary e s)
+    (nFailedRecordsToPrint : Nat := 5) : Std.Format := Id.run do
+  let percentSuccess : Float :=
+    if summary.failures + summary.successes == 0 then 100
+    else (summary.successes).toFloat / ((summary.failures + summary.successes).toFloat) * 100
+  let mut out :=
+    "===" ++ "\n" ++
+    f!"🧪 Testing {summary.op} Relation exp({e}) significand({s}) | #success ({summary.successes}) #failures ({summary.failures}) %success({percentSuccess})\n"
+  if summary.failures == 0 then
+    out := out ++ "  ✅  (no failed records)\n"
+    return out
+  else
+    out := out ++ "  ❌  Failed Records:\n"
+  let mut nPrinted := 0
+  for record in summary.failedRecords do
+    if nPrinted >= nFailedRecordsToPrint then
+      out := out ++ f!"    ... (truncated, {summary.failedRecords.size - nPrinted} more failed records)\n"
+      break
+    out := out ++
+      f!"    f: {reprStr record.f.toExtRat}, g: {reprStr record.g.toExtRat}, bool: {record.boolResult}, rel: {record.relationHolds}\n"
+    nPrinted := nPrinted + 1
+  return out
+
+/-- Generic test for binary relations: verifies `boolFn f g = true ↔ Rel v f g`. -/
+def testBinaryRel (e s : Nat) (opName : String)
+    (boolFn : PackedFloat e s → PackedFloat e s → Bool)
+    (relFn : RoundableEmbed (PackedFloat e s) ExtRat → PackedFloat e s → PackedFloat e s → Prop)
+    [∀ v f g, Decidable (relFn v f g)] : IO (BinaryRelTestSummary e s) := do
+  let mut summary : BinaryRelTestSummary e s := { op := opName }
+  let allFloats := allPackedFloats e s
+  let v := computableVEmbed (e := e) (s := s)
+  for f in allFloats do
+    for g in allFloats do
+      let boolResult := boolFn f g
+      let relationHolds := relFn v f g
+      -- Test bi-implication: boolResult = true ↔ relationHolds
+      if boolResult == relationHolds then
+        summary := { summary with successes := summary.successes + 1 }
+      else
+        let record : BinaryRelTestResult e s := {
+          f := f, g := g,
+          boolResult := boolResult,
+          relationHolds := relationHolds
+        }
+        summary := { summary with
+          failures := summary.failures + 1,
+          failedRecords := summary.failedRecords.push record
+        }
+  return summary
+
+/-- Test that `PackedFloat.smtBlt` satisfies `FpLtRel`. -/
+def testFpLtRel (e s : Nat) : IO (BinaryRelTestSummary e s) :=
+  testBinaryRel e s "FpLtRel (smtBlt)" PackedFloat.smtBlt FpLtRel
+
+/-- Test that `PackedFloat.smtBle` satisfies `FpLeqRel`. -/
+def testFpLeqRel (e s : Nat) : IO (BinaryRelTestSummary e s) :=
+  testBinaryRel e s "FpLeqRel (smtBle)" PackedFloat.smtBle FpLeqRel
+
+/-- Test that `PackedFloat.smtBgt` satisfies `FpGtRel`. -/
+def testFpGtRel (e s : Nat) : IO (BinaryRelTestSummary e s) :=
+  testBinaryRel e s "FpGtRel (smtBgt)" PackedFloat.smtBgt FpGtRel
+
+/-- Test that `PackedFloat.smtBge` satisfies `FpGeqRel`. -/
+def testFpGeqRel (e s : Nat) : IO (BinaryRelTestSummary e s) :=
+  testBinaryRel e s "FpGeqRel (smtBge)" PackedFloat.smtBge FpGeqRel
+
+/-- Test that `PackedFloat.smtBeq` satisfies `FpSmtLibEqRel`. -/
+def testFpSmtLibEqRel (e s : Nat) : IO (BinaryRelTestSummary e s) :=
+  testBinaryRel e s "FpSmtLibEqRel (smtBeq)" PackedFloat.smtBeq FpSmtLibEqRel
+
+/-- Test that `PackedFloat.ieeeBeq` satisfies `FpIeeeEqRel`. -/
+def testFpIeeeEqRel (e s : Nat) : IO (BinaryRelTestSummary e s) :=
+  testBinaryRel e s "FpIeeeEqRel (ieeeBeq)" PackedFloat.ieeeBeq FpIeeeEqRel
+
 end SmtLibSemanticsComputable
 
 end Fp

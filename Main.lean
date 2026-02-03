@@ -282,6 +282,27 @@ def get_long_operation (args : List String) : IO Unit := do
       IO.println (← Fp.SmtLibSemanticsComputable.testFpMaxRel 3 4).toFormat
   | ["fpMinRel"] =>
       IO.println (← Fp.SmtLibSemanticsComputable.testFpMinRel 3 4).toFormat
+  | ["fpLtRel"] =>
+      IO.println (← Fp.SmtLibSemanticsComputable.testFpLtRel 3 4).toFormat
+  | ["fpLeqRel"] =>
+      IO.println (← Fp.SmtLibSemanticsComputable.testFpLeqRel 3 4).toFormat
+  | ["fpGtRel"] =>
+      IO.println (← Fp.SmtLibSemanticsComputable.testFpGtRel 3 4).toFormat
+  | ["fpGeqRel"] =>
+      IO.println (← Fp.SmtLibSemanticsComputable.testFpGeqRel 3 4).toFormat
+  | ["fpSmtLibEqRel"] =>
+      IO.println (← Fp.SmtLibSemanticsComputable.testFpSmtLibEqRel 3 4).toFormat
+  | ["fpIeeeEqRel"] =>
+      IO.println (← Fp.SmtLibSemanticsComputable.testFpIeeeEqRel 3 4).toFormat
+  | ["fpAllRels"] =>
+      IO.println (← Fp.SmtLibSemanticsComputable.testFpLtRel 3 4).toFormat
+      IO.println (← Fp.SmtLibSemanticsComputable.testFpLeqRel 3 4).toFormat
+      IO.println (← Fp.SmtLibSemanticsComputable.testFpGtRel 3 4).toFormat
+      IO.println (← Fp.SmtLibSemanticsComputable.testFpGeqRel 3 4).toFormat
+      IO.println (← Fp.SmtLibSemanticsComputable.testFpSmtLibEqRel 3 4).toFormat
+      IO.println (← Fp.SmtLibSemanticsComputable.testFpIeeeEqRel 3 4).toFormat
+      IO.println (← Fp.SmtLibSemanticsComputable.testFpMaxRel 3 4).toFormat
+      IO.println (← Fp.SmtLibSemanticsComputable.testFpMinRel 3 4).toFormat
 
   | _ => return ()
 
