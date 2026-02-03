@@ -2,6 +2,7 @@ import Fp.Basic
 import Fp.Rounding
 import Fp.UnpackedRound
 import Fp.Utils
+import Fp.Comparison
 import Lean
 open Lean
 
@@ -319,5 +320,53 @@ end Operations
 
 
 end SmtLibFunctions
+
+/-!
+## Min/Max Relations
+
+Following the BTRW15 paper specification, min and max are defined as relations
+rather than functions because when one input is -0 and the other is +0,
+the result is underspecified. IEEE-754 allows either value to be returned,
+and compliant implementations vary (e.g., x87 vs SSE units may differ).
+
+For max(f, g) = h:
+- h = f if gt(f,g) or g.isNaN
+- h = g if gt(g,f) or f.isNaN
+- h ∈ {f, g} if eq(f,g) (underspecified for ±0 case)
+
+For min(f, g) = h:
+- h = f if lt(f,g) or g.isNaN
+- h = g if lt(g,f) or f.isNaN
+- h ∈ {f, g} if eq(f,g) (underspecified for ±0 case)
+-/
+
+/--
+`FpMaxRel f g h` holds when `h` is a valid result of `max(f, g)` according to
+the BTRW15 SMT-LIB floating point semantics.
+-/
+def FpMaxRel (f g h : PackedFloat e s) : Prop :=
+  -- Case 1: f if gt(f,g) or g is NaN
+  (PackedFloat.smtBgt f g ∨ g.isNaN) ∧ h = f
+  ∨
+  -- Case 2: g if gt(g,f) or f is NaN
+  (PackedFloat.smtBgt g f ∨ f.isNaN) ∧ h = g
+  ∨
+  -- Case 3: h ∈ {f, g} if eq(f,g) (underspecified)
+  (PackedFloat.ieeeBeq f g ∧ (h = f ∨ h = g))
+
+/--
+`FpMinRel f g h` holds when `h` is a valid result of `min(f, g)` according to
+the BTRW15 SMT-LIB floating point semantics.
+-/
+def FpMinRel (f g h : PackedFloat e s) : Prop :=
+  -- Case 1: f if lt(f,g) or g is NaN
+  (PackedFloat.smtBlt f g ∨ g.isNaN) ∧ h = f
+  ∨
+  -- Case 2: g if lt(g,f) or f is NaN
+  (PackedFloat.smtBlt g f ∨ f.isNaN) ∧ h = g
+  ∨
+  -- Case 3: h ∈ {f, g} if eq(f,g) (underspecified)
+  (PackedFloat.ieeeBeq f g ∧ (h = f ∨ h = g))
+
 end SmtLibSemantics
 end Fp
