@@ -2,11 +2,6 @@ import Fp.Basic
 import Fp.Rounding
 import Fp.UnpackedRound
 
-#check Float
-#check BitVec.mul_zero
-
-attribute [grind] BitVec.mul_zero
-
 /--
 Implementation of integer square root. Remainder bit appended to the end of the result.
 -/
