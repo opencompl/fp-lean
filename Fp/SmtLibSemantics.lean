@@ -2,7 +2,6 @@ import Fp.Basic
 import Fp.Rounding
 import Fp.UnpackedRound
 import Fp.Utils
-import Fp.Comparison
 import Lean
 open Lean
 
@@ -322,6 +321,57 @@ end Operations
 end SmtLibFunctions
 
 /-!
+## Binary Relations (Section from BTRW15)
+
+Following the BTRW15 paper, we define binary relations for comparing floating-point
+numbers. These are defined in terms of the embedding `v : X → R` into the extended
+number system R (e.g., extended rationals or reals).
+
+These relations are different from the equality and ordering relations on `X`
+(i.e., structural equality) and those on `R` (i.e., `=` and `≤`). Despite their
+names, they are not actually equality or ordering relations as they do not
+contain `(NaN, NaN)`, and `eq`, `leq`, `geq` contain both `(+0, -0)` and `(-0, +0)`.
+
+```
+eq_{ε,σ}  = {(f,g) ∈ F_{ε,σ} × F_{ε,σ} | v(f) = v(g)}
+leq_{ε,σ} = {(f,g) ∈ F_{ε,σ} × F_{ε,σ} | v(f) ≤ v(g)}
+lt_{ε,σ}  = {(f,g) ∈ F_{ε,σ} × F_{ε,σ} | v(f) < v(g)}
+geq_{ε,σ} = {(f,g) ∈ F_{ε,σ} × F_{ε,σ} | v(f) ≥ v(g)}
+gt_{ε,σ}  = {(f,g) ∈ F_{ε,σ} × F_{ε,σ} | v(f) > v(g)}
+```
+-/
+section BinaryRelations
+
+variable {X R : Type} [inst : ExtendedNumber R] (v : RoundableEmbed X R)
+
+/-- `FpEqRel v f g` holds iff `v(f) = v(g)` in the extended number system.
+Note: This returns false for `(NaN, NaN)` since `extendedEq` on NaN is false. -/
+def FpEqRel (f g : X) : Prop :=
+  inst.extendedEq (v.embed f) (v.embed g)
+
+/-- `FpLeqRel v f g` holds iff `v(f) ≤ v(g)` in the extended number system. -/
+def FpLeqRel (f g : X) : Prop :=
+  v.embed f ≤ v.embed g
+
+/-- `FpLtRel v f g` holds iff `v(f) < v(g)` in the extended number system. -/
+def FpLtRel (f g : X) : Prop :=
+  v.embed f < v.embed g
+
+/-- `FpGeqRel v f g` holds iff `v(f) ≥ v(g)` in the extended number system. -/
+def FpGeqRel (f g : X) : Prop :=
+  v.embed g ≤ v.embed f
+
+/-- `FpGtRel v f g` holds iff `v(f) > v(g)` in the extended number system. -/
+def FpGtRel (f g : X) : Prop :=
+  v.embed g < v.embed f
+
+/-- `FpIsNaN v f` holds iff `v(f)` is NaN in the extended number system. -/
+def FpIsNaN (f : X) : Prop :=
+  inst.isNaN (v.embed f)
+
+end BinaryRelations
+
+/-!
 ## Min/Max Relations
 
 Following the BTRW15 paper specification, min and max are defined as relations
@@ -329,44 +379,53 @@ rather than functions because when one input is -0 and the other is +0,
 the result is underspecified. IEEE-754 allows either value to be returned,
 and compliant implementations vary (e.g., x87 vs SSE units may differ).
 
-For max(f, g) = h:
-- h = f if gt(f,g) or g.isNaN
-- h = g if gt(g,f) or f.isNaN
-- h ∈ {f, g} if eq(f,g) (underspecified for ±0 case)
+```
+max_{ε,σ}(f,g) = f   if gt_{ε,σ}(f,g) or g = NaN
+              = g   if gt_{ε,σ}(g,f) or f = NaN
+              = h   where h ∈ {f,g}, if eq_{ε,σ}(f,g)
 
-For min(f, g) = h:
-- h = f if lt(f,g) or g.isNaN
-- h = g if lt(g,f) or f.isNaN
-- h ∈ {f, g} if eq(f,g) (underspecified for ±0 case)
+min_{ε,σ}(f,g) = f   if lt_{ε,σ}(f,g) or g = NaN
+              = g   if lt_{ε,σ}(g,f) or f = NaN
+              = h   where h ∈ {f,g}, if eq_{ε,σ}(f,g)
+```
+
+Note: The underspecification is an issue only when one input is -0 and the other
+is +0. We consider as acceptable any model that satisfies these specifications,
+regardless of whether it returns -0 or +0 for (-0, +0) and (+0, -0).
 -/
+section MinMaxRelations
+
+variable {X R : Type} [inst : ExtendedNumber R] (v : RoundableEmbed X R)
 
 /--
-`FpMaxRel f g h` holds when `h` is a valid result of `max(f, g)` according to
-the BTRW15 SMT-LIB floating point semantics.
+`FpMaxRel v f g h` holds when `h` is a valid result of `max(f, g)` according to
+the BTRW15 SMT-LIB floating point semantics, parameterized by embedding `v`.
 -/
-def FpMaxRel (f g h : PackedFloat e s) : Prop :=
+def FpMaxRel (f g h : X) : Prop :=
   -- Case 1: f if gt(f,g) or g is NaN
-  (PackedFloat.smtBgt f g ∨ g.isNaN) ∧ h = f
+  (FpGtRel v f g ∨ FpIsNaN v g) ∧ h = f
   ∨
   -- Case 2: g if gt(g,f) or f is NaN
-  (PackedFloat.smtBgt g f ∨ f.isNaN) ∧ h = g
+  (FpGtRel v g f ∨ FpIsNaN v f) ∧ h = g
   ∨
-  -- Case 3: h ∈ {f, g} if eq(f,g) (underspecified)
-  (PackedFloat.ieeeBeq f g ∧ (h = f ∨ h = g))
+  -- Case 3: h ∈ {f, g} if eq(f,g) (underspecified for ±0 case)
+  (FpEqRel v f g ∧ (h = f ∨ h = g))
 
 /--
-`FpMinRel f g h` holds when `h` is a valid result of `min(f, g)` according to
-the BTRW15 SMT-LIB floating point semantics.
+`FpMinRel v f g h` holds when `h` is a valid result of `min(f, g)` according to
+the BTRW15 SMT-LIB floating point semantics, parameterized by embedding `v`.
 -/
-def FpMinRel (f g h : PackedFloat e s) : Prop :=
+def FpMinRel (f g h : X) : Prop :=
   -- Case 1: f if lt(f,g) or g is NaN
-  (PackedFloat.smtBlt f g ∨ g.isNaN) ∧ h = f
+  (FpLtRel v f g ∨ FpIsNaN v g) ∧ h = f
   ∨
   -- Case 2: g if lt(g,f) or f is NaN
-  (PackedFloat.smtBlt g f ∨ f.isNaN) ∧ h = g
+  (FpLtRel v g f ∨ FpIsNaN v f) ∧ h = g
   ∨
-  -- Case 3: h ∈ {f, g} if eq(f,g) (underspecified)
-  (PackedFloat.ieeeBeq f g ∧ (h = f ∨ h = g))
+  -- Case 3: h ∈ {f, g} if eq(f,g) (underspecified for ±0 case)
+  (FpEqRel v f g ∧ (h = f ∨ h = g))
+
+end MinMaxRelations
 
 end SmtLibSemantics
 end Fp
