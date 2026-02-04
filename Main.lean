@@ -36,6 +36,12 @@ structure FPFormat where
 def FPFormat.nbits (f : FPFormat) : Nat :=
   1 + f.e + f.m
 
+def FPFormat.unpackedExponentWidth (f : FPFormat) : Nat :=
+  exponentWidth f.e f.m
+
+def FPFormat.unpackedSignificandWidth (f : FPFormat) : Nat :=
+  f.m + 1
+
 def FPFormat.packedFloatOfNat (f : FPFormat) (n : Nat) : PackedFloat f.e f.m :=
   PackedFloat.ofBits f.e f.m (BitVec.ofNat (f.nbits) n)
 
@@ -236,6 +242,7 @@ def e3m4 : FP8Format where
   e := 3
   m := 4
   h8 := by omega
+
 
 
  def printResults (results : Thunk (List OpResult)) : IO Unit := do

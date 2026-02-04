@@ -191,7 +191,7 @@ def RoundMethod.round {e s R} (roundMethod : RoundMethod (PackedFloat e s) R) [i
       else if isZero r then roundMethod.rounderForSign sign r
       else roundMethod.upper r
 
-namespace SmtLibRoundMethod
+-- namespace SmtLibRoundMethod
 
 /-- 'lower' is a valid greatest lower bound for 'r'. -/
 def IsLawfulLower [ExtendedNumber R] [RE : RoundableEmbed X R] (r : R) (lower : X) : Prop :=
@@ -235,7 +235,7 @@ noncomputable def smtLibV [Inhabited X] [ExtendedNumber R] [RoundableEmbed X R] 
 /--
 The SMT-Lib definition of the rounding methods for any choice of rounding adjunction 'v'.
 -/
-def smtLibRoundMethod (e s : Nat)
+def smtLibRoundMethod {R : Type} (e s : Nat)
     (v : RoundableAdjunction (PackedFloat e s) R)
     (ves : RoundableAdjunction (PackedFloat e (s + 1)) R)
     [ExtendedNumber R] :
@@ -279,7 +279,7 @@ instance [hExtended : ExtendedNumber R]
   simp [smtLibRoundMethod]
   infer_instance
 
-end SmtLibRoundMethod
+-- end SmtLibRoundMethod
 
 namespace SmtLibFunctions
 

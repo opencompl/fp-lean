@@ -56,8 +56,7 @@ def computableV : RoundableAdjunction (PackedFloat e s) ExtRat where
   embed := PackedFloat.toExtRat
 
 abbrev computableSmtLibRoundMethod (e s : Nat) :
-    RoundMethod (PackedFloat e s) ExtRat :=
-  SmtLibRoundMethod.smtLibRoundMethod e s
+    RoundMethod (PackedFloat e s) ExtRat := smtLibRoundMethod e s
     (computableV)
     (computableV)
 
