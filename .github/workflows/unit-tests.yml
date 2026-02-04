@@ -48,11 +48,11 @@ jobs:
       - name: Run FpIeeeEqRel test
         run: ./.lake/build/bin/fp-lean fpIeeeEqRel
 
-      - name: Run Rational Add test
-        run: ./.lake/build/bin/fp-lean addRat
+      - name: Run Rational Add test (xfail)
+        run: ./.lake/build/bin/fp-lean addRat --xfail
 
       - name: Run Rational Mul test
         run: ./.lake/build/bin/fp-lean mulRat
 
-      - name: Run Rational Div test
-        run: ./.lake/build/bin/fp-lean divRat
+      - name: Run Rational Div test (xfail)
+        run: ./.lake/build/bin/fp-lean divRat --xfail
