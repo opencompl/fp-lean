@@ -26,6 +26,7 @@ We would appreciate pull requests that improve our testing.
 We audited several librares, but settled on our choices since they enable us to
 test all rounding modes for small bitwidths.
 
+- [IEEE 754-2008 spec](https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=4610935)
 - [SMT-LIB floating point specification](https://smt-lib.org/theories-FloatingPoint.shtml).
 - [Berlekee TestFloat](https://www.jhauser.us/arithmetic/TestFloat.html).
 - [Ulp plots](https://blogs.mathworks.com/cleve/2017/01/23/ulps-plots-reveal-math-function-accurary/).
