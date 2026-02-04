@@ -2,6 +2,28 @@ import Fp
 import Fp.Remainder
 import Fp.Tests
 
+inductive ExitCode where
+  | Success
+  | Failure
+deriving Repr
+
+def ExitCode.and (a b : ExitCode) : ExitCode :=
+  match a, b with
+  | .Success, .Success => .Success
+  | _, _ => .Failure
+
+instance : AndOp ExitCode where
+  and := ExitCode.and
+
+def ExitCode.toUInt32 : ExitCode → UInt32
+  | .Success => 0
+  | .Failure => 1
+
+/-- Invert exit code for xfail (expected failure) tests. -/
+def ExitCode.invert : ExitCode → ExitCode
+  | .Success => .Failure
+  | .Failure => .Success
+
 structure OpResult where
   oper : String
   mode : RoundingMode
@@ -222,10 +244,11 @@ def e3m4 : FP8Format where
 
 
 
-def test_roundCircuitAgainstSmtlib (ein sin eout sout : Nat) : IO Unit := do
+def test_roundCircuitAgainstSmtlib (ein sin eout sout : Nat) : IO ExitCode := do
   -- round from e2m4 to e2m2
   let e2m4 : FPFormat := { e := ein, m := sin }
   let e2m2 : FPFormat := { e := eout, m := sout }
+  let mut totalFailures := 0
   for rm in allRoundingModes do
     IO.println "==="
     IO.println s!"🧪 ROUNDING MODE {repr rm}"
@@ -254,65 +277,113 @@ def test_roundCircuitAgainstSmtlib (ein sin eout sout : Nat) : IO Unit := do
       if nsuccess + nfailure == 0 then 100.0
       else (nsuccess.toFloat / (nsuccess + nfailure).toFloat) * 100.0
     IO.println s!"  📜 Final({repr rm}): {nsuccess} successes, {nfailure} failures, {percentSuccess}% success rate"
+    totalFailures := totalFailures + nfailure
+  return if totalFailures == 0 then .Success else .Failure
 
-def get_long_operation (args : List String) : IO Unit := do
+def ExitCode.ofFailures (n : Nat) : ExitCode :=
+  if n == 0 then .Success else .Failure
+
+/-- Run test and return ExitCode. -/
+def get_long_operation (args : List String) : IO ExitCode := do
   match args with
-  | ["e5m2"] => printResults <| test_all e5m2
-  | ["e3m4"] => printResults <| test_all e3m4
-  | ["fma_e5m2"]  => printResults <| test_ternop (test_fma e5m2) ()
-  | ["fma_e3m4"]  => printResults <| test_ternop (test_fma e3m4) ()
-  | ["abs"] => printResults <| test_unop_multi $ (test_abs e3m4)
-  | ["add"] => printResults <| test_binop $ (test_add e3m4)
-  | ["div"] => printResults <| test_binop $ (test_div e3m4)
-  | ["lt"] => printResults <| test_binop $ (test_lt e3m4)
-  | ["max"] => printResults <| test_binop $ (test_max e3m4)
-  | ["min"] => printResults <| test_binop $ (test_min e3m4)
-  | ["mul"] => printResults <| test_binop $ (test_mul e3m4)
-  | ["neg"] => printResults <| test_unop_multi $ (test_neg e3m4)
-  | ["rem"] => printResults <| test_binop $ (test_rem e3m4)
-  | ["sqrt"] => printResults <| test_unop_multi $ (test_sqrt e3m4)
-  | ["sub"] => printResults <| test_binop $ (test_sub e3m4)
-  | ["roundToInt"] => printResults <| test_unop_multi $ (test_roundToInt e3m4)
-  | ["addRat"] => IO.println (← Fp.ExhaustiveEnumerationRat.testAdd 3 4).toFormat
-  | ["mulRat"] => IO.println (← Fp.ExhaustiveEnumerationRat.testMul 3 4).toFormat
-  | ["divRat"] => IO.println (← Fp.ExhaustiveEnumerationRat.testDiv 3 4).toFormat
-  | ["sqrtRat"] => IO.println (← Fp.ExhaustiveEnumerationRat.testSqrt 3 4).toFormat
+  | ["e5m2"] => printResults <| test_all e5m2; return .Success
+  | ["e3m4"] => printResults <| test_all e3m4; return .Success
+  | ["fma_e5m2"]  => printResults <| test_ternop (test_fma e5m2) (); return .Success
+  | ["fma_e3m4"]  => printResults <| test_ternop (test_fma e3m4) (); return .Success
+  | ["abs"] => printResults <| test_unop_multi $ (test_abs e3m4); return .Success
+  | ["add"] => printResults <| test_binop $ (test_add e3m4); return .Success
+  | ["div"] => printResults <| test_binop $ (test_div e3m4); return .Success
+  | ["lt"] => printResults <| test_binop $ (test_lt e3m4); return .Success
+  | ["max"] => printResults <| test_binop $ (test_max e3m4); return .Success
+  | ["min"] => printResults <| test_binop $ (test_min e3m4); return .Success
+  | ["mul"] => printResults <| test_binop $ (test_mul e3m4); return .Success
+  | ["neg"] => printResults <| test_unop_multi $ (test_neg e3m4); return .Success
+  | ["rem"] => printResults <| test_binop $ (test_rem e3m4); return .Success
+  | ["sqrt"] => printResults <| test_unop_multi $ (test_sqrt e3m4); return .Success
+  | ["sub"] => printResults <| test_binop $ (test_sub e3m4); return .Success
+  | ["roundToInt"] => printResults <| test_unop_multi $ (test_roundToInt e3m4); return .Success
+  | ["addRat"] =>
+      let result ← Fp.ExhaustiveEnumerationRat.testAdd 3 4
+      IO.println result.toFormat
+      return .ofFailures result.failures
+  | ["mulRat"] =>
+      let result ← Fp.ExhaustiveEnumerationRat.testMul 3 4
+      IO.println result.toFormat
+      return .ofFailures result.failures
+  | ["divRat"] =>
+      let result ← Fp.ExhaustiveEnumerationRat.testDiv 3 4
+      IO.println result.toFormat
+      return .ofFailures result.failures
+  | ["sqrtRat"] =>
+      let result ← Fp.ExhaustiveEnumerationRat.testSqrt 3 4
+      IO.println result.toFormat
+      return .ofFailures result.failures
   | ["roundCircuitAgainstSmtLib"] =>
-      test_roundCircuitAgainstSmtlib (ein := 3) (sin := 6) (eout := 3) (sout := 4)
-      test_roundCircuitAgainstSmtlib (ein := 3) (sin := 6) (eout := 3) (sout := 4)
+      let exit1 ← test_roundCircuitAgainstSmtlib (ein := 3) (sin := 6) (eout := 3) (sout := 4)
+      let exit2 ← test_roundCircuitAgainstSmtlib (ein := 3) (sin := 6) (eout := 3) (sout := 4)
+      return exit1 &&& exit2
   | ["fpMaxRel"] =>
-      IO.println (← Fp.SmtLibSemanticsComputable.testFpMaxRel 3 4).toFormat
+      let result ← Fp.SmtLibSemanticsComputable.testFpMaxRel 3 4
+      IO.println result.toFormat
+      return .ofFailures result.failures
   | ["fpMinRel"] =>
-      IO.println (← Fp.SmtLibSemanticsComputable.testFpMinRel 3 4).toFormat
+      let result ← Fp.SmtLibSemanticsComputable.testFpMinRel 3 4
+      IO.println result.toFormat
+      return .ofFailures result.failures
   | ["fpLtRel"] =>
-      IO.println (← Fp.SmtLibSemanticsComputable.testFpLtRel 3 4).toFormat
+      let result ← Fp.SmtLibSemanticsComputable.testFpLtRel 3 4
+      IO.println result.toFormat
+      return .ofFailures result.failures
   | ["fpLeqRel"] =>
-      IO.println (← Fp.SmtLibSemanticsComputable.testFpLeqRel 3 4).toFormat
+      let result ← Fp.SmtLibSemanticsComputable.testFpLeqRel 3 4
+      IO.println result.toFormat
+      return .ofFailures result.failures
   | ["fpGtRel"] =>
-      IO.println (← Fp.SmtLibSemanticsComputable.testFpGtRel 3 4).toFormat
+      let result ← Fp.SmtLibSemanticsComputable.testFpGtRel 3 4
+      IO.println result.toFormat
+      return .ofFailures result.failures
   | ["fpGeqRel"] =>
-      IO.println (← Fp.SmtLibSemanticsComputable.testFpGeqRel 3 4).toFormat
+      let result ← Fp.SmtLibSemanticsComputable.testFpGeqRel 3 4
+      IO.println result.toFormat
+      return .ofFailures result.failures
   | ["fpSmtLibEqRel"] =>
-      IO.println (← Fp.SmtLibSemanticsComputable.testFpSmtLibEqRel 3 4).toFormat
+      let result ← Fp.SmtLibSemanticsComputable.testFpSmtLibEqRel 3 4
+      IO.println result.toFormat
+      return .ofFailures result.failures
   | ["fpIeeeEqRel"] =>
-      IO.println (← Fp.SmtLibSemanticsComputable.testFpIeeeEqRel 3 4).toFormat
+      let result ← Fp.SmtLibSemanticsComputable.testFpIeeeEqRel 3 4
+      IO.println result.toFormat
+      return .ofFailures result.failures
   | ["fpAllRels"] =>
-      IO.println (← Fp.SmtLibSemanticsComputable.testFpLtRel 3 4).toFormat
-      IO.println (← Fp.SmtLibSemanticsComputable.testFpLeqRel 3 4).toFormat
-      IO.println (← Fp.SmtLibSemanticsComputable.testFpGtRel 3 4).toFormat
-      IO.println (← Fp.SmtLibSemanticsComputable.testFpGeqRel 3 4).toFormat
-      IO.println (← Fp.SmtLibSemanticsComputable.testFpSmtLibEqRel 3 4).toFormat
-      IO.println (← Fp.SmtLibSemanticsComputable.testFpIeeeEqRel 3 4).toFormat
-      IO.println (← Fp.SmtLibSemanticsComputable.testFpMaxRel 3 4).toFormat
-      IO.println (← Fp.SmtLibSemanticsComputable.testFpMinRel 3 4).toFormat
+      let r1 ← Fp.SmtLibSemanticsComputable.testFpLtRel 3 4
+      IO.println r1.toFormat
+      let r2 ← Fp.SmtLibSemanticsComputable.testFpLeqRel 3 4
+      IO.println r2.toFormat
+      let r3 ← Fp.SmtLibSemanticsComputable.testFpGtRel 3 4
+      IO.println r3.toFormat
+      let r4 ← Fp.SmtLibSemanticsComputable.testFpGeqRel 3 4
+      IO.println r4.toFormat
+      let r5 ← Fp.SmtLibSemanticsComputable.testFpSmtLibEqRel 3 4
+      IO.println r5.toFormat
+      let r6 ← Fp.SmtLibSemanticsComputable.testFpIeeeEqRel 3 4
+      IO.println r6.toFormat
+      let r7 ← Fp.SmtLibSemanticsComputable.testFpMaxRel 3 4
+      IO.println r7.toFormat
+      let r8 ← Fp.SmtLibSemanticsComputable.testFpMinRel 3 4
+      IO.println r8.toFormat
+      return .ofFailures (r1.failures + r2.failures + r3.failures + r4.failures + r5.failures + r6.failures + r7.failures + r8.failures)
+  | _ => return .Success
 
-  | _ => return ()
-
-def main (args : List String) : IO Unit := do
+def main (args : List String) : IO UInt32 := do
+  let xfail := args.contains "--xfail"
+  let args := args.filter (· != "--xfail")
   if args != [] then do
-    get_long_operation args
+    let exitCode ← get_long_operation args
+    let exitCode := if xfail then exitCode.invert else exitCode
+    return exitCode.toUInt32
   else do
       IO.println "Please run with command line arg e5m2 or e3m4"
+      return ExitCode.Failure.toUInt32
 
 
 /-- info: { sign := -, ex := 0x04#5, sig := 0x1#2 } -/
