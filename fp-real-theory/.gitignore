@@ -1,0 +1,7 @@
+*.csv
+.venv/
+/.lake
+
+*.out
+*.o
+*.a
