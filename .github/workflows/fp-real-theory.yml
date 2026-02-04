@@ -1,4 +1,4 @@
-name: Core Library
+name: FpRealTheory (with Mathlib)
 
 on:
   push:
@@ -12,16 +12,17 @@ permissions:
 
 jobs:
   build:
-    name: core library (no mathlib)
+    name: FpRealTheory (mathlib)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
         uses: actions/checkout@v4
 
-      - name: Build with lean-action
+      - name: Build FpRealTheory with lean-action
         uses: leanprover/lean-action@v1
         with:
-          use-mathlib-cache: false
+          lake-package-directory: fp-real-theory
+          use-mathlib-cache: true
           use-github-cache: true
           build: true
           test: false

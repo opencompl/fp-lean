@@ -16,25 +16,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Install elan 🕑
-        run: |
-          set -o pipefail
-          curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf \
-            | sh -s -- --default-toolchain none -y
-          ~/.elan/bin/lean --version
-          echo "$HOME/.elan/bin" >> $GITHUB_PATH
-
-      - name: Cache `.lake` folder
-        id: cache-lake
-        uses: actions/cache@v4
+      - name: Build with lean-action
+        uses: leanprover/lean-action@v1
         with:
-          path: .lake
-          key: ${{ runner.os }}-lake-${{ hashFiles('lake-manifest.json') }}-4
-
-      - name: Build 🔨
-        run: lake build
+          use-mathlib-cache: false
+          use-github-cache: true
+          build: true
+          test: false
 
       - name: Run FpMaxRel test
         run: ./.lake/build/bin/fp-lean fpMaxRel

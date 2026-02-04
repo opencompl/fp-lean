@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(lake build:*)",
+      "Bash(./.lake/build/bin/fp-lean:*)"
+    ]
+  }
+}
