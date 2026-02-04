@@ -7,10 +7,13 @@ inductive ExitCode where
   | Failure
 deriving Repr
 
-def ExitCode.merge (a b : ExitCode) : ExitCode :=
+def ExitCode.and (a b : ExitCode) : ExitCode :=
   match a, b with
   | .Success, .Success => .Success
   | _, _ => .Failure
+
+instance : AndOp ExitCode where
+  and := ExitCode.and
 
 def ExitCode.toUInt32 : ExitCode → UInt32
   | .Success => 0
@@ -318,7 +321,7 @@ def get_long_operation (args : List String) : IO ExitCode := do
   | ["roundCircuitAgainstSmtLib"] =>
       let exit1 ← test_roundCircuitAgainstSmtlib (ein := 3) (sin := 6) (eout := 3) (sout := 4)
       let exit2 ← test_roundCircuitAgainstSmtlib (ein := 3) (sin := 6) (eout := 3) (sout := 4)
-      return exit1.merge exit2
+      return exit1 &&& exit2
   | ["fpMaxRel"] =>
       let result ← Fp.SmtLibSemanticsComputable.testFpMaxRel 3 4
       IO.println result.toFormat
