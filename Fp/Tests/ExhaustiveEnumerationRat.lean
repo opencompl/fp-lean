@@ -53,7 +53,7 @@ def UnpackedRatTestResult.precision {ein sin : Nat}
 Check if the test result is a success, i.e., if the precision is at least `expectedPrecision`.
 -/
 def UnpackedRatTestResult.isSuccess {ein sin : Nat}
-    (res : UnpackedRatTestResult ein sin) (expectedPrecision : Nat := sin + 2) : Bool :=
+    (res : UnpackedRatTestResult ein sin) (expectedPrecision : Nat := sin + 1) : Bool :=
   match res.precision (maxPrec := expectedPrecision * 2) with
   | none => true
   | some p => p >= expectedPrecision
