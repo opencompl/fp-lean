@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   build:
-    name: core library
+    name: core library (no mathlib)
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -34,7 +34,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .lake
-          key: ${{ runner.os }}-lake-${{ hashFiles('lake-manifest.json') }}-4
+          key: ${{ runner.os }}-lake-core-${{ hashFiles('lakefile.toml', 'lean-toolchain') }}-1
 
       - name: Compile Library 🧐
-        run: lake -R build
+        run: lake build
