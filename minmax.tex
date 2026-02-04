@@ -1,0 +1,52 @@
+\subsection{Relations}
+
+Having defined a universe for the models, we next define various relations which will be used as the interpretation of predicates in the theory of floating-point. Every relation is parameterized by a floating-point domain, so each definition here actually describes a whole \emph{family} of relations.
+
+\subsubsection{Unary Relations}
+We consider the following unary relations (subsets) for classifying floating-point numbers as well as determining their sign, if applicable (see Section~VIII-B for further discussion of sign)\footnotemark[6].
+\begin{align*}
+\text{isNeg}_{\varepsilon,\sigma} &= \{f \in \mathrm{F}_{\varepsilon,\sigma} \mid f = (1, e, m)\} \\
+\text{isPos}_{\varepsilon,\sigma} &= \{f \in \mathrm{F}_{\varepsilon,\sigma} \mid f = (0, e, m)\}
+\end{align*}
+
+\subsubsection{Binary Relations}
+We define a number of binary relations for comparing floating-point numbers. These are different from the equality and ordering relations on $\mathbb{F}_{\varepsilon,\sigma}$ (i.e., $=$ and $\sqsubseteq$) and those on $\mathbb{R}^*$ (i.e., $=$ and $\leqslant$). Despite their names, they are not actually equality or ordering relations as they do not contain $(\text{NaN}, \text{NaN})$ and eq, leq and geq contain both $(+0, -0)$ and $(-0, +0)$.
+\begin{align*}
+\text{eq}_{\varepsilon,\sigma} &= \{(f,g) \in \mathrm{F}_{\varepsilon,\sigma} \times \mathrm{F}_{\varepsilon,\sigma} \mid \mathrm{v}(f) = \mathrm{v}(g)\} \\
+\text{leq}_{\varepsilon,\sigma} &= \{(f,g) \in \mathrm{F}_{\varepsilon,\sigma} \times \mathrm{F}_{\varepsilon,\sigma} \mid \mathrm{v}(f) \leqslant \mathrm{v}(g)\} \\
+\text{lt}_{\varepsilon,\sigma} &= \{(f,g) \in \mathrm{F}_{\varepsilon,\sigma} \times \mathrm{F}_{\varepsilon,\sigma} \mid \mathrm{v}(f) < \mathrm{v}(g)\} \\
+\text{geq}_{\varepsilon,\sigma} &= \{(f,g) \in \mathrm{F}_{\varepsilon,\sigma} \times \mathrm{F}_{\varepsilon,\sigma} \mid \mathrm{v}(f) \geqslant \mathrm{v}(g)\} \\
+\text{gt}_{\varepsilon,\sigma} &= \{(f,g) \in \mathrm{F}_{\varepsilon,\sigma} \times \mathrm{F}_{\varepsilon,\sigma} \mid \mathrm{v}(f) > \mathrm{v}(g)\}
+\end{align*}
+
+\subsection{Operations}
+
+
+\[
+\max_{\varepsilon,\sigma} : \mathbb{F}_{\varepsilon,\sigma} \times \mathbb{F}_{\varepsilon,\sigma} \to \mathbb{F}_{\varepsilon,\sigma}
+\]
+\[
+\max_{\varepsilon,\sigma}(f,g) = \begin{cases}
+f & \text{gt}_{\varepsilon,\sigma}(f,g) \text{ or } g = \text{NaN} \\
+g & \text{gt}_{\varepsilon,\sigma}(g,f) \text{ or } f = \text{NaN} \\
+h & h \in \{f,g\}, \text{eq}_{\varepsilon,\sigma}(f,g)
+\end{cases}
+\]
+
+\[
+\min_{\varepsilon,\sigma} : \mathbb{F}_{\varepsilon,\sigma} \times \mathbb{F}_{\varepsilon,\sigma} \to \mathbb{F}_{\varepsilon,\sigma}
+\]
+\[
+\min_{\varepsilon,\sigma}(f,g) = \begin{cases}
+f & \text{lt}_{\varepsilon,\sigma}(f,g) \text{ or } g = \text{NaN} \\
+g & \text{lt}_{\varepsilon,\sigma}(g,f) \text{ or } f = \text{NaN} \\
+h & h \in \{f,g\}, \text{eq}_{\varepsilon,\sigma}(f,g)
+\end{cases}
+\]
+
+\footnotetext[7]{$x \in \mathbb{R}^*$ and thus $z$ is uniquely defined. Given $f \in \mathbb{F}_{\varepsilon,\sigma}$ there is not necessarily a $g \in \mathbb{F}_{\varepsilon,\sigma}$ such that $f = \text{mul}_{\varepsilon,\sigma}(rm, g, g)$ and $\text{leq}_{\varepsilon,\sigma}(0, g)$. Furthermore, in the case of subnormal numbers, there are potentially multiple, distinct, positive square roots. Thus care must be taken with implicit definitions of sqrt just using mul or fma.}
+
+\footnotetext[8]{We consider $\mathbb{Z}$ a subset of $\mathbb{R}$ and hence $\mathbb{Z}^*$ a subset of $\mathbb{R}^*$.}
+
+Note that the underspecification is an issue only when one of the inputs to $\max_{\varepsilon,\sigma}$ or $\min_{\varepsilon,\sigma}$ is $-0$ and the other is $+0$. However, it means that we consider as acceptable models any structures with function families $\max_{\varepsilon,\sigma}$ and $\min_{\varepsilon,\sigma}$ that satisfy the specifications above, regardless of whether they return $-0$ or $+0$ for $(-0, +0)$, and for $(+0, -0)$. This is necessary because IEEE-754 itself allows either value to be returned, and compliant implementations do vary. For example, on some Intel processors the result returned by the x87 and SSE units is different.
+

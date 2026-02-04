@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(lake build:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: add generic SMT-LIB binary relations and min/max relations\n\nAdd FpEqRel, FpLtRel, FpGtRel, FpLeqRel, FpGeqRel, and FpIsNaN as generic\nbinary relations parameterized over embedding v : RoundableEmbed X R,\nfollowing the BTRW15 paper definitions.\n\nAdd FpMinRel and FpMaxRel as relations \\(rather than functions\\) to capture\nthe IEEE-754 underspecification for ±0 cases where either value is valid.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(lake exe fp-lean fpMaxRel)",
+      "Bash(./.lake/build/bin/fp-lean:*)",
+      "Bash(git branch:*)",
+      "Bash(git ls-tree:*)",
+      "Bash(echo:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git checkout:*)",
+      "Bash(git pull:*)"
+    ]
+  }
+}
