@@ -1,0 +1,43 @@
+name: FpRealTheory (with Mathlib)
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  merge_group:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: FpRealTheory (mathlib)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v3
+
+      - name: Install elan 🕑
+        run: |
+          set -o pipefail
+          curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf \
+            | sh -s -- --default-toolchain none -y
+          ~/.elan/bin/lean --version
+          echo "$HOME/.elan/bin" >> $GITHUB_PATH
+
+      - name: Cache mathlib
+        id: cache-mathlib
+        uses: actions/cache@v4
+        with:
+          path: fp-real-theory/.lake
+          key: ${{ runner.os }}-lake-mathlib-${{ hashFiles('fp-real-theory/lakefile.toml', 'fp-real-theory/lean-toolchain') }}-1
+
+      - name: Get mathlib cache
+        if: steps.cache-mathlib.outputs.cache-hit != 'true'
+        working-directory: fp-real-theory
+        run: lake exe cache get
+
+      - name: Build FpRealTheory 🔨
+        working-directory: fp-real-theory
+        run: lake build
