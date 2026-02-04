@@ -238,9 +238,12 @@ def e3m4 : FP8Format where
   h8 := by omega
 
 
- def printResults (results : Thunk (List OpResult)) : IO Unit := do
+/-- Print results for golden file comparison. Always returns Success since
+    actual pass/fail is determined by external diff. -/
+def printResults (results : Thunk (List OpResult)) : IO ExitCode := do
   for res in results.get do
     IO.println (repr res)
+  return .Success
 
 
 
@@ -286,22 +289,22 @@ def ExitCode.ofFailures (n : Nat) : ExitCode :=
 /-- Run test and return ExitCode. -/
 def get_long_operation (args : List String) : IO ExitCode := do
   match args with
-  | ["e5m2"] => printResults <| test_all e5m2; return .Success
-  | ["e3m4"] => printResults <| test_all e3m4; return .Success
-  | ["fma_e5m2"]  => printResults <| test_ternop (test_fma e5m2) (); return .Success
-  | ["fma_e3m4"]  => printResults <| test_ternop (test_fma e3m4) (); return .Success
-  | ["abs"] => printResults <| test_unop_multi $ (test_abs e3m4); return .Success
-  | ["add"] => printResults <| test_binop $ (test_add e3m4); return .Success
-  | ["div"] => printResults <| test_binop $ (test_div e3m4); return .Success
-  | ["lt"] => printResults <| test_binop $ (test_lt e3m4); return .Success
-  | ["max"] => printResults <| test_binop $ (test_max e3m4); return .Success
-  | ["min"] => printResults <| test_binop $ (test_min e3m4); return .Success
-  | ["mul"] => printResults <| test_binop $ (test_mul e3m4); return .Success
-  | ["neg"] => printResults <| test_unop_multi $ (test_neg e3m4); return .Success
-  | ["rem"] => printResults <| test_binop $ (test_rem e3m4); return .Success
-  | ["sqrt"] => printResults <| test_unop_multi $ (test_sqrt e3m4); return .Success
-  | ["sub"] => printResults <| test_binop $ (test_sub e3m4); return .Success
-  | ["roundToInt"] => printResults <| test_unop_multi $ (test_roundToInt e3m4); return .Success
+  | ["e5m2"] => printResults <| test_all e5m2
+  | ["e3m4"] => printResults <| test_all e3m4
+  | ["fma_e5m2"]  => printResults <| test_ternop (test_fma e5m2) ()
+  | ["fma_e3m4"]  => printResults <| test_ternop (test_fma e3m4) ()
+  | ["abs"] => printResults <| test_unop_multi $ test_abs e3m4
+  | ["add"] => printResults <| test_binop $ test_add e3m4
+  | ["div"] => printResults <| test_binop $ test_div e3m4
+  | ["lt"] => printResults <| test_binop $ test_lt e3m4
+  | ["max"] => printResults <| test_binop $ test_max e3m4
+  | ["min"] => printResults <| test_binop $ test_min e3m4
+  | ["mul"] => printResults <| test_binop $ test_mul e3m4
+  | ["neg"] => printResults <| test_unop_multi $ test_neg e3m4
+  | ["rem"] => printResults <| test_binop $ test_rem e3m4
+  | ["sqrt"] => printResults <| test_unop_multi $ test_sqrt e3m4
+  | ["sub"] => printResults <| test_binop $ test_sub e3m4
+  | ["roundToInt"] => printResults <| test_unop_multi $ test_roundToInt e3m4
   | ["addRat"] =>
       let result ← Fp.ExhaustiveEnumerationRat.testAdd 3 4
       IO.println result.toFormat
