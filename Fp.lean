@@ -11,3 +11,7 @@ import Fp.Sqrt
 import Fp.Subtraction
 import Fp.SmtLibSemantics
 -- import Fp.Proofs
+import Fp.Theorems.Basic
+import Fp.Theorems.Grind
+import Fp.Theorems.SmtLibSemanticsQ
+import Fp.Theorems.UnpackedRound

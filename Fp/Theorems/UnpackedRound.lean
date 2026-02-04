@@ -5,7 +5,7 @@ import Fp.Theorems.SmtLibSemanticsQ
 namespace Fp
 
 theorem round_correct (inf : UnpackedFloat ein sin) (eout sout : Nat) (rm : RoundingMode) :
-    Fp.SmtLibSemantics.SmtLibRoundMethod.smtLibRoundMethod inf eout sout rm =
-      (UnpackedFloat.round inf rm).toExtRat := by sorry
+    Fp.SmtLibSemanticsQ.roundQ ein sin eout sout rm (EUnpackedFloat.mkNumber inf) =
+      (UnpackedFloat.round inf rm).pack := by sorry
 
 end Fp
