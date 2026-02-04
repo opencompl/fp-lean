@@ -1,0 +1,17 @@
+name = "fp-real-theory"
+version = "0.1.0"
+defaultTargets = ["FpRealTheory"]
+moreLeanArgs = ["--tstack=4096"]
+moreGlobalServerArgs = ["--tstack=4096"]
+
+[[lean_lib]]
+name = "FpRealTheory"
+
+[[require]]
+name = "fp-lean"
+path = ".."
+
+[[require]]
+name = "mathlib"
+git = "https://github.com/leanprover-community/mathlib4-nightly-testing"
+rev = "nightly-testing-2026-01-14"
