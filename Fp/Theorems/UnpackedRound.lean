@@ -65,7 +65,6 @@ theorem roundQ_eq_round_of_NaN (eout sout : Nat) (rm : RoundingMode) :
   · simp
   · simp
   · simp
-    sorry
 
 theorem roundQ_eq_round_of_Infinity (sign : Bool) (eout sout : Nat) (rm : RoundingMode) :
     Fp.SmtLibSemanticsQ.roundQ 0 0 eout sout rm (EUnpackedFloat.mkInfinity sign) =

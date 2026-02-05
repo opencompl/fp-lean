@@ -137,6 +137,10 @@ def roundableIsEven_of_packedFloat
   isEven (x : PackedFloat e s) : Bool :=
     x.sig.toNat % 2 == 0
 
+@[simp]
+theorem isEven_roundableIsEven_of_packedFloat (x : PackedFloat e s) :
+  roundableIsEven_of_packedFloat.isEven x = (x.sig.toNat % 2 == 0) := rfl
+
 /-- Roundable predicates allow us to determine if a rational is in the lower half, tie break,
 and also let us check if a value X represents an even number (for RNE). -/
 structure RoundablePredicates (X : Type) (R : Type) extends
@@ -154,6 +158,13 @@ def RoundMethod.rounderForSign {X : Type}
     (sign : Bool) (r : R) : X :=
   if sign then roundMethod.upper r else roundMethod.lower r
 
+@[simp]
+theorem rounderForSign_true_eq_upper {X : Type} (roundMethod : RoundMethod X R) (r : R) :
+  roundMethod.rounderForSign true r = roundMethod.upper r := rfl
+
+@[simp]
+theorem rounderForSign_false_eq_lower {X : Type} (roundMethod : RoundMethod X R) (r : R) :
+  roundMethod.rounderForSign false r = roundMethod.lower r := rfl
 
 section Round
 
@@ -278,6 +289,21 @@ noncomputable def smtLibV [Inhabited X] [ExtendedNumber R] [RoundableEmbed X R] 
   lower := smtLibLower.lower
   upper := smtLibUpper.upper
 
+@[simp]
+theorem smtLibV_embed_eq [Inhabited X]
+  [ExtendedNumber R] [RoundableEmbed X R]
+    : (smtLibV (X := X) (R := R)).embed = RoundableEmbed.embed := rfl
+
+@[simp]
+theorem smtLibV_lower_eq [Inhabited X]
+  [ExtendedNumber R] [RoundableEmbed X R]
+    : (smtLibV (X := X) (R := R)).lower = smtLibLower.lower := rfl
+
+@[simp]
+theorem smtLibV_upper_eq [Inhabited X]
+  [ExtendedNumber R] [RoundableEmbed X R]
+    : (smtLibV (X := X) (R := R)).upper = smtLibUpper.upper := rfl
+
 /--
 The SMT-Lib definition of the rounding methods for any choice of rounding adjunction 'v'.
 -/
@@ -309,12 +335,48 @@ def smtLibRoundMethod {R : Type} (e s : Nat)
     (ves.embed (ves.upper r) < (v.embed (v.upper r)))
   isEven := roundableIsEven_of_packedFloat.isEven
 
+
+@[simp]
+theorem smtLibRoundMethod.lower_eq {R : Type} (e s : Nat)
+    (v : RoundableAdjunction (PackedFloat e s) R)
+    (ves : RoundableAdjunction (PackedFloat e (s + 1)) R)
+    [ExtendedNumber R] :
+  (smtLibRoundMethod e s v ves).lower = v.lower := rfl
+
+@[simp]
+theorem smtLibRoundMethod.upper_eq {R : Type} (e s : Nat)
+    (v : RoundableAdjunction (PackedFloat e s) R)
+    (ves : RoundableAdjunction (PackedFloat e (s + 1)) R)
+    [ExtendedNumber R] :
+  (smtLibRoundMethod e s v ves).upper = v.upper := rfl
+
+@[simp]
+theorem smtLibRoundMethod.embed_eq {R : Type} (e s : Nat)
+    (v : RoundableAdjunction (PackedFloat e s) R)
+    (ves : RoundableAdjunction (PackedFloat e (s + 1)) R)
+    [ExtendedNumber R] :
+  (smtLibRoundMethod e s v ves).embed = v.embed := rfl
+
+theorem smtLibRoundMethod.lowerHalf_eq {R : Type} (e s : Nat)
+    (v : RoundableAdjunction (PackedFloat e s) R)
+    (ves : RoundableAdjunction (PackedFloat e (s + 1)) R)
+    [ExtendedNumber R] :
+  (smtLibRoundMethod e s v ves).lowerHalf = (fun r => ExtendedNumber.smtLibEq (v.embed (v.lower r))  (ves.embed (ves.lower r))) := rfl
+
+theorem smtLibRoundMethod.tieBreak_eq {R : Type} (e s : Nat)
+    (v : RoundableAdjunction (PackedFloat e s) R)
+    (ves : RoundableAdjunction (PackedFloat e (s + 1)) R)
+    [ExtendedNumber R] :
+  (smtLibRoundMethod e s v ves).tieBreak = (fun r =>
+    (v.embed (v.lower r) < ves.embed (ves.lower r)) =
+    (ves.embed (ves.upper r) < (v.embed (v.upper r)))) := rfl
+
 instance [hExtended : ExtendedNumber R]
     [DecidableRel hExtended.smtLibEq]
     {v : RoundableAdjunction (PackedFloat e s) R}
     {ves : RoundableAdjunction (PackedFloat e (s + 1)) R} :
     DecidablePred ((smtLibRoundMethod e s v ves).lowerHalf) := by
-  simp [smtLibRoundMethod]
+  rw [smtLibRoundMethod]
   infer_instance
 
 instance [hExtended : ExtendedNumber R]
@@ -322,7 +384,7 @@ instance [hExtended : ExtendedNumber R]
     {v : RoundableAdjunction (PackedFloat e s) R}
     {ves : RoundableAdjunction (PackedFloat e (s + 1)) R} :
     DecidablePred ((smtLibRoundMethod e s v ves).tieBreak) := by
-  simp [smtLibRoundMethod]
+  rw [smtLibRoundMethod]
   infer_instance
 
 -- end SmtLibRoundMethod
