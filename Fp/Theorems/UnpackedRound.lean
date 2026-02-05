@@ -5,12 +5,22 @@ import Fp.Multiplication
 
 namespace Fp
 
+@[simp]
+theorem roundQ_eq (ein sin eout sout : Nat) (rm : RoundingMode) (euf : EUnpackedFloat ein sin):
+    Fp.SmtLibSemanticsQ.roundQ ein sin eout sout rm euf =
+    (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round rm euf.sign
+    euf.toExtRat := by
+  simp [SmtLibSemanticsQ.roundQ]
+
 theorem roundQ_eq_round_of_UnpackedFloat (inf : UnpackedFloat ein sin) (eout sout : Nat) (rm : RoundingMode) :
     Fp.SmtLibSemanticsQ.roundQ ein sin eout sout rm (EUnpackedFloat.mkNumber inf) =
       (UnpackedFloat.round inf rm).pack := by sorry
 
 theorem roundQ_eq_round_of_NaN (eout sout : Nat) (rm : RoundingMode) :
-    Fp.SmtLibSemanticsQ.roundQ 0 0 eout sout rm (EUnpackedFloat.mkNaN) = PackedFloat.mkNaN := by sorry
+    Fp.SmtLibSemanticsQ.roundQ 0 0 eout sout rm (EUnpackedFloat.mkNaN) = PackedFloat.mkNaN := by
+  simp
+  sorry
+  -- rcases rm <;> simp [SmtLibSemantics.RoundMethod.round]
 
 theorem roundQ_eq_round_of_Infinity (sign : Bool) (eout sout : Nat) (rm : RoundingMode) :
     Fp.SmtLibSemanticsQ.roundQ 0 0 eout sout rm (EUnpackedFloat.mkInfinity sign) =

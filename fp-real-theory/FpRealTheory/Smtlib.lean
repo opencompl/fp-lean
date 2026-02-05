@@ -159,9 +159,7 @@ instance : RoundableEmbed (PackedFloat e s) ExtReal where
 end ExtReal
 
 noncomputable def smtLibRealRounder : RoundMethod (PackedFloat e s) ExtReal :=
-   SmtLibRoundMethod.smtLibRoundMethod e s
-      SmtLibRoundMethod.smtLibV
-      SmtLibRoundMethod.smtLibV
+   smtLibRoundMethod e s smtLibV smtLibV
 
 namespace RealSemantics
 open Classical
