@@ -19,8 +19,17 @@ theorem roundQ_eq_round_of_UnpackedFloat (inf : UnpackedFloat ein sin) (eout sou
 theorem roundQ_eq_round_of_NaN (eout sout : Nat) (rm : RoundingMode) :
     Fp.SmtLibSemanticsQ.roundQ 0 0 eout sout rm (EUnpackedFloat.mkNaN) = PackedFloat.mkNaN := by
   simp
-  sorry
-  -- rcases rm <;> simp [SmtLibSemantics.RoundMethod.round]
+  rcases rm
+  · simp
+    sorry
+  · simp
+    sorry
+  · simp
+    sorry
+  · simp
+    sorry
+  · simp
+    sorry
 
 theorem roundQ_eq_round_of_Infinity (sign : Bool) (eout sout : Nat) (rm : RoundingMode) :
     Fp.SmtLibSemanticsQ.roundQ 0 0 eout sout rm (EUnpackedFloat.mkInfinity sign) =

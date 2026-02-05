@@ -153,18 +153,22 @@ def RoundMethod.rounderForSign {X : Type}
     (sign : Bool) (r : R) : X :=
   if sign then roundMethod.upper r else roundMethod.lower r
 
-open  ExtendedNumber in
-/-- define the rounding function for a given choice of 'RoundMethod'. -/
-def RoundMethod.round {e s R} (roundMethod : RoundMethod (PackedFloat e s) R) [inst : ExtendedNumber R]
+
+section Round
+
+variable
+    {e s R} (roundMethod : RoundMethod (PackedFloat e s) R) [inst : ExtendedNumber R]
     [DecidablePred inst.isZero]
     [DecidablePred inst.isNaN]
     [DecidablePred roundMethod.lowerHalf]
     [DecidablePred roundMethod.tieBreak]
     [DecidablePred inst.gtZero]
     [DecidablePred inst.ltZero]
-    (rm : RoundingMode) (sign : Bool) (r : R) : PackedFloat e s :=
-  match rm with
-  | .RNE =>
+    (rm : RoundingMode) (sign : Bool) (r : R)
+
+open ExtendedNumber
+
+def RoundMethod.roundRNE : PackedFloat e s :=
       if isNaN r then roundMethod.lower r
       else if isZero r then roundMethod.rounderForSign sign r
       else if ¬ (isZero r) ∧ roundMethod.lowerHalf r then roundMethod.lower r
@@ -172,24 +176,65 @@ def RoundMethod.round {e s R} (roundMethod : RoundMethod (PackedFloat e s) R) [i
       else if ¬ (isZero r) ∧ roundMethod.tieBreak r ∧ roundMethod.isEven (roundMethod.upper r) then roundMethod.upper r
       else if ¬ (isZero r) ∧ !roundMethod.lowerHalf r ∧ !roundMethod.tieBreak r then roundMethod.upper r
       else .mkNaN -- does not occur.
-  | .RNA =>
-      if gtZero r ∧ ¬ (roundMethod.lowerHalf r) then roundMethod.upper r
-      else if gtZero r ∧ (roundMethod.lowerHalf r) then roundMethod.lower r
+
+def RoundMethod.roundRNA : PackedFloat e s :=
+      if isNaN r then roundMethod.lower r
       else if isZero r then roundMethod.rounderForSign sign r
-      else if isNaN r then roundMethod.lower r
-      else if ltZero r ∧ ¬ (roundMethod.lowerHalf r) ∧ ¬ (roundMethod.tieBreak r) then roundMethod.upper r
-      else if ltZero r ∧ ((roundMethod.lowerHalf r) ∨ (roundMethod.tieBreak r)) then roundMethod.lower r
+      else if ¬ (isZero r) ∧ roundMethod.lowerHalf r then roundMethod.upper r
+      else if ¬ (isZero r) ∧ roundMethod.tieBreak r ∧ roundMethod.isEven (roundMethod.lower r) then roundMethod.lower r
+      else if ¬ (isZero r) ∧ roundMethod.tieBreak r ∧ roundMethod.isEven (roundMethod.upper r) then roundMethod.upper r
+      else if ¬ (isZero r) ∧ !roundMethod.lowerHalf r ∧ !roundMethod.tieBreak r then roundMethod.lower r
       else .mkNaN -- does not occur.
-   | .RTP =>
-      if isZero r then roundMethod.rounderForSign sign r
-      else roundMethod.upper r
-   | .RTN =>
-      if isZero r then roundMethod.rounderForSign sign r
-      else roundMethod.lower r
-   | .RTZ =>
-      if gtZero r then roundMethod.lower r
+
+def RoundMethod.roundRTP : PackedFloat e s :=
+      if isNaN r then roundMethod.lower r
       else if isZero r then roundMethod.rounderForSign sign r
-      else roundMethod.upper r
+      else if ¬ (isZero r) ∧ (gtZero r) then roundMethod.upper r
+      else if ¬ (isZero r) ∧ (ltZero r) then roundMethod.rounderForSign sign r
+      else .mkNaN -- does not occur.
+
+
+def RoundMethod.roundRTN : PackedFloat e s :=
+  if isZero r then roundMethod.rounderForSign sign r
+  else roundMethod.lower r
+
+def RoundMethod.roundRTZ : PackedFloat e s :=
+  if isZero r then roundMethod.rounderForSign sign r
+  else if gtZero r then roundMethod.lower r
+  else if ltZero r then roundMethod.upper r
+  else .mkNaN -- does not occur.
+
+
+/-- define the rounding function for a given choice of 'RoundMethod'. -/
+def RoundMethod.round : PackedFloat e s :=
+  match rm with
+  | .RNE => roundMethod.roundRNE sign r
+  | .RNA => roundMethod.roundRNA sign r
+  | .RTP => roundMethod.roundRTP sign r
+  | .RTN => roundMethod.roundRTN sign r
+  | .RTZ => roundMethod.roundRTZ sign r
+
+@[simp]
+theorem RoundMethod.round_RNE_eq : roundMethod.round .RNE sign r = roundMethod.roundRNE sign r := by
+  simp [RoundMethod.round]
+
+@[simp]
+theorem RoundMethod.round_RNA_eq : roundMethod.round .RNA sign r = roundMethod.roundRNA sign r := by
+  simp [RoundMethod.round]
+
+@[simp]
+theorem RoundMethod.round_RTP_eq : roundMethod.round .RTP sign r = roundMethod.roundRTP sign r := by
+  simp [RoundMethod.round]
+
+@[simp]
+theorem RoundMethod.round_RTN_eq : roundMethod.round .RTN sign r = roundMethod.roundRTN sign r := by
+  simp [RoundMethod.round]
+
+@[simp]
+theorem RoundMethod.round_RTZ_eq : roundMethod.round .RTZ sign r = roundMethod.roundRTZ sign r := by
+  simp [RoundMethod.round]
+
+end Round
 
 -- namespace SmtLibRoundMethod
 
