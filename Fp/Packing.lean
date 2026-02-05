@@ -70,6 +70,11 @@ theorem EUnpackedFloat.mkInfinity_pack_eq_getInfinity (sign : Bool) :
     (EUnpackedFloat.mkInfinity sign).pack = PackedFloat.getInfinity e s sign := by
   simp [pack, PackedFloat.getInfinity]
 
+@[simp]
+theorem EUnpackedFloat.mkZero_pack_eq_getZero (sign : Bool) :
+    (EUnpackedFloat.mkZero sign).pack = PackedFloat.getZero e s sign := by
+  simp [pack, PackedFloat.getZero]
+
 @[simp, grind! .]
 theorem PackedFloat.unpack_getInfinity_eq_infinity {sign : Bool}  (hs : 0 < s) :
     (PackedFloat.getInfinity e s sign).unpack = EUnpackedFloat.mkInfinity sign := by

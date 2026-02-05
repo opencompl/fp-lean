@@ -1096,14 +1096,17 @@ section NanBehaviour
 
 /-# Table 1 of SMT-LIB spec -/
 
+@[simp]
 theorem NaN_add (x : ExtRat) : (.NaN + x) = .NaN := by
   rw [← ExtRat.add_def, ExtRat.add]
 
+@[simp]
 theorem add_NaN (x : ExtRat) : (x + .NaN) = ExtRat.NaN := by
   rw [← ExtRat.add_def]
   unfold ExtRat.add
   grind [ExtRat]
 
+@[simp]
 theorem neg_NaN : -ExtRat.NaN = ExtRat.NaN := by
   rw [← ExtRat.neg_def, ExtRat.neg]
 
@@ -1322,6 +1325,30 @@ theorem mul_inf_eq_neg_inf_of_lt (x : ExtRat)
       beq_eq_false_iff_ne, ne_eq] at hxZero
     simp only [hxZero, ↓reduceIte, Infinity.injEq, decide_eq_true_eq]
     grind
+
+@[simp]
+theorem number_mul_number_eq : ExtRat.Number r1 * ExtRat.Number r2 = ExtRat.Number (r1 * r2) := by
+  rw [← ExtRat.mul_def]
+  unfold ExtRat.mul
+  grind
+
+@[simp]
+theorem zero_mul_inf_eq : ExtRat.Number 0 * ExtRat.Infinity sign = ExtRat.NaN := by
+  rw [← ExtRat.mul_def]
+  unfold ExtRat.mul
+  grind
+
+@[simp]
+theorem inf_mul_zero_eq : ExtRat.Infinity sign * ExtRat.Number 0 = ExtRat.NaN := by
+  rw [← ExtRat.mul_def]
+  unfold ExtRat.mul
+  grind
+
+@[simp]
+theorem zero_mul_zero_eq_zero : ExtRat.Number 0 * ExtRat.Number 0 = ExtRat.Number 0 := by
+  rw [← ExtRat.mul_def]
+  unfold ExtRat.mul
+  grind
 
 @[simp]
 theorem zero_inv_eq_inf : (ExtRat.Number 0).inv = ExtRat.Infinity false := by
@@ -1633,12 +1660,32 @@ def mkZero (sign : Bool) : EUnpackedFloat e s :=
   }
 
 @[simp]
+theorem mkZero_sign {e s} (sign : Bool) : (mkZero sign : EUnpackedFloat e s).sign = sign := by
+  simp [mkZero, EUnpackedFloat.sign, UnpackedFloat.mkZero]
+
+@[simp]
+theorem mkZero_num_sign {e s} (sign : Bool) : (mkZero sign : EUnpackedFloat e s).num.sign = sign := by
+  simp [mkZero, UnpackedFloat.mkZero]
+
+@[simp]
 theorem isZero_mkZero {e s} (sign : Bool) : isZero (mkZero sign : EUnpackedFloat e s) = true := by
   simp [isZero, mkZero, UnpackedFloat.mkZero, isNumber, UnpackedFloat.isZero]
 
 @[simp]
 theorem isZero_mkInfinity {e s} (sign : Bool) : isZero (mkInfinity sign : EUnpackedFloat e s) = false := by
   simp [isZero, mkInfinity, isNumber, mkInfinity]
+
+@[simp]
+theorem isNaN_mkZero {e s} (sign : Bool) : isNaN (EUnpackedFloat.mkZero sign : EUnpackedFloat e s) = false := by
+  simp [isNaN, mkZero]
+
+@[simp]
+theorem isInfinite_mkZero {e s} (sign : Bool) : isInfinite (EUnpackedFloat.mkZero sign : EUnpackedFloat e s) = false := by
+  simp [isInfinite, mkZero]
+
+@[simp]
+theorem isNumber_mkZero {e s} (sign : Bool) : isNumber (mkZero sign : EUnpackedFloat e s) = true := by
+  simp [mkZero, UnpackedFloat.mkZero, isNumber]
 
 @[bv_normalize]
 def normalize (uf : EUnpackedFloat e s) : EUnpackedFloat e s :=

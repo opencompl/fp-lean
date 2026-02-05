@@ -55,7 +55,7 @@ theorem rountRTZ_mkNaN (eout sout : Nat) (sign : Bool) :
 
 
 @[simp]
-theorem roundQ_eq_round_of_NaN {sign} {eout sout : Nat} {rm : RoundingMode} :
+theorem round_eq_mkNaN_of_NaN {sign} {eout sout : Nat} {rm : RoundingMode} :
     (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round
         rm sign ExtRat.NaN = PackedFloat.mkNaN := by
   rcases rm
@@ -64,6 +64,12 @@ theorem roundQ_eq_round_of_NaN {sign} {eout sout : Nat} {rm : RoundingMode} :
   · simp
   · simp
   · simp
+
+@[simp]
+theorem round_eq_mkZero_of_mkZero {zeroSign : Bool} {eout sout : Nat} {rm : RoundingMode} :
+    (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round
+        rm zeroSign (ExtRat.Number 0) = PackedFloat.getZero eout sout zeroSign := by
+  rcases rm <;> sorry
 
 theorem roundQ_eq_round_of_UnpackedFloat (inf : UnpackedFloat ein sin) (eout sout : Nat) (rm : RoundingMode) :
     (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round rm sign
@@ -121,7 +127,7 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
   cases a using PackedFloat.kindCasesNaNInfZeroNum
   case nanCase hnan =>
     simp [hnan]
-    rw [roundQ_eq_round_of_NaN]
+    rw [round_eq_mkNaN_of_NaN]
   case infCase signa =>
     -- simp [hsin]
     -- rw [PackedFloat.unpack_getInfinity_eq_infinity hsin]
@@ -133,16 +139,47 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
     case nanCase hb =>
       simp [hb]
       -- | why does this not apply automatically?
-      rw [roundQ_eq_round_of_NaN]
+      rw [round_eq_mkNaN_of_NaN]
     case infCase signb =>
       simp [hsin]
       rw [roundQ_eq_round_of_Infinity] -- TODO: this should just 'simp'
     case zeroCase signb =>
       simp [he]
-      rw [roundQ_eq_round_of_NaN] -- TODO: this probably suffers due to TC instantiation :(
+      rw [round_eq_mkNaN_of_NaN] -- TODO: this probably suffers due to TC instantiation :(
+    case numCase hb =>
+      -- TODO: prove a theorem that says that 'isNumber -> ∃ r such that b.toExtRat' = Number r'.
+      -- Use that to simplify the value.
+      -- simp [he, hsin]
+      sorry
+  case zeroCase sign =>
+    simp [he]
+    cases b using PackedFloat.kindCasesNaNInfZeroNum
+    case nanCase hb =>
+      simp [hb]
+      rw [round_eq_mkNaN_of_NaN]
+    case infCase signb =>
+      simp [hsin]
+      rw [round_eq_mkNaN_of_NaN] -- TODO: this probably suffers due to TC instantiation :(
+    case zeroCase signb =>
+      simp [he]
+      rw [round_eq_mkZero_of_mkZero]
+      simp [SmtLibSemantics.SmtLibFunctions.xorSign]
+    case numCase hb =>
+      -- TODO: prove a theorem that says that 'isNumber -> ∃ r such that b.toExtRat' = Number r'.
+      -- Use that to simplify the value.
+      sorry
+  case numCase ha =>
+    -- interesting case, when a is a number.
+    cases b using PackedFloat.kindCasesNaNInfZeroNum
+    case nanCase hb =>
+      simp [hb]
+      rw [round_eq_mkNaN_of_NaN]
+    case infCase signb =>
+      simp [hsin]
+      sorry
+    case zeroCase signb =>
+      simp [he]
+      sorry
     case numCase hb =>
       sorry
-
-  case zeroCase sign => sorry
-  case numCase a => sorry
 end Fp
