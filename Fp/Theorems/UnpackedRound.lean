@@ -75,6 +75,10 @@ Example theorem we will prove, using our proof strategy of proving against the S
 -/
 theorem mul_eq_mul (eout sout : Nat) (rm : RoundingMode) (a b : PackedFloat ein sin) :
   Fp.SmtLibSemantics.SmtLibFunctions.mul (Fp.SmtLibSemanticsQ.smtLibRoundMethodQ ein sin)
-    rm a b = PackedFloat.mul rm a b
-     := by sorry
+    rm a b = PackedFloat.mul rm a b := by
+  simp [SmtLibSemantics.SmtLibFunctions.mul]
+  rw [PackedFloat.mul, EUnpackedFloat.mul]
+  -- need principle to do case splitting on the different cases.
+  sorry
+
 end Fp
