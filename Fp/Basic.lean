@@ -521,7 +521,7 @@ theorem eq_mkZero_of_isZero {pf : PackedFloat e s} :
   rcases pf with ⟨sign, ex, sig⟩
   simp_all
 
-@[simp]
+@[simp, grind .]
 theorem isZero_getZero {exWidth sigWidth : Nat} (sign : Bool) (he : 0 < exWidth):
     (PackedFloat.getZero exWidth sigWidth sign).isZero = true := by
   simp [PackedFloat.getZero, isZero]
@@ -764,6 +764,21 @@ theorem expWidth_ge_two_of_isNorm {pf : PackedFloat e s} :
     pf.isNorm → e ≥ 2 := by
   grind [isNorm]
 
+
+@[simp]
+theorem isNaN_getNaN {e s : Nat}  :
+    (PackedFloat.getNaN e s).isNaN = true := by
+  simp [getNaN, isNaN]
+  by_cases hs : s = 0
+  · simp [hs]
+  · simp [hs]
+    intros hcontra
+    have := BitVec.toNat_inj.mpr hcontra
+    simp at this
+    rw [Nat.mod_eq_of_lt] at this
+    · have : 0 < 2 ^ (s - 1) := by exact Nat.two_pow_pos (s - 1)
+      grind
+    · apply Nat.pow_lt_pow_of_lt <;> grind
 
 /--
 Returns the `PackedFloat` representation for the given `BitVec`.
@@ -1565,6 +1580,10 @@ theorem eq_of_mkInfinity_eq_mkInfinity {e s} (sign1 sign2 : Bool) :
 
 @[simp]
 theorem sign_num_mkInfinity (sign : Bool) : (mkInfinity sign : EUnpackedFloat e s).num.sign = sign := rfl
+
+@[simp]
+theorem sign_mkInfinity (sign : Bool) : (mkInfinity sign : EUnpackedFloat e s).sign = sign := by
+  simp [EUnpackedFloat.sign, mkInfinity]
 
 @[bv_normalize]
 def mkNumber (num : UnpackedFloat e s) : EUnpackedFloat e s :=

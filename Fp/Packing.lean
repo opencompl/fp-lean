@@ -65,6 +65,11 @@ theorem PackedFloat.unpack_eq_NaN_of_isNaN (pf : PackedFloat e s) (hpf : pf.isNa
 theorem EUnpackedFloat.mkNaN_pack_eq_mkNaN : (EUnpackedFloat.mkNaN : EUnpackedFloat _ _).pack =
   (PackedFloat.mkNaN : PackedFloat e s) := rfl
 
+@[simp]
+theorem EUnpackedFloat.mkInfinity_pack_eq_getInfinity (sign : Bool) :
+    (EUnpackedFloat.mkInfinity sign).pack = PackedFloat.getInfinity e s sign := by
+  simp [pack, PackedFloat.getInfinity]
+
 @[simp, grind! .]
 theorem PackedFloat.unpack_getInfinity_eq_infinity {sign : Bool}  (hs : 0 < s) :
     (PackedFloat.getInfinity e s sign).unpack = EUnpackedFloat.mkInfinity sign := by
@@ -72,6 +77,24 @@ theorem PackedFloat.unpack_getInfinity_eq_infinity {sign : Bool}  (hs : 0 < s) :
   have : (getInfinity e s sign).isNaN = false := by grind
   simp [this]
   have : (getInfinity e s sign).isInfinite = true := by grind
+  simp [this]
+
+@[simp]
+theorem PackedFloat.unpack_eq_mkZero_of_isZero (pf : PackedFloat e s) (hpf : pf.isZero) :
+    pf.unpack = EUnpackedFloat.mkZero pf.sign := by
+  simp [PackedFloat.unpack, hpf]
+  grind
+
+theorem PackedFloat.unpack_getZero_eq_mkZero {sign : Bool} (he : 0 < e):
+    (PackedFloat.getZero e s sign).unpack = EUnpackedFloat.mkZero sign := by
+  have : (getZero e s sign).isZero = true := by
+    exact isZero_getZero sign he
+  simp [PackedFloat.unpack]
+  have : (getZero e s sign).isNaN = false := by grind
+  simp [this]
+  have : (getZero e s sign).isInfinite = false := by grind
+  simp [this]
+  have : (getZero e s sign).isZero = true := by grind
   simp [this]
 
 private theorem PackedFloat.isInfinite_pack_unpack_example (pf : PackedFloat 5 10) (hpf : pf.unpack.isInfinite) :

@@ -55,8 +55,9 @@ theorem rountRTZ_mkNaN (eout sout : Nat) (sign : Bool) :
 
 
 @[simp]
-theorem roundQ_eq_round_of_NaN {sign} (eout sout : Nat) (rm : RoundingMode) :
-    (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round rm sign ExtRat.NaN = PackedFloat.mkNaN := by
+theorem roundQ_eq_round_of_NaN {sign} {eout sout : Nat} {rm : RoundingMode} :
+    (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round
+        rm sign ExtRat.NaN = PackedFloat.mkNaN := by
   rcases rm
   · simp
   · simp
@@ -101,6 +102,7 @@ theorem PackedFloat.kindCasesNaNInfZeroNum {P : PackedFloat e s → Prop}
           · grind
           · grind
 
+@[grind <=]
 theorem PackedFloat.eq_of_unpack_eq_unpack_of_isInfinity {x y : PackedFloat e s}
     (hs : 0 < s) (he : 0 < e)
     (hx : x.isInfinite) (hy : y.isInfinite) (h : x.unpack = y.unpack) :
@@ -110,7 +112,7 @@ theorem PackedFloat.eq_of_unpack_eq_unpack_of_isInfinity {x y : PackedFloat e s}
 /--
 Example theorem we will prove, using our proof strategy of proving against the SMT-Lib semantics.
 -/
-theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin)
+theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
     (eout sout : Nat) (rm : RoundingMode) (a b : PackedFloat ein sin) :
     Fp.SmtLibSemantics.SmtLibFunctions.mul (Fp.SmtLibSemanticsQ.smtLibRoundMethodQ ein sin)
     rm a b = PackedFloat.mul rm a b := by
@@ -134,12 +136,10 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin)
       rw [roundQ_eq_round_of_NaN]
     case infCase signb =>
       simp [hsin]
-      -- simp
       rw [roundQ_eq_round_of_Infinity] -- TODO: this should just 'simp'
-      -- easier to reason on unpacked float, so show that x.unpack = y.unpack => x = y for infinity.
-      sorry
     case zeroCase signb =>
-      sorry
+      simp [he]
+      rw [roundQ_eq_round_of_NaN] -- TODO: this probably suffers due to TC instantiation :(
     case numCase hb =>
       sorry
 
