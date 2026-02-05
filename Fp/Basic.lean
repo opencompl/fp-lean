@@ -562,89 +562,110 @@ theorem isNormOrSubnorm_eq_isNorm_or_isSubnorm (pf : PackedFloat e s) :
 
 -- Theorems about classification
 
-theorem classification_exhaustive {pf : PackedFloat e s} :
+theorem classification_exhaustive (pf : PackedFloat e s) :
     pf.isNaN || pf.isInfinite || pf.isZero || pf.isNonzeroSubnorm || pf.isNorm := by
   grind [isNaN, isInfinite, isZero, isNonzeroSubnorm, isNorm]
 
+@[grind →]
 theorem not_isInfinite_of_isNaN {pf : PackedFloat e s} :
     pf.isNaN → !pf.isInfinite := by
   grind [isNaN, isInfinite]
 
+@[grind →]
 theorem not_isZero_of_isNaN {pf : PackedFloat e s} :
     pf.isNaN → !pf.isZero := by
   grind [isNaN, isZero, BitVec.allOnes_ne_zero]
 
+@[grind →]
 theorem not_isSubnorm_of_isNaN {pf : PackedFloat e s} :
     pf.isNaN → !pf.isNonzeroSubnorm := by
   grind [isNaN, isNonzeroSubnorm, BitVec.allOnes_ne_zero]
 
+@[grind →]
 theorem not_isNorm_of_isNaN {pf : PackedFloat e s} :
     pf.isNaN → !pf.isNorm := by
   grind [isNaN, isNorm]
 
+@[grind →]
 theorem not_isNaN_of_isInfinite {pf : PackedFloat e s} :
     pf.isInfinite → !pf.isNaN := by
   grind [isNaN, isInfinite]
 
+@[grind →]
 theorem not_isZero_of_isInfinite {pf : PackedFloat e s} :
     pf.isInfinite → !pf.isZero := by
   grind [isInfinite, isZero, BitVec.allOnes_ne_zero]
 
+@[grind →]
 theorem not_isSubnorm_of_isInfinite {pf : PackedFloat e s} :
     pf.isInfinite → !pf.isNonzeroSubnorm := by
   grind [isInfinite, isNonzeroSubnorm]
 
+@[grind →]
 theorem not_isNorm_of_isInfinite {pf : PackedFloat e s} :
     pf.isInfinite → !pf.isNorm := by
   grind [isInfinite, isNorm]
 
+@[grind →]
 theorem not_isNaN_of_isZero {pf : PackedFloat e s} :
     pf.isZero → !pf.isNaN := by
   grind [isNaN, isZero, BitVec.allOnes_ne_zero]
 
+@[grind →]
 theorem not_isInfinite_of_isZero {pf : PackedFloat e s} :
     pf.isZero → !pf.isInfinite := by
   grind [isInfinite, isZero, BitVec.allOnes_ne_zero]
 
+@[grind →]
 theorem not_isSubnorm_of_isZero {pf : PackedFloat e s} :
     pf.isZero → !pf.isNonzeroSubnorm := by
   grind [isNonzeroSubnorm, isZero]
 
+@[grind →]
 theorem not_isNorm_of_isZero {pf : PackedFloat e s} :
     pf.isZero → !pf.isNorm := by
   grind [isZero, isNorm]
 
+@[grind →]
 theorem not_isNaN_of_isSubnorm {pf : PackedFloat e s} :
     pf.isNonzeroSubnorm → !pf.isNaN := by
   grind [isNaN, isNonzeroSubnorm, BitVec.allOnes_ne_zero]
 
+@[grind →]
 theorem not_isInfinite_of_isSubnorm {pf : PackedFloat e s} :
     pf.isNonzeroSubnorm → !pf.isInfinite := by
   grind [isInfinite, isNonzeroSubnorm]
 
+@[grind →]
 theorem not_isZero_of_isSubnorm {pf : PackedFloat e s} :
     pf.isNonzeroSubnorm → !pf.isZero := by
   grind [isNonzeroSubnorm, isZero]
 
+@[grind →]
 theorem not_isNorm_of_isSubnorm {pf : PackedFloat e s} :
     pf.isNonzeroSubnorm → !pf.isNorm := by
   grind [isNonzeroSubnorm, isNorm]
 
+@[grind →]
 theorem not_isNaN_of_isNorm {pf : PackedFloat e s} :
     pf.isNorm → !pf.isNaN := by
   grind [isNaN, isNorm]
 
+@[grind →]
 theorem not_isInfinite_of_isNorm {pf : PackedFloat e s} :
     pf.isNorm → !pf.isInfinite := by
   grind [isInfinite, isNorm]
 
+@[grind →]
 theorem not_isZero_of_isNorm {pf : PackedFloat e s} :
     pf.isNorm → !pf.isZero := by
   grind [isZero, isNorm]
 
+@[grind →]
 theorem not_isSubnorm_of_isNorm {pf : PackedFloat e s} :
     pf.isNorm → !pf.isNonzeroSubnorm := by
   grind [isNonzeroSubnorm, isNorm]
+
 
 theorem sigWidth_ge_one_of_isInfinite {pf : PackedFloat e s} :
     pf.isInfinite → s ≥ 1 := by
@@ -654,11 +675,11 @@ theorem expWidth_ge_one_of_isZero {pf : PackedFloat e s} :
     pf.isZero → e ≥ 1 := by
   grind [isZero]
 
-theorem expWidth_ge_one_of_isSubnorm {pf : PackedFloat e s} :
+theorem expWidth_ge_one_of_isNonzeroSubnorm {pf : PackedFloat e s} :
     pf.isNonzeroSubnorm → e ≥ 1 := by
   grind [isNonzeroSubnorm]
 
-theorem sigWidth_ge_one_of_isSubnorm {pf : PackedFloat e s} :
+theorem sigWidth_ge_one_of_isNonzeroSubnorm {pf : PackedFloat e s} :
     pf.isNonzeroSubnorm → s ≥ 1 := by
   grind [isNonzeroSubnorm]
 
@@ -1267,6 +1288,17 @@ def toExtDyadic (pf : PackedFloat e s) : ExtDyadic :=
     let sig := bif pf.sign then -sig else sig
     .Number (.ofIntWithPrec sig.toInt (bias e - 1 + s : Nat))
 
+@[simp]
+theorem toExtDyadic_eq_NaN_of_isNaN (pf : PackedFloat e s) (hp : pf.isNaN) :
+    pf.toExtDyadic = .NaN := by
+  simp [toExtDyadic, hp]
+
+@[simp]
+theorem toExtDyadic_eq_Infinity_of_isInfinite (pf : PackedFloat e s) (hp : pf.isInfinite) :
+    pf.toExtDyadic = .Infinity pf.sign := by
+  simp only [toExtDyadic, hp, BitVec.setWidth'_eq, Int.natCast_add, cond_true]
+  grind [not_isNaN_of_isInfinite]
+
 def toExtRat (pf : PackedFloat e s) : ExtRat :=
   pf.toExtDyadic.toExtRat
 
@@ -1282,6 +1314,24 @@ def toExtRat' (pf : PackedFloat e s) : ExtRat :=
   else
     -- `-(bias e - 1)` is slightly different from SMT-LIB standard `1 - bias e` to allow `e = 1`.
     .Number (pf.sign.toSign * (0 + pf.sig.toNat / 2 ^ s) * 2 ^ (-(bias e - 1 : Nat) : Int))
+
+@[simp]
+theorem toExtRat'_eq_NaN_of_isNaN (pf : PackedFloat e s) (hp : pf.isNaN) :
+    pf.toExtRat' = .NaN := by
+  simp [toExtRat', hp]
+
+@[simp]
+theorem toExtRat'_eq_Infinity_of_isInfinite (pf : PackedFloat e s) (hp : pf.isInfinite) :
+    pf.toExtRat' = .Infinity pf.sign := by
+  rw [toExtRat', hp]
+  grind [not_isNaN_of_isInfinite]
+
+
+@[simp]
+theorem toExtRat'_eq_zero_of_isZero (pf : PackedFloat e s) (hp : pf.isZero) :
+    pf.toExtRat' = .Number 0 := by
+  rw [toExtRat']
+  grind
 
 end PackedFloat
 

@@ -191,7 +191,7 @@ theorem toRat_normalize_eq_toRat {uf : UnpackedFloat e s}
   (hse : s - 1 < 2 ^ (e - 1))
   (hex : !uf.ex.ssubOverflow (BitVec.setWidth e uf.sig.clz))
   : uf.normalize.toRat = uf.toRat := by
-  simp only [normalize, Bool.cond_eq_ite, beq_iff_eq, BitVec.clz_eq_iff_eq_zero]
+  simp only [normalize, Bool.cond_eq_ite, beq_iff_eq]
   split
   · simp_all
   case isFalse h =>
@@ -258,14 +258,16 @@ namespace PackedFloat
 example {x y : α} [Decidable c] (f : α → β) : f (if c then x else y) = if c then f x else f y := by
   exact apply_ite f c x y
 
-theorem sig_ne_zero_of_isSubnorm {pf : PackedFloat e s}
-  : pf.isSubnorm → pf.sig.toNat ≠ 0 := by
-  grind [isSubnorm]
+@[simp]
+theorem sig_ne_zero_of_isNonzeroSubnorm {pf : PackedFloat e s}
+  : pf.isNonzeroSubnorm → pf.sig.toNat ≠ 0 := by
+  grind [isNonzeroSubnorm]
 
 theorem exp_lt_max_of_isNorm {pf : PackedFloat e s}
   : pf.isNorm → pf.ex.toNat < 2 ^ e - 1 := by
   grind [isNorm, BitVec.allOnes, BitVec.ofNatLT_toNat]
 
+@[simp]
 theorem toExtRat_eq_toExtRat' {pf : PackedFloat e s}
   : pf.toExtRat = pf.toExtRat' := by
   cases hNaN : pf.isNaN <;>
@@ -280,8 +282,33 @@ theorem toExtRat_eq_toExtRat' {pf : PackedFloat e s}
   all_goals (cases pf.sign <;> simp only [cond_false, cond_true, Bool.toSign, if_true, Bool.false_eq_true, if_false, Rat.intCast_ofNat, Rat.intCast_neg, Rat.zero_add, Rat.one_mul, Rat.neg_mul])
   all_goals (rewrite [Rat.div_def])
   all_goals (try rewrite [← Rat.zpow_natCast, ← Rat.zpow_neg])
-  -- TODO: complete tedious proof
-  all_goals sorry
+  all_goals (push_cast)
+  · simp only [Int.neg_add]
+    simp only [Rat.zpow_add (q := 2) (hq := by decide)]
+    grind
+  · simp only [Int.neg_add]
+    simp only [Rat.zpow_add (q := 2) (hq := by decide)]
+    grind
+  · simp only [Rat.add_mul]
+    ac_nf
+    simp
+    norm_cast
+    congr 1
+    · simp only [← Rat.zpow_add (q := 2) (hq := by decide)]
+      congr 1
+      grind
+    · rw [Rat.zpow_add (q := 2) (hq := by decide)]
+      grind
+  · simp only [Rat.add_mul]
+    ac_nf
+    simp
+    simp only [← Rat.zpow_add (q := 2) (hq := by decide)]
+    norm_cast
+    congr 2
+    · congr 1
+      grind
+    · rw [Rat.zpow_add (q := 2) (hq := by decide)]
+      grind
 
 theorem bias_fits₁ : -2 ^ (exponentWidth e s - 1) ≤ (bias e : Int) := by
   apply Int.le_trans (b := 0)
@@ -329,10 +356,10 @@ theorem toExtRat_unpack_eq_toExtRat {pf : PackedFloat e s}
             simp only [BitVec.ssubOverflow_eq]
             simp only [Bool.or_eq_false_iff, Bool.and_eq_false_iff, Bool.not_eq_eq_eq_not,
               Bool.not_false]
-            have hSubnorm : pf.isSubnorm = true := by
+            have hSubnorm : pf.isNonzeroSubnorm = true := by
               grind [PackedFloat.classification_exhaustive]
-            have hClz : pf.sig.clz.toNat < s := BitVec.toNat_clz_lt_iff_ne_zero.mpr (sig_ne_zero_of_isSubnorm hSubnorm)
-            have he0 : e > 0 := PackedFloat.expWidth_ge_one_of_isSubnorm hSubnorm
+            have hClz : pf.sig.clz.toNat < s := BitVec.toNat_clz_lt_iff_ne_zero.mpr (sig_ne_zero_of_isNonzeroSubnorm hSubnorm)
+            have he0 : e > 0 := PackedFloat.expWidth_ge_one_of_isNonzeroSubnorm hSubnorm
             constructor
             · left; right
               simp only [BitVec.msb_eq_toNat, BitVec.toNat_setWidth, ge_iff_le,

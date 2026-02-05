@@ -53,26 +53,33 @@ def EUnpackedFloat.pack (uf : EUnpackedFloat (exponentWidth e s) (s + 1))
             (uf.sig >>> shift).truncate s
   }
 
+
 attribute [bv_normalize] BitVec.zero
 
-theorem PackedFloat.isInfinite_pack_unpack (pf : PackedFloat 5 10) (hpf : pf.unpack.isInfinite) :
+@[simp, grind →]
+theorem PackedFloat.unpack_eq_NaN_of_isNaN (pf : PackedFloat e s) (hpf : pf.isNaN) :
+    pf.unpack = EUnpackedFloat.mkNaN := by
+  simp [PackedFloat.unpack, hpf]
+
+private theorem PackedFloat.isInfinite_pack_unpack_example (pf : PackedFloat 5 10) (hpf : pf.unpack.isInfinite) :
     pf.unpack.pack.isInfinite = pf.isInfinite ∧ pf.unpack.pack.sign = pf.sign := by
   bv_decide
 
-theorem PackedFloat.isNaN_pack_unpack (pf : PackedFloat 5 10) :
+
+private theorem PackedFloat.isNaN_pack_unpack_example (pf : PackedFloat 5 10) :
     pf.unpack.pack.isNaN = pf.isNaN := by
   bv_decide
 
-theorem PackedFloat.pack_unpack (pf : PackedFloat 5 10) (hpf : pf.isNormOrNonzeroSubnorm) :
+private theorem PackedFloat.pack_unpack_example (pf : PackedFloat 5 10) (hpf : pf.isNormOrNonzeroSubnorm) :
     pf.unpack.pack = pf := by
   bv_decide
 
 
-theorem PackedFloat.pack_unpack_e0m1 (pf : PackedFloat 0 1) (hpf : pf.isNormOrNonzeroSubnorm) :
+private theorem PackedFloat.pack_unpack_e0m1_example (pf : PackedFloat 0 1) (hpf : pf.isNormOrNonzeroSubnorm) :
     pf.unpack.pack = pf := by
   bv_decide
 
-theorem PackedFloat.pack_unpack_e1m0 (pf : PackedFloat 1 0) (hpf : pf.isNormOrNonzeroSubnorm) :
+private theorem PackedFloat.pack_unpack_e1m0_example (pf : PackedFloat 1 0) (hpf : pf.isNormOrNonzeroSubnorm) :
     pf.unpack.pack = pf := by
   bv_decide
 

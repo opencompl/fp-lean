@@ -2,6 +2,7 @@ import Fp.UnpackedRound
 import Fp.SmtLibSemantics
 import Fp.Theorems.SmtLibSemanticsQ
 import Fp.Multiplication
+import Fp.Theorems.Packing
 
 namespace Fp
 
@@ -104,7 +105,12 @@ theorem mul_eq_mul (eout sout : Nat) (rm : RoundingMode) (a b : PackedFloat ein 
     rm a b = PackedFloat.mul rm a b := by
   simp [SmtLibSemantics.SmtLibFunctions.mul]
   rw [PackedFloat.mul, EUnpackedFloat.mul]
-  -- need principle to do case splitting on the different cases.
-  sorry
+  cases a using PackedFloat.kindCasesNaNInfZeroNum
+  case nanCase hnan =>
+    simp [hnan]
+    sorry
 
+  case infCase sign => sorry
+  case zeroCase sign => sorry
+  case numCase a => sorry
 end Fp
