@@ -521,6 +521,12 @@ theorem eq_mkZero_of_isZero {pf : PackedFloat e s} :
   rcases pf with ⟨sign, ex, sig⟩
   simp_all
 
+@[simp]
+theorem isZero_getZero {exWidth sigWidth : Nat} (sign : Bool) (he : 0 < exWidth):
+    (PackedFloat.getZero exWidth sigWidth sign).isZero = true := by
+  simp [PackedFloat.getZero, isZero]
+  omega
+
 @[bv_normalize]
 def isNonzeroSubnorm (pf : PackedFloat e s) : Bool :=
   e != 0 && pf.ex == .zero e && pf.sig != .zero s
@@ -705,6 +711,11 @@ theorem not_isInfinite_of_isNorm {pf : PackedFloat e s} :
   grind [isInfinite, isNorm]
 
 @[grind →]
+theorem not_isInfinite_of_isNormOrNonzeroSubnorm {pf : PackedFloat e s} :
+    pf.isNormOrNonzeroSubnorm → !pf.isInfinite := by
+  grind [isInfinite, isNormOrNonzeroSubnorm]
+
+@[grind →]
 theorem not_isZero_of_isNorm {pf : PackedFloat e s} :
     pf.isNorm → !pf.isZero := by
   grind [isZero, isNorm]
@@ -720,6 +731,14 @@ theorem isInfinite_getInfinity (e s : Nat) (sign : Bool) (hs : 0 < s := by grind
   simp only [isInfinite, getInfinity, BitVec.ofNat_eq_ofNat, BEq.rfl, BitVec.zero_eq, Bool.and_true,
     Bool.true_and, bne_iff_ne, ne_eq]
   grind
+
+@[simp, grind! .]
+theorem isInfinite_getZero (e s : Nat) (sign : Bool) (he : 0 < e := by grind) :
+    (PackedFloat.getZero e s sign).isInfinite = false := by
+  simp only [isInfinite, getZero, BitVec.zero_eq]
+  suffices ¬ (0 = BitVec.allOnes e) by
+    grind
+  apply zero_ne_allOnes_of_lt he
 
 theorem isNaN_getInfinity_eq_false (sign : Bool) (hs : 0 < s := by grind) :
     (PackedFloat.getInfinity e s sign).isNaN = false := by
@@ -960,7 +979,7 @@ instance : Sub ExtRat where
   sub a b := sub a b
 
 @[simp]
-theorem ExtRat.sub_def {a b : ExtRat} : a.sub b = a - b := rfl
+theorem sub_def {a b : ExtRat} : a.sub b = a - b := rfl
 
 def mul (x y : ExtRat) : ExtRat :=
   match x, y with
@@ -981,7 +1000,7 @@ instance : Mul ExtRat where
   mul a b := mul a b
 
 @[simp]
-theorem ExtRat.mul_def {a b : ExtRat} : a.mul b = a * b := rfl
+theorem mul_def {a b : ExtRat} : a.mul b = a * b := rfl
 
 def inv (x : ExtRat) : ExtRat :=
   match x with
@@ -997,7 +1016,7 @@ def div (x y : ExtRat) : ExtRat :=
 instance : Div ExtRat where
   div a b := div a b
 
-@[simp] theorem ExtRat.div_def {a b : ExtRat} : a.div b = a / b := rfl
+@[simp] theorem div_def {a b : ExtRat} : a.div b = a / b := rfl
 
 def le (x y : ExtRat) : Bool :=
   match x, y with
@@ -1017,7 +1036,7 @@ instance : LE ExtRat where
 
 
 @[simp]
-theorem ExtRat.le_def {a b : ExtRat} : a.le b = (a ≤ b) := rfl
+theorem le_def {a b : ExtRat} : a.le b = (a ≤ b) := rfl
 
 instance {a b : ExtRat}: Decidable (a ≤ b) := by
   simp only [← ExtRat.le_def]
@@ -1040,7 +1059,7 @@ instance : LT ExtRat where
   lt a b := lt a b
 
 @[simp]
-theorem ExtRat.lt_def {a b : ExtRat} : a.lt b = (a < b) := rfl
+theorem lt_def {a b : ExtRat} : a.lt b = (a < b) := rfl
 
 instance {a b : ExtRat }: Decidable (a < b) := by
   simp only [· < ·]
@@ -1051,12 +1070,12 @@ instance : Min ExtRat where
 
 /-- Unfold min into ite. Not a simp lemma, since we may want to rewrite
 with higher level reasoning principles. -/
-theorem ExtRat.min_eq_ite {a b : ExtRat} : min a b = if a ≤ b then a else b := rfl
+theorem min_eq_ite {a b : ExtRat} : min a b = if a ≤ b then a else b := rfl
 
 instance : Max ExtRat where
   max a b := if a ≤ b then b else a
 
-theorem ExtRat.max_eq_ite {a b : ExtRat} : max a b = if a ≤ b then b else a := rfl
+theorem max_eq_ite {a b : ExtRat} : max a b = if a ≤ b then b else a := rfl
 
 section NanBehaviour
 
@@ -1300,7 +1319,6 @@ theorem mul_comm (x y : ExtRat) : x * y = y * x := by
   unfold ExtRat.mul
   grind
 
-
 end InfinityBehaviour
 
 
@@ -1375,6 +1393,15 @@ def toExtRat' (pf : PackedFloat e s) : ExtRat :=
     .Number (pf.sign.toSign * (0 + pf.sig.toNat / 2 ^ s) * 2 ^ (-(bias e - 1 : Nat) : Int))
 
 @[simp]
+theorem toExtRat'_eq_zero_of_isZero (pf : PackedFloat e s) (hp : pf.isZero) :
+    pf.toExtRat' = .Number 0 := by
+  have hnan : pf.isNaN = false := by
+    grind [isNaN, isZero]
+  have hinf : pf.isInfinite = false := by
+    grind [isInfinite, isZero]
+  simp [toExtRat', hp, hnan, hinf]
+
+@[simp]
 theorem toExtRat'_eq_NaN_of_isNaN (pf : PackedFloat e s) (hp : pf.isNaN) :
     pf.toExtRat' = .NaN := by
   simp [toExtRat', hp]
@@ -1385,12 +1412,21 @@ theorem toExtRat'_eq_Infinity_of_isInfinite (pf : PackedFloat e s) (hp : pf.isIn
   rw [toExtRat', hp]
   grind [not_isNaN_of_isInfinite]
 
+@[simp]
+theorem toExtRat'_mkInfinity (sign : Bool) (hs : 0 < s := by grind) :
+    (PackedFloat.getInfinity e s sign).toExtRat' = .Infinity sign := by
+  have : (PackedFloat.getInfinity e s sign).isInfinite = true := by
+    grind
+  simp [hs]
 
 @[simp]
-theorem toExtRat'_eq_zero_of_isZero (pf : PackedFloat e s) (hp : pf.isZero) :
-    pf.toExtRat' = .Number 0 := by
-  rw [toExtRat']
-  grind
+theorem toExtRat'_getZero (sign : Bool) (hs : 0 < s := by grind) :
+    (PackedFloat.getZero e s sign).toExtRat' = .Number 0 := by
+  have : (PackedFloat.getZero e s sign).isZero = true := by
+    sorry
+  simp [this]
+    -- grind
+
 
 end PackedFloat
 
@@ -1522,6 +1558,14 @@ def mkInfinity (sign : Bool) : EUnpackedFloat e s :=
     }
   }
 
+@[simp, grind =]
+theorem eq_of_mkInfinity_eq_mkInfinity {e s} (sign1 sign2 : Bool) :
+    (mkInfinity sign1 : EUnpackedFloat e s) = mkInfinity sign2 ↔ sign1 = sign2 := by
+  simp [mkInfinity]
+
+@[simp]
+theorem sign_num_mkInfinity (sign : Bool) : (mkInfinity sign : EUnpackedFloat e s).num.sign = sign := rfl
+
 @[bv_normalize]
 def mkNumber (num : UnpackedFloat e s) : EUnpackedFloat e s :=
   {
@@ -1533,7 +1577,7 @@ def mkNumber (num : UnpackedFloat e s) : EUnpackedFloat e s :=
 theorem isNaN_mkNaN {e s} : isNaN (EUnpackedFloat.mkNaN : EUnpackedFloat e s)  = true := rfl
 
 @[simp]
-theorem isNaN_mkInfinity {e s} (sign : Bool) : isNaN (mkInfinity sign : EUnpackedFloat e s) = false := by
+theorem isNaN_mkInfinity {e s} {sign : Bool} : isNaN (mkInfinity sign : EUnpackedFloat e s) = false := by
   simp [isNaN, mkInfinity]
 
 @[simp]
@@ -1607,7 +1651,6 @@ theorem toExtRat_mkNan : toExtRat (mkNaN : EUnpackedFloat e s) = .NaN := by
 @[simp]
 theorem toExtRat_mkInfinity (sign : Bool) : toExtRat (mkInfinity sign : EUnpackedFloat e s) = .Infinity sign := by
   simp [toExtRat]
-  grind [mkInfinity]
 
 @[simp]
 theorem toExtRat_mkNumber (num : UnpackedFloat e s) : toExtRat (mkNumber num : EUnpackedFloat e s) = .Number num.toRat := by

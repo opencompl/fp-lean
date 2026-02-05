@@ -55,9 +55,8 @@ theorem rountRTZ_mkNaN (eout sout : Nat) (sign : Bool) :
 
 
 @[simp]
-theorem roundQ_eq_round_of_NaN (eout sout : Nat) (rm : RoundingMode) :
-    (SmtLibSemanticsQ.smtLibRoundMethodQ eout sout).round rm sign .NaN = PackedFloat.mkNaN := by
-  simp
+theorem roundQ_eq_round_of_NaN {sign} (eout sout : Nat) (rm : RoundingMode) :
+    (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round rm sign ExtRat.NaN = PackedFloat.mkNaN := by
   rcases rm
   · simp
   · simp
@@ -66,12 +65,15 @@ theorem roundQ_eq_round_of_NaN (eout sout : Nat) (rm : RoundingMode) :
   · simp
 
 theorem roundQ_eq_round_of_UnpackedFloat (inf : UnpackedFloat ein sin) (eout sout : Nat) (rm : RoundingMode) :
-    (Fp.SmtLibSemanticsQ.smtLibRoundMethodQ eout sout).round rm sign (EUnpackedFloat.mkNumber inf).toExtRat =
+    (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round rm sign
+      (EUnpackedFloat.mkNumber inf).toExtRat =
       (UnpackedFloat.round inf rm).pack := by sorry
 
-theorem roundQ_eq_round_of_Infinity (sign : Bool) (eout sout : Nat) (rm : RoundingMode) :
-    (Fp.SmtLibSemanticsQ.smtLibRoundMethodQ eout sout).round rm sign (EUnpackedFloat.mkInfinity sign (e := ein) (s := sin)).toExtRat =
-      PackedFloat.getInfinity eout sout sign := by sorry
+@[simp]
+theorem roundQ_eq_round_of_Infinity {zeroSign infSign : Bool} {e s : Nat} {rm : RoundingMode} :
+    (SmtLibSemantics.smtLibRoundMethod e s SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round rm zeroSign
+      (ExtRat.Infinity infSign) =
+      PackedFloat.getInfinity e s infSign := by sorry
 
 /--
 Case splitting on the different values a packed float
@@ -99,6 +101,12 @@ theorem PackedFloat.kindCasesNaNInfZeroNum {P : PackedFloat e s → Prop}
           · grind
           · grind
 
+theorem PackedFloat.eq_of_unpack_eq_unpack_of_isInfinity {x y : PackedFloat e s}
+    (hs : 0 < s) (he : 0 < e)
+    (hx : x.isInfinite) (hy : y.isInfinite) (h : x.unpack = y.unpack) :
+    x = y := by
+  cases x using PackedFloat.kindCasesNaNInfZeroNum <;> try grind
+
 /--
 Example theorem we will prove, using our proof strategy of proving against the SMT-Lib semantics.
 -/
@@ -112,12 +120,29 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin)
   case nanCase hnan =>
     simp [hnan]
     rw [roundQ_eq_round_of_NaN]
-  case infCase sign =>
+  case infCase signa =>
     -- simp [hsin]
-    rw [PackedFloat.unpack_getInfinity_eq_infinity hsin]
+    -- rw [PackedFloat.unpack_getInfinity_eq_infinity hsin]
+    simp [hsin]
+    rw [← ExtRat.mul_def]
+    unfold ExtRat.mul
     simp
+    cases b using PackedFloat.kindCasesNaNInfZeroNum
+    case nanCase hb =>
+      simp [hb]
+      -- | why does this not apply automatically?
+      rw [roundQ_eq_round_of_NaN]
+    case infCase signb =>
+      simp [hsin]
+      -- simp
+      rw [roundQ_eq_round_of_Infinity] -- TODO: this should just 'simp'
+      -- easier to reason on unpacked float, so show that x.unpack = y.unpack => x = y for infinity.
+      sorry
+    case zeroCase signb =>
+      sorry
+    case numCase hb =>
+      sorry
 
-    sorry
   case zeroCase sign => sorry
   case numCase a => sorry
 end Fp
