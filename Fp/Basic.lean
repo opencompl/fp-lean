@@ -390,42 +390,90 @@ namespace PackedFloat
 Returns the "canonical" NaN for the given floating point format. For example,
 the canonical NaN for `exWidth = 3` and `sigWidth = 4` is `0.111.1000`.
 -/
-@[simp, bv_normalize]
+@[bv_normalize]
 def getNaN (exWidth sigWidth : Nat) : PackedFloat exWidth sigWidth where
-  sign := False
+  sign := false
   ex := BitVec.allOnes exWidth
   sig := BitVec.ofNat sigWidth (2 ^ (sigWidth - 1))
+
+@[simp]
+theorem sign_getNaN (exWidth sigWidth : Nat) :
+    (PackedFloat.getNaN exWidth sigWidth).sign = false := rfl
+
+@[simp]
+theorem ex_getNaN (exWidth sigWidth : Nat) :
+    (PackedFloat.getNaN exWidth sigWidth).ex = BitVec.allOnes exWidth := rfl
+
+@[simp]
+theorem sig_getNaN (exWidth sigWidth : Nat) :
+    (PackedFloat.getNaN exWidth sigWidth).sig = BitVec.ofNat sigWidth (2 ^ (sigWidth - 1)) := rfl
 
 /--
 Returns the infinity value of the specified sign for the given floating point
 format.
 -/
-@[simp, bv_normalize]
+@[bv_normalize]
 def getInfinity (exWidth sigWidth : Nat) (sign : Bool)
   : PackedFloat exWidth sigWidth where
   sign
   ex := BitVec.allOnes exWidth
   sig := 0
 
+@[simp]
+theorem sign_getInfinity (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.getInfinity exWidth sigWidth sign).sign = sign := rfl
+
+@[simp]
+theorem sig_getInfinity (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.getInfinity exWidth sigWidth sign).sig = 0 := rfl
+
+@[simp]
+theorem ex_getInfinity (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.getInfinity exWidth sigWidth sign).ex = BitVec.allOnes exWidth := rfl
+
 /--
 Returns the (positive) zero value for the given floating point format.
 -/
-@[simp, bv_normalize]
+@[bv_normalize]
 def getZero (exWidth sigWidth : Nat) (sign : Bool)
   : PackedFloat exWidth sigWidth where
   sign := sign
   ex := 0
   sig := 0
 
+@[simp]
+theorem sign_getZero (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.getZero exWidth sigWidth sign).sign = sign := rfl
+
+@[simp]
+theorem sig_getZero (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.getZero exWidth sigWidth sign).sig = 0 := rfl
+
+@[simp]
+theorem ex_getZero (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.getZero exWidth sigWidth sign).ex = 0 := rfl
+
 /--
 Returns the maximum (magnitude) value for the given sign.
 -/
-@[simp, bv_normalize]
+@[bv_normalize]
 def getMax (exWidth sigWidth : Nat) (sign : Bool)
   : PackedFloat exWidth sigWidth where
   sign
   ex := BitVec.allOnes exWidth - 1
   sig := BitVec.allOnes sigWidth
+
+@[simp]
+theorem sign_getMax (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.getMax exWidth sigWidth sign).sign = sign := rfl
+
+@[simp]
+theorem sig_getMax (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.getMax exWidth sigWidth sign).sig = BitVec.allOnes sigWidth := rfl
+
+@[simp]
+theorem ex_getMax (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.getMax exWidth sigWidth sign).ex = BitVec.allOnes exWidth - 1 := rfl
 
 @[bv_normalize]
 theorem injEq (a b : PackedFloat e s)
@@ -666,6 +714,16 @@ theorem not_isSubnorm_of_isNorm {pf : PackedFloat e s} :
     pf.isNorm → !pf.isNonzeroSubnorm := by
   grind [isNonzeroSubnorm, isNorm]
 
+@[simp, grind! .]
+theorem isInfinite_getInfinity (e s : Nat) (sign : Bool) (hs : 0 < s := by grind) :
+    (PackedFloat.getInfinity e s sign).isInfinite = true := by
+  simp only [isInfinite, getInfinity, BitVec.ofNat_eq_ofNat, BEq.rfl, BitVec.zero_eq, Bool.and_true,
+    Bool.true_and, bne_iff_ne, ne_eq]
+  grind
+
+theorem isNaN_getInfinity_eq_false (sign : Bool) (hs : 0 < s := by grind) :
+    (PackedFloat.getInfinity e s sign).isNaN = false := by
+  grind
 
 theorem sigWidth_ge_one_of_isInfinite {pf : PackedFloat e s} :
     pf.isInfinite → s ≥ 1 := by
@@ -686,6 +744,7 @@ theorem sigWidth_ge_one_of_isNonzeroSubnorm {pf : PackedFloat e s} :
 theorem expWidth_ge_two_of_isNorm {pf : PackedFloat e s} :
     pf.isNorm → e ≥ 2 := by
   grind [isNorm]
+
 
 /--
 Returns the `PackedFloat` representation for the given `BitVec`.
@@ -1513,6 +1572,10 @@ def mkZero (sign : Bool) : EUnpackedFloat e s :=
 @[simp]
 theorem isZero_mkZero {e s} (sign : Bool) : isZero (mkZero sign : EUnpackedFloat e s) = true := by
   simp [isZero, mkZero, UnpackedFloat.mkZero, isNumber, UnpackedFloat.isZero]
+
+@[simp]
+theorem isZero_mkInfinity {e s} (sign : Bool) : isZero (mkInfinity sign : EUnpackedFloat e s) = false := by
+  simp [isZero, mkInfinity, isNumber, mkInfinity]
 
 @[bv_normalize]
 def normalize (uf : EUnpackedFloat e s) : EUnpackedFloat e s :=

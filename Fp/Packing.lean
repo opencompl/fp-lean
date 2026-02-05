@@ -61,6 +61,18 @@ theorem PackedFloat.unpack_eq_NaN_of_isNaN (pf : PackedFloat e s) (hpf : pf.isNa
     pf.unpack = EUnpackedFloat.mkNaN := by
   simp [PackedFloat.unpack, hpf]
 
+@[simp]
+theorem EUnpackedFloat.mkNaN_pack_eq_mkNaN : (EUnpackedFloat.mkNaN : EUnpackedFloat _ _).pack =
+  (PackedFloat.mkNaN : PackedFloat e s) := rfl
+
+theorem PackedFloat.unpack_getInfinity_eq_infinity {sign : Bool}  (hs : 0 < s) :
+    (PackedFloat.getInfinity e s sign).unpack = EUnpackedFloat.mkInfinity sign := by
+  simp [PackedFloat.unpack]
+  have : (getInfinity e s sign).isNaN = false := by grind
+  simp [this]
+  have : (getInfinity e s sign).isInfinite = true := by grind
+  simp [this]
+
 private theorem PackedFloat.isInfinite_pack_unpack_example (pf : PackedFloat 5 10) (hpf : pf.unpack.isInfinite) :
     pf.unpack.pack.isInfinite = pf.isInfinite ∧ pf.unpack.pack.sign = pf.sign := by
   bv_decide
