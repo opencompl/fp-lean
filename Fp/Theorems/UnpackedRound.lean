@@ -12,6 +12,13 @@ theorem roundQ_eq (ein sin eout sout : Nat) (rm : RoundingMode) (euf : EUnpacked
     euf.toExtRat := by
   simp [SmtLibSemanticsQ.roundQ]
 
+theorem roundRNA_mkNaN (ein sin eout sout : Nat) (sign : Bool) :
+  (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRNA sign
+    (ExtRat.NaN) = PackedFloat.mkNaN := by
+  simp [SmtLibSemantics.RoundMethod.roundRNA]
+  sorry
+
+
 theorem roundQ_eq_round_of_UnpackedFloat (inf : UnpackedFloat ein sin) (eout sout : Nat) (rm : RoundingMode) :
     Fp.SmtLibSemanticsQ.roundQ ein sin eout sout rm (EUnpackedFloat.mkNumber inf) =
       (UnpackedFloat.round inf rm).pack := by sorry

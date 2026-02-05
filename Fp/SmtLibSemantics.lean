@@ -62,6 +62,7 @@ instance [hEx : ExtendedNumber R] [DecidableRel hEx.smtLibEq] :
   infer_instance
 
 
+@[simp]
 instance instExtendedRat : ExtendedNumber ExtRat where
   isNaN r := r.isNaN
   smtLibEq r1 r2 := r1.eq r2

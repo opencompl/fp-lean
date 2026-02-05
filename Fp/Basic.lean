@@ -1149,6 +1149,10 @@ end InfinityBehaviour
 def isNaN (r : ExtRat) : Bool :=
   r = .NaN
 
+@[simp] theorem isNaN_NaN : isNaN ExtRat.NaN = true := rfl
+@[simp] theorem isNaN_infinity (s : Bool) : isNaN (.Infinity s) = false := rfl
+@[simp] theorem isNaN_number (r : Rat) : isNaN (.Number r) = false := rfl
+
 end ExtRat
 
 def ExtDyadic.toExtRat (ed : ExtDyadic) : ExtRat :=
@@ -1338,12 +1342,49 @@ def mkNumber (num : UnpackedFloat e s) : EUnpackedFloat e s :=
     num := num
   }
 
+@[simp]
+theorem isNaN_mkNaN {e s} : isNaN (EUnpackedFloat.mkNaN : EUnpackedFloat e s)  = true := rfl
+
+@[simp]
+theorem isNaN_mkInfinity {e s} (sign : Bool) : isNaN (mkInfinity sign : EUnpackedFloat e s) = false := by
+  simp [isNaN, mkInfinity]
+
+@[simp]
+theorem isNaN_mkNumber {e s} (num : UnpackedFloat e s) : isNaN (mkNumber num : EUnpackedFloat e s) = false := by
+  simp [isNaN, mkNumber]
+
+@[simp]
+theorem isInfinite_mkNaN {e s} : isInfinite (EUnpackedFloat.mkNaN : EUnpackedFloat e s) = false := by
+  simp [isInfinite, mkNaN]
+
+@[simp]
+theorem isInfinite_mkInfinity {e s} (sign : Bool) : isInfinite (mkInfinity sign : EUnpackedFloat e s) = true := rfl
+
+@[simp]
+theorem isInfinite_mkNumber {e s} (num : UnpackedFloat e s) : isInfinite (mkNumber num : EUnpackedFloat e s) = false := by
+  simp [isInfinite, mkNumber]
+
+@[simp]
+theorem isNumber_mkNaN {e s} : isNumber (EUnpackedFloat.mkNaN : EUnpackedFloat e s) = false := by
+  simp [isNumber, mkNaN]
+
+@[simp]
+theorem isNumber_mkInfinity {e s} (sign : Bool) : isNumber (mkInfinity sign : EUnpackedFloat e s) = false := by
+  simp [isNumber, mkInfinity]
+
+@[simp]
+theorem isNumber_mkNumber {e s} (num : UnpackedFloat e s) : isNumber (mkNumber num : EUnpackedFloat e s) = true := rfl
+
 @[bv_normalize]
 def mkZero (sign : Bool) : EUnpackedFloat e s :=
   {
     state := .Number
     num := UnpackedFloat.mkZero sign
   }
+
+@[simp]
+theorem isZero_mkZero {e s} (sign : Bool) : isZero (mkZero sign : EUnpackedFloat e s) = true := by
+  simp [isZero, mkZero, UnpackedFloat.mkZero, isNumber, UnpackedFloat.isZero]
 
 @[bv_normalize]
 def normalize (uf : EUnpackedFloat e s) : EUnpackedFloat e s :=
@@ -1367,6 +1408,20 @@ def toExtRat (ef : EUnpackedFloat e s) : ExtRat :=
     .Infinity ef.num.sign
   else
     .Number ef.num.toRat
+
+@[simp]
+theorem toExtRat_mkNan : toExtRat (mkNaN : EUnpackedFloat e s) = .NaN := by
+  simp [toExtRat]
+
+@[simp]
+theorem toExtRat_mkInfinity (sign : Bool) : toExtRat (mkInfinity sign : EUnpackedFloat e s) = .Infinity sign := by
+  simp [toExtRat]
+  grind [mkInfinity]
+
+@[simp]
+theorem toExtRat_mkNumber (num : UnpackedFloat e s) : toExtRat (mkNumber num : EUnpackedFloat e s) = .Number num.toRat := by
+  simp [toExtRat]
+  grind [mkNumber]
 
 end EUnpackedFloat
 
