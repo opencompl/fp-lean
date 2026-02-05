@@ -63,20 +63,20 @@ theorem PackedFloat.isNaN_pack_unpack (pf : PackedFloat 5 10) :
     pf.unpack.pack.isNaN = pf.isNaN := by
   bv_decide
 
-theorem PackedFloat.pack_unpack (pf : PackedFloat 5 10) (hpf : pf.isNormOrSubnorm) :
+theorem PackedFloat.pack_unpack (pf : PackedFloat 5 10) (hpf : pf.isNormOrNonzeroSubnorm) :
     pf.unpack.pack = pf := by
   bv_decide
 
 
-theorem PackedFloat.pack_unpack_e0m1 (pf : PackedFloat 0 1) (hpf : pf.isNormOrSubnorm) :
+theorem PackedFloat.pack_unpack_e0m1 (pf : PackedFloat 0 1) (hpf : pf.isNormOrNonzeroSubnorm) :
     pf.unpack.pack = pf := by
   bv_decide
 
-theorem PackedFloat.pack_unpack_e1m0 (pf : PackedFloat 1 0) (hpf : pf.isNormOrSubnorm) :
+theorem PackedFloat.pack_unpack_e1m0 (pf : PackedFloat 1 0) (hpf : pf.isNormOrNonzeroSubnorm) :
     pf.unpack.pack = pf := by
   bv_decide
 
-example (pf : PackedFloat 0 0) (hpf : pf.isNormOrSubnorm) :
+example (pf : PackedFloat 0 0) (hpf : pf.isNormOrNonzeroSubnorm) :
     pf.isNaN = true := by
   bv_decide
 

@@ -71,6 +71,32 @@ theorem roundQ_eq_round_of_Infinity (sign : Bool) (eout sout : Nat) (rm : Roundi
       PackedFloat.getInfinity eout sout sign := by sorry
 
 /--
+Case splitting on the different values a packed float
+can have: it can be nan, infinity, zero, or a nonzero normal/subnormal.+
+-/
+@[elab_as_elim]
+theorem PackedFloat.kindCasesNaNInfZeroNum {P : PackedFloat e s → Prop}
+    (x : PackedFloat e s)
+    (nanCase : ∀ (n : PackedFloat e s), n.isNaN → P n)
+    (infCase : ∀ sign, P (PackedFloat.getInfinity e s sign))
+    (zeroCase : ∀ sign, P (PackedFloat.getZero e s sign))
+    (numCase : ∀ (n : PackedFloat e s), n.isNormOrNonzeroSubnorm → P n) :
+    P x := by
+  have := x.classification_exhaustive
+  simp at this
+  by_cases h1 : x.isNaN
+  · grind
+  · by_cases h2 : x.isInfinite
+    · grind
+    · by_cases h3 : x.isZero
+      · grind
+      · by_cases h4 : x.isNonzeroSubnorm
+        · grind
+        · by_cases h5 : x.isNorm
+          · grind
+          · grind
+
+/--
 Example theorem we will prove, using our proof strategy of proving against the SMT-Lib semantics.
 -/
 theorem mul_eq_mul (eout sout : Nat) (rm : RoundingMode) (a b : PackedFloat ein sin) :
