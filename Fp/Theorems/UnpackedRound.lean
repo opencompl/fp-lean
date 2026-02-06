@@ -150,6 +150,16 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
       -- TODO: prove a theorem that says that 'isNumber -> ∃ r such that b.toExtRat' = Number r'.
       -- Use that to simplify the value.
       -- simp [he, hsin]
+      -- | I want this to automatically apply with simp?
+      -- rw [PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm hb]
+      -- rw [<- PackedFloat.toExtRat_eq_toExtRat']
+      -- rw [← PackedFloat.toExtRat_unpack_eq_toExtRat]
+      rw [b.toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm hb]
+      simp [b.toNumberRat_ne_zero hb]
+      -- simp [PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm hb]
+      -- have : ¬ b.isZero := by grind
+      -- have : b.toExtRat ≠ ExtRat.Number 0 := by grind
+      -- simp [this]
       sorry
   case zeroCase sign =>
     simp [he]
@@ -165,9 +175,14 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
       rw [round_eq_mkZero_of_mkZero]
       simp [SmtLibSemantics.SmtLibFunctions.xorSign]
     case numCase hb =>
+      rw [PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm hb]
+      simp
+      rw [PackedFloat.toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm hb]
+      simp
+      rw [round_eq_mkZero_of_mkZero]
+      simp [SmtLibSemantics.SmtLibFunctions.xorSign]
       -- TODO: prove a theorem that says that 'isNumber -> ∃ r such that b.toExtRat' = Number r'.
       -- Use that to simplify the value.
-      sorry
   case numCase ha =>
     -- interesting case, when a is a number.
     cases b using PackedFloat.kindCasesNaNInfZeroNum

@@ -1470,6 +1470,29 @@ theorem toExtRat'_eq_Infinity_of_isInfinite (pf : PackedFloat e s) (hp : pf.isIn
   rw [toExtRat', hp]
   grind [not_isNaN_of_isInfinite]
 
+def toNumberRat (pf : PackedFloat e s) : Rat :=
+  if pf.isNorm then
+    pf.sign.toSign * (1 + pf.sig.toNat / 2 ^ s) * 2 ^ (pf.ex.toNat - bias e : Int)
+  else
+    pf.sign.toSign * (0 + pf.sig.toNat / 2 ^ s) * 2 ^ (-(bias e - 1 : Nat) : Int)
+
+/-- This is true, because 'sign' -/
+axiom toNumberRat_ne_zero (pf : PackedFloat e s) (h : pf.isNormOrNonzeroSubnorm) :
+    pf.toNumberRat ≠ 0
+
+@[simp]
+theorem toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm {pf : PackedFloat e s} (hp : pf.isNormOrNonzeroSubnorm) :
+    pf.toExtRat' =
+        .Number pf.toNumberRat := by
+  have hnan : pf.isNaN = false := by
+    grind [isNaN, isNormOrNonzeroSubnorm]
+  have hinf : pf.isInfinite = false := by
+    grind [isInfinite, isNormOrNonzeroSubnorm]
+  have hzero : pf.isZero = false := by
+    grind [isZero, isNormOrNonzeroSubnorm]
+  simp [toExtRat', hp, hnan, hinf, hzero, toNumberRat]
+  grind
+
 @[simp]
 theorem toExtRat'_mkInfinity (sign : Bool) (hs : 0 < s := by grind) :
     (PackedFloat.getInfinity e s sign).toExtRat' = .Infinity sign := by
@@ -1522,6 +1545,15 @@ def mkZero (sign : Bool) : UnpackedFloat e s :=
     sig := 0#s
   }
 
+ @[simp]
+ theorem sign_mkZero (sign : Bool) : (mkZero sign : UnpackedFloat e s).sign = sign := rfl
+
+@[simp]
+theorem ex_mkZero (sign : Bool) : (mkZero sign : UnpackedFloat e s).ex = BitVec.intMin e := rfl
+
+@[simp]
+theorem sig_mkZero (sign : Bool) : (mkZero sign : UnpackedFloat e s).sig = 0#s := rfl
+
 @[bv_normalize]
 def isZero (uf : UnpackedFloat e s) : Bool :=
   uf.ex == BitVec.intMin e && uf.sig == 0#s
@@ -1537,6 +1569,11 @@ def normalize (uf : UnpackedFloat e s) (sign := uf.sign) : UnpackedFloat e s :=
       ex := uf.ex - uf.sig.clz.setWidth _
       sig := uf.sig <<< uf.sig.clz
     }
+
+@[simp]
+theorem sign_normalize (uf : UnpackedFloat e s) : (normalize uf zsign).sign =
+  if uf.sig == 0#s then zsign else uf.sign := by
+  grind [normalize, mkZero]
 
 @[bv_normalize]
 def toEUnpackedFloat (uf : UnpackedFloat e s) : EUnpackedFloat e s :=

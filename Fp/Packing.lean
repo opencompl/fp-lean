@@ -20,6 +20,13 @@ def PackedFloat.unpackNormOrNonzeroSubnorm (pf : PackedFloat e s) :
       : UnpackedFloat _ _
     }.normalize
 
+@[simp]
+theorem sign_unpackNormOrNonzeroSubnorm_eq_sign (pf : PackedFloat e s) :
+    pf.unpackNormOrNonzeroSubnorm.sign = pf.sign := by
+  simp [PackedFloat.unpackNormOrNonzeroSubnorm]
+  by_cases hpf : pf.isNorm <;> simp [hpf]
+
+
 @[bv_normalize]
 def PackedFloat.unpack (pf : PackedFloat e s)
   : EUnpackedFloat (exponentWidth e s) (s + 1) :=
@@ -63,7 +70,7 @@ attribute [bv_normalize] BitVec.zero
 
 @[simp]
 theorem PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm
-  (pf : PackedFloat e s) (hpf : pf.isNormOrNonzeroSubnorm) :
+  {pf : PackedFloat e s} (hpf : pf.isNormOrNonzeroSubnorm) :
     pf.unpack = EUnpackedFloat.mkNumber pf.unpackNormOrNonzeroSubnorm := by
   have hnan : ¬ pf.isNaN := by grind
   have hinf : ¬ pf.isInfinite := by grind
