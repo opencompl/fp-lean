@@ -1,5 +1,6 @@
 import Fp.Utils
 import Fp.ForLean.Dyadic
+import Fp.Grind
 
 /-!
 ## Packed Floating Point Numbers
@@ -1493,7 +1494,7 @@ theorem toExtRat'_eq_Infinity_of_isInfinite (pf : PackedFloat e s) (hp : pf.isIn
   rw [toExtRat', hp]
   grind [not_isNaN_of_isInfinite]
 
-def toNumberRat (pf : PackedFloat e s) : Rat :=
+def toNumberRat {e s} (pf : PackedFloat e s) : Rat :=
   if pf.isNorm then
     pf.sign.toSign * (1 + pf.sig.toNat / 2 ^ s) * 2 ^ (pf.ex.toNat - bias e : Int)
   else
@@ -1502,6 +1503,30 @@ def toNumberRat (pf : PackedFloat e s) : Rat :=
 /-- This is true, because 'sign' -/
 axiom toNumberRat_ne_zero {pf : PackedFloat e s} (h : pf.isNormOrNonzeroSubnorm) :
     pf.toNumberRat ≠ 0
+
+theorem sign_iff_toNumberRat_neg {pf : PackedFloat e s} (h : pf.isNormOrNonzeroSubnorm) :
+    pf.sign = decide (pf.toNumberRat < 0) := by
+  have hnum : pf.toNumberRat ≠ 0 := toNumberRat_ne_zero h
+  simp [toNumberRat, Bool.toSign, hnum]
+  by_cases hnorm : pf.isNorm
+  · simp [hnorm]
+    by_cases hsign : pf.sign
+    · simp [hsign]
+      have : (pf.sig.toNat : Rat) ≥ 0 := by grind
+      have : (2 : Rat) ^s ≥ 0 := by grind
+      have : (pf.sig.toNat : Rat) / 2^s ≥ 0 := by grind
+      have : (1 + pf.sig.toNat / 2^s) ≥ 0 := by grind
+      have : (2 : Rat) ^ ((pf.ex.toNat : Int) - (bias e : Int)) > 0 := by grind
+      have : (1 + pf.sig.toNat / 2^s) * (2 : Rat) ^ ((pf.ex.toNat : Int) - (bias e : Int)) > 0 := by
+        apply Rat.mul_pos <;> grind
+      rw [Rat.mul_assoc]
+      have : (-1 : Rat) < 0 := by decide
+      rw [Rat.mul_neg_iff_of_pos_right]
+      · assumption
+      · grind
+    · simp [hsign]
+      sorry
+  · sorry
 
 @[simp]
 theorem toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm {pf : PackedFloat e s} (hp : pf.isNormOrNonzeroSubnorm) :

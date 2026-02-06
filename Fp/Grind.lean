@@ -1,3 +1,23 @@
+attribute [grind] Rat.pow_pos
+attribute [grind] Rat.pow_nonneg
+attribute [grind] Rat.le_of_lt
+attribute [grind] Rat.mul_nonneg
+attribute [grind] Rat.inv_pos
+-- attribute [grind] Rat.zpow_pos
+-- attribute [simp] Rat.inv_inv
+
+attribute [grind →] Rat.mul_pos
+
+@[grind ., grind →] -- I may also want grind → to know that a ⁻¹ is positive when a is positive.
+theorem Rat.inv_nonneg {a : Rat} (ha : 0 ≤ a) : 0 ≤ a⁻¹ := by
+  by_cases ha0 : a = 0 <;> grind
+
+@[grind .]
+theorem Rat.div_nonneg (a b : Rat) (hb : 0 ≤ b) (ha : 0 ≤ a) : 0 ≤ a / b := by grind
+
+@[grind! ., simp]
+theorem Rat.two_pow_pos (n : Int) : 0 < (2 : Rat) ^ n := by exact Rat.zpow_pos rfl
+
 @[grind =]
 theorem Int.toNat_neg_eq_zero_of_nonpos {z : Int} (h : z ≤ 0) : z.toNat = 0 := by
   grind

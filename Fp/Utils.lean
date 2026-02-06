@@ -1,5 +1,6 @@
 import Std.Tactic.BVDecide
 import Fp.Tactics
+import Fp.Grind
 
 /-- convert the sign bit to an integer value. Morally, this is (-1)^s -/
 def signToInt (s : Bool) : Int :=
