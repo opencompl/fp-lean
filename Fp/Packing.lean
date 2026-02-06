@@ -20,8 +20,16 @@ def PackedFloat.unpackNormOrNonzeroSubnorm (pf : PackedFloat e s) :
       : UnpackedFloat _ _
     }.normalize
 
+/--
+If we start with a packedFloat whose 'isZero' predicate says 'false',
+then we know that the unpacked version of it is also not zero. This is a useful fact to have when we want to rewrite
+-/
+@[simp, grind! →]
+axiom PackedFloat.unpackNormOrNonzeroSubnorm_isZero_eq_of_not_isZero (pf : PackedFloat e s) (hpf : ¬ pf.isZero := by grind) :
+  pf.unpackNormOrNonzeroSubnorm.isZero = false
+
 @[simp]
-theorem sign_unpackNormOrNonzeroSubnorm_eq_sign (pf : PackedFloat e s) :
+theorem PackedFloat.sign_unpackNormOrNonzeroSubnorm_eq_sign (pf : PackedFloat e s) :
     pf.unpackNormOrNonzeroSubnorm.sign = pf.sign := by
   simp [PackedFloat.unpackNormOrNonzeroSubnorm]
   by_cases hpf : pf.isNorm <;> simp [hpf]
@@ -37,6 +45,36 @@ def PackedFloat.unpack (pf : PackedFloat e s)
   else bif pf.isZero then
     EUnpackedFloat.mkZero pf.sign
   else EUnpackedFloat.mkNumber (pf.unpackNormOrNonzeroSubnorm)
+
+@[simp, grind! .]
+theorem PackedFloat.isNaN_unpack_eq_isNaN (pf : PackedFloat e s) :
+    pf.unpack.isNaN = pf.isNaN := by
+  simp [PackedFloat.unpack]
+  by_cases hpf : pf.isNaN <;> simp [hpf]
+  · by_cases hinf : pf.isInfinite <;> simp [hinf]
+    · by_cases hzero : pf.isZero <;> simp [hzero]
+
+@[simp, grind! .]
+theorem PackedFloat.isInfinite_unpack_eq_isInfinite (pf : PackedFloat e s) :
+    pf.unpack.isInfinite = pf.isInfinite := by
+  simp [PackedFloat.unpack]
+  by_cases hnan : pf.isNaN <;> simp [hnan]
+  by_cases hpf : pf.isInfinite <;> simp [hpf]
+  · grind
+  · by_cases hinf : pf.isInfinite <;> simp [hinf]
+    · by_cases hzero : pf.isZero <;> simp [hzero]
+
+@[simp, grind! .]
+theorem PackedFloat.isZero_unpack_eq_isZero (pf : PackedFloat e s) :
+    pf.unpack.isZero = pf.isZero := by
+  simp [PackedFloat.unpack]
+  by_cases hnan : pf.isNaN <;> simp [hnan]
+  · grind
+  · by_cases hinf : pf.isInfinite <;> simp [hinf]
+    · grind
+    · by_cases hzero : pf.isZero <;> simp [hzero]
+
+
 
 @[bv_normalize]
 def EUnpackedFloat.pack (uf : EUnpackedFloat (exponentWidth e s) (s + 1))
@@ -97,13 +135,12 @@ theorem EUnpackedFloat.mkZero_pack_eq_getZero (sign : Bool) :
   simp [pack, PackedFloat.getZero]
 
 @[simp, grind! .]
-theorem PackedFloat.unpack_getInfinity_eq_infinity {sign : Bool}  (hs : 0 < s) :
-    (PackedFloat.getInfinity e s sign).unpack = EUnpackedFloat.mkInfinity sign := by
+theorem PackedFloat.unpack_getInfinity {sign : Bool}   :
+    (PackedFloat.getInfinity e s sign).unpack = if (0 < s) then EUnpackedFloat.mkInfinity sign else EUnpackedFloat.mkNaN  := by
   simp [PackedFloat.unpack]
-  have : (getInfinity e s sign).isNaN = false := by grind
-  simp [this]
-  have : (getInfinity e s sign).isInfinite = true := by grind
-  simp [this]
+  by_cases hs : 0 < s
+  · simp [hs]
+  · simp [hs]
 
 @[simp]
 theorem PackedFloat.unpack_eq_mkZero_of_isZero (pf : PackedFloat e s) (hpf : pf.isZero) :
@@ -111,17 +148,19 @@ theorem PackedFloat.unpack_eq_mkZero_of_isZero (pf : PackedFloat e s) (hpf : pf.
   simp [PackedFloat.unpack, hpf]
   grind
 
-theorem PackedFloat.unpack_getZero_eq_mkZero {sign : Bool} (he : 0 < e):
-    (PackedFloat.getZero e s sign).unpack = EUnpackedFloat.mkZero sign := by
-  have : (getZero e s sign).isZero = true := by
-    exact isZero_getZero sign he
-  simp [PackedFloat.unpack]
-  have : (getZero e s sign).isNaN = false := by grind
-  simp [this]
-  have : (getZero e s sign).isInfinite = false := by grind
-  simp [this]
-  have : (getZero e s sign).isZero = true := by grind
-  simp [this]
+@[simp]
+theorem PackedFloat.unpack_getZero {sign : Bool} :
+    (PackedFloat.getZero e s sign).unpack =
+      if 0 < e then EUnpackedFloat.mkZero sign else
+      if s = 0 then EUnpackedFloat.mkNaN else EUnpackedFloat.mkInfinity sign := by
+  by_cases he : 0 < e
+  · simp [he]
+  · simp [he]
+    simp [PackedFloat.unpack]
+    simp [show (e = 0) = true by grind]
+    by_cases hs : s = 0
+    · simp [hs]
+    · simp [hs]
 
 private theorem PackedFloat.isInfinite_pack_unpack_example (pf : PackedFloat 5 10) (hpf : pf.unpack.isInfinite) :
     pf.unpack.pack.isInfinite = pf.isInfinite ∧ pf.unpack.pack.sign = pf.sign := by

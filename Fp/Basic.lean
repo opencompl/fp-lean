@@ -522,10 +522,37 @@ theorem eq_mkZero_of_isZero {pf : PackedFloat e s} :
   simp_all
 
 @[simp, grind .]
-theorem isZero_getZero {exWidth sigWidth : Nat} (sign : Bool) (he : 0 < exWidth):
-    (PackedFloat.getZero exWidth sigWidth sign).isZero = true := by
+theorem isZero_getZero {exWidth sigWidth : Nat} (sign : Bool) :
+    (PackedFloat.getZero exWidth sigWidth sign).isZero = decide (0 < exWidth) := by
   simp [PackedFloat.getZero, isZero]
-  omega
+  grind
+
+@[simp, grind =]
+theorem zero_eq_allOnes_eq_decide (e : Nat) :
+    (0#e = BitVec.allOnes e) = decide (e = 0) := by
+  by_cases he : 0 = e
+  · subst he
+    simp
+  · simp [show ¬ e = 0 by omega]
+    intros hcontra
+    have := BitVec.toInt_inj.mpr hcontra
+    grind
+
+@[simp, grind =]
+theorem allOnes_eq_zero_eq_decide (e : Nat) :
+    (BitVec.allOnes e = 0#e) = decide (e = 0) := by
+  have := zero_eq_allOnes_eq_decide e
+  grind
+
+@[simp, grind =]
+theorem zero_ne_allOnes_eq_decide (e : Nat) :
+    (0#e ≠ BitVec.allOnes e) = decide (0 < e) := by
+  grind
+
+@[simp]
+theorem isZero_getInfinity {exWidth sigWidth : Nat} (sign : Bool) :
+    (PackedFloat.getInfinity exWidth sigWidth sign).isZero = false := by
+  simp [PackedFloat.getInfinity, isZero]
 
 @[bv_normalize]
 def isNonzeroSubnorm (pf : PackedFloat e s) : Bool :=
@@ -588,12 +615,6 @@ theorem isNormOrSubnorm_of_isNorm (pf : PackedFloat e s) :
     pf.isNorm → pf.isNormOrNonzeroSubnorm := by
   grind [isNorm, isNormOrNonzeroSubnorm]
 
-@[simp]
-theorem zero_ne_allOnes_of_lt (he : 0 < e) :
-    BitVec.zero e ≠ BitVec.allOnes e := by
-  intros hcontra
-  have := BitVec.toInt_inj.mpr hcontra
-  grind
 
 @[grind →]
 theorem isNormOrSubnorm_of_isSubnorm (pf : PackedFloat e s) :
@@ -602,8 +623,7 @@ theorem isNormOrSubnorm_of_isSubnorm (pf : PackedFloat e s) :
     isNormOrNonzeroSubnorm, and_imp]
   intros he hex hsig
   simp [hex, hsig]
-  apply zero_ne_allOnes_of_lt
-  omega
+  grind
 
 @[grind .]
 theorem isNormOrSubnorm_eq_isNorm_or_isSubnorm (pf : PackedFloat e s) :
@@ -612,8 +632,7 @@ theorem isNormOrSubnorm_eq_isNorm_or_isSubnorm (pf : PackedFloat e s) :
   by_cases he : e = 0
   · subst he
     grind
-  · have := zero_ne_allOnes_of_lt (show 0 < e from by grind)
-    grind
+  · grind
 
 @[grind →]
 theorem not_isNaN_of_isNormOrSubnorm {pf : PackedFloat e s} :
@@ -742,22 +761,22 @@ theorem not_isSubnorm_of_isNorm {pf : PackedFloat e s} :
   grind [isNonzeroSubnorm, isNorm]
 
 @[simp, grind! .]
-theorem isInfinite_getInfinity (e s : Nat) (sign : Bool) (hs : 0 < s := by grind) :
-    (PackedFloat.getInfinity e s sign).isInfinite = true := by
+theorem isInfinite_getInfinity (e s : Nat) (sign : Bool)  :
+    (PackedFloat.getInfinity e s sign).isInfinite = decide (0 < s) := by
   simp only [isInfinite, getInfinity, BitVec.ofNat_eq_ofNat, BEq.rfl, BitVec.zero_eq, Bool.and_true,
-    Bool.true_and, bne_iff_ne, ne_eq]
+    Bool.true_and]
   grind
 
 @[simp, grind! .]
-theorem isInfinite_getZero (e s : Nat) (sign : Bool) (he : 0 < e := by grind) :
-    (PackedFloat.getZero e s sign).isInfinite = false := by
+theorem isInfinite_getZero (e s : Nat) (sign : Bool):
+    (PackedFloat.getZero e s sign).isInfinite = decide (e = 0 ∧ s ≠ 0) := by
   simp only [isInfinite, getZero, BitVec.zero_eq]
-  suffices ¬ (0 = BitVec.allOnes e) by
-    grind
-  apply zero_ne_allOnes_of_lt he
+  grind
 
-theorem isNaN_getInfinity_eq_false (sign : Bool) (hs : 0 < s := by grind) :
-    (PackedFloat.getInfinity e s sign).isNaN = false := by
+@[simp]
+theorem isNaN_getInfinity_eq_false (sign : Bool) :
+    (PackedFloat.getInfinity e s sign).isNaN = !(0 < s) := by
+  simp [PackedFloat.getInfinity, isNaN]
   grind
 
 theorem sigWidth_ge_one_of_isInfinite {pf : PackedFloat e s} :
@@ -780,6 +799,11 @@ theorem expWidth_ge_two_of_isNorm {pf : PackedFloat e s} :
     pf.isNorm → e ≥ 2 := by
   grind [isNorm]
 
+@[simp]
+theorem isNaN_getZero {e s : Nat} (sign : Bool) :
+  (PackedFloat.getZero e s sign).isNaN  = decide (e = 0 ∧ s = 0) := by
+  simp [PackedFloat.getZero, isNaN]
+  grind
 
 @[simp]
 theorem isNaN_getNaN {e s : Nat}  :
@@ -1262,7 +1286,6 @@ theorem add_neg_inf_eq_neg_inf_of_ne_of_ne (x : ExtRat)
   unfold ExtRat.add
   grind [ExtRat]
 
-
 /-- +∞ × +∞ = +∞-/
 @[simp]
 theorem inf_mul_inf_eq_inf :
@@ -1477,7 +1500,7 @@ def toNumberRat (pf : PackedFloat e s) : Rat :=
     pf.sign.toSign * (0 + pf.sig.toNat / 2 ^ s) * 2 ^ (-(bias e - 1 : Nat) : Int)
 
 /-- This is true, because 'sign' -/
-axiom toNumberRat_ne_zero (pf : PackedFloat e s) (h : pf.isNormOrNonzeroSubnorm) :
+axiom toNumberRat_ne_zero {pf : PackedFloat e s} (h : pf.isNormOrNonzeroSubnorm) :
     pf.toNumberRat ≠ 0
 
 @[simp]
@@ -1718,31 +1741,39 @@ def mkZero (sign : Bool) : EUnpackedFloat e s :=
     num := UnpackedFloat.mkZero sign
   }
 
-@[simp]
+@[simp, grind =]
 theorem mkZero_sign {e s} (sign : Bool) : (mkZero sign : EUnpackedFloat e s).sign = sign := by
   simp [mkZero, EUnpackedFloat.sign, UnpackedFloat.mkZero]
 
-@[simp]
+@[simp, grind =]
 theorem mkZero_num_sign {e s} (sign : Bool) : (mkZero sign : EUnpackedFloat e s).num.sign = sign := by
   simp [mkZero, UnpackedFloat.mkZero]
 
-@[simp]
+@[simp, grind! .]
 theorem isZero_mkZero {e s} (sign : Bool) : isZero (mkZero sign : EUnpackedFloat e s) = true := by
   simp [isZero, mkZero, UnpackedFloat.mkZero, isNumber, UnpackedFloat.isZero]
 
-@[simp]
+@[simp, grind! . ]
 theorem isZero_mkInfinity {e s} (sign : Bool) : isZero (mkInfinity sign : EUnpackedFloat e s) = false := by
   simp [isZero, mkInfinity, isNumber, mkInfinity]
 
-@[simp]
+@[simp, grind! .]
+theorem isZero_mkNaN {e s} : isZero (EUnpackedFloat.mkNaN : EUnpackedFloat e s) = false := by
+  simp [isZero, mkNaN, isNumber, mkNaN]
+
+@[simp, grind! .]
+theorem isZero_mkNumber {e s} (num : UnpackedFloat e s) : isZero (mkNumber num : EUnpackedFloat e s) = num.isZero := by
+  simp [isZero, mkNumber, isNumber, UnpackedFloat.isZero]
+
+@[simp, grind! .]
 theorem isNaN_mkZero {e s} (sign : Bool) : isNaN (EUnpackedFloat.mkZero sign : EUnpackedFloat e s) = false := by
   simp [isNaN, mkZero]
 
-@[simp]
+@[simp, grind! .]
 theorem isInfinite_mkZero {e s} (sign : Bool) : isInfinite (EUnpackedFloat.mkZero sign : EUnpackedFloat e s) = false := by
   simp [isInfinite, mkZero]
 
-@[simp]
+@[simp, grind! .]
 theorem isNumber_mkZero {e s} (sign : Bool) : isNumber (mkZero sign : EUnpackedFloat e s) = true := by
   simp [mkZero, UnpackedFloat.mkZero, isNumber]
 
