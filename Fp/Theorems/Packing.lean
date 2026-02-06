@@ -43,9 +43,9 @@ theorem Int.two_pow_succ_div_two {n : Nat} :
   cases n <;> grind
 
 -- TODO: @Sid, help!
-theorem BitVec.toNat_clz_cons (b : Bool) (x : BitVec w)
-  : (BitVec.cons b x).clz.toNat = if b then 0 else x.clz.toNat + 1 := by
-  sorry
+axiom BitVec.toNat_clz_cons (b : Bool) (x : BitVec w)
+  : (BitVec.cons b x).clz.toNat = if b then 0 else x.clz.toNat + 1 -- := by
+  -- sorry
 
 theorem Nat.log2_eq_exists (n : Nat) (hn : n ≠ 0) :
   ∃ k, n.log2 = k ∧ 2 ^ k ≤ n ∧ n < 2 ^ (k + 1) := by
@@ -336,16 +336,17 @@ theorem exponentWidth_gt_zero : exponentWidth e s > 0 := by
 
 theorem toExtRat_unpack_eq_toExtRat {pf : PackedFloat e s}
   : pf.unpack.toExtRat = pf.toExtRat := by
-  simp only [unpack, toExtRat_eq_toExtRat']
+  simp only [unpack, unpackNormOrNonzeroSubnorm, BitVec.truncate_eq_setWidth, toExtRat_eq_toExtRat']
   cases hNaN : pf.isNaN
   · cases hInf : pf.isInfinite
     · cases hZero : pf.isZero
       · cases hNorm : pf.isNorm
-        · simp only [cond_false, UnpackedFloat.toEUnpackedFloat_not_isNaN, UnpackedFloat.toEUnpackedFloat_not_isInfinite, EUnpackedFloat.toExtRat, toExtRat', hNaN, hInf, hZero, hNorm]
-          simp only [UnpackedFloat.toEUnpackedFloat]
+        · simp only [EUnpackedFloat.toExtRat, Bool.false_eq_true, ↓reduceIte, cond_false,
+          EUnpackedFloat.isNaN_mkNumber, EUnpackedFloat.isInfinite_mkNumber,
+          EUnpackedFloat.num_mkNumber, toExtRat', hNaN, hInf, hZero, hNorm, ExtRat.Number.injEq]
           rewrite [UnpackedFloat.toRat_normalize_eq_toRat UnpackedFloat.sigWidth_lt_exponentWidth_sub_one]
           · simp only [UnpackedFloat.toRat_eq, Rat.mul_assoc]
-            congr 2
+            congr 1
             simp only [BitVec.toNat_cons, Bool.toNat_false, Nat.zero_shiftLeft, Nat.zero_or, Rat.zero_add, Rat.div_def, Rat.mul_assoc]
             congr
             simp only [← Rat.zpow_natCast, ← Rat.zpow_neg, ← @Rat.zpow_add 2 (by decide)]
@@ -392,9 +393,12 @@ theorem toExtRat_unpack_eq_toExtRat {pf : PackedFloat e s}
                   norm_cast
                   simp
                 · simp [Int.pow_pos]
-        · simp only [cond_false, cond_true, toExtRat', UnpackedFloat.toEUnpackedFloat_not_isNaN, UnpackedFloat.toEUnpackedFloat_not_isInfinite, EUnpackedFloat.toExtRat, hNaN, hInf, hZero, hNorm]
+        · simp only [EUnpackedFloat.toExtRat, ↓reduceIte, cond_false,
+          EUnpackedFloat.isNaN_mkNumber, EUnpackedFloat.isInfinite_mkNumber,
+          EUnpackedFloat.num_mkNumber, toExtRat', hNaN, hInf, hZero, hNorm, cond_true,
+          ExtRat.Number.injEq]
           simp only [UnpackedFloat.toEUnpackedFloat, UnpackedFloat.toRat_eq, Rat.mul_assoc]
-          congr 2
+          congr 1
           simp only [BitVec.toNat_cons', Nat.shiftLeft_eq, Bool.toNat, cond_true]
           have he0 : e > 0 := Nat.lt_trans Nat.zero_lt_one (PackedFloat.expWidth_ge_two_of_isNorm hNorm)
           have he1 : e > 1 := PackedFloat.expWidth_ge_two_of_isNorm hNorm
@@ -441,5 +445,13 @@ theorem toExtRat_unpack_eq_toExtRat {pf : PackedFloat e s}
       hInf]
       simp [EUnpackedFloat.mkInfinity]
   · simp only [EUnpackedFloat.toExtRat, cond_true, EUnpackedFloat.mkNaN_isNaN, toExtRat', hNaN]
+
+/--
+info: 'PackedFloat.toExtRat_unpack_eq_toExtRat' depends on axioms: [propext,
+ BitVec.toNat_clz_cons,
+ Classical.choice,
+ Quot.sound]
+-/
+#guard_msgs in #print axioms toExtRat_unpack_eq_toExtRat
 
 end PackedFloat

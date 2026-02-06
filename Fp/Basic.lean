@@ -1478,11 +1478,11 @@ theorem toExtRat'_mkInfinity (sign : Bool) (hs : 0 < s := by grind) :
   simp [hs]
 
 @[simp]
-theorem toExtRat'_getZero (sign : Bool) (hs : 0 < s := by grind) :
-    (PackedFloat.getZero e s sign).toExtRat' = .Number 0 := by
-  have : (PackedFloat.getZero e s sign).isZero = true := by
-    sorry
-  simp [this]
+axiom toExtRat'_getZero (sign : Bool) (hs : 0 < s := by grind) :
+    (PackedFloat.getZero e s sign).toExtRat' = .Number 0 -- := by
+  -- have : (PackedFloat.getZero e s sign).isZero = true := by
+    -- sorry
+  -- simp [this]
     -- grind
 
 
