@@ -71,10 +71,24 @@ theorem round_eq_mkZero_of_mkZero {zeroSign : Bool} {eout sout : Nat} {rm : Roun
         rm zeroSign (ExtRat.Number 0) = PackedFloat.getZero eout sout zeroSign := by
   rcases rm <;> sorry
 
-theorem roundQ_eq_round_of_UnpackedFloat (inf : UnpackedFloat ein sin) (eout sout : Nat) (rm : RoundingMode) :
+theorem roundQ_Number_eq_round (er : ExtRat) (uf : UnpackedFloat ein sin)
+    (hruf : ExtRat.Number uf.toRat = er) :
     (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round rm sign
-      (EUnpackedFloat.mkNumber inf).toExtRat =
-      (UnpackedFloat.round inf rm).pack := by sorry
+      er =
+      (UnpackedFloat.round uf rm).pack := by sorry
+
+
+-- theorem roundQ_Number_eq_round (r : Rat) (uf : UnpackedFloat ein sin)
+--     (hruf : uf.toRat = r) :
+--     (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round rm sign
+--       (.Number r : ExtRat) =
+--       (UnpackedFloat.round uf rm).pack := by sorry
+
+
+-- theorem roundQ_eq_round_of_toExtRat_mkNumber :
+--     (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round rm sign
+--       (EUnpackedFloat.mkNumber inf).toExtRat =
+--       (UnpackedFloat.round inf rm).pack := by sorry
 
 @[simp]
 theorem roundQ_eq_round_of_Infinity {zeroSign infSign : Bool} {e s : Nat} {rm : RoundingMode} :
@@ -217,5 +231,10 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
       simp [this]
       have : ¬ b.isZero := by grind
       simp [this]
+      rw [roundQ_Number_eq_round]
+      rw [PackedFloat.toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm hb]
+      simp only [ExtRat.number_mul_number_eq, ExtRat.Number.injEq]
+      -- Purely arithmetic statement.
+      -- ⊢ (a.unpackNormOrNonzeroSubnorm.mul b.unpackNormOrNonzeroSubnorm).toRat = a.toNumberRat * b.toNumberRat
       sorry
 end Fp

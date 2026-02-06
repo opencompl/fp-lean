@@ -1610,6 +1610,7 @@ def toDyadic (uf : UnpackedFloat e s) : Dyadic :=
 def toRat (uf : UnpackedFloat e s) : Rat :=
   uf.toDyadic.toRat
 
+
 end UnpackedFloat
 
 namespace EUnpackedFloat
