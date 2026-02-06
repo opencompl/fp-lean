@@ -605,6 +605,7 @@ theorem isNormOrSubnorm_of_isSubnorm (pf : PackedFloat e s) :
   apply zero_ne_allOnes_of_lt
   omega
 
+@[grind .]
 theorem isNormOrSubnorm_eq_isNorm_or_isSubnorm (pf : PackedFloat e s) :
     pf.isNormOrNonzeroSubnorm = (pf.isNorm ∨ pf.isNonzeroSubnorm) := by
   simp [isNorm, isNonzeroSubnorm, isNormOrNonzeroSubnorm]
@@ -613,6 +614,21 @@ theorem isNormOrSubnorm_eq_isNorm_or_isSubnorm (pf : PackedFloat e s) :
     grind
   · have := zero_ne_allOnes_of_lt (show 0 < e from by grind)
     grind
+
+@[grind →]
+theorem not_isNaN_of_isNormOrSubnorm {pf : PackedFloat e s} :
+    pf.isNormOrNonzeroSubnorm → !pf.isNaN := by
+  grind [isNaN, isNormOrNonzeroSubnorm]
+
+@[grind →]
+theorem not_isInfinite_of_isNormOrSubnorm {pf : PackedFloat e s} :
+    pf.isNormOrNonzeroSubnorm → !pf.isInfinite := by
+  grind [isInfinite, isNormOrNonzeroSubnorm]
+
+@[grind →]
+theorem not_isZero_of_isNormOrSubnorm {pf : PackedFloat e s} :
+    pf.isNormOrNonzeroSubnorm → !pf.isZero := by
+  grind [isZero, isNormOrNonzeroSubnorm, BitVec.allOnes_ne_zero]
 
 -- Theorems about classification
 
@@ -1620,6 +1636,12 @@ def mkNumber (num : UnpackedFloat e s) : EUnpackedFloat e s :=
   }
 
 @[simp]
+theorem state_mkNumber (num : UnpackedFloat e s) : (mkNumber num : EUnpackedFloat e s).state = .Number := rfl
+
+@[simp]
+theorem num_mkNumber (num : UnpackedFloat e s) : (mkNumber num : EUnpackedFloat e s).num = num := rfl
+
+@[simp]
 theorem isNaN_mkNaN {e s} : isNaN (EUnpackedFloat.mkNaN : EUnpackedFloat e s)  = true := rfl
 
 @[simp]
@@ -1721,8 +1743,6 @@ theorem toExtRat_mkInfinity (sign : Bool) : toExtRat (mkInfinity sign : EUnpacke
 @[simp]
 theorem toExtRat_mkNumber (num : UnpackedFloat e s) : toExtRat (mkNumber num : EUnpackedFloat e s) = .Number num.toRat := by
   simp [toExtRat]
-  grind [mkNumber]
-
 end EUnpackedFloat
 
 @[bv_normalize]

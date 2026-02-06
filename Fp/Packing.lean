@@ -1,6 +1,26 @@
 import Fp.Basic
 
 @[bv_normalize]
+def PackedFloat.unpackNormOrNonzeroSubnorm (pf : PackedFloat e s) :
+  UnpackedFloat (exponentWidth e s) (s + 1) :=
+  if pf.isNorm then
+    {
+      sign := pf.sign
+      -- We cannot use `BitVec.signExtend` here because `pf.ex` is not in 2's complement representation.
+      -- It should be safe to use `setWidth'`
+      ex := pf.ex.zeroExtend _ - BitVec.ofNat _ (bias e) -- e - bias, but no adjustment for significand?
+      sig := pf.sig.cons true
+      : UnpackedFloat _ _
+    }
+  else -- bif pf.isSubnorm then
+    {
+      sign := pf.sign
+      ex := BitVec.ofInt _ (minNormalExp e)
+      sig := pf.sig.cons false
+      : UnpackedFloat _ _
+    }.normalize
+
+@[bv_normalize]
 def PackedFloat.unpack (pf : PackedFloat e s)
   : EUnpackedFloat (exponentWidth e s) (s + 1) :=
   bif pf.isNaN then
@@ -9,22 +29,7 @@ def PackedFloat.unpack (pf : PackedFloat e s)
     EUnpackedFloat.mkInfinity pf.sign
   else bif pf.isZero then
     EUnpackedFloat.mkZero pf.sign
-  else bif pf.isNorm then
-    ({
-      sign := pf.sign
-      -- We cannot use `BitVec.signExtend` here because `pf.ex` is not in 2's complement representation.
-      -- It should be safe to use `setWidth'`
-      ex := pf.ex.zeroExtend _ - BitVec.ofNat _ (bias e) -- e - bias, but no adjustment for significand?
-      sig := pf.sig.cons true
-      : UnpackedFloat _ _
-    }).toEUnpackedFloat
-  else -- bif pf.isSubnorm then
-    ({
-      sign := pf.sign
-      ex := BitVec.ofInt _ (minNormalExp e)
-      sig := pf.sig.cons false
-      : UnpackedFloat _ _
-    }).normalize.toEUnpackedFloat
+  else EUnpackedFloat.mkNumber (pf.unpackNormOrNonzeroSubnorm)
 
 @[bv_normalize]
 def EUnpackedFloat.pack (uf : EUnpackedFloat (exponentWidth e s) (s + 1))
@@ -55,6 +60,15 @@ def EUnpackedFloat.pack (uf : EUnpackedFloat (exponentWidth e s) (s + 1))
 
 
 attribute [bv_normalize] BitVec.zero
+
+@[simp]
+theorem PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm
+  (pf : PackedFloat e s) (hpf : pf.isNormOrNonzeroSubnorm) :
+    pf.unpack = EUnpackedFloat.mkNumber pf.unpackNormOrNonzeroSubnorm := by
+  have hnan : ¬ pf.isNaN := by grind
+  have hinf : ¬ pf.isInfinite := by grind
+  have hzero : ¬ pf.isZero := by grind
+  simp [PackedFloat.unpack, hnan, hinf, hzero]
 
 @[simp, grind →]
 theorem PackedFloat.unpack_eq_NaN_of_isNaN (pf : PackedFloat e s) (hpf : pf.isNaN) :
