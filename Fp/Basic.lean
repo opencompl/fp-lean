@@ -1504,29 +1504,50 @@ def toNumberRat {e s} (pf : PackedFloat e s) : Rat :=
 axiom toNumberRat_ne_zero {pf : PackedFloat e s} (h : pf.isNormOrNonzeroSubnorm) :
     pf.toNumberRat ≠ 0
 
+@[simp, grind →, grind =]
 theorem sign_iff_toNumberRat_neg {pf : PackedFloat e s} (h : pf.isNormOrNonzeroSubnorm) :
     pf.sign = decide (pf.toNumberRat < 0) := by
   have hnum : pf.toNumberRat ≠ 0 := toNumberRat_ne_zero h
-  simp [toNumberRat, Bool.toSign, hnum]
+  simp [toNumberRat, Bool.toSign] at hnum ⊢
   by_cases hnorm : pf.isNorm
-  · simp [hnorm]
+  · simp [hnorm] at hnum ⊢
+    have : (pf.sig.toNat : Rat) ≥ 0 := by grind
+    have : (2 : Rat) ^s ≥ 0 := by grind
+    have : (pf.sig.toNat : Rat) / 2^s ≥ 0 := by grind
+    have : (1 + pf.sig.toNat / 2^s) ≥ 0 := by grind
+    have : (2 : Rat) ^ ((pf.ex.toNat : Int) - (bias e : Int)) > 0 := by grind
+    have : (1 + pf.sig.toNat / 2^s) * (2 : Rat) ^ ((pf.ex.toNat : Int) - (bias e : Int)) > 0 := by
+      apply Rat.mul_pos <;> grind
+    rw [Rat.mul_assoc]
     by_cases hsign : pf.sign
     · simp [hsign]
-      have : (pf.sig.toNat : Rat) ≥ 0 := by grind
-      have : (2 : Rat) ^s ≥ 0 := by grind
-      have : (pf.sig.toNat : Rat) / 2^s ≥ 0 := by grind
-      have : (1 + pf.sig.toNat / 2^s) ≥ 0 := by grind
-      have : (2 : Rat) ^ ((pf.ex.toNat : Int) - (bias e : Int)) > 0 := by grind
-      have : (1 + pf.sig.toNat / 2^s) * (2 : Rat) ^ ((pf.ex.toNat : Int) - (bias e : Int)) > 0 := by
-        apply Rat.mul_pos <;> grind
-      rw [Rat.mul_assoc]
-      have : (-1 : Rat) < 0 := by decide
       rw [Rat.mul_neg_iff_of_pos_right]
-      · assumption
+      · grind
       · grind
     · simp [hsign]
-      sorry
-  · sorry
+      apply Rat.mul_nonneg
+      · grind
+      · grind
+  · simp [hnorm] at hnum ⊢
+    have : (pf.sig.toNat : Rat) ≥ 0 := by grind
+    have : (2 : Rat) ^s > 0 := by grind
+    have : (pf.sig.toNat : Rat) / 2^s ≥ 0 := by grind -- grind
+    have : ¬ ((pf.sig.toNat : Rat) / 2 ^ s = 0) := by
+      intros hcontra
+      rw [hcontra] at hnum
+      simp [Rat.zero_add, Rat.mul_zero, Rat.zero_mul] at hnum
+    have : (0 + pf.sig.toNat / 2^s) * (2 : Rat) ^ (-(bias e - 1 : Nat) : Int) > 0 := by
+      apply Rat.mul_pos <;> grind
+    rw [Rat.mul_assoc]
+    by_cases hsign : pf.sign
+    · simp [hsign]
+      rw [Rat.mul_neg_iff_of_pos_right]
+      · grind
+      · grind
+    · simp [hsign]
+      apply Rat.mul_nonneg
+      · grind
+      · grind
 
 @[simp]
 theorem toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm {pf : PackedFloat e s} (hp : pf.isNormOrNonzeroSubnorm) :

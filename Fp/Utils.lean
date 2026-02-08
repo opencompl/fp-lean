@@ -37,6 +37,7 @@ def lastPowerOfTwo (n : Nat) : Nat :=
 theorem sub_two_le { n : Nat } : n - 2 ≤ n := by
   omega
 
+@[grind .]
 theorem le_two_pow : n ≤ 2^n := by
   induction n
   case zero =>

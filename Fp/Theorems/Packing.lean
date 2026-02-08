@@ -54,6 +54,7 @@ theorem Nat.log2_eq_exists (n : Nat) (hn : n ≠ 0) :
   simp [k]
   apply Nat.log2_eq_iff .. |>.mp <;> grind
 
+
 theorem Nat.log2_le_log2_of_le {a b : Nat} (h : a ≤ b) : a.log2 ≤ b.log2 := by
   induction a using Nat.div2Induction generalizing b with
   | ind a ih =>
@@ -71,6 +72,9 @@ theorem Nat.log2_le_log2_of_le {a b : Nat} (h : a ≤ b) : a.log2 ≤ b.log2 := 
         rewrite [Nat.log2_def a, Nat.log2_def b]
         simp only [ha, le_add_left, ↓reduceIte, hb, Nat.add_le_add_iff_right, ge_iff_le]
         simp [← ha, ← hb, ih]
+
+grind_pattern Nat.log2_le_log2_of_le => 2^a ≤ 2^b
+
 
 theorem Nat.log2_le_log2_add {a b : Nat} : a.log2 ≤ (a + b).log2 := by
   apply Nat.log2_le_log2_of_le
@@ -138,19 +142,34 @@ theorem toRat_sig_zero_eq_toRat_mkZero {uf : UnpackedFloat e s}
 
 theorem sigWidth_le_exponentWidth_sub_one : s ≤ 2 ^ (exponentWidth e s - 1) := by
   unfold exponentWidth
-  grind [Nat.two_pow_pos, Nat.log2_eq_iff]
+  have : s ≤ 2^s := by exact le_two_pow
+  have : 2 ^ (e - 1) > 0 := by grind
+  by_cases hs : s = 0
+  · grind
+  · have : 0 < s := by grind
+    suffices s ≤ 2 ^ ((s).log2 + 2 - 1) by
+      apply Nat.le_trans this
+      apply Nat.pow_le_pow_of_le
+      decide
+      simp
+      apply Nat.log2_le_log2_of_le
+      grind
+    sorry
+    -- grind (instances := 8000) (gen := 12) [Nat.two_pow_pos, Nat.log2_eq_iff]
 
 theorem sigWidth_lt_exponentWidth_sub_one : s < 2 ^ (exponentWidth e s - 1) := by
   unfold exponentWidth
-  grind [Nat.two_pow_pos, Nat.log2_eq_iff]
+  sorry
+  -- sorry
+  -- grind (instances := 99999) (gen := 30) [Nat.two_pow_pos, Nat.log2_eq_iff]
 
--- theorem sigWidth_add_one_lt_exponentWidth_sub_one : s + 1 < 2 ^ (exponentWidth e s - 1) := by
---   unfold exponentWidth
---   grind [Nat.two_pow_pos, Nat.log2_eq_iff]
+theorem sigWidth_add_one_lt_exponentWidth_sub_one : s + 1 < 2 ^ (exponentWidth e s - 1) := by
+  unfold exponentWidth
+  -- grind [Nat.two_pow_pos, Nat.log2_eq_iff]
 
 theorem sigWidth_add_one_lt_exponentWidth : s + 1 < 2 ^ exponentWidth e s := by
   unfold exponentWidth
-  grind [Nat.two_pow_pos, Nat.log2_eq_iff]
+  grind (instances := 99999) (gen := 30)  [Nat.two_pow_pos, Nat.log2_eq_iff]
 
 theorem expWidth_le_exponentWidth : e ≤ exponentWidth e s := by
   unfold exponentWidth
@@ -323,7 +342,7 @@ theorem minNormalExp_fits₁ : -2 ^ (exponentWidth e s - 1) ≤ minNormalExp e :
   simp only [Int.neg_le_neg_iff]
   norm_cast
   simp only [bias, exponentWidth]
-  grind [Nat.two_pow_pos, Nat.log2_eq_iff]
+  grind  (gen := 30) (splits := 20) [Nat.two_pow_pos, Nat.log2_eq_iff]
 
 theorem minNormalExp_fits₂ : minNormalExp e < 2 ^ (exponentWidth e s - 1) := by
   apply Int.lt_of_le_of_lt (b := 0)

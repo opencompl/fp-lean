@@ -1,3 +1,5 @@
+attribute [simp] Rat.not_lt
+
 attribute [grind] Rat.pow_pos
 attribute [grind] Rat.pow_nonneg
 attribute [grind] Rat.le_of_lt
@@ -8,6 +10,7 @@ attribute [grind] Rat.inv_pos
 
 attribute [grind →] Rat.mul_pos
 
+
 @[grind ., grind →] -- I may also want grind → to know that a ⁻¹ is positive when a is positive.
 theorem Rat.inv_nonneg {a : Rat} (ha : 0 ≤ a) : 0 ≤ a⁻¹ := by
   by_cases ha0 : a = 0 <;> grind
@@ -15,7 +18,7 @@ theorem Rat.inv_nonneg {a : Rat} (ha : 0 ≤ a) : 0 ≤ a⁻¹ := by
 @[grind .]
 theorem Rat.div_nonneg (a b : Rat) (hb : 0 ≤ b) (ha : 0 ≤ a) : 0 ≤ a / b := by grind
 
-@[grind! ., simp]
+@[grind .]
 theorem Rat.two_pow_pos (n : Int) : 0 < (2 : Rat) ^ n := by exact Rat.zpow_pos rfl
 
 @[grind =]
@@ -81,7 +84,7 @@ theorem Nat.lt_mul_of_lt_of_pos {a b c : Nat} (hab : a < b) (hc : 0 < c) :
 
 
 /- # Grind sets for power of two reasoning. -/
-@[grind! .]
+-- @[grind! .]
 theorem Nat.lt_two_pow_of_lt_two_pow_of_le {a n m : Nat}
     (ha : a < 2 ^ n := by grind) (hnm : n ≤ m := by grind) : a < 2 ^ m := by
   apply Nat.lt_of_lt_of_le
