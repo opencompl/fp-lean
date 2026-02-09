@@ -134,6 +134,20 @@ theorem PackedFloat.eq_of_unpack_eq_unpack_of_isInfinity {x y : PackedFloat e s}
     x = y := by
   cases x using PackedFloat.kindCasesNaNInfZeroNum <;> try grind
 
+/--
+Purely arithmetic fact that needs to be proven,
+which should just be to show that the fixed point computation equals the
+rational multiplication.
+Actually, this is too strong, the theorem statemtnt should be able to state
+something weaker, that only upto (s+1) bits agree,
+and that the sticky bit is computed correctly.
+-/
+theorem toRat_unpackNormOrNonzeroSubnorm_mul_eq_mul_toNumberRat
+  (a b : PackedFloat ein sin)
+  (ha : a.isNormOrNonzeroSubnorm = true)
+  (hb : b.isNormOrNonzeroSubnorm = true) :
+  (a.unpackNormOrNonzeroSubnorm.mul b.unpackNormOrNonzeroSubnorm).toRat = a.toNumberRat * b.toNumberRat := sorry
+
 set_option warn.sorry false in
 /--
 Example theorem we will prove, using our proof strategy of proving against the SMT-Lib semantics.
@@ -240,7 +254,5 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
       rw [roundQ_Number_eq_round]
       rw [PackedFloat.toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm hb]
       simp only [ExtRat.number_mul_number_eq, ExtRat.Number.injEq]
-      -- Purely arithmetic statement.
-      -- ⊢ (a.unpackNormOrNonzeroSubnorm.mul b.unpackNormOrNonzeroSubnorm).toRat = a.toNumberRat * b.toNumberRat
-      sorry
+      apply toRat_unpackNormOrNonzeroSubnorm_mul_eq_mul_toNumberRat <;> assumption
 end Fp
