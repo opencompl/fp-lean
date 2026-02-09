@@ -345,7 +345,8 @@ theorem minNormalExp_fits₁ : -2 ^ (exponentWidth e s - 1) ≤ minNormalExp e :
   simp only [Int.neg_le_neg_iff]
   norm_cast
   simp only [bias, exponentWidth]
-  grind  (gen := 30) (splits := 20) [Nat.two_pow_pos, Nat.log2_eq_iff]
+  grind only [!Nat.two_pow_pos, !Nat.log2_eq_iff, #569066451790c837, #542258ac646a68ca,
+    #ccfcc644d1be4e5b]
 
 theorem minNormalExp_fits₂ : minNormalExp e < 2 ^ (exponentWidth e s - 1) := by
   apply Int.lt_of_le_of_lt (b := 0)
@@ -404,7 +405,8 @@ theorem toExtRat_unpack_eq_toExtRat {pf : PackedFloat e s}
                   Int.natCast_pow, Int.cast_ofNat_Int, Int.neg_neg]
                 norm_cast
                 simp only [bias, exponentWidth]
-                grind [Nat.two_pow_pos, Nat.log2_eq_iff]
+                grind only [usr Nat.pow_pos, !Nat.log2_eq_iff, #569066451790c837, #542258ac646a68ca,
+                  #ccfcc644d1be4e5b]
               · simp only [minNormalExp, Int.natCast_pow, Int.cast_ofNat_Int]
                 have : (2 ^ exponentWidth e s + 1) / (2 : Int) = 2 ^ (exponentWidth e s - 1) := by
                   cases exponentWidth e s <;> grind
