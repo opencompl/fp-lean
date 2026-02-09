@@ -301,8 +301,8 @@ noncomputable def smtLibV [Inhabited X] [ExtendedNumber R] (embed : RoundableEmb
 instance : LawfulRoundableAdjunction (smtLibV (embedPackedFloatExtRat e s)) where
   adjunctionLower := by
     intros r p
-    simp only [← PackedFloat.le_def, ← ExtRat.le_def]
-    simp [RoundableEmbed.embed]
+    simp only [instExtendedRat, ← ExtRat.le_def, ← PackedFloat.le_def,
+      PackedFloat.toExtRat_eq_toExtRat', Bool.coe_iff_coe]
     rw [PackedFloat.toExtRat']
     induction p using PackedFloat.classification
     case nanCase n hn =>
