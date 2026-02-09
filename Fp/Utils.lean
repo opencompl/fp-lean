@@ -1,5 +1,6 @@
 import Std.Tactic.BVDecide
 import Fp.Tactics
+import Fp.Grind
 
 /-- convert the sign bit to an integer value. Morally, this is (-1)^s -/
 def signToInt (s : Bool) : Int :=
@@ -36,6 +37,7 @@ def lastPowerOfTwo (n : Nat) : Nat :=
 theorem sub_two_le { n : Nat } : n - 2 ≤ n := by
   omega
 
+@[grind .]
 theorem le_two_pow : n ≤ 2^n := by
   induction n
   case zero =>

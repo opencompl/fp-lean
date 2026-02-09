@@ -41,6 +41,8 @@ instance : Mul (PackedFloat e s) where
 @[bv_normalize]
 theorem PackedFloat.mul_def {x y : PackedFloat e s} : x * y = PackedFloat.mul .RNE x y := rfl
 
+
+
 end PackedFloat
 
 /-- info: some 16 -/

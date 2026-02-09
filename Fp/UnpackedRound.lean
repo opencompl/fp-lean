@@ -1,7 +1,7 @@
 import Fp.Basic
 import Fp.Rounding
 import Fp.MulInv
-import Fp.Theorems.Grind
+import Fp.Grind
 import Fp.ForLean.Rat
 import Fp.Rounding
 

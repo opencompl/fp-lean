@@ -62,6 +62,7 @@ instance [hEx : ExtendedNumber R] [DecidableRel hEx.smtLibEq] :
   infer_instance
 
 
+@[simp]
 instance instExtendedRat : ExtendedNumber ExtRat where
   isNaN r := r.isNaN
   smtLibEq r1 r2 := r1.eq r2
@@ -136,6 +137,10 @@ def roundableIsEven_of_packedFloat
   isEven (x : PackedFloat e s) : Bool :=
     x.sig.toNat % 2 == 0
 
+@[simp]
+theorem isEven_roundableIsEven_of_packedFloat (x : PackedFloat e s) :
+  roundableIsEven_of_packedFloat.isEven x = (x.sig.toNat % 2 == 0) := rfl
+
 /-- Roundable predicates allow us to determine if a rational is in the lower half, tie break,
 and also let us check if a value X represents an even number (for RNE). -/
 structure RoundablePredicates (X : Type) (R : Type) extends
@@ -153,18 +158,29 @@ def RoundMethod.rounderForSign {X : Type}
     (sign : Bool) (r : R) : X :=
   if sign then roundMethod.upper r else roundMethod.lower r
 
-open  ExtendedNumber in
-/-- define the rounding function for a given choice of 'RoundMethod'. -/
-def RoundMethod.round {e s R} (roundMethod : RoundMethod (PackedFloat e s) R) [inst : ExtendedNumber R]
+@[simp]
+theorem rounderForSign_true_eq_upper {X : Type} (roundMethod : RoundMethod X R) (r : R) :
+  roundMethod.rounderForSign true r = roundMethod.upper r := rfl
+
+@[simp]
+theorem rounderForSign_false_eq_lower {X : Type} (roundMethod : RoundMethod X R) (r : R) :
+  roundMethod.rounderForSign false r = roundMethod.lower r := rfl
+
+section Round
+
+variable
+    {e s R} (roundMethod : RoundMethod (PackedFloat e s) R) [inst : ExtendedNumber R]
     [DecidablePred inst.isZero]
     [DecidablePred inst.isNaN]
     [DecidablePred roundMethod.lowerHalf]
     [DecidablePred roundMethod.tieBreak]
     [DecidablePred inst.gtZero]
     [DecidablePred inst.ltZero]
-    (rm : RoundingMode) (sign : Bool) (r : R) : PackedFloat e s :=
-  match rm with
-  | .RNE =>
+    (rm : RoundingMode) (sign : Bool) (r : R)
+
+open ExtendedNumber
+
+def RoundMethod.roundRNE : PackedFloat e s :=
       if isNaN r then roundMethod.lower r
       else if isZero r then roundMethod.rounderForSign sign r
       else if ¬ (isZero r) ∧ roundMethod.lowerHalf r then roundMethod.lower r
@@ -172,26 +188,67 @@ def RoundMethod.round {e s R} (roundMethod : RoundMethod (PackedFloat e s) R) [i
       else if ¬ (isZero r) ∧ roundMethod.tieBreak r ∧ roundMethod.isEven (roundMethod.upper r) then roundMethod.upper r
       else if ¬ (isZero r) ∧ !roundMethod.lowerHalf r ∧ !roundMethod.tieBreak r then roundMethod.upper r
       else .mkNaN -- does not occur.
-  | .RNA =>
-      if gtZero r ∧ ¬ (roundMethod.lowerHalf r) then roundMethod.upper r
-      else if gtZero r ∧ (roundMethod.lowerHalf r) then roundMethod.lower r
-      else if isZero r then roundMethod.rounderForSign sign r
-      else if isNaN r then roundMethod.lower r
-      else if ltZero r ∧ ¬ (roundMethod.lowerHalf r) ∧ ¬ (roundMethod.tieBreak r) then roundMethod.upper r
-      else if ltZero r ∧ ((roundMethod.lowerHalf r) ∨ (roundMethod.tieBreak r)) then roundMethod.lower r
-      else .mkNaN -- does not occur.
-   | .RTP =>
-      if isZero r then roundMethod.rounderForSign sign r
-      else roundMethod.upper r
-   | .RTN =>
-      if isZero r then roundMethod.rounderForSign sign r
-      else roundMethod.lower r
-   | .RTZ =>
-      if gtZero r then roundMethod.lower r
-      else if isZero r then roundMethod.rounderForSign sign r
-      else roundMethod.upper r
 
-namespace SmtLibRoundMethod
+def RoundMethod.roundRNA : PackedFloat e s :=
+      if isNaN r then roundMethod.lower r
+      else if isZero r then roundMethod.rounderForSign sign r
+      else if ¬ (isZero r) ∧ roundMethod.lowerHalf r then roundMethod.upper r
+      else if ¬ (isZero r) ∧ roundMethod.tieBreak r ∧ roundMethod.isEven (roundMethod.lower r) then roundMethod.lower r
+      else if ¬ (isZero r) ∧ roundMethod.tieBreak r ∧ roundMethod.isEven (roundMethod.upper r) then roundMethod.upper r
+      else if ¬ (isZero r) ∧ !roundMethod.lowerHalf r ∧ !roundMethod.tieBreak r then roundMethod.lower r
+      else .mkNaN -- does not occur.
+
+def RoundMethod.roundRTP : PackedFloat e s :=
+      if isNaN r then roundMethod.lower r
+      else if isZero r then roundMethod.rounderForSign sign r
+      else if ¬ (isZero r) ∧ (gtZero r) then roundMethod.upper r
+      else if ¬ (isZero r) ∧ (ltZero r) then roundMethod.rounderForSign sign r
+      else .mkNaN -- does not occur.
+
+
+def RoundMethod.roundRTN : PackedFloat e s :=
+  if isZero r then roundMethod.rounderForSign sign r
+  else roundMethod.lower r
+
+def RoundMethod.roundRTZ : PackedFloat e s :=
+  if isZero r then roundMethod.rounderForSign sign r
+  else if gtZero r then roundMethod.lower r
+  else if ltZero r then roundMethod.upper r
+  else .mkNaN -- does not occur.
+
+
+/-- define the rounding function for a given choice of 'RoundMethod'. -/
+def RoundMethod.round : PackedFloat e s :=
+  match rm with
+  | .RNE => roundMethod.roundRNE sign r
+  | .RNA => roundMethod.roundRNA sign r
+  | .RTP => roundMethod.roundRTP sign r
+  | .RTN => roundMethod.roundRTN sign r
+  | .RTZ => roundMethod.roundRTZ sign r
+
+@[simp]
+theorem RoundMethod.round_RNE_eq : roundMethod.round .RNE sign r = roundMethod.roundRNE sign r := by
+  simp [RoundMethod.round]
+
+@[simp]
+theorem RoundMethod.round_RNA_eq : roundMethod.round .RNA sign r = roundMethod.roundRNA sign r := by
+  simp [RoundMethod.round]
+
+@[simp]
+theorem RoundMethod.round_RTP_eq : roundMethod.round .RTP sign r = roundMethod.roundRTP sign r := by
+  simp [RoundMethod.round]
+
+@[simp]
+theorem RoundMethod.round_RTN_eq : roundMethod.round .RTN sign r = roundMethod.roundRTN sign r := by
+  simp [RoundMethod.round]
+
+@[simp]
+theorem RoundMethod.round_RTZ_eq : roundMethod.round .RTZ sign r = roundMethod.roundRTZ sign r := by
+  simp [RoundMethod.round]
+
+end Round
+
+-- namespace SmtLibRoundMethod
 
 /-- 'lower' is a valid greatest lower bound for 'r'. -/
 def IsLawfulLower [ExtendedNumber R] [RE : RoundableEmbed X R] (r : R) (lower : X) : Prop :=
@@ -232,10 +289,25 @@ noncomputable def smtLibV [Inhabited X] [ExtendedNumber R] [RoundableEmbed X R] 
   lower := smtLibLower.lower
   upper := smtLibUpper.upper
 
+@[simp]
+theorem smtLibV_embed_eq [Inhabited X]
+  [ExtendedNumber R] [RoundableEmbed X R]
+    : (smtLibV (X := X) (R := R)).embed = RoundableEmbed.embed := rfl
+
+@[simp]
+theorem smtLibV_lower_eq [Inhabited X]
+  [ExtendedNumber R] [RoundableEmbed X R]
+    : (smtLibV (X := X) (R := R)).lower = smtLibLower.lower := rfl
+
+@[simp]
+theorem smtLibV_upper_eq [Inhabited X]
+  [ExtendedNumber R] [RoundableEmbed X R]
+    : (smtLibV (X := X) (R := R)).upper = smtLibUpper.upper := rfl
+
 /--
 The SMT-Lib definition of the rounding methods for any choice of rounding adjunction 'v'.
 -/
-def smtLibRoundMethod (e s : Nat)
+def smtLibRoundMethod {R : Type} (e s : Nat)
     (v : RoundableAdjunction (PackedFloat e s) R)
     (ves : RoundableAdjunction (PackedFloat e (s + 1)) R)
     [ExtendedNumber R] :
@@ -263,12 +335,48 @@ def smtLibRoundMethod (e s : Nat)
     (ves.embed (ves.upper r) < (v.embed (v.upper r)))
   isEven := roundableIsEven_of_packedFloat.isEven
 
+
+@[simp]
+theorem smtLibRoundMethod.lower_eq {R : Type} (e s : Nat)
+    (v : RoundableAdjunction (PackedFloat e s) R)
+    (ves : RoundableAdjunction (PackedFloat e (s + 1)) R)
+    [ExtendedNumber R] :
+  (smtLibRoundMethod e s v ves).lower = v.lower := rfl
+
+@[simp]
+theorem smtLibRoundMethod.upper_eq {R : Type} (e s : Nat)
+    (v : RoundableAdjunction (PackedFloat e s) R)
+    (ves : RoundableAdjunction (PackedFloat e (s + 1)) R)
+    [ExtendedNumber R] :
+  (smtLibRoundMethod e s v ves).upper = v.upper := rfl
+
+@[simp]
+theorem smtLibRoundMethod.embed_eq {R : Type} (e s : Nat)
+    (v : RoundableAdjunction (PackedFloat e s) R)
+    (ves : RoundableAdjunction (PackedFloat e (s + 1)) R)
+    [ExtendedNumber R] :
+  (smtLibRoundMethod e s v ves).embed = v.embed := rfl
+
+theorem smtLibRoundMethod.lowerHalf_eq {R : Type} (e s : Nat)
+    (v : RoundableAdjunction (PackedFloat e s) R)
+    (ves : RoundableAdjunction (PackedFloat e (s + 1)) R)
+    [ExtendedNumber R] :
+  (smtLibRoundMethod e s v ves).lowerHalf = (fun r => ExtendedNumber.smtLibEq (v.embed (v.lower r))  (ves.embed (ves.lower r))) := rfl
+
+theorem smtLibRoundMethod.tieBreak_eq {R : Type} (e s : Nat)
+    (v : RoundableAdjunction (PackedFloat e s) R)
+    (ves : RoundableAdjunction (PackedFloat e (s + 1)) R)
+    [ExtendedNumber R] :
+  (smtLibRoundMethod e s v ves).tieBreak = (fun r =>
+    (v.embed (v.lower r) < ves.embed (ves.lower r)) =
+    (ves.embed (ves.upper r) < (v.embed (v.upper r)))) := rfl
+
 instance [hExtended : ExtendedNumber R]
     [DecidableRel hExtended.smtLibEq]
     {v : RoundableAdjunction (PackedFloat e s) R}
     {ves : RoundableAdjunction (PackedFloat e (s + 1)) R} :
     DecidablePred ((smtLibRoundMethod e s v ves).lowerHalf) := by
-  simp [smtLibRoundMethod]
+  rw [smtLibRoundMethod]
   infer_instance
 
 instance [hExtended : ExtendedNumber R]
@@ -276,10 +384,10 @@ instance [hExtended : ExtendedNumber R]
     {v : RoundableAdjunction (PackedFloat e s) R}
     {ves : RoundableAdjunction (PackedFloat e (s + 1)) R} :
     DecidablePred ((smtLibRoundMethod e s v ves).tieBreak) := by
-  simp [smtLibRoundMethod]
+  rw [smtLibRoundMethod]
   infer_instance
 
-end SmtLibRoundMethod
+-- end SmtLibRoundMethod
 
 namespace SmtLibFunctions
 

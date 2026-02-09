@@ -10,8 +10,6 @@ namespace SmtLibSemanticsComputable
 
 def mkZero (sign : Bool) (e s : Nat) : PackedFloat e s :=
   EUnpackedFloat.mkNumber (UnpackedFloat.mkZero sign) |>.pack
-
-
 /-
 This file defines a computable version of the SMT-LIB semantics,
 which is used for comparing results from SMT solvers with those from Lean's floating-point library.
@@ -56,8 +54,7 @@ def computableV : RoundableAdjunction (PackedFloat e s) ExtRat where
   embed := PackedFloat.toExtRat
 
 abbrev computableSmtLibRoundMethod (e s : Nat) :
-    RoundMethod (PackedFloat e s) ExtRat :=
-  SmtLibRoundMethod.smtLibRoundMethod e s
+    RoundMethod (PackedFloat e s) ExtRat := smtLibRoundMethod e s
     (computableV)
     (computableV)
 
