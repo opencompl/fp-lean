@@ -168,16 +168,6 @@ theorem sigWidth_lt_exponentWidth_sub_one : s < 2 ^ (exponentWidth e s - 1) := b
   have := Nat.lt_log2_self (n := s)
   grind
 
-theorem sigWidth_add_one_lt_exponentWidth_sub_one : s + 1 < 2 ^ (exponentWidth e s - 1) := by
-  unfold exponentWidth
-  -- grind [Nat.two_pow_pos, Nat.log2_eq_iff]
-
-theorem sigWidth_add_one_lt_exponentWidth : s + 1 < 2 ^ exponentWidth e s := by
-  have := @sigWidth_add_one_lt_exponentWidth_sub_one s e
-  have : exponentWidth e s - 1 < exponentWidth e s := by
-    grind
-
-
 theorem expWidth_le_exponentWidth : e ≤ exponentWidth e s := by
   unfold exponentWidth
   match e with
@@ -192,7 +182,7 @@ theorem expWidth_le_exponentWidth : e ≤ exponentWidth e s := by
 
 theorem sigWidth_add_bias_le_exponentWidth_sub_one : s + bias e ≤ 2 ^ (exponentWidth e s - 1) := by
   simp only [bias, exponentWidth]
-  grind [Nat.two_pow_pos, Nat.log2_eq_iff]
+  grind only [!Nat.two_pow_pos, !Nat.log2_eq_iff, #569066451790c837, #ccfcc644d1be4e5b]
 
 -- theorem expWidth_lt_exponentWidth : e < exponentWidth e s := by
 --   unfold exponentWidth
@@ -207,11 +197,23 @@ theorem sigWidth_add_bias_le_exponentWidth_sub_one : s + bias e ≤ 2 ^ (exponen
 
 theorem bias_lt_exponentWidth : bias e < 2 ^ exponentWidth e s := by
   simp only [exponentWidth, bias]
-  grind [Nat.two_pow_pos, Nat.log2_eq_iff]
+  grind only [!Nat.two_pow_pos, !Nat.log2_eq_iff, #569066451790c837, #ccfcc644d1be4e5b]
 
 theorem bias_lt_exponentWidth_sub_one : bias e < 2 ^ (exponentWidth e s - 1) := by
   simp only [exponentWidth, bias]
-  grind [Nat.two_pow_pos, Nat.log2_eq_iff]
+  grind only [!Nat.two_pow_pos, !Nat.log2_eq_iff, #569066451790c837, #ccfcc644d1be4e5b]
+
+
+theorem sigWidth_add_one_lt_exponentWidth_sub_one : s + 1 < 2 ^ (exponentWidth e s - 1) := by
+  unfold exponentWidth
+  sorry
+
+theorem sigWidth_add_one_lt_exponentWidth : s + 1 < 2 ^ exponentWidth e s := by
+  have := @sigWidth_add_one_lt_exponentWidth_sub_one s e
+  have : exponentWidth e s - 1 < exponentWidth e s := by
+    grind
+  sorry
+
 
 theorem toRat_normalize_eq_toRat {uf : UnpackedFloat e s}
   (hse : s - 1 < 2 ^ (e - 1))
