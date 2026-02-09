@@ -1,3 +1,5 @@
+namespace Fp
+
 attribute [simp] Rat.not_lt
 
 attribute [grind] Rat.pow_pos
@@ -106,3 +108,5 @@ theorem Nat.two_pow_le_two_pow_of_le {n m : Nat}
   · omega
 
 attribute [grind =, grind =_] Nat.shiftLeft_eq
+
+end Fp
