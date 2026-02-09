@@ -75,9 +75,23 @@ theorem round_eq_mkZero_of_mkZero {zeroSign : Bool} {eout sout : Nat} {rm : Roun
         rm zeroSign (ExtRat.Number 0) = PackedFloat.getZero eout sout zeroSign := by
   rcases rm <;> sorry
 
+/--
+'uf' approximtes 'r' upto rounding.
+-/
+structure ApproximatesUptoRounding (uf : UnpackedFloat ein sin) (er : ExtRat) (eout sout : Nat) : Prop where
+  /-- we have at least 2 bits more, of guard and sticky. -/
+  hSigGe : sin + 2 ≥ sout 
+  /-- we have at least as much exponent range. -/
+  hExpGe : ein ≥ eout -- we have at least as much exponent range
+  /-- rational values have (sout + 1) bits of precision. -/
+  hApproxUptoGuard : ∀ (r : Rat), .Number r = er → (uf.toRat - r).abs < (2 : Rat) ^ (-(sout + 1 : Int)) 
+  /-- the sticky bit is zero iff the number truncated upto the guard bit equals -/
+  hStickyBitCorrect : ∀ (r : Rat), .Number r = er → ((uf.sig.extractMsb' (sout + 1) (sin - (sout + 1)) ≠ 0) = decide (r = uf.toRat))
+
 set_option warn.sorry false in
-theorem roundQ_Number_eq_round (er : ExtRat) (uf : UnpackedFloat ein sin)
-    (hruf : ExtRat.Number uf.toRat = er) :
+theorem roundQ_Number_eq_round
+    (er : ExtRat) (uf : UnpackedFloat ein sin)
+    (hruf : ApproximatesUptoRounding uf er eout sout) (rm : RoundingMode) (sign : Bool) :
     (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round rm sign
       er =
       (UnpackedFloat.round uf rm).pack := by sorry
@@ -142,11 +156,12 @@ Actually, this is too strong, the theorem statemtnt should be able to state
 something weaker, that only upto (s+1) bits agree,
 and that the sticky bit is computed correctly.
 -/
-theorem toRat_unpackNormOrNonzeroSubnorm_mul_eq_mul_toNumberRat
+theorem ApproximatesUptoRounding_mul_mul
   (a b : PackedFloat ein sin)
   (ha : a.isNormOrNonzeroSubnorm = true)
   (hb : b.isNormOrNonzeroSubnorm = true) :
-  (a.unpackNormOrNonzeroSubnorm.mul b.unpackNormOrNonzeroSubnorm).toRat = a.toNumberRat * b.toNumberRat := sorry
+  ApproximatesUptoRounding (a.unpackNormOrNonzeroSubnorm.mul b.unpackNormOrNonzeroSubnorm)
+  (ExtRat.Number a.toNumberRat * ExtRat.Number b.toNumberRat) ein sin := sorry
 
 set_option warn.sorry false in
 /--
@@ -251,8 +266,7 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
       simp [this]
       have : ¬ b.isZero := by grind
       simp [this]
-      rw [roundQ_Number_eq_round]
       rw [PackedFloat.toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm hb]
-      simp only [ExtRat.number_mul_number_eq, ExtRat.Number.injEq]
-      apply toRat_unpackNormOrNonzeroSubnorm_mul_eq_mul_toNumberRat <;> assumption
+      apply roundQ_Number_eq_round
+      apply ApproximatesUptoRounding_mul_mul <;> assumption
 end Fp
