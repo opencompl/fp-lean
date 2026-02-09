@@ -1090,6 +1090,7 @@ instance : LE ExtRat where
   le a b := le a b
 
 
+
 @[simp]
 theorem le_def {a b : ExtRat} : a.le b = (a ≤ b) := rfl
 
@@ -1447,7 +1448,6 @@ def bias (e : Nat) : Nat :=
 
 namespace PackedFloat
 
--- delete mkNaN in favour of getNaN
 def mkNaN (sign := false) (sig := BitVec.intMin s) : PackedFloat e s :=
   { sign, ex := BitVec.allOnes e, sig }
 
@@ -1602,14 +1602,17 @@ theorem toExtRat'_mkInfinity (sign : Bool) (hs : 0 < s := by grind) :
   have : (PackedFloat.getInfinity e s sign).isInfinite = true := by
     grind
   simp [hs]
+@[simp]
+
+theorem isNaN_mkNaN : (PackedFloat.mkNaN : PackedFloat e s).isNaN = true := by
+  simp [mkNaN, isNaN]
+  grind
 
 @[simp]
-theorem toExtRat'_mkNaN (sign : Bool) (hs : 0 < s := by grind) :
+theorem toExtRat'_mkNaN :
     (PackedFloat.mkNaN : PackedFloat e s).toExtRat' = .NaN := by
-  have : (PackedFloat.mkNaN : PackedFloat e s).isNaN = true := by
-    sorry
-  simp [PackedFloat.toExtRat']
-  simp [this]
+  rw [toExtRat']
+  simp
 
 @[simp]
 axiom toExtRat'_getZero (sign : Bool) (hs : 0 < s := by grind) :
