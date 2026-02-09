@@ -3,6 +3,7 @@ import Fp.Rounding
 import Fp.UnpackedRound
 import Fp.Utils
 import Lean
+import Fp.Theorems.Packing
 open Lean
 
 
@@ -102,7 +103,7 @@ structure RoundableLower (X : Type) (R : Type) where
   lower : R → X
 
 /-- The default embedding of packed floats into the extended rationals. -/
-instance  : RoundableEmbed (PackedFloat e s) ExtRat where
+instance  embedPackedFloatExtRat (e s) : RoundableEmbed (PackedFloat e s) ExtRat where
   embed (x : PackedFloat e s) : ExtRat := x.toExtRat
 
 
@@ -113,6 +114,14 @@ structure RoundableAdjunction (X : Type) (R : Type) extends
   RoundableLower X R,
   RoundableUpper X R
   where
+
+/--
+This is the main property of a lawful rounding adjunction, which states that the lower and upper approximants
+are correct with respect to the embedding. Specifically, `lower` computes the greatest lower bound and `upper` computes the least upper bound of the embedding of `X` into `R`.
+-/
+class LawfulRoundableAdjunction [LE X] [ExtendedNumber R] (adj : RoundableAdjunction X R) where
+  adjunctionLower : ∀ (r : R) (x : X), adj.embed x ≤ r ↔ x ≤ adj.lower r
+  adjunctionUpper : ∀ (r : R) (x : X), r ≤ adj.embed x ↔ adj.upper r ≤ x
 
 /-- Check if the given rational `r` is *strictly in* the lower half
 of the interval `(embed (lower r), embed (upper r))`. -/
@@ -283,26 +292,43 @@ for better computational properties.
 We will show later that the `vlower` and `vupper` defined this way agree
 with the galois adjunction expected.
 -/
-noncomputable def smtLibV [Inhabited X] [ExtendedNumber R] [RoundableEmbed X R] :
+noncomputable def smtLibV [Inhabited X] [ExtendedNumber R] (embed : RoundableEmbed X R) :
     RoundableAdjunction X R where
   embed := RoundableEmbed.embed
   lower := smtLibLower.lower
   upper := smtLibUpper.upper
 
+instance : LawfulRoundableAdjunction (smtLibV (embedPackedFloatExtRat e s)) where
+  adjunctionLower := by
+    intros r p
+    simp only [← PackedFloat.le_def, ← ExtRat.le_def]
+    simp [RoundableEmbed.embed]
+    rw [PackedFloat.toExtRat']
+    induction p using PackedFloat.classification
+    case nanCase n hn =>
+      simp [hn]
+      sorry
+    case zeroCase =>
+      simp
+      sorry
+    case infCase sign => sorry
+    case numCase n hnum => sorry
+  adjunctionUpper := sorry
+
 @[simp]
 theorem smtLibV_embed_eq [Inhabited X]
-  [ExtendedNumber R] [RoundableEmbed X R]
-    : (smtLibV (X := X) (R := R)).embed = RoundableEmbed.embed := rfl
+  [ExtendedNumber R] (embed : RoundableEmbed X R)
+    : (smtLibV embed).embed = RoundableEmbed.embed := rfl
 
 @[simp]
 theorem smtLibV_lower_eq [Inhabited X]
-  [ExtendedNumber R] [RoundableEmbed X R]
-    : (smtLibV (X := X) (R := R)).lower = smtLibLower.lower := rfl
+  [ExtendedNumber R] (embed : RoundableEmbed X R)
+    : (smtLibV embed).lower = smtLibLower.lower := rfl
 
 @[simp]
 theorem smtLibV_upper_eq [Inhabited X]
-  [ExtendedNumber R] [RoundableEmbed X R]
-    : (smtLibV (X := X) (R := R)).upper = smtLibUpper.upper := rfl
+  [ExtendedNumber R] (embed : RoundableEmbed X R)
+    : (smtLibV embed).upper = smtLibUpper.upper := rfl
 
 /--
 The SMT-Lib definition of the rounding methods for any choice of rounding adjunction 'v'.

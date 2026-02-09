@@ -59,7 +59,6 @@ instance : Repr (PackedFloat exWidth sigWidth) where
   reprPrec x _prec :=
     f!"\{ sign := {if x.sign then "-" else "+"}, ex := {x.ex}, sig := {x.sig} }"
 
-
 /--
 A fixed point number with specified exponent offset.
 -/
@@ -1461,6 +1460,18 @@ theorem toExtDyadic_eq_Infinity_of_isInfinite (pf : PackedFloat e s) (hp : pf.is
 def toExtRat (pf : PackedFloat e s) : ExtRat :=
   pf.toExtDyadic.toExtRat
 
+
+instance : LE (PackedFloat exWidth sigWidth) where
+  le x y := x.toExtRat ≤ y.toExtRat
+
+@[simp]
+theorem le_def (x y : PackedFloat e s) :  (x.toExtRat ≤ y.toExtRat) = (x ≤ y) := rfl
+
+instance {x y : PackedFloat e s} : Decidable (x ≤ y) := by
+    simp only [← PackedFloat.le_def]
+    simp only [← ExtRat.le_def]
+    infer_instance
+
 def toExtRat' (pf : PackedFloat e s) : ExtRat :=
   bif pf.isNaN then
     .NaN
@@ -1473,6 +1484,8 @@ def toExtRat' (pf : PackedFloat e s) : ExtRat :=
   else
     -- `-(bias e - 1)` is slightly different from SMT-LIB standard `1 - bias e` to allow `e = 1`.
     .Number (pf.sign.toSign * (0 + pf.sig.toNat / 2 ^ s) * 2 ^ (-(bias e - 1 : Nat) : Int))
+
+
 
 @[simp]
 theorem toExtRat'_eq_zero_of_isZero (pf : PackedFloat e s) (hp : pf.isZero) :
@@ -1576,6 +1589,32 @@ axiom toExtRat'_getZero (sign : Bool) (hs : 0 < s := by grind) :
     -- sorry
   -- simp [this]
     -- grind
+
+/--
+Case splitting on the different values a packed float
+can have: it can be nan, infinity, zero, or a nonzero normal/subnormal.+
+-/
+@[elab_as_elim]
+theorem classification {P : PackedFloat e s → Prop}
+    (x : PackedFloat e s)
+    (nanCase : ∀ (n : PackedFloat e s), n.isNaN → P n)
+    (infCase : ∀ sign, P (PackedFloat.getInfinity e s sign))
+    (zeroCase : ∀ sign, P (PackedFloat.getZero e s sign))
+    (numCase : ∀ (n : PackedFloat e s), n.isNormOrNonzeroSubnorm → P n) :
+    P x := by
+  have := x.classification_exhaustive
+  simp at this
+  by_cases h1 : x.isNaN
+  · grind
+  · by_cases h2 : x.isInfinite
+    · grind
+    · by_cases h3 : x.isZero
+      · grind
+      · by_cases h4 : x.isNonzeroSubnorm
+        · grind
+        · by_cases h5 : x.isNorm
+          · grind
+          · grind
 
 
 end PackedFloat
