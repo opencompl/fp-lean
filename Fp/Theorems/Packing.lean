@@ -55,6 +55,7 @@ theorem Nat.log2_eq_exists (n : Nat) (hn : n ≠ 0) :
   apply Nat.log2_eq_iff .. |>.mp <;> grind
 
 
+-- @[grind →]
 theorem Nat.log2_le_log2_of_le {a b : Nat} (h : a ≤ b) : a.log2 ≤ b.log2 := by
   induction a using Nat.div2Induction generalizing b with
   | ind a ih =>
@@ -140,36 +141,42 @@ theorem toRat_sig_zero_eq_toRat_mkZero {uf : UnpackedFloat e s}
   : uf.sig = 0 → uf.toRat = 0 := by
   simp +contextual [toRat]
 
+-- s ≤? 2 ^ ((2 ^ (e - 1) + s - 1).log2 + 2 - 1)
+--
+
+
+attribute [grind ← ] Nat.pow_le_pow_of_le
+
 theorem sigWidth_le_exponentWidth_sub_one : s ≤ 2 ^ (exponentWidth e s - 1) := by
   unfold exponentWidth
-  have : s ≤ 2^s := by exact le_two_pow
-  have : 2 ^ (e - 1) > 0 := by grind
-  by_cases hs : s = 0
-  · grind
-  · have : 0 < s := by grind
-    suffices s ≤ 2 ^ ((s).log2 + 2 - 1) by
-      apply Nat.le_trans this
-      apply Nat.pow_le_pow_of_le
-      decide
-      simp
-      apply Nat.log2_le_log2_of_le
-      grind
-    sorry
-    -- grind (instances := 8000) (gen := 12) [Nat.two_pow_pos, Nat.log2_eq_iff]
+  have : s ≤ (2 ^ (e - 1) + s - 1) := by grind only [Nat.pow_pos, #5690]
+  have : 2 ^ (s.log2 + 2 - 1) ≤ 2 ^ ((2 ^ (e - 1) + s - 1).log2 + 2 - 1) := by
+    apply Nat.pow_le_pow_of_le
+    · decide
+    · grind only [→ Nat.log2_le_log2_of_le]
+  simp at this
+  have := Nat.lt_log2_self (n := s)
+  grind only
 
 theorem sigWidth_lt_exponentWidth_sub_one : s < 2 ^ (exponentWidth e s - 1) := by
   unfold exponentWidth
-  sorry
-  -- sorry
-  -- grind (instances := 99999) (gen := 30) [Nat.two_pow_pos, Nat.log2_eq_iff]
+  have : s ≤ (2 ^ (e - 1) + s - 1) := by grind only [Nat.pow_pos, #5690]
+  have : 2 ^ (s.log2 + 2 - 1) ≤ 2 ^ ((2 ^ (e - 1) + s - 1).log2 + 2 - 1) := by
+    apply Nat.pow_le_pow_of_le
+    · decide
+    · grind only [→ Nat.log2_le_log2_of_le]
+  have := Nat.lt_log2_self (n := s)
+  grind
 
 theorem sigWidth_add_one_lt_exponentWidth_sub_one : s + 1 < 2 ^ (exponentWidth e s - 1) := by
   unfold exponentWidth
   -- grind [Nat.two_pow_pos, Nat.log2_eq_iff]
 
 theorem sigWidth_add_one_lt_exponentWidth : s + 1 < 2 ^ exponentWidth e s := by
-  unfold exponentWidth
-  grind (instances := 99999) (gen := 30)  [Nat.two_pow_pos, Nat.log2_eq_iff]
+  have := @sigWidth_add_one_lt_exponentWidth_sub_one s e
+  have : exponentWidth e s - 1 < exponentWidth e s := by
+    grind
+
 
 theorem expWidth_le_exponentWidth : e ≤ exponentWidth e s := by
   unfold exponentWidth
