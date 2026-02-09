@@ -204,15 +204,9 @@ theorem bias_lt_exponentWidth_sub_one : bias e < 2 ^ (exponentWidth e s - 1) := 
   grind only [!Nat.two_pow_pos, !Nat.log2_eq_iff, #569066451790c837, #ccfcc644d1be4e5b]
 
 
-theorem sigWidth_add_one_lt_exponentWidth_sub_one : s + 1 < 2 ^ (exponentWidth e s - 1) := by
-  unfold exponentWidth
-  sorry
-
 theorem sigWidth_add_one_lt_exponentWidth : s + 1 < 2 ^ exponentWidth e s := by
-  have := @sigWidth_add_one_lt_exponentWidth_sub_one s e
-  have : exponentWidth e s - 1 < exponentWidth e s := by
-    grind
-  sorry
+  unfold exponentWidth
+  grind only [!Nat.two_pow_pos, !Nat.log2_eq_iff, #569066451790c837, #ccfcc644d1be4e5b]
 
 
 theorem toRat_normalize_eq_toRat {uf : UnpackedFloat e s}
