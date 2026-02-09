@@ -103,7 +103,7 @@ structure RoundableLower (X : Type) (R : Type) where
   lower : R → X
 
 /-- The default embedding of packed floats into the extended rationals. -/
-instance  embedPackedFloatExtRat (e s) : RoundableEmbed (PackedFloat e s) ExtRat where
+instance embedPackedFloatExtRat (e s) : RoundableEmbed (PackedFloat e s) ExtRat where
   embed (x : PackedFloat e s) : ExtRat := x.toExtRat
 
 
@@ -263,6 +263,19 @@ end Round
 def IsLawfulLower [ExtendedNumber R] [RE : RoundableEmbed X R] (r : R) (lower : X) : Prop :=
   RE.embed lower ≤ r ∧ (∀ (lower' : X), RE.embed lower' ≤ r → RE.embed lower' ≤ RE.embed lower)
 
+@[grind →]
+theorem IsLawfulLower.functional [ExtendedNumber R] [RE : RoundableEmbed X R] [Std.IsPartialOrder R] (r : R) (lower1 lower2 : X) :
+  IsLawfulLower r lower1 → IsLawfulLower r lower2 → RE.embed lower1 = RE.embed lower2 := by
+  intro hl1 hl2
+  cases hl1 with
+  | intro hle1 hglb1 =>
+    cases hl2 with
+    | intro hle2 hglb2 =>
+      have hle12 : RE.embed lower1 ≤ RE.embed lower2 := hglb2 lower1 hle1
+      have hle21 : RE.embed lower2 ≤ RE.embed lower1 := hglb1 lower2 hle2
+      grind
+
+
 open Classical in
 noncomputable def smtLibLower [Inhabited X] [ExtendedNumber R] [RoundableEmbed X R] : RoundableLower X R where
   lower (r : R) : X :=
@@ -271,9 +284,39 @@ noncomputable def smtLibLower [Inhabited X] [ExtendedNumber R] [RoundableEmbed X
     else
       default
 
+theorem embed_smtLibLower_eq_of_IsLawfulLower [Inhabited X] [ExtendedNumber R] [instEmbed : RoundableEmbed X R] [Std.IsPartialOrder R]  (r : R) (lower : X) :
+  IsLawfulLower r lower → instEmbed.embed (smtLibLower.lower r) = instEmbed.embed lower := by
+  intro hl
+  simp [smtLibLower]
+  split
+  case isTrue h =>
+    obtain ⟨x, hlx⟩ := h
+    have : instEmbed.embed x = instEmbed.embed lower := by
+      apply IsLawfulLower.functional r x lower hlx hl
+    grind
+  case isFalse h =>
+    simp at h
+    grind
+
+
+
+-- TODO: need to know that IsLawfulLower is functional.
+
 /-- 'upper' is a valid least upper bound for 'r'. -/
 def IsLawfulUpper [ExtendedNumber R] [RE : RoundableEmbed X R] (r : R) (upper : X) : Prop :=
   r ≤ RE.embed upper ∧ (∀ (upper' : X), r ≤ RE.embed upper' → RE.embed upper ≤ RE.embed upper')
+
+@[grind →]
+theorem IsLawfulUpper.functional [ExtendedNumber R] [RE : RoundableEmbed X R] [Std.IsPartialOrder R] (r : R) (upper1 upper2 : X) :
+  IsLawfulUpper r upper1 → IsLawfulUpper r upper2 → RE.embed upper1 = RE.embed upper2 := by
+  intro hu1 hu2
+  cases hu1 with
+  | intro hle1 lub1 =>
+    cases hu2 with
+    | intro hle2 lub2 =>
+      have hle12 : RE.embed upper2 ≤ RE.embed upper1 := lub2 upper1 hle1
+      have hle21 : RE.embed upper1 ≤ RE.embed upper2 := lub1 upper2 hle2
+      grind
 
 open Classical in
 noncomputable def smtLibUpper {X R} [Inhabited X] [ExtendedNumber R] [RoundableEmbed X R] : RoundableUpper X R where
@@ -298,16 +341,48 @@ noncomputable def smtLibV [Inhabited X] [ExtendedNumber R] (embed : RoundableEmb
   lower := smtLibLower.lower
   upper := smtLibUpper.upper
 
+/-- TODO: is this the right way to deal with this? -/
+theorem smtLiV.embed_toRoundableEmbed_eq [Inhabited X] [ExtendedNumber R] (embed : RoundableEmbed X R) :
+  (smtLibV embed).embed = embed.embed := rfl
+
+/-- TODO: is this the right way to deal with this? -/
+@[simp]
+theorem smtLiV.lower_toRoundableEmbed_eq [Inhabited X] [ExtendedNumber R] (embed : RoundableEmbed X R) :
+  (smtLibV embed).lower = smtLibLower.lower := rfl
+
+@[simp]
+theorem smtLiV.upper_toRoundableEmbed_eq [Inhabited X] [ExtendedNumber R] (embed : RoundableEmbed X R) :
+  (smtLibV embed).upper = smtLibUpper.upper := rfl
+
+@[simp] -- TODO: what should be the simp nf?
+theorem RoundableEmbed_embedPackedFloatExtRat_eq_smtLibV_embed:
+    RoundableEmbed.embed (self := embedPackedFloatExtRat e s) = PackedFloat.toExtRat := rfl
+
+
+@[simp]
+theorem toExtRat'_smtLibLower_eq_toExtRat'_of_IsLawfulLower (r : ExtRat) (lower : PackedFloat e s) :
+    IsLawfulLower r lower → (smtLibLower.lower r : PackedFloat e s).toExtRat' = PackedFloat.toExtRat' lower := by
+  intros h
+  have := embed_smtLibLower_eq_of_IsLawfulLower r lower h
+  simp at this
+  assumption
+
+
 instance : LawfulRoundableAdjunction (smtLibV (embedPackedFloatExtRat e s)) where
   adjunctionLower := by
     intros r p
-    simp only [instExtendedRat, ← ExtRat.le_def, ← PackedFloat.le_def,
-      PackedFloat.toExtRat_eq_toExtRat', Bool.coe_iff_coe]
+    simp [instExtendedRat, ← PackedFloat.le_def,
+      PackedFloat.toExtRat_eq_toExtRat']
     rw [PackedFloat.toExtRat']
     induction p using PackedFloat.classification
     case nanCase n hn =>
       simp [hn]
-      sorry
+      constructor
+      · intros hr
+        simp at hr
+        -- TODO: extract this out into a separate boi.
+        sorry
+      · sorry
     case zeroCase =>
       simp
       sorry

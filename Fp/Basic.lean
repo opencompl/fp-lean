@@ -1402,6 +1402,26 @@ theorem mul_comm (x y : ExtRat) : x * y = y * x := by
 
 end InfinityBehaviour
 
+theorem le_refl (x : ExtRat) : x ≤ x := by
+  rw [← ExtRat.le_def]
+  unfold ExtRat.le
+  grind
+
+theorem le_trans {x y z : ExtRat} (hxy : x ≤ y) (hyz : y ≤ z) : x ≤ z := by
+  rw [← ExtRat.le_def] at hxy hyz ⊢
+  unfold ExtRat.le at hxy hyz ⊢
+  grind
+
+theorem le_antisymm {x y : ExtRat} (hxy : x ≤ y) (hyx : y ≤ x) : x = y := by
+  rw [← ExtRat.le_def] at hxy hyx
+  unfold ExtRat.le at hxy hyx
+  grind
+
+instance : Std.IsPartialOrder ExtRat where
+  le_refl := le_refl
+  le_trans := by grind [le_trans]
+  le_antisymm := by grind [le_antisymm]
+
 
 def isNaN (r : ExtRat) : Bool :=
   r = .NaN
@@ -1427,6 +1447,7 @@ def bias (e : Nat) : Nat :=
 
 namespace PackedFloat
 
+-- delete mkNaN in favour of getNaN
 def mkNaN (sign := false) (sig := BitVec.intMin s) : PackedFloat e s :=
   { sign, ex := BitVec.allOnes e, sig }
 
@@ -1581,6 +1602,14 @@ theorem toExtRat'_mkInfinity (sign : Bool) (hs : 0 < s := by grind) :
   have : (PackedFloat.getInfinity e s sign).isInfinite = true := by
     grind
   simp [hs]
+
+@[simp]
+theorem toExtRat'_mkNaN (sign : Bool) (hs : 0 < s := by grind) :
+    (PackedFloat.mkNaN : PackedFloat e s).toExtRat' = .NaN := by
+  have : (PackedFloat.mkNaN : PackedFloat e s).isNaN = true := by
+    sorry
+  simp [PackedFloat.toExtRat']
+  simp [this]
 
 @[simp]
 axiom toExtRat'_getZero (sign : Bool) (hs : 0 < s := by grind) :

@@ -159,7 +159,7 @@ instance embedPackedFloatExtReal (e s : Nat) : RoundableEmbed (PackedFloat e s) 
 end ExtReal
 
 noncomputable def smtLibRealRounder : RoundMethod (PackedFloat e s) ExtReal :=
-   smtLibRoundMethod e s 
+   smtLibRoundMethod e s
       (smtLibV (ExtReal.embedPackedFloatExtReal e s))
       (smtLibV (ExtReal.embedPackedFloatExtReal e (s + 1)))
 
