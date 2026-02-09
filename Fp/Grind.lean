@@ -2,11 +2,11 @@ namespace Fp
 
 attribute [simp] Rat.not_lt
 
-attribute [grind] Rat.pow_pos
-attribute [grind] Rat.pow_nonneg
-attribute [grind] Rat.le_of_lt
-attribute [grind] Rat.mul_nonneg
-attribute [grind] Rat.inv_pos
+attribute [grind .] Rat.pow_pos
+attribute [grind .] Rat.pow_nonneg
+attribute [grind .] Rat.le_of_lt
+attribute [grind .] Rat.mul_nonneg
+attribute [grind =] Rat.inv_pos
 -- attribute [grind] Rat.zpow_pos
 -- attribute [simp] Rat.inv_inv
 

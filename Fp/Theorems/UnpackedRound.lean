@@ -4,6 +4,7 @@ import Fp.Theorems.SmtLibSemanticsQ
 import Fp.Multiplication
 import Fp.Theorems.Packing
 
+
 namespace Fp
 
 @[simp]
@@ -13,10 +14,12 @@ theorem roundQ_eq (eout sout : Nat) (rm : RoundingMode) (sign : Bool) (r : ExtRa
       SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round rm sign
     r := rfl
 
+set_option warn.sorry false in
 @[simp]
 theorem lower_NaN_eq_PackedFloat_mkNaN :
   SmtLibSemantics.smtLibLower.lower ExtRat.NaN = (PackedFloat.mkNaN : PackedFloat e s) := sorry
 
+set_option warn.sorry false in
 @[simp]
 theorem upper_NaN_eq_PackedFloat_mkNaN :
   SmtLibSemantics.smtLibUpper.upper ExtRat.NaN = (PackedFloat.mkNaN : PackedFloat e s) := sorry
@@ -65,12 +68,14 @@ theorem round_eq_mkNaN_of_NaN {sign} {eout sout : Nat} {rm : RoundingMode} :
   · simp
   · simp
 
+set_option warn.sorry false in
 @[simp]
 theorem round_eq_mkZero_of_mkZero {zeroSign : Bool} {eout sout : Nat} {rm : RoundingMode} :
     (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round
         rm zeroSign (ExtRat.Number 0) = PackedFloat.getZero eout sout zeroSign := by
   rcases rm <;> sorry
 
+set_option warn.sorry false in
 theorem roundQ_Number_eq_round (er : ExtRat) (uf : UnpackedFloat ein sin)
     (hruf : ExtRat.Number uf.toRat = er) :
     (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round rm sign
@@ -129,6 +134,7 @@ theorem PackedFloat.eq_of_unpack_eq_unpack_of_isInfinity {x y : PackedFloat e s}
     x = y := by
   cases x using PackedFloat.kindCasesNaNInfZeroNum <;> try grind
 
+set_option warn.sorry false in
 /--
 Example theorem we will prove, using our proof strategy of proving against the SMT-Lib semantics.
 -/

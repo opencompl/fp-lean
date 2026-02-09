@@ -1559,7 +1559,7 @@ theorem toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm {pf : PackedFloat e s} (hp
     grind [isInfinite, isNormOrNonzeroSubnorm]
   have hzero : pf.isZero = false := by
     grind [isZero, isNormOrNonzeroSubnorm]
-  simp [toExtRat', hp, hnan, hinf, hzero, toNumberRat]
+  simp [toExtRat', hnan, hinf, hzero, toNumberRat]
   grind
 
 @[simp]

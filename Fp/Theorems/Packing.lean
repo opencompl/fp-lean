@@ -421,7 +421,7 @@ theorem toExtRat_unpack_eq_toExtRat {pf : PackedFloat e s}
           EUnpackedFloat.isNaN_mkNumber, EUnpackedFloat.isInfinite_mkNumber,
           EUnpackedFloat.num_mkNumber, toExtRat', hNaN, hInf, hZero, hNorm, cond_true,
           ExtRat.Number.injEq]
-          simp only [UnpackedFloat.toEUnpackedFloat, UnpackedFloat.toRat_eq, Rat.mul_assoc]
+          simp only [UnpackedFloat.toRat_eq, Rat.mul_assoc]
           congr 1
           simp only [BitVec.toNat_cons', Nat.shiftLeft_eq, Bool.toNat, cond_true]
           have he0 : e > 0 := Nat.lt_trans Nat.zero_lt_one (PackedFloat.expWidth_ge_two_of_isNorm hNorm)
