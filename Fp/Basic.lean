@@ -1448,8 +1448,21 @@ def bias (e : Nat) : Nat :=
 
 namespace PackedFloat
 
+-- | TODO: delete one of mkNaN or getNaN
 def mkNaN (sign := false) (sig := BitVec.intMin s) : PackedFloat e s :=
   { sign, ex := BitVec.allOnes e, sig }
+
+@[simp, grind =]
+theorem sign_mkNaN (sign : Bool) (sig : BitVec s) :
+  (mkNaN sign sig : PackedFloat e s).sign = sign := rfl
+
+@[simp, grind =]
+theorem ex_mkNaN (sign : Bool) (sig : BitVec s) :
+  (mkNaN sign sig : PackedFloat e s).ex = BitVec.allOnes e := rfl
+
+@[simp]
+theorem sig_mkNaN {s e} (sign : Bool) (sig : BitVec s) :
+  (mkNaN sign sig : PackedFloat e s).sig = sig := rfl
 
 def toExtDyadic (pf : PackedFloat e s) : ExtDyadic :=
   bif pf.isNaN then
@@ -1487,12 +1500,14 @@ def toExtRat (pf : PackedFloat e s) : ExtRat :=
 definition from the model of floating point.
 -/
 def le (x y : PackedFloat e s) : Prop :=
-    (x.sign = true ∧ y.sign = false) ∨
-    (x.sign = false ∧ y.sign = false ∧ x.ex.toInt < y.ex.toInt) ∨
-    (x.sign = false ∧ y.sign = false ∧ x.ex = y.ex ∧ x.sig.toNat ≤ y.sig.toNat) ∨
-    (x.sign = true ∧ y.sign = true ∧ y.ex.toInt < x.ex.toInt) ∨
-    (x.sign = true ∧ y.sign = true ∧ x.ex = y.ex ∧ y.sig.toNat ≤ x.sig.toNat)
-
+    (x.isNaN ∧ y.isNaN) ∨
+    (¬ x.isNaN ∧ ¬ y.isNaN ∧
+      (x.sign = true ∧ y.sign = false) ∨ -- x negative, y positive.
+      (x.sign = false ∧ y.sign = false ∧ x.ex.toInt < y.ex.toInt) ∨ -- both +ve, x smaller ex.
+      (x.sign = false ∧ y.sign = false ∧ x.ex = y.ex ∧ x.sig.toNat ≤ y.sig.toNat) ∨ -- both +ve, x smaller sig.
+      (x.sign = true ∧ y.sign = true ∧ y.ex.toInt < x.ex.toInt) ∨ -- both -ve, y smaller ex.
+      (x.sign = true ∧ y.sign = true ∧ x.ex = y.ex ∧ y.sig.toNat ≤ x.sig.toNat)
+    )
 
 instance {x y : PackedFloat e s} : Decidable (le x y) := by
   simp [le]; infer_instance
@@ -1505,8 +1520,17 @@ theorem le_def (x y : PackedFloat e s) :
   x.le y = (x ≤ y) := rfl
 
 @[simp]
-theorem minus_zero_le_plus_zero : PackedFloat.getZero e s true ≤ PackedFloat.getZero e s false := by
-  simp [getZero, ← PackedFloat.le_def, PackedFloat.le]
+theorem minus_zero_le_plus_zero {e s} :
+    (PackedFloat.getZero e s true ≤ PackedFloat.getZero e s false) =
+    (e = 0 → s = 0 ∨ ¬s = 0) := by
+  simp [getZero, ← PackedFloat.le_def, PackedFloat.le, PackedFloat.isNaN]
+
+@[simp]
+theorem plus_zero_not_le_minus_zero :
+    (PackedFloat.getZero e s false ≤ PackedFloat.getZero e s true) =
+    (e = 0 ∧ s = 0) := by
+  simp [getZero, ← PackedFloat.le_def, PackedFloat.le, PackedFloat.isNaN]
+
 
 instance {x y : PackedFloat e s} : Decidable (x ≤ y) := by
     simp only [← PackedFloat.le_def]
@@ -1666,6 +1690,73 @@ theorem classification {P : PackedFloat e s → Prop}
         · by_cases h5 : x.isNorm
           · grind
           · grind
+
+@[simp, grind .]
+theorem PackedFloat.le_refl (x : PackedFloat e s) : x ≤ x := by simp [← PackedFloat.le_def, PackedFloat.le]
+
+theorem PackedFloat.le_NaN (x : PackedFloat e s) (he : 0 < e) (hs : 0 < s):
+    x ≤ PackedFloat.mkNaN ↔ x.isNaN := by
+  -- simp only [← PackedFloat.le_def, PackedFloat.le]
+  -- simp
+  by_cases hx : x.isNaN
+  · simp only [hx, iff_true]
+    simp only [← PackedFloat.le_def, PackedFloat.le, hx]
+    simp only [isNaN_mkNaN, and_self, not_true_eq_false, false_and, false_or, true_or]
+  · simp [hx]
+    simp only [← PackedFloat.le_def, PackedFloat.le]
+    simp [hx]
+    simp [PackedFloat.isNaN] at hx
+    by_cases hs : x.sign
+    · simp [hs]
+    · simp [hs]
+      simp [he]
+      sorry
+
+theorem PackedFloat.NaN_le (x : PackedFloat e s)
+    (he : 0 < e) (hs : 0 < s) : PackedFloat.mkNaN ≤ x ↔ x.isNaN := by
+  simp only [← PackedFloat.le_def, PackedFloat.le, PackedFloat.isNaN]
+  simp only [ex_mkNaN, BEq.rfl, sig_mkNaN, BitVec.zero_eq, Bool.true_and, Bool.or_eq_true,
+    beq_iff_eq, bne_iff_ne, ne_eq, Bool.and_eq_true, not_or,
+    Decidable.not_not, not_and_self, not_and, sign_mkNaN, Bool.false_eq_true, false_and, and_false,
+    and_self, Int.reduceNeg, true_and, BitVec.toNat_intMin, or_self, or_false,
+    false_or]
+  simp [show ¬ s = 0 by grind]
+  by_cases hsign : x.sign
+  · simp [hsign]
+  · simp [hsign]
+    simp [he]
+    intros h
+    sorry
+
+@[simp]
+theorem le_iff_toExtRat_le_toExtRat_of_not_isZero (x y : PackedFloat e s) (hx : ¬ x.isZero) (hy : ¬ y.isZero) :
+  x ≤ y ↔ x.toExtRat ≤ y.toExtRat := sorry
+
+-- recall that -0 ≤ +0. So if x has sign = false, then y also needs sign = false
+@[simp]
+theorem le_iff_sign_eq_of_isZero (x y : PackedFloat e s)
+  (hx : x.isZero) (hy : y.isZero) : x ≤ y ↔ (x.sign = false → y.sign = false) := by
+  sorry
+
+theorem PackedFloat.le_antisymm (he : 0 < e) (hs : 0 < s) {x y : PackedFloat e s}
+  (hxy : x ≤ y) (hyx : y ≤ x) :
+    x = y := by
+  sorry
+  -- grind (splits := 10) [PackedFloat]
+
+theorem PackedFloat.le_trans
+    {x y z : PackedFloat e s} (hxy : x ≤ y) (hyz : y ≤ z) : x ≤ z := by
+  sorry
+
+@[simp]
+theorem le_zero_iff_sign_eq_true {x : PackedFloat e s} :
+    (x ≤ PackedFloat.getZero e s true) ↔ (x.sign = true) := by
+  simp only [PackedFloat.getZero, ← PackedFloat.le_def, PackedFloat.le]
+  sorry
+
+@[simp]
+theorem zero_le_iff_sign_eq_false {x : PackedFloat e s} :
+  (PackedFloat.getZero e s false ≤ x) ↔ (x.sign = false) := by sorry
 
 
 end PackedFloat
