@@ -1494,6 +1494,9 @@ def le (x y : PackedFloat e s) : Prop :=
     (x.sign = true ∧ y.sign = true ∧ x.ex = y.ex ∧ y.sig.toNat ≤ x.sig.toNat)
 
 
+instance {x y : PackedFloat e s} : Decidable (le x y) := by
+  simp [le]; infer_instance
+
 instance : LE (PackedFloat exWidth sigWidth) where
   le x y := le x y
 
@@ -1501,8 +1504,12 @@ instance : LE (PackedFloat exWidth sigWidth) where
 theorem le_def (x y : PackedFloat e s) :
   x.le y = (x ≤ y) := rfl
 
+@[simp]
+theorem minus_zero_le_plus_zero : PackedFloat.getZero e s true ≤ PackedFloat.getZero e s false := by
+  simp [getZero, ← PackedFloat.le_def, PackedFloat.le]
+
 instance {x y : PackedFloat e s} : Decidable (x ≤ y) := by
-    simp only [← PackedFloat.le_def, PackedFloat.le]
+    simp only [← PackedFloat.le_def]
     infer_instance
 
 def toExtRat' (pf : PackedFloat e s) : ExtRat :=
