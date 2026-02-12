@@ -275,6 +275,14 @@ theorem IsLawfulLower.functional [ExtendedNumber R] [RE : RoundableEmbed X R] [S
       have hle21 : RE.embed lower2 ≤ RE.embed lower1 := hglb1 lower2 hle2
       grind
 
+-- theorem IsLawfulLower_always_exists {X R} [Inhabited X] [ExtendedNumber R] [RE : RoundableEmbed X R] (r : R) :
+--   ∃ (x : X), IsLawfulLower r x := by
+-- apply Classical.byContradiction
+-- intros h
+-- simp at h
+-- simp [IsLawfulLower] at h
+
+
 
 open Classical in
 noncomputable def smtLibLower [Inhabited X] [ExtendedNumber R] [RoundableEmbed X R] : RoundableLower X R where
@@ -284,6 +292,7 @@ noncomputable def smtLibLower [Inhabited X] [ExtendedNumber R] [RoundableEmbed X
     else
       default
 
+@[grind .]
 theorem embed_smtLibLower_eq_of_IsLawfulLower [Inhabited X] [ExtendedNumber R] [instEmbed : RoundableEmbed X R] [Std.IsPartialOrder R]  (r : R) (lower : X) :
   IsLawfulLower r lower → instEmbed.embed (smtLibLower.lower r) = instEmbed.embed lower := by
   intro hl
@@ -346,20 +355,20 @@ theorem smtLiV.embed_toRoundableEmbed_eq [Inhabited X] [ExtendedNumber R] (embed
   (smtLibV embed).embed = embed.embed := rfl
 
 /-- TODO: is this the right way to deal with this? -/
-@[simp]
+@[simp, grind =]
 theorem smtLiV.lower_toRoundableEmbed_eq [Inhabited X] [ExtendedNumber R] (embed : RoundableEmbed X R) :
   (smtLibV embed).lower = smtLibLower.lower := rfl
 
-@[simp]
+@[simp, grind =]
 theorem smtLiV.upper_toRoundableEmbed_eq [Inhabited X] [ExtendedNumber R] (embed : RoundableEmbed X R) :
   (smtLibV embed).upper = smtLibUpper.upper := rfl
 
-@[simp] -- TODO: what should be the simp nf?
+@[simp, grind =] -- TODO: what should be the simp nf?
 theorem RoundableEmbed_embedPackedFloatExtRat_eq_smtLibV_embed:
     RoundableEmbed.embed (self := embedPackedFloatExtRat e s) = PackedFloat.toExtRat := rfl
 
 
-@[simp]
+@[simp, grind .]
 theorem toExtRat'_smtLibLower_eq_toExtRat'_of_IsLawfulLower (r : ExtRat) (lower : PackedFloat e s) :
     IsLawfulLower r lower → (smtLibLower.lower r : PackedFloat e s).toExtRat' = PackedFloat.toExtRat' lower := by
   intros h
@@ -367,8 +376,90 @@ theorem toExtRat'_smtLibLower_eq_toExtRat'_of_IsLawfulLower (r : ExtRat) (lower 
   simp at this
   assumption
 
+-- theorem isNaN_lower_eq
 
-instance : LawfulRoundableAdjunction (smtLibV (embedPackedFloatExtRat e s)) where
+@[simp, grind .]
+theorem IsLawfulLower_mkInfinity (hs : 0 < s) {sign : Bool} : IsLawfulLower (ExtRat.Infinity sign) (PackedFloat.getInfinity e s sign) := by
+  constructor
+  · simp
+    -- grind
+    rw [PackedFloat.toExtRat'_getInfinity]
+    grind
+  · intros lower hle
+    simp at hle
+    simp
+    rw [PackedFloat.toExtRat'_getInfinity]
+    grind
+
+@[simp, grind .]
+theorem IsLawfulUpper_mkInfinity (hs : 0 < s) {sign : Bool} : IsLawfulUpper (ExtRat.Infinity sign) (PackedFloat.getInfinity e s sign) := by
+  constructor
+  · simp
+    -- grind
+    rw [PackedFloat.toExtRat'_getInfinity]
+    grind
+  · intros upper hle
+    simp at hle
+    simp
+    rw [PackedFloat.toExtRat'_getInfinity]
+    grind
+
+@[simp, grind .]
+theorem IsLawfulLower_mkNaN : IsLawfulLower ExtRat.NaN (PackedFloat.mkNaN : PackedFloat e s) := by
+  constructor
+  simp
+  intros lower hLtNaN
+  simp at hLtNaN
+  simp [hLtNaN]
+
+@[simp, grind .]
+theorem IsLawfulUpper_mkNaN : IsLawfulUpper ExtRat.NaN (PackedFloat.mkNaN : PackedFloat e s) := by
+  constructor
+  simp
+  intros upper hNaNLe
+  simp at hNaNLe
+  simp [hNaNLe]
+
+@[simp, grind .]
+theorem IslawfulUpper_mkNumber (pf : PackedFloat e s): IsLawfulUpper pf.toExtRat' pf := by
+  constructor
+  · simp; grind
+  · simp
+
+@[simp, grind .]
+theorem IsLawfulLower_mkNumber (pf : PackedFloat e s) : IsLawfulLower pf.toExtRat' pf := by
+  constructor
+  · simp; grind
+  · simp
+
+@[simp]
+theorem isNaN_lower_NaN : (smtLibLower.lower ExtRat.NaN : PackedFloat e s).isNaN = true := sorry
+
+-- TODO: show that toExtRat is injective everywhere away from zero.
+
+/-- Lower returns the input at all points except zero. -/
+theorem lower_eq_of_ne_zero {r : ExtRat} {lower : PackedFloat e s}
+  (h : r = lower.toExtRat) (hr : r ≠ 0) :
+  (smtLibLower.lower r : PackedFloat e s) = lower := by sorry
+
+
+theorem lower_eq_plus_zero :
+  (smtLibLower.lower (0 : ExtRat) : PackedFloat e s) = PackedFloat.getZero e s false := sorry
+
+theorem upper_eq_minus_zero :
+  (smtLibLower.lower (0 : ExtRat) : PackedFloat e s) = PackedFloat.getZero e s true := sorry
+
+/-- Upper returns the input at all points except zero. -/
+theorem upper_eq_of_ne_zero {r : ExtRat} {upper : PackedFloat e s} (h : r = upper.toExtRat) (hr : r ≠ 0) :
+  (smtLibUpper.upper r : PackedFloat e s) = upper := by sorry
+
+ theorem lower_le (r : ExtRat) :
+  ((smtLibLower.lower r) : PackedFloat e s).toExtRat ≤ r := sorry
+
+theorem le_upper (r : ExtRat) :
+  r ≤ ((smtLibUpper.upper r) : PackedFloat e s).toExtRat := sorry
+
+instance (he : 0 < e) (hs : 0 < s) : LawfulRoundableAdjunction (smtLibV (embedPackedFloatExtRat e s)) where
   adjunctionLower := by
     intros r p
     simp [instExtendedRat, ← PackedFloat.le_def,
@@ -381,11 +472,19 @@ instance : LawfulRoundableAdjunction (smtLibV (embedPackedFloatExtRat e s)) wher
       · intros hr
         simp at hr
         -- TODO: extract this out into a separate boi.
+        subst hr
+        apply PackedFloat.toExtRat'_eq_NaN_of_isNaN (smtLibLower.lower ExtRat.NaN)
         sorry
       · sorry
-    case zeroCase =>
-      simp
-      sorry
+    case zeroCase sign =>
+      simp [he, show (e = 0) = False by grind, show (s = 0) = False by grind]
+      constructor
+      · intros h
+        sorry
+      · intros h
+        simp at h
+        sorry
+
     case infCase sign => sorry
     case numCase n hnum => sorry
   adjunctionUpper := sorry

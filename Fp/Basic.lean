@@ -1482,15 +1482,27 @@ def toExtRat (pf : PackedFloat e s) : ExtRat :=
   pf.toExtDyadic.toExtRat
 
 
+/--
+'An Automatable Formal Semantics for IEEE-754 Floating-Point Arithmetic',
+definition from the model of floating point.
+-/
+def le (x y : PackedFloat e s) : Prop :=
+    (x.sign = true ∧ y.sign = false) ∨
+    (x.sign = false ∧ y.sign = false ∧ x.ex.toInt < y.ex.toInt) ∨
+    (x.sign = false ∧ y.sign = false ∧ x.ex = y.ex ∧ x.sig.toNat ≤ y.sig.toNat) ∨
+    (x.sign = true ∧ y.sign = true ∧ y.ex.toInt < x.ex.toInt) ∨
+    (x.sign = true ∧ y.sign = true ∧ x.ex = y.ex ∧ y.sig.toNat ≤ x.sig.toNat)
+
+
 instance : LE (PackedFloat exWidth sigWidth) where
-  le x y := x.toExtRat ≤ y.toExtRat
+  le x y := le x y
 
 @[simp]
-theorem le_def (x y : PackedFloat e s) :  (x.toExtRat ≤ y.toExtRat) = (x ≤ y) := rfl
+theorem le_def (x y : PackedFloat e s) :
+  x.le y = (x ≤ y) := rfl
 
 instance {x y : PackedFloat e s} : Decidable (x ≤ y) := by
-    simp only [← PackedFloat.le_def]
-    simp only [← ExtRat.le_def]
+    simp only [← PackedFloat.le_def, PackedFloat.le]
     infer_instance
 
 def toExtRat' (pf : PackedFloat e s) : ExtRat :=
