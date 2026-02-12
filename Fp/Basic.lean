@@ -1596,14 +1596,14 @@ theorem toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm {pf : PackedFloat e s} (hp
   simp [toExtRat', hnan, hinf, hzero, toNumberRat]
   grind
 
-@[simp]
-theorem toExtRat'_mkInfinity (sign : Bool) (hs : 0 < s := by grind) :
+@[simp, grind! .]
+theorem toExtRat'_getInfinity (sign : Bool) (hs : 0 < s := by grind) :
     (PackedFloat.getInfinity e s sign).toExtRat' = .Infinity sign := by
   have : (PackedFloat.getInfinity e s sign).isInfinite = true := by
     grind
   simp [hs]
-@[simp]
 
+@[simp, grind! .]
 theorem isNaN_mkNaN : (PackedFloat.mkNaN : PackedFloat e s).isNaN = true := by
   simp [mkNaN, isNaN]
   grind
@@ -1614,7 +1614,7 @@ theorem toExtRat'_mkNaN :
   rw [toExtRat']
   simp
 
-@[simp]
+@[simp, grind! .]
 axiom toExtRat'_getZero (sign : Bool) (hs : 0 < s := by grind) :
     (PackedFloat.getZero e s sign).toExtRat' = .Number 0 -- := by
   -- have : (PackedFloat.getZero e s sign).isZero = true := by
