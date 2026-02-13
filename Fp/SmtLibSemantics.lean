@@ -473,7 +473,7 @@ instance (he : 0 < e) (hs : 0 < s) : LawfulRoundableAdjunction (smtLibV (embedPa
         simp at hr
         -- TODO: extract this out into a separate boi.
         subst hr
-        apply PackedFloat.toExtRat'_eq_NaN_of_isNaN (smtLibLower.lower ExtRat.NaN)
+        -- apply PackedFloat.toExtRat'_eq_NaN_of_isNaN (smtLibLower.lower ExtRat.NaN)
         sorry
       · sorry
     case zeroCase sign =>
