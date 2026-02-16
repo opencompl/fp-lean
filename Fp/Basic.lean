@@ -1474,9 +1474,17 @@ def toExtRat (pf : PackedFloat e s) : ExtRat :=
 /--
 'An Automatable Formal Semantics for IEEE-754 Floating-Point Arithmetic',
 definition from the model of floating point.
+
+We differ in one aspect: Since we have multiple NaNs,
+we declare that two NaNs are equal iff they are bit-pattern
+equivalent.
+
+This changes the partial order, such that we have
+one isolated NaN for each NaN bit-pattern,
+along with the usual ordering for all other values.
 -/
 def le (x y : PackedFloat e s) : Prop :=
-    (x.isNaN ∧ y.isNaN) ∨
+    (x.isNaN ∧ y.isNaN ∧ x = y) ∨
     (¬ x.isNaN ∧ ¬ y.isNaN ∧
       ((x.sign = true ∧ y.sign = false) ∨ -- x negative, y positive.
       (x.sign = false ∧ y.sign = false ∧ x.ex.toInt < y.ex.toInt) ∨ -- both +ve, x smaller ex.
@@ -1672,34 +1680,82 @@ theorem PackedFloat.le_refl (x : PackedFloat e s) : x ≤ x := by simp [← Pack
 
 @[simp, grind .]
 theorem PackedFloat.le_NaN (x : PackedFloat e s) :
-    x ≤ PackedFloat.getNaN e s ↔ x.isNaN := by
+    x ≤ PackedFloat.getNaN e s ↔ x = PackedFloat.getNaN e s := by
   by_cases hx : x.isNaN
-  · simp only [hx, iff_true]
-    simp only [← PackedFloat.le_def, PackedFloat.le, hx]
-    simp only [isNaN_mkNaN, and_self, not_true_eq_false, false_and, true_or]
-  · simp [hx]
-    simp only [← PackedFloat.le_def, PackedFloat.le]
+  · simp only [← PackedFloat.le_def, PackedFloat.le, hx]
+    simp only [isNaN_mkNaN, and_self, not_true_eq_false, false_and]
+    grind
+  · simp only [← PackedFloat.le_def, PackedFloat.le]
     simp [hx]
+    grind
 
 @[simp, grind .]
 theorem PackedFloat.NaN_le (x : PackedFloat e s)
-    : PackedFloat.getNaN e s ≤ x ↔ x.isNaN := by
+    : PackedFloat.getNaN e s ≤ x ↔ x = PackedFloat.getNaN e s := by
   simp only [← PackedFloat.le_def, PackedFloat.le]
   simp only [isNaN_getNaN]
   by_cases hx : x.isNaN
   · simp [hx]
+    grind
   · simp [hx]
+    grind
+
+@[simp, grind .]
+theorem PackedFloat.le_iff_eq_of_isNaN (x y : PackedFloat e s)
+  (hx : x.isNaN) : x ≤ y ↔ x = y := by
+  simp only [← PackedFloat.le_def, PackedFloat.le, hx]
+  simp only [not_true_eq_false, false_and]
+  grind
+
+@[simp, grind .]
+theorem PackedFloat.le_iff_eq_of_isNaN' (x y : PackedFloat e s)
+  (hy : y.isNaN) : x ≤ y ↔ x = y := by
+  simp only [← PackedFloat.le_def, PackedFloat.le, hy]
+  simp only [not_true_eq_false]
+  grind
 
 @[simp]
-theorem le_iff_toExtRat_le_toExtRat_of_not_isZero (x y : PackedFloat e s)
-  (hx : ¬ x.isZero) (hy : ¬ y.isZero) :
-  x ≤ y ↔ x.toExtRat ≤ y.toExtRat := sorry
+theorem le_iff_toExtRat_le_toExtRat_of_not_isZero (he : 0 < e) (hs : 0 < s)
+    (x y : PackedFloat e s)
+    (hxzero : ¬ x.isZero) (hyzero : ¬ y.isZero) (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN) :
+    x ≤ y ↔ x.toExtRat ≤ y.toExtRat := by
+  simp [← PackedFloat.le_def, PackedFloat.le, hxnan, hynan]
+  simp [PackedFloat.isZero] at hxzero hyzero
+  -- simp [PackedFloat.isNaN] at hxnan hynan
+  specialize hxzero (by grind)
+  specialize hyzero (by grind)
+  by_cases hxsign : x.sign
+  · simp [hxsign]
+    by_cases hysign : y.sign
+    · simp [hysign]
+      -- both negative.
+      sorry
+    · simp [hysign]
+      -- x negative, y positive.
+      sorry
+  · sorry
 
 -- recall that -0 ≤ +0. So if x has sign = false, then y also needs sign = false
 @[simp]
 theorem le_iff_sign_eq_of_isZero (x y : PackedFloat e s)
   (hx : x.isZero) (hy : y.isZero) : x ≤ y ↔ (x.sign = false → y.sign = false) := by
-  sorry
+  rw [← PackedFloat.le_def, PackedFloat.le]
+  have hxnan : ¬ x.isNaN := by grind [isNaN, isZero]
+  have hynan : ¬ y.isNaN := by grind [isNaN, isZero]
+  simp [hxnan, hynan]
+  simp [PackedFloat.isZero] at hx hy
+  by_cases hxsign : x.sign
+  · simp [hxsign]
+    by_cases hysign : y.sign
+    · simp [hysign]
+      -- both negative zero.
+      grind
+    · simp [hysign]
+  · simp [hxsign]
+    by_cases hysign : y.sign
+    · simp [hysign]
+    · simp [hysign]
+      grind
 
 attribute [grind .] BitVec.toNat_inj
 attribute [grind .] BitVec.toInt_inj
