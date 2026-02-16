@@ -196,7 +196,7 @@ def RoundMethod.roundRNE : PackedFloat e s :=
       else if ¬ (isZero r) ∧ roundMethod.tieBreak r ∧ roundMethod.isEven (roundMethod.lower r) then roundMethod.lower r
       else if ¬ (isZero r) ∧ roundMethod.tieBreak r ∧ roundMethod.isEven (roundMethod.upper r) then roundMethod.upper r
       else if ¬ (isZero r) ∧ !roundMethod.lowerHalf r ∧ !roundMethod.tieBreak r then roundMethod.upper r
-      else .mkNaN -- does not occur.
+      else .getNaN e s -- does not occur.
 
 def RoundMethod.roundRNA : PackedFloat e s :=
       if isNaN r then roundMethod.lower r
@@ -205,14 +205,14 @@ def RoundMethod.roundRNA : PackedFloat e s :=
       else if ¬ (isZero r) ∧ roundMethod.tieBreak r ∧ roundMethod.isEven (roundMethod.lower r) then roundMethod.lower r
       else if ¬ (isZero r) ∧ roundMethod.tieBreak r ∧ roundMethod.isEven (roundMethod.upper r) then roundMethod.upper r
       else if ¬ (isZero r) ∧ !roundMethod.lowerHalf r ∧ !roundMethod.tieBreak r then roundMethod.lower r
-      else .mkNaN -- does not occur.
+      else .getNaN e s -- does not occur.
 
 def RoundMethod.roundRTP : PackedFloat e s :=
       if isNaN r then roundMethod.lower r
       else if isZero r then roundMethod.rounderForSign sign r
       else if ¬ (isZero r) ∧ (gtZero r) then roundMethod.upper r
       else if ¬ (isZero r) ∧ (ltZero r) then roundMethod.rounderForSign sign r
-      else .mkNaN -- does not occur.
+      else .getNaN e s -- does not occur.
 
 
 def RoundMethod.roundRTN : PackedFloat e s :=
@@ -223,7 +223,7 @@ def RoundMethod.roundRTZ : PackedFloat e s :=
   if isZero r then roundMethod.rounderForSign sign r
   else if gtZero r then roundMethod.lower r
   else if ltZero r then roundMethod.upper r
-  else .mkNaN -- does not occur.
+  else .getNaN e s -- does not occur.
 
 
 /-- define the rounding function for a given choice of 'RoundMethod'. -/
@@ -405,7 +405,7 @@ theorem IsLawfulUpper_mkInfinity (hs : 0 < s) {sign : Bool} : IsLawfulUpper (Ext
     grind
 
 @[simp, grind .]
-theorem IsLawfulLower_mkNaN : IsLawfulLower ExtRat.NaN (PackedFloat.mkNaN : PackedFloat e s) := by
+theorem IsLawfulLower_mkNaN : IsLawfulLower ExtRat.NaN (PackedFloat.getNaN e s) := by
   constructor
   simp
   intros lower hLtNaN
@@ -413,7 +413,7 @@ theorem IsLawfulLower_mkNaN : IsLawfulLower ExtRat.NaN (PackedFloat.mkNaN : Pack
   simp [hLtNaN]
 
 @[simp, grind .]
-theorem IsLawfulUpper_mkNaN : IsLawfulUpper ExtRat.NaN (PackedFloat.mkNaN : PackedFloat e s) := by
+theorem IsLawfulUpper_mkNaN : IsLawfulUpper ExtRat.NaN (PackedFloat.getNaN e s) := by
   constructor
   simp
   intros upper hNaNLe

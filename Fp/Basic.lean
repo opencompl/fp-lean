@@ -1643,10 +1643,6 @@ theorem toExtRat'_mkNaN :
 @[simp, grind! .]
 axiom toExtRat'_getZero (sign : Bool) (hs : 0 < s := by grind) :
     (PackedFloat.getZero e s sign).toExtRat' = .Number 0 -- := by
-  -- have : (PackedFloat.getZero e s sign).isZero = true := by
-    -- sorry
-  -- simp [this]
-    -- grind
 
 /--
 Case splitting on the different values a packed float
@@ -1827,20 +1823,20 @@ theorem not_le_of_sign_eq_false_of_sign_eq_true {x y : PackedFloat e s}
 @[simp, grind .]
 theorem le_eq_of_sign_eq_false_of_sign_eq_false {x y : PackedFloat e s} (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN)
     (hxsign : x.sign = false) (hysign : y.sign = false) :
-    (x ≤ y) = (x.ex.toInt < y.ex.toInt) ∨ (x.ex.toInt = y.ex.toInt ∧ x.sig.toNat ≤ y.sig.toNat) := by
+    (x ≤ y) = ((x.ex.toInt < y.ex.toInt) ∨ (x.ex.toInt = y.ex.toInt ∧ x.sig.toNat ≤ y.sig.toNat)):= by
   rw [← PackedFloat.le_def, PackedFloat.le]
   grind
 
 @[simp, grind .]
 theorem le_eq_of_sign_eq_true_of_sign_eq_true {x y : PackedFloat e s} (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN)
     (hxsign : x.sign = true) (hysign : y.sign = true) :
-    (x ≤ y) = (y.ex.toInt < x.ex.toInt) ∨ (x.ex.toInt = y.ex.toInt ∧  y.sig.toNat ≤ x.sig.toNat) := by
+    (x ≤ y) = ((y.ex.toInt < x.ex.toInt) ∨ (x.ex.toInt = y.ex.toInt ∧  y.sig.toNat ≤ x.sig.toNat)):= by
   rw [← PackedFloat.le_def, PackedFloat.le]
   grind
 
 @[simp]
 theorem le_zero_iff_sign_eq_true {x : PackedFloat e s} (he : 0 < e):
-    (x ≤ PackedFloat.getZero e s true) ↔ (x.sign = true ∧ ¬ x.isNaN) := by
+    (x ≤ PackedFloat.getZero e s true) ↔ (x.sign = true ∧ ¬ x.isNaN ∧ x.ex.toInt ≥ 0) := by
   by_cases hxNaN : x.isNaN
   · grind only [→ not_isZero_of_isNaN, PackedFloat.le_iff_eq_of_isNaN, isZero_getZero]
   · simp [hxNaN]
@@ -1850,15 +1846,31 @@ theorem le_zero_iff_sign_eq_true {x : PackedFloat e s} (he : 0 < e):
       simp [hxNaN]
       simp [show ¬ e = 0 by grind]
       simp [hxsign]
-      sorry
+      have := BitVec.toInt_inj (x := x.ex) (y := 0#_)
+      grind
     · simp [hxsign]
       have : (getZero e s true).sign = true := by grind only [= sign_getZero]
       grind only [not_le_of_sign_eq_false_of_sign_eq_true]
 
 @[simp]
-theorem zero_le_iff_sign_eq_false {x : PackedFloat e s} :
-  (PackedFloat.getZero e s false ≤ x) ↔ (x.sign = false) := by sorry
-
+theorem zero_le_iff_sign_eq_false {x : PackedFloat e s} (he : 0 < e):
+  (PackedFloat.getZero e s false ≤ x) ↔ (x.sign = false ∧ ¬ x.isNaN ∧ 0 ≤ x.ex.toInt) := by
+  by_cases hxNaN : x.isNaN
+  · simp [hxNaN]
+    grind
+  · simp [hxNaN]
+    by_cases hxsign : x.sign
+    · simp [hxsign]
+      rw [← PackedFloat.le_def, PackedFloat.le]
+      simp [hxNaN]
+      simp [show ¬ e = 0 by grind]
+      simp [hxsign]
+    · simp [hxsign]
+      have : (getZero e s false).sign = false := by grind only [= sign_getZero]
+      have := le_eq_of_sign_eq_false_of_sign_eq_false (x := (getZero e s false)) (y := x)
+        (by grind) (by grind) (by grind) (by grind)
+      simp at this
+      grind
 
 end PackedFloat
 

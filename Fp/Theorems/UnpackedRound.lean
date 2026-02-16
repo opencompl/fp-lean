@@ -18,20 +18,20 @@ theorem roundQ_eq (eout sout : Nat) (rm : RoundingMode) (sign : Bool) (r : ExtRa
 
 set_option warn.sorry false in
 @[simp]
-theorem lower_NaN_eq_PackedFloat_mkNaN :
-  SmtLibSemantics.smtLibLower.lower ExtRat.NaN = (PackedFloat.mkNaN : PackedFloat e s) := sorry
+theorem lower_NaN_eq_PackedFloat_getNaN :
+  SmtLibSemantics.smtLibLower.lower ExtRat.NaN = (PackedFloat.getNaN e s) := sorry
 
 set_option warn.sorry false in
 @[simp]
-theorem upper_NaN_eq_PackedFloat_mkNaN :
-  SmtLibSemantics.smtLibUpper.upper ExtRat.NaN = (PackedFloat.mkNaN : PackedFloat e s) := sorry
+theorem upper_NaN_eq_PackedFloat_getNaN :
+  SmtLibSemantics.smtLibUpper.upper ExtRat.NaN = (PackedFloat.getNaN e s) := sorry
 
 @[simp]
 theorem roundRNA_mkNaN (eout sout : Nat) (sign : Bool) :
   (SmtLibSemantics.smtLibRoundMethod eout sout
     (SmtLibSemantics.smtLibV (SmtLibSemantics.embedPackedFloatExtRat eout sout))
     (SmtLibSemantics.smtLibV (SmtLibSemantics.embedPackedFloatExtRat eout (sout + 1)))).roundRNA sign
-    (ExtRat.NaN) = PackedFloat.mkNaN := by
+    (ExtRat.NaN) = PackedFloat.getNaN eout sout := by
   simp [SmtLibSemantics.RoundMethod.roundRNA]
 
 @[simp]
@@ -39,7 +39,7 @@ theorem roundRNE_mkNaN (eout sout : Nat) (sign : Bool) :
   (SmtLibSemantics.smtLibRoundMethod eout sout
     (SmtLibSemantics.smtLibV (SmtLibSemantics.embedPackedFloatExtRat eout sout))
     (SmtLibSemantics.smtLibV (SmtLibSemantics.embedPackedFloatExtRat eout (sout + 1)))).roundRNE sign
-    (ExtRat.NaN) = PackedFloat.mkNaN := by
+    (ExtRat.NaN) = PackedFloat.getNaN eout sout := by
   simp [SmtLibSemantics.RoundMethod.roundRNE]
 
 @[simp]
@@ -47,7 +47,7 @@ theorem roundRTP_mkNaN (eout sout : Nat) (sign : Bool) :
   (SmtLibSemantics.smtLibRoundMethod eout sout
     (SmtLibSemantics.smtLibV (SmtLibSemantics.embedPackedFloatExtRat eout sout))
     (SmtLibSemantics.smtLibV (SmtLibSemantics.embedPackedFloatExtRat eout (sout + 1)))).roundRTP sign
-    (ExtRat.NaN) = PackedFloat.mkNaN := by
+    (ExtRat.NaN) = PackedFloat.getNaN eout sout := by
   simp [SmtLibSemantics.RoundMethod.roundRTP]
 
 @[simp]
@@ -55,7 +55,7 @@ theorem roundRTN_mkNaN (eout sout : Nat) (sign : Bool) :
   (SmtLibSemantics.smtLibRoundMethod eout sout
     (SmtLibSemantics.smtLibV (SmtLibSemantics.embedPackedFloatExtRat eout sout))
     (SmtLibSemantics.smtLibV (SmtLibSemantics.embedPackedFloatExtRat eout (sout + 1)))).roundRTN sign
-    (ExtRat.NaN) = PackedFloat.mkNaN := by
+    (ExtRat.NaN) = PackedFloat.getNaN eout sout := by
   simp [SmtLibSemantics.RoundMethod.roundRTN]
   rcases sign <;> simp
 
@@ -64,7 +64,7 @@ theorem rountRTZ_mkNaN (eout sout : Nat) (sign : Bool) :
   (SmtLibSemantics.smtLibRoundMethod eout sout
     (SmtLibSemantics.smtLibV (SmtLibSemantics.embedPackedFloatExtRat eout sout))
     (SmtLibSemantics.smtLibV (SmtLibSemantics.embedPackedFloatExtRat eout (sout + 1)))).roundRTZ sign
-    (ExtRat.NaN) = PackedFloat.mkNaN := by
+    (ExtRat.NaN) = PackedFloat.getNaN eout sout := by
   simp [SmtLibSemantics.RoundMethod.roundRTZ]
   rcases sign <;> simp
 
@@ -74,7 +74,7 @@ theorem round_eq_mkNaN_of_NaN {sign} {eout sout : Nat} {rm : RoundingMode} :
     (SmtLibSemantics.smtLibRoundMethod eout sout
       (SmtLibSemantics.smtLibV (SmtLibSemantics.embedPackedFloatExtRat eout sout))
       (SmtLibSemantics.smtLibV (SmtLibSemantics.embedPackedFloatExtRat eout (sout + 1)))).round
-        rm sign ExtRat.NaN = PackedFloat.mkNaN := by
+        rm sign ExtRat.NaN = PackedFloat.getNaN eout sout := by
   rcases rm
   · simp
   · simp
