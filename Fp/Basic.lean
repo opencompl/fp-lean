@@ -1933,7 +1933,8 @@ theorem le_eq_of_sign_eq_true_of_sign_eq_true {x y : PackedFloat e s}
 /--
 Every number is less than +∞
 -/
-theorem PackedFloat.le_getInfinity (hs : 0 < s) (y : PackedFloat e s) :
+@[grind =>]
+theorem PackedFloat.le_getInfinity_false_of_not_isNaN (hs : 0 < s) (y : PackedFloat e s) :
     (y ≤ PackedFloat.getInfinity e s false) ↔ ¬ y.isNaN := by
   by_cases hnan : y.isNaN
   · simp [hnan]
@@ -1971,12 +1972,40 @@ theorem PackedFloat.eq_getInfinity_of_getInfinity_le (hs : 0 < s) (y : PackedFlo
 If a number is +infty, then only +infty is larger than it.
 -/
 @[simp]
-theorem PackedFloat.le_iff_eq_of_isInfinite_of_sign_eq_false (hs : 0 < s)
+theorem PackedFloat.getInfinity_false_le_iff_eq (hs : 0 < s)
     (y : PackedFloat e s) :
     (PackedFloat.getInfinity e s false) ≤ y ↔ y = .getInfinity e s false := by
   constructor
   · intros h
     grind only [→ eq_getInfinity_of_getInfinity_le]
+  · intros h
+    subst h
+    grind only [le_refl]
+
+
+@[grind =>]
+theorem PackedFloat.getInfinity_true_le_of_not_isNaN (hs : 0 < s) (y : PackedFloat e s) :
+    (PackedFloat.getInfinity e s true ≤ y) ↔ ¬ y.isNaN := by
+  by_cases hnan : y.isNaN
+  · simp [hnan]
+    grind only [→ not_isInfinite_of_isNaN, !isInfinite_getInfinity]
+  · simp [hnan]
+    rw [← PackedFloat.le_def, PackedFloat.le]
+    simp [hnan, hs]
+    by_cases hysign : y.sign
+    · simp [hysign]
+      grind
+    · simp [hysign]
+
+
+@[simp, grind =>]
+theorem PackedFloat.le_getInfinity_true_iff_eq (hs : 0 < s)
+    (y : PackedFloat e s) :
+    y ≤ PackedFloat.getInfinity e s true ↔ y = .getInfinity e s true := by
+  constructor
+  · intros h
+    grind only [le_iff_eq_of_isNaN, le_iff_eq_of_isNaN', le_antisymm_of_ne_NaN,
+      => getInfinity_true_le_of_not_isNaN]
   · intros h
     subst h
     grind only [le_refl]
