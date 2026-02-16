@@ -1770,13 +1770,65 @@ theorem PackedFloat.le_iff_eq_of_isNaN' (x y : PackedFloat e s)
   simp only [not_true_eq_false]
   grind
 
+/--
+x is infinite iff it is equal to the infinity value with the same sign.
+-/
+@[grind .]
+theorem PackedFloat.eq_getInfinity_iff_isInfinity (hs : 0 < s)
+    {x : PackedFloat e s} :
+    (x.isInfinite) ↔ x = .getInfinity e s x.sign := by
+  simp [getInfinity, isInfinite]
+  grind [PackedFloat]
+
+/-
+hle : getInfinity e s false ≤ y
+⊢ y = getInfinity e s false
+-/
+
+theorem PackedFloat.eq_getInfinity_of_getInfinity_le (hs : 0 < s) (y : PackedFloat e s)
+  (hle : PackedFloat.getInfinity e s false ≤ y) :
+  y = .getInfinity e s false := by
+  rw [← PackedFloat.le_def, PackedFloat.le] at hle
+  simp at hle
+  by_cases hy : y.isNaN
+  · simp [hy] at hle
+    grind
+  · simp [hy] at hle
+
+
+/--
+If a number is +infty, then only +infty is larger than it.
+-/
+theorem PackedFloat.le_iff_eq_of_isInfinite_of_sign_eq_false (hs : 0 < s) (x y : PackedFloat e s)
+  (hxnan : ¬ x.isNaN) :
+  (PackedFloat.getInfinity e s false) ≤ y ↔ y = .getInfinity e s false := by
+  constructor
+  · intros hle
+
+
+  · intros h
+    grind
+
+
+
+
+
+
 @[simp]
 theorem le_iff_toExtRat'_le_toExtRat'_of_not_isZero (he : 0 < e) (hs : 0 < s)
     (x y : PackedFloat e s)
     (hxzero : ¬ x.isZero) (hyzero : ¬ y.isZero) (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN) :
     x ≤ y ↔ x.toExtRat' ≤ y.toExtRat' := by
-  simp [← PackedFloat.le_def, PackedFloat.le, hxnan, hynan]
-  sorry
+  -- rw [toExtRat', toExtRat']
+  -- simp [hxzero, hyzero, hxnan, hynan]
+  by_cases hxinf : x.isInfinite
+  · simp [hxinf]
+    sorry
+  · by_cases hyinf : y.isInfinite
+    · simp [hyinf]
+      sorry
+    · sorry
+
 
 -- recall that -0 ≤ +0. So if x has sign = false, then y also needs sign = false
 @[simp]
