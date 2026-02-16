@@ -441,15 +441,15 @@ def getZero (exWidth sigWidth : Nat) (sign : Bool)
   ex := 0
   sig := 0
 
-@[simp]
+@[simp, grind =]
 theorem sign_getZero (exWidth sigWidth : Nat) (sign : Bool) :
     (PackedFloat.getZero exWidth sigWidth sign).sign = sign := rfl
 
-@[simp]
+@[simp, grind =]
 theorem sig_getZero (exWidth sigWidth : Nat) (sign : Bool) :
     (PackedFloat.getZero exWidth sigWidth sign).sig = 0 := rfl
 
-@[simp]
+@[simp, grind =]
 theorem ex_getZero (exWidth sigWidth : Nat) (sign : Bool) :
     (PackedFloat.getZero exWidth sigWidth sign).ex = 0 := rfl
 
@@ -1503,16 +1503,15 @@ instance : LE (PackedFloat exWidth sigWidth) where
 theorem le_def (x y : PackedFloat e s) :
   x.le y = (x ≤ y) := rfl
 
-@[simp]
+@[simp, grind =]
 theorem minus_zero_le_plus_zero {e s} :
     (PackedFloat.getZero e s true ≤ PackedFloat.getZero e s false) =
-    (e = 0 → s = 0 ∨ ¬s = 0) := by
+    (e = 0 → s ≠ 0) := by
   simp [getZero, ← PackedFloat.le_def, PackedFloat.le, PackedFloat.isNaN]
 
-@[simp]
+@[simp, grind .]
 theorem plus_zero_not_le_minus_zero :
-    (PackedFloat.getZero e s false ≤ PackedFloat.getZero e s true) =
-    (e = 0 ∧ s = 0) := by
+    ¬ (PackedFloat.getZero e s false ≤ PackedFloat.getZero e s true) := by
   simp [getZero, ← PackedFloat.le_def, PackedFloat.le, PackedFloat.isNaN]
 
 
@@ -1672,8 +1671,8 @@ theorem classification {P : PackedFloat e s → Prop}
       · by_cases h4 : x.isNonzeroSubnorm
         · grind
         · by_cases h5 : x.isNorm
-          · grind
-          · grind
+          · grind only [→ isNormOrSubnorm_of_isNorm, #d1e2]
+          · grind only
 
 @[simp, grind .]
 theorem PackedFloat.le_refl (x : PackedFloat e s) : x ≤ x := by simp [← PackedFloat.le_def, PackedFloat.le]
@@ -1805,20 +1804,56 @@ theorem PackedFloat.le_trans
         grind (splits := 10)
 
 
+/-
+If the numbers are notNaN, then 'x ≤ y' if the x is negative and y is positive.
+-/
+@[simp]
+theorem le_of_sign_eq_true_sign_eq_false {x y : PackedFloat e s}
+    (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN) (hxsign : x.sign = true) (hysign : y.sign = false) :
+    (x ≤ y) := by
+  rw [← PackedFloat.le_def, PackedFloat.le]
+  grind
+
+/-
+If the numbers are notNaN, then 'x ≤ y' if the x is negative and y is positive.
+-/
+@[simp, grind .]
+theorem not_le_of_sign_eq_false_of_sign_eq_true {x y : PackedFloat e s}
+    (hxnan : ¬ x.isNaN) (hxsign : x.sign = false) (hysign : y.sign = true) :
+    ¬ (x ≤ y) := by
+  rw [← PackedFloat.le_def, PackedFloat.le]
+  grind
+
+@[simp, grind .]
+theorem le_eq_of_sign_eq_false_of_sign_eq_false {x y : PackedFloat e s} (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN)
+    (hxsign : x.sign = false) (hysign : y.sign = false) :
+    (x ≤ y) = (x.ex.toInt < y.ex.toInt) ∨ (x.ex.toInt = y.ex.toInt ∧ x.sig.toNat ≤ y.sig.toNat) := by
+  rw [← PackedFloat.le_def, PackedFloat.le]
+  grind
+
+@[simp, grind .]
+theorem le_eq_of_sign_eq_true_of_sign_eq_true {x y : PackedFloat e s} (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN)
+    (hxsign : x.sign = true) (hysign : y.sign = true) :
+    (x ≤ y) = (y.ex.toInt < x.ex.toInt) ∨ (x.ex.toInt = y.ex.toInt ∧  y.sig.toNat ≤ x.sig.toNat) := by
+  rw [← PackedFloat.le_def, PackedFloat.le]
+  grind
+
 @[simp]
 theorem le_zero_iff_sign_eq_true {x : PackedFloat e s} (he : 0 < e):
     (x ≤ PackedFloat.getZero e s true) ↔ (x.sign = true ∧ ¬ x.isNaN) := by
-  rw [← PackedFloat.le_def, PackedFloat.le]
-  by_cases hx : x.isNaN
-  · simp [hx] at ⊢
-    simp [show ¬ e = 0 by grind]
-  · simp [hx] at ⊢
-    simp [show ¬ e = 0 by grind]
+  by_cases hxNaN : x.isNaN
+  · grind only [→ not_isZero_of_isNaN, PackedFloat.le_iff_eq_of_isNaN, isZero_getZero]
+  · simp [hxNaN]
     by_cases hxsign : x.sign
     · simp [hxsign]
+      rw [← PackedFloat.le_def, PackedFloat.le]
+      simp [hxNaN]
+      simp [show ¬ e = 0 by grind]
+      simp [hxsign]
       sorry
-    . simp [hxsign]
-
+    · simp [hxsign]
+      have : (getZero e s true).sign = true := by grind only [= sign_getZero]
+      grind only [not_le_of_sign_eq_false_of_sign_eq_true]
 
 @[simp]
 theorem zero_le_iff_sign_eq_false {x : PackedFloat e s} :
