@@ -1760,6 +1760,7 @@ theorem le_iff_sign_eq_of_isZero (x y : PackedFloat e s)
 attribute [grind .] BitVec.toNat_inj
 attribute [grind .] BitVec.toInt_inj
 
+@[grind .]
 theorem PackedFloat.le_antisymm_of_ne_NaN
   {x y : PackedFloat e s}
   (hxy : x ≤ y) (hyx : y ≤ x) (hx : ¬ x.isNaN) (hy : ¬ y.isNaN) :
@@ -1774,8 +1775,16 @@ theorem PackedFloat.le_antisymm_iff {x y : PackedFloat e s}
   (hxy : x ≤ y) (hyx : y ≤ x) :
   (x.isNaN ∧ y.isNaN) ∨ (¬ x.isNaN ∧ ¬ y.isNaN ∧ x = y) := by
   by_cases hx : x.isNaN
-  · sorry
-  · sorry
+  · simp [hx]
+    simp [hx] at hxy hyx
+    grind
+  · simp [hx]
+    by_cases hy : y.isNaN
+    · simp [hy]
+      simp [hy] at hxy hyx
+      grind
+    · simp [hy]
+      grind [PackedFloat.le_antisymm_of_ne_NaN hxy hyx hx hy]
 
 theorem PackedFloat.le_trans
     {x y z : PackedFloat e s} (hxy : x ≤ y) (hyz : y ≤ z) : x ≤ z := by
