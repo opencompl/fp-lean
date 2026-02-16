@@ -492,6 +492,41 @@ def isNaN (pf : PackedFloat e s) : Bool :=
   -- Prioritize `NaN` over `Infinity`.
   pf.ex == .allOnes e && (s == 0 || pf.sig != .zero s)
 
+@[grind .]
+private theorem BitVec.eq_allOnes_iff_toNat_eq (x : BitVec w) :
+    x = .allOnes w ↔ x.toNat = 2 ^ w - 1 := by
+  constructor
+  · intros h
+    subst h
+    simp
+  · intros h
+    apply BitVec.toNat_inj.mp
+    simp [h]
+
+
+@[grind .]
+private theorem BitVec.eq_zero_iff_toNat_eq (x : BitVec w) :
+    x = .zero w ↔ x.toNat = 0 := by
+  constructor
+  · intros h
+    subst h
+    simp
+  · intros h
+    apply BitVec.toNat_inj.mp
+    simp [h]
+
+@[grind =>]
+theorem isNaN_iff_ex_eq_sig_eq (pf : PackedFloat e s) (hs : 0 < s) :
+    pf.isNaN ↔ (pf.ex = .allOnes e ∧ pf.sig ≠ 0#s) := by
+  simp [isNaN]
+  grind
+
+@[grind =>]
+theorem not_isNaN_iff_ex_ne_or_sig_ne (pf : PackedFloat e s) (hs : 0 < s) :
+    (¬ pf.isNaN) ↔ (pf.ex ≠ .allOnes e ∨ pf.sig = 0#s) := by
+  simp [isNaN]
+  grind
+
 @[bv_normalize]
 def isInfinite (pf : PackedFloat e s) : Bool :=
   -- Prioritize `Infinity` over `0`. This is somewhat arbitrary.
@@ -1492,9 +1527,9 @@ def le (x y : PackedFloat e s) : Prop :=
     (x.isNaN ∧ y.isNaN ∧ x = y) ∨
     (¬ x.isNaN ∧ ¬ y.isNaN ∧
       ((x.sign = true ∧ y.sign = false) ∨ -- x negative, y positive.
-      (x.sign = false ∧ y.sign = false ∧ x.ex.toInt < y.ex.toInt) ∨ -- both +ve, x smaller ex.
+      (x.sign = false ∧ y.sign = false ∧ x.ex.toNat < y.ex.toNat) ∨ -- both +ve, x smaller ex.
       (x.sign = false ∧ y.sign = false ∧ x.ex = y.ex ∧ x.sig.toNat ≤ y.sig.toNat) ∨ -- both +ve, x smaller sig.
-      (x.sign = true ∧ y.sign = true ∧ y.ex.toInt < x.ex.toInt) ∨ -- both -ve, y smaller ex.
+      (x.sign = true ∧ y.sign = true ∧ y.ex.toNat < x.ex.toNat) ∨ -- both -ve, y smaller ex.
       (x.sign = true ∧ y.sign = true ∧ x.ex = y.ex ∧ y.sig.toNat ≤ x.sig.toNat))
     )
 
@@ -1651,7 +1686,7 @@ theorem sign_iff_toNumberRat_neg {pf : PackedFloat e s} (h : pf.isNormOrNonzeroS
     have : ¬ ((pf.sig.toNat : Rat) / 2 ^ s = 0) := by
       intros hcontra
       rw [hcontra] at hnum
-      simp [Rat.zero_add, Rat.mul_zero, Rat.zero_mul] at hnum
+      simp [Rat.mul_zero, Rat.zero_mul] at hnum
     have : (0 + pf.sig.toNat / 2^s) * (2 : Rat) ^ (-(bias e - 1 : Nat) : Int) > 0 := by
       apply Rat.mul_pos <;> grind
     rw [Rat.mul_assoc]
@@ -1780,55 +1815,6 @@ theorem PackedFloat.eq_getInfinity_iff_isInfinity (hs : 0 < s)
   simp [getInfinity, isInfinite]
   grind [PackedFloat]
 
-/-
-hle : getInfinity e s false ≤ y
-⊢ y = getInfinity e s false
--/
-
-theorem PackedFloat.eq_getInfinity_of_getInfinity_le (hs : 0 < s) (y : PackedFloat e s)
-  (hle : PackedFloat.getInfinity e s false ≤ y) :
-  y = .getInfinity e s false := by
-  rw [← PackedFloat.le_def, PackedFloat.le] at hle
-  simp at hle
-  by_cases hy : y.isNaN
-  · simp [hy] at hle
-    grind
-  · simp [hy] at hle
-
-
-/--
-If a number is +infty, then only +infty is larger than it.
--/
-theorem PackedFloat.le_iff_eq_of_isInfinite_of_sign_eq_false (hs : 0 < s) (x y : PackedFloat e s)
-  (hxnan : ¬ x.isNaN) :
-  (PackedFloat.getInfinity e s false) ≤ y ↔ y = .getInfinity e s false := by
-  constructor
-  · intros hle
-
-
-  · intros h
-    grind
-
-
-
-
-
-
-@[simp]
-theorem le_iff_toExtRat'_le_toExtRat'_of_not_isZero (he : 0 < e) (hs : 0 < s)
-    (x y : PackedFloat e s)
-    (hxzero : ¬ x.isZero) (hyzero : ¬ y.isZero) (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN) :
-    x ≤ y ↔ x.toExtRat' ≤ y.toExtRat' := by
-  -- rw [toExtRat', toExtRat']
-  -- simp [hxzero, hyzero, hxnan, hynan]
-  by_cases hxinf : x.isInfinite
-  · simp [hxinf]
-    sorry
-  · by_cases hyinf : y.isInfinite
-    · simp [hyinf]
-      sorry
-    · sorry
-
 
 -- recall that -0 ≤ +0. So if x has sign = false, then y also needs sign = false
 @[simp]
@@ -1879,7 +1865,7 @@ theorem PackedFloat.le_antisymm_iff {x y : PackedFloat e s}
       simp [hy] at hxy hyx
       grind
     · simp [hy]
-      grind [PackedFloat.le_antisymm_of_ne_NaN hxy hyx hx hy]
+      grind only [PackedFloat.le_antisymm_of_ne_NaN hxy hyx hx hy]
 
 theorem PackedFloat.le_trans
     {x y z : PackedFloat e s} (hxy : x ≤ y) (hyz : y ≤ z) : x ≤ z := by
@@ -1898,7 +1884,11 @@ theorem PackedFloat.le_trans
       · simp [hz] at hxy hyz
       · simp [hz] at hxy hyz
         grind (splits := 10)
-
+           only [BitVec.toNat_inj, #fde2d389667160e9, #54fdc8e31fc2dc1c, #bf4f9097212d569d,
+          #0ddaf51762ab63df, #8dc2e2b3e678dc39, #b28eea1a75158fe1, #71fd579644e57b0a,
+          #ca7289c2a156499b, #8f9092e537ef6258, #ef1611d882ec5869, #e781b8f11c51b17b,
+          #2d6d3bcdb3a3b35c, #31dd348e5c4aee2a, #a7908cd812b01724, #f811994cd6c34475,
+          #7d54ade5a8b64ca3, #b35f21abfee2096d]
 
 /-
 If the numbers are notNaN, then 'x ≤ y' if the x is negative and y is positive.
@@ -1908,7 +1898,7 @@ theorem le_of_sign_eq_true_sign_eq_false {x y : PackedFloat e s}
     (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN) (hxsign : x.sign = true) (hysign : y.sign = false) :
     (x ≤ y) := by
   rw [← PackedFloat.le_def, PackedFloat.le]
-  grind
+  grind only
 
 /-
 If the numbers are notNaN, then 'x ≤ y' if the x is negative and y is positive.
@@ -1918,25 +1908,99 @@ theorem not_le_of_sign_eq_false_of_sign_eq_true {x y : PackedFloat e s}
     (hxnan : ¬ x.isNaN) (hxsign : x.sign = false) (hysign : y.sign = true) :
     ¬ (x ≤ y) := by
   rw [← PackedFloat.le_def, PackedFloat.le]
-  grind
+  grind only
 
 @[simp, grind .]
-theorem le_eq_of_sign_eq_false_of_sign_eq_false {x y : PackedFloat e s} (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN)
-    (hxsign : x.sign = false) (hysign : y.sign = false) :
-    (x ≤ y) = ((x.ex.toInt < y.ex.toInt) ∨ (x.ex.toInt = y.ex.toInt ∧ x.sig.toNat ≤ y.sig.toNat)):= by
+theorem le_eq_of_sign_eq_false_of_sign_eq_false {x y : PackedFloat e s}
+    (hxnan : ¬ x.isNaN := by solve | simp | grind)
+    (hynan : ¬ y.isNaN := by solve | simp | grind)
+    (hxsign : x.sign = false := by solve | simp | grind)
+    (hysign : y.sign = false := by solve | simp | grind) :
+    (x ≤ y) = ((x.ex.toNat < y.ex.toNat) ∨ (x.ex.toNat = y.ex.toNat ∧ x.sig.toNat ≤ y.sig.toNat)):= by
   rw [← PackedFloat.le_def, PackedFloat.le]
-  grind
+  grind only [BitVec.toNat_inj, #0bf13ef81725cfb4]
 
 @[simp, grind .]
-theorem le_eq_of_sign_eq_true_of_sign_eq_true {x y : PackedFloat e s} (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN)
-    (hxsign : x.sign = true) (hysign : y.sign = true) :
-    (x ≤ y) = ((y.ex.toInt < x.ex.toInt) ∨ (x.ex.toInt = y.ex.toInt ∧  y.sig.toNat ≤ x.sig.toNat)):= by
+theorem le_eq_of_sign_eq_true_of_sign_eq_true {x y : PackedFloat e s}
+    (hxnan : ¬ x.isNaN := by solve | simp | grind)
+    (hynan : ¬ y.isNaN := by solve | simp | grind)
+    (hxsign : x.sign = true := by solve | simp | grind)
+    (hysign : y.sign = true := by solve | simp | grind) :
+    (x ≤ y) = ((y.ex.toNat < x.ex.toNat) ∨ (x.ex.toNat = y.ex.toNat ∧  y.sig.toNat ≤ x.sig.toNat)):= by
   rw [← PackedFloat.le_def, PackedFloat.le]
-  grind
+  grind only [BitVec.toNat_inj, #1f279ccc014b26d2]
+
+/--
+Every number is less than +∞
+-/
+theorem PackedFloat.le_getInfinity (hs : 0 < s) (y : PackedFloat e s) :
+    (y ≤ PackedFloat.getInfinity e s false) ↔ ¬ y.isNaN := by
+  by_cases hnan : y.isNaN
+  · simp [hnan]
+    grind only [→ not_isInfinite_of_isNaN, !isInfinite_getInfinity]
+  · simp [hnan]
+    rw [← PackedFloat.le_def, PackedFloat.le]
+    simp [hnan, hs]
+    by_cases hysign : y.sign
+    · simp [hysign]
+    · simp [hysign]
+      grind only [=> isNaN_iff_ex_eq_sig_eq, usr Nat.pow_pos, usr BitVec.isLt,
+        BitVec.eq_allOnes_iff_toNat_eq, = BitVec.toNat_ofNat, = BitVec.toNat_zero]
+
+@[simp, grind →]
+theorem PackedFloat.eq_getInfinity_of_getInfinity_le (hs : 0 < s) (y : PackedFloat e s)
+  (hle : PackedFloat.getInfinity e s false ≤ y) :
+  y = .getInfinity e s false := by
+  have : (getInfinity e s false).sign = false := by grind
+  by_cases hysign : y.sign
+  · have : ¬ ((getInfinity e s false) ≤ y) := by grind only [le_iff_eq_of_isNaN,
+    not_le_of_sign_eq_false_of_sign_eq_true]
+    grind only
+  · simp at hysign
+    have hle' := hle
+    rw [le_eq_of_sign_eq_false_of_sign_eq_false] at hle'
+    simp at hle'
+    have : y.ex.toNat = 2 ^ e - 1 := by grind only [usr Nat.pow_pos, usr BitVec.isLt]
+    have : y.sig = 0#s := by grind only [le_iff_eq_of_isNaN', !isInfinite_getInfinity,
+      => isNaN_iff_ex_eq_sig_eq, eq_getInfinity_iff_isInfinity, → not_isNaN_of_isInfinite,
+      BitVec.eq_allOnes_iff_toNat_eq]
+    apply PackedFloat.ext <;> simp <;> grind
+
+
+/--
+If a number is +infty, then only +infty is larger than it.
+-/
+@[simp]
+theorem PackedFloat.le_iff_eq_of_isInfinite_of_sign_eq_false (hs : 0 < s)
+    (y : PackedFloat e s) :
+    (PackedFloat.getInfinity e s false) ≤ y ↔ y = .getInfinity e s false := by
+  constructor
+  · intros h
+    grind only [→ eq_getInfinity_of_getInfinity_le]
+  · intros h
+    subst h
+    grind only [le_refl]
+
+
+@[simp]
+theorem le_iff_toExtRat'_le_toExtRat'_of_not_isZero (he : 0 < e) (hs : 0 < s)
+    (x y : PackedFloat e s)
+    (hxzero : ¬ x.isZero) (hyzero : ¬ y.isZero) (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN) :
+    x ≤ y ↔ x.toExtRat' ≤ y.toExtRat' := by
+  -- rw [toExtRat', toExtRat']
+  -- simp [hxzero, hyzero, hxnan, hynan]
+  by_cases hxinf : x.isInfinite
+  · simp [hxinf]
+    sorry
+  · by_cases hyinf : y.isInfinite
+    · simp [hyinf]
+      sorry
+    · sorry
+
 
 @[simp]
 theorem le_zero_iff_sign_eq_true {x : PackedFloat e s} (he : 0 < e):
-    (x ≤ PackedFloat.getZero e s true) ↔ (x.sign = true ∧ ¬ x.isNaN ∧ x.ex.toInt ≥ 0) := by
+    (x ≤ PackedFloat.getZero e s true) ↔ (x.sign = true ∧ ¬ x.isNaN) := by
   by_cases hxNaN : x.isNaN
   · grind only [→ not_isZero_of_isNaN, PackedFloat.le_iff_eq_of_isNaN, isZero_getZero]
   · simp [hxNaN]
@@ -1946,7 +2010,8 @@ theorem le_zero_iff_sign_eq_true {x : PackedFloat e s} (he : 0 < e):
       simp [hxNaN]
       simp [show ¬ e = 0 by grind]
       simp [hxsign]
-      have := BitVec.toInt_inj (x := x.ex) (y := 0#_)
+      have := BitVec.toNat_inj (x := x.ex) (y := 0#_)
+      simp at this
       grind
     · simp [hxsign]
       have : (getZero e s true).sign = true := by grind only [= sign_getZero]
@@ -1954,7 +2019,7 @@ theorem le_zero_iff_sign_eq_true {x : PackedFloat e s} (he : 0 < e):
 
 @[simp]
 theorem zero_le_iff_sign_eq_false {x : PackedFloat e s} (he : 0 < e):
-  (PackedFloat.getZero e s false ≤ x) ↔ (x.sign = false ∧ ¬ x.isNaN ∧ 0 ≤ x.ex.toInt) := by
+  (PackedFloat.getZero e s false ≤ x) ↔ (x.sign = false ∧ ¬ x.isNaN) := by
   by_cases hxNaN : x.isNaN
   · simp [hxNaN]
     grind
