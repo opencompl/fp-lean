@@ -1788,13 +1788,37 @@ theorem PackedFloat.le_antisymm_iff {x y : PackedFloat e s}
 
 theorem PackedFloat.le_trans
     {x y z : PackedFloat e s} (hxy : x ≤ y) (hyz : y ≤ z) : x ≤ z := by
-  sorry
+  simp only [← PackedFloat.le_def] at hxy hyz ⊢
+  simp only [PackedFloat.le] at hxy hyz ⊢
+  by_cases hx : x.isNaN
+  · simp [hx] at hxy
+    simp at hyz
+    grind
+  · simp [hx] at hxy
+    simp at hyz
+    by_cases hy : y.isNaN
+    · simp [hy] at hxy
+    · simp [hy] at hxy hyz
+      by_cases hz : z.isNaN
+      · simp [hz] at hxy hyz
+      · simp [hz] at hxy hyz
+        grind (splits := 10)
+
 
 @[simp]
-theorem le_zero_iff_sign_eq_true {x : PackedFloat e s} :
-    (x ≤ PackedFloat.getZero e s true) ↔ (x.sign = true) := by
-  simp only [PackedFloat.getZero, ← PackedFloat.le_def, PackedFloat.le]
-  sorry
+theorem le_zero_iff_sign_eq_true {x : PackedFloat e s} (he : 0 < e):
+    (x ≤ PackedFloat.getZero e s true) ↔ (x.sign = true ∧ ¬ x.isNaN) := by
+  rw [← PackedFloat.le_def, PackedFloat.le]
+  by_cases hx : x.isNaN
+  · simp [hx] at ⊢
+    simp [show ¬ e = 0 by grind]
+  · simp [hx] at ⊢
+    simp [show ¬ e = 0 by grind]
+    by_cases hxsign : x.sign
+    · simp [hxsign]
+      sorry
+    . simp [hxsign]
+
 
 @[simp]
 theorem zero_le_iff_sign_eq_false {x : PackedFloat e s} :
