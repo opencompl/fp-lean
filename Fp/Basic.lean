@@ -594,7 +594,8 @@ def isNonzeroSubnorm (pf : PackedFloat e s) : Bool :=
   e != 0 && pf.ex == .zero e && pf.sig != .zero s
 
 @[simp]
-theorem exp_eq_of_isNonzeroSubnorm {pf : PackedFloat e s} (h : pf.isNonzeroSubnorm) :
+theorem exp_eq_of_isNonzeroSubnorm {pf : PackedFloat e s}
+    (h : pf.isNonzeroSubnorm := by solve | simp | grind) :
     pf.ex = 0#e := by
   simp [isNonzeroSubnorm] at h
   simp [h]
@@ -2074,6 +2075,12 @@ theorem Rat.div_cancel {p q d : Rat} (hd : d ≠ 0) :
   rw [Rat.mul_cancel_right]
   · grind
 
+@[grind .]
+theorem Rat.twoPowNeZero (n : Int) : (2 : Rat) ^ n ≠ 0 := by
+  apply Rat.ne_zero_of_zero_lt
+  norm_cast
+  grind only [Fp.Rat.two_pow_pos]
+
 @[simp, grind .]
 theorem PackedFloat.sig_eq_and_ex_eq_of_toNumberRat_eq {x y : PackedFloat e s}
     (hx : x.isNormOrNonzeroSubnorm) (hy : y.isNormOrNonzeroSubnorm)
@@ -2088,33 +2095,33 @@ theorem PackedFloat.sig_eq_and_ex_eq_of_toNumberRat_eq {x y : PackedFloat e s}
     rw [← Rat.mul_cancel_left (x := x.sign.toSign)]
     · grind
     · simp
-  have xsigNeZero : x.toNumberRatSig ≠ 0 := by grind
-  have ySigNeZero : y.toNumberRatSig ≠ 0 := by grind
+  have xsigNeZero : x.toNumberRatSig ≠ 0 := by grind only [toNumberRatSig_ne_zero_of_isNormOrNonzeroSubnorm]
+  have ySigNeZero : y.toNumberRatSig ≠ 0 := by grind only [toNumberRatSig_ne_zero_of_isNormOrNonzeroSubnorm]
   by_cases hxnorm : x.isNorm
   · sorry
-  · have xSubnorm : x.isNonzeroSubnorm := by grind
-    have ySubnorm : y.isNonzeroSubnorm := by grind
+  · have xSubnorm : x.isNonzeroSubnorm := by grind only [isNormOrSubnorm_eq_isNorm_or_isSubnorm]
+    have ySubnorm : y.isNonzeroSubnorm := by grind only [isNormOrSubnorm_eq_isNorm_or_isSubnorm]
     have expEq : x.toNumberRatExp = y.toNumberRatExp := by
-      simp [x.toNumberRatExp_eq_of_not_isNorm (by grind)]
-      simp [y.toNumberRatExp_eq_of_not_isNorm (by grind)]
+      simp [x.toNumberRatExp_eq_of_not_isNorm (by grind only)]
+      simp [y.toNumberRatExp_eq_of_not_isNorm (by grind only)]
     have sigEq : x.toNumberRatSig = y.toNumberRatSig := by
       rw [← Rat.mul_cancel_right (x := 2 ^ x.toNumberRatExp)]
-      rw [expEq]
-      grind only
+      · rw [expEq]
+        grind only
+      · grind only [Rat.twoPowNeZero]
     have : x.sig = y.sig := by
-      rw [x.toRatNumberSig_eq_of_not_isNorm (by grind)] at sigEq
-      rw [y.toRatNumberSig_eq_of_not_isNorm (by grind)] at sigEq
-      rw [Rat.div_cancel] at sigEq
+      rw [x.toRatNumberSig_eq_of_not_isNorm (by grind only)] at sigEq
+      rw [y.toRatNumberSig_eq_of_not_isNorm (by grind only)] at sigEq
+      have hTwoPowNeZero : (2 : Rat) ^ s ≠ 0 := by norm_cast; grind only [usr Nat.pow_pos]
+      rw [Rat.div_cancel hTwoPowNeZero] at sigEq
       simp at sigEq
       apply BitVec.eq_of_toNat_eq
       assumption
     simp [this]
-    simp [PackedFloat.exp_eq_of_isSubnormal]
+    rw [exp_eq_of_isNonzeroSubnorm (by grind only)]
+    rw [exp_eq_of_isNonzeroSubnorm (by grind only)]
 
-
-
-
-
+#exit
 
 
 @[simp, grind =>]
