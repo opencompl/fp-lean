@@ -289,6 +289,10 @@ theorem exp_lt_max_of_isNorm {pf : PackedFloat e s}
   : pf.isNorm → pf.ex.toNat < 2 ^ e - 1 := by
   grind [isNorm, BitVec.allOnes, BitVec.ofNatLT_toNat]
 
+theorem Rat.zpow_sub {q : Rat} (hq : q ≠ 0) {a b : Int} : q ^ (a - b) = q ^ a * q ^ (-b) := by
+  rw [Int.sub_eq_add_neg]
+  rw [Rat.zpow_add hq]
+
 @[simp]
 theorem toExtRat_eq_toExtRat' {pf : PackedFloat e s}
   : pf.toExtRat = pf.toExtRat' := by
@@ -296,11 +300,12 @@ theorem toExtRat_eq_toExtRat' {pf : PackedFloat e s}
   cases hInf : pf.isInfinite <;>
   cases hZero : pf.isZero <;>
   cases hNorm : pf.isNorm <;>
-  simp only [toExtRat, toExtDyadic, ExtDyadic.toExtRat, toExtRat', hNaN, hInf, hZero, hNorm, cond_true,
-    cond_false, Dyadic.toRat_zero]
+  all_goals simp only [toExtRat, toExtDyadic, ExtDyadic.toExtRat, toExtRat', hNaN, hInf, hZero, hNorm, cond_true,
+    cond_false, Dyadic.toRat_zero, PackedFloat.toNumberRat, PackedFloat.toNumberRatSig, PackedFloat.toNumberRatExp, Bool.false_eq_true, if_false, if_true]
   all_goals simp only [Dyadic.toRat_ofIntWithPrec_eq_mul_two_pow, ExtRat.Number.injEq,
     Int.neg_add, Int.neg_sub, Bool.apply_cond]
-  all_goals (simp only [BitVec.toInt_setWidth'_of_lt (Nat.lt_succ_self (s + 1)), Rat.intCast_natCast, BitVec.toInt_neg_eq_of_msb (BitVec.msb_setWidth'_of_lt (Nat.lt_succ_self (s + 1))), BitVec.toNat_cons', Bool.toNat, cond_false, cond_true, Nat.zero_shiftLeft, Nat.one_shiftLeft, Nat.zero_add, Int.natCast_add, Rat.intCast_neg, Rat.intCast_add, Rat.natCast_pow, Rat.natCast_ofNat])
+  -- all_goals (simp only [PackedFloat.toNumberRat, PackedFloat.toNumberRatSig, PackedFloat.toNumberRatExp, if_true, if_false, hNorm, Bool.false_eq_true])
+  all_goals (try simp only [BitVec.toInt_setWidth'_of_lt (Nat.lt_succ_self (s + 1)), Rat.intCast_natCast, BitVec.toInt_neg_eq_of_msb (BitVec.msb_setWidth'_of_lt (Nat.lt_succ_self (s + 1))), BitVec.toNat_cons', Bool.toNat, cond_false, cond_true, Nat.zero_shiftLeft, Nat.one_shiftLeft, Nat.zero_add, Int.natCast_add, Rat.intCast_neg, Rat.intCast_add, Rat.natCast_pow, Rat.natCast_ofNat])
   all_goals (cases pf.sign <;> simp only [cond_false, cond_true, Bool.toSign, if_true, Bool.false_eq_true, if_false, Rat.intCast_ofNat, Rat.intCast_neg, Rat.zero_add, Rat.one_mul, Rat.neg_mul])
   all_goals (rewrite [Rat.div_def])
   all_goals (try rewrite [← Rat.zpow_natCast, ← Rat.zpow_neg])
@@ -318,19 +323,27 @@ theorem toExtRat_eq_toExtRat' {pf : PackedFloat e s}
     congr 1
     · simp only [← Rat.zpow_add (q := 2) (hq := by decide)]
       congr 1
-      grind
+      grind only
     · rw [Rat.zpow_add (q := 2) (hq := by decide)]
-      grind
-  · simp only [Rat.add_mul]
-    ac_nf
-    simp
+      grind only
+  · -- TODO: disgusting, write a solver for this that does power-of-2 simplification.
+    simp only [Rat.add_mul]
+    simp only [Rat.zpow_add (q := 2) (hq := by decide)]
+    simp only [Rat.zpow_sub (q := 2) (hq := by decide)]
+    simp only [Rat.one_mul]
     simp only [← Rat.zpow_add (q := 2) (hq := by decide)]
     norm_cast
     congr 2
     · congr 1
-      grind
+      grind only
     · rw [Rat.zpow_add (q := 2) (hq := by decide)]
-      grind
+      grind only
+  · grind only [→ eq_mkZero_of_isZero, Rat.natCast_eq_zero_iff, = sig_getZero,
+    = BitVec.ofNat_eq_ofNat, = BitVec.toNat_zero, #a5422ce67b0854c8]
+  · grind only [→ eq_mkZero_of_isZero, Rat.natCast_eq_zero_iff, = sig_getZero,
+    = BitVec.ofNat_eq_ofNat, = BitVec.toNat_zero, #a5422ce67b0854c8]
+  · grind only [→ not_isNorm_of_isZero]
+  · grind only [→ not_isNorm_of_isZero]
 
 theorem bias_fits₁ : -2 ^ (exponentWidth e s - 1) ≤ (bias e : Int) := by
   apply Int.le_trans (b := 0)
@@ -357,6 +370,8 @@ theorem minNormalExp_fits₂ : minNormalExp e < 2 ^ (exponentWidth e s - 1) := b
 theorem exponentWidth_gt_zero : exponentWidth e s > 0 := by
   simp [exponentWidth]
 
+-- | TODO: refactor by pulling out lemmas that talk about the 'toNat' of the various
+-- significand, and so on.
 theorem toExtRat_unpack_eq_toExtRat {pf : PackedFloat e s}
   : pf.unpack.toExtRat = pf.toExtRat := by
   simp only [unpack, unpackNormOrNonzeroSubnorm, BitVec.truncate_eq_setWidth, toExtRat_eq_toExtRat']
@@ -366,11 +381,13 @@ theorem toExtRat_unpack_eq_toExtRat {pf : PackedFloat e s}
       · cases hNorm : pf.isNorm
         · simp only [EUnpackedFloat.toExtRat, Bool.false_eq_true, ↓reduceIte, cond_false,
           EUnpackedFloat.isNaN_mkNumber, EUnpackedFloat.isInfinite_mkNumber,
-          EUnpackedFloat.num_mkNumber, toExtRat', hNaN, hInf, hZero, hNorm, ExtRat.Number.injEq]
+          EUnpackedFloat.num_mkNumber, toExtRat', hNaN, hInf, ExtRat.Number.injEq]
+          simp only [PackedFloat.toNumberRat, PackedFloat.toNumberRatSig, PackedFloat.toNumberRatExp]
+          simp [hNorm]
           rewrite [UnpackedFloat.toRat_normalize_eq_toRat UnpackedFloat.sigWidth_lt_exponentWidth_sub_one]
           · simp only [UnpackedFloat.toRat_eq, Rat.mul_assoc]
             congr 1
-            simp only [BitVec.toNat_cons, Bool.toNat_false, Nat.zero_shiftLeft, Nat.zero_or, Rat.zero_add, Rat.div_def, Rat.mul_assoc]
+            simp only [BitVec.toNat_cons, Bool.toNat_false, Nat.zero_shiftLeft, Nat.zero_or, Rat.div_def, Rat.mul_assoc]
             congr
             simp only [← Rat.zpow_natCast, ← Rat.zpow_neg, ← @Rat.zpow_add 2 (by decide)]
             simp only [BitVec.toInt_ofInt_eq_self exponentWidth_gt_zero minNormalExp_fits₁ minNormalExp_fits₂]
@@ -417,10 +434,13 @@ theorem toExtRat_unpack_eq_toExtRat {pf : PackedFloat e s}
                   norm_cast
                   simp
                 · simp [Int.pow_pos]
-        · simp only [EUnpackedFloat.toExtRat, ↓reduceIte, cond_false,
+        ·
+          simp only [EUnpackedFloat.toExtRat, ↓reduceIte, cond_false,
           EUnpackedFloat.isNaN_mkNumber, EUnpackedFloat.isInfinite_mkNumber,
           EUnpackedFloat.num_mkNumber, toExtRat', hNaN, hInf, hZero, hNorm, cond_true,
           ExtRat.Number.injEq]
+          simp only [PackedFloat.toNumberRat, PackedFloat.toNumberRatSig, PackedFloat.toNumberRatExp,
+            hZero, hNorm, if_true]
           simp only [UnpackedFloat.toRat_eq, Rat.mul_assoc]
           congr 1
           simp only [BitVec.toNat_cons', Nat.shiftLeft_eq, Bool.toNat, cond_true]
@@ -464,6 +484,7 @@ theorem toExtRat_unpack_eq_toExtRat {pf : PackedFloat e s}
       · simp only [EUnpackedFloat.toExtRat, cond_true, cond_false, EUnpackedFloat.mkZero_not_isNaN,
         EUnpackedFloat.mkZero_not_isInfinite, toExtRat', hNaN, hInf, hZero]
         simp [EUnpackedFloat.mkZero]
+        simp [hZero]
     · simp only [EUnpackedFloat.toExtRat, cond_true, cond_false,
       EUnpackedFloat.mkInfinity_not_isNaN, EUnpackedFloat.mkInfinity_isInfinite, toExtRat', hNaN,
       hInf]
