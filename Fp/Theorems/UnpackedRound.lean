@@ -248,7 +248,9 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
       simp [this]
       rw [← ExtRat.mul_def, ExtRat.mul]
       simp only [SmtLibSemantics.instExtendedRat, SmtLibSemantics.instExtendedRat.eq_1, roundQ_eq]
-      simp [show a.toNumberRat < 0 ↔ a.sign = true by sorry]
+      simp [show a.toNumberRat < 0 ↔ a.sign = true by grind only [→
+          PackedFloat.sign_iff_toNumberRat_neg,
+        #34bd]]
       simp [show a.toNumberRat = 0 ↔ a.isZero by sorry]
       simp [show ¬ a.isZero by grind]
       rw [roundQ_eq_round_of_Infinity]
