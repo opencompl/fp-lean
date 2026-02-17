@@ -2,6 +2,43 @@ import Std.Tactic.BVDecide
 import Fp.Tactics
 import Fp.Grind
 
+
+theorem Rat.mul_ne_zero_iff {x y : Rat} : (¬ (x * y = 0)) ↔ x ≠ 0 ∧ y ≠ 0 := by
+  grind
+
+theorem Rat.ne_zero_of_zero_lt {r : Rat} (h : 0 < r) : r ≠ 0 := by
+  grind
+
+attribute [simp] Rat.zero_add
+attribute [simp] Rat.add_zero
+attribute [simp] Rat.zero_mul
+attribute [simp] Rat.mul_zero
+attribute [simp] Rat.mul_one
+attribute [simp] Rat.one_mul
+
+attribute [simp] Rat.natCast_eq_zero_iff
+attribute [simp] Rat.natCast_inj
+attribute [simp] Rat.intCast_inj
+
+
+@[simp]
+theorem Rat.mul_cancel_left {x y z : Rat} (hx : x ≠ 0) : x * y = x * z ↔ y = z := by
+  grind
+
+
+@[simp]
+theorem Rat.mul_cancel_right {x y z : Rat} (hx : x ≠ 0) : y * x = z * x ↔ y = z := by
+  grind
+
+@[simp]
+theorem Rat.natCast_ne_natCast_iff {r s : Nat} : (r : Rat) ≠ (s : Rat) ↔ r ≠ s := by
+  apply not_congr; simp
+
+
+@[simp]
+theorem Rat.intCast_ne_intCast_iff {r s : Int} : (r : Rat) ≠ (s : Rat) ↔ r ≠ s := by
+  apply not_congr; simp
+
 /-- convert the sign bit to an integer value. Morally, this is (-1)^s -/
 def signToInt (s : Bool) : Int :=
   if s then -1 else 1
