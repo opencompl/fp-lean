@@ -2081,11 +2081,25 @@ theorem Rat.twoPowNeZero (n : Int) : (2 : Rat) ^ n ≠ 0 := by
   norm_cast
   grind only [Fp.Rat.two_pow_pos]
 
+-- when subnormal, note that the exponent is zero, so it follows trivially that the
+-- bases are zero.
+-- When normal, the bases are in [1, 2), so we can use the fact that the function 'base * 2^pow' is injective on this domain.
+theorem mul_two_pow_inj (base0 base1 : Rat)
+    (pow0 pow1 : Int) (h : base0 * (2 : Rat) ^ pow0 = base1 * (2 : Rat) ^ pow1)
+    (hLtBase0 : 1 ≤ base0)
+    (hLtBase1 : 1 ≤ base1)
+    (hBase0Lt : base0 < 2)
+    (hBase1Lt : base1 < 2) :
+  base0 = base1 ∧ pow0 = pow1 := by
+  sorry
+
+
 @[simp, grind .]
 theorem PackedFloat.sig_eq_and_ex_eq_of_toNumberRat_eq {x y : PackedFloat e s}
     (hx : x.isNormOrNonzeroSubnorm) (hy : y.isNormOrNonzeroSubnorm)
     (hnormState : x.isNorm ↔ y.isNorm)
-    (heq : x.toNumberRat = y.toNumberRat) : x.sign = y.sign ∧ x.sig = y.sig ∧ x.ex = y.ex := by
+    (heq : x.toNumberRat = y.toNumberRat) :
+    x.sign = y.sign ∧ x.sig = y.sig ∧ x.ex = y.ex := by
   have hSignEq : x.sign = y.sign := by
     apply PackedFloat.sign_eq_of_toNumberRat_eq hx hy heq
   simp [PackedFloat.toNumberRat] at heq
@@ -2098,7 +2112,18 @@ theorem PackedFloat.sig_eq_and_ex_eq_of_toNumberRat_eq {x y : PackedFloat e s}
   have xsigNeZero : x.toNumberRatSig ≠ 0 := by grind only [toNumberRatSig_ne_zero_of_isNormOrNonzeroSubnorm]
   have ySigNeZero : y.toNumberRatSig ≠ 0 := by grind only [toNumberRatSig_ne_zero_of_isNormOrNonzeroSubnorm]
   by_cases hxnorm : x.isNorm
-  · sorry
+  · have := mul_two_pow_inj
+      x.toNumberRatSig
+      y.toNumberRatSig
+      x.toNumberRatExp
+      y.toNumberRatExp
+      sorry
+      sorry
+      sorry
+      sorry
+      sorry
+    -- now I need to know that 'toNumberRatSig', 'toNumberRatExp' are equal.
+    sorry
   · have xSubnorm : x.isNonzeroSubnorm := by grind only [isNormOrSubnorm_eq_isNorm_or_isSubnorm]
     have ySubnorm : y.isNonzeroSubnorm := by grind only [isNormOrSubnorm_eq_isNorm_or_isSubnorm]
     have expEq : x.toNumberRatExp = y.toNumberRatExp := by
@@ -2108,7 +2133,7 @@ theorem PackedFloat.sig_eq_and_ex_eq_of_toNumberRat_eq {x y : PackedFloat e s}
       rw [← Rat.mul_cancel_right (x := 2 ^ x.toNumberRatExp)]
       · rw [expEq]
         grind only
-      · grind only [Rat.twoPowNeZero]
+      · grind?
     have : x.sig = y.sig := by
       rw [x.toRatNumberSig_eq_of_not_isNorm (by grind only)] at sigEq
       rw [y.toRatNumberSig_eq_of_not_isNorm (by grind only)] at sigEq
