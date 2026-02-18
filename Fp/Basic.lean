@@ -2109,6 +2109,35 @@ theorem Rat.two_pow_nat_ne_zero {n : Nat} : (2 : Rat) ^ n ≠ 0 := by
   norm_cast
   exact Nat.two_pow_pos n
 
+
+/--
+Show that the exponents are equal
+if their interpretation as Rats are equal.
+-/
+theorem exp_eq_of_toNumberRatExp_eq
+  (x y : PackedFloat e s)
+  (h : x.toNumberRatExp = y.toNumberRatExp)
+  (hx : x.isNormOrNonzeroSubnorm) (hy : y.isNormOrNonzeroSubnorm)
+  (hnorm : x.isNorm = y.isNorm) : x.ex = y.ex := by
+simp [toNumberRatExp] at h
+by_cases hxnorm : x.isNorm
+· simp [hxnorm] at hnorm
+  simp [hxnorm, hnorm] at h
+  have : (x.ex.toNat : Int) = (y.ex.toNat : Int) := by grind only
+  simp only [Int.natCast_inj] at this
+  apply BitVec.eq_of_toNat_eq
+  grind
+· simp [hxnorm] at hnorm
+  simp [hxnorm, hnorm] at h
+  have : x.isNonzeroSubnorm := by grind
+  simp [this]
+  have : y.isNonzeroSubnorm := by grind
+  simp [this]
+
+/--
+Show that the significands are equal
+if their interpretation as Rats are equal.
+-/
 theorem sig_eq_of_toNumberRatSig_eq_toNumberRatSig
   {x y : PackedFloat e s}
   (h : x.toNumberRatSig = y.toNumberRatSig)
@@ -2157,13 +2186,18 @@ theorem PackedFloat.sig_eq_and_ex_eq_of_toNumberRat_eq {x y : PackedFloat e s}
       y.toNumberRatSig
       x.toNumberRatExp
       y.toNumberRatExp
-      sorry
-      sorry
+      (by grind)
+      (by sorry)
       sorry
       sorry
       sorry
     -- now I need to know that 'toNumberRatSig', 'toNumberRatExp' are equal.
-    sorry
+    have hSigEq := sig_eq_of_toNumberRatSig_eq_toNumberRatSig
+       (x := x) (y := y) (by grind) (by grind)
+    simp [hSigEq]
+    have hExpEq := exp_eq_of_toNumberRatExp_eq
+      (x := x) (y := y) (by grind) (by grind) (by grind) (by grind)
+    simp [hExpEq]
   · have xSubnorm : x.isNonzeroSubnorm := by grind only [isNormOrSubnorm_eq_isNorm_or_isSubnorm]
     have ySubnorm : y.isNonzeroSubnorm := by grind only [isNormOrSubnorm_eq_isNorm_or_isSubnorm]
     have expEq : x.toNumberRatExp = y.toNumberRatExp := by
