@@ -2094,6 +2094,46 @@ theorem mul_two_pow_inj (base0 base1 : Rat)
   sorry
 
 
+attribute [grind .] Rat.pow_pos
+
+@[grind .]
+theorem Rat.two_pow_int_ne_zero {n : Int} : (2 : Rat) ^ n ≠ 0 := by
+  apply Rat.ne_zero_of_zero_lt
+  norm_cast
+  apply Rat.zpow_pos
+  grind only
+
+@[grind .]
+theorem Rat.two_pow_nat_ne_zero {n : Nat} : (2 : Rat) ^ n ≠ 0 := by
+  apply Rat.ne_zero_of_zero_lt
+  norm_cast
+  exact Nat.two_pow_pos n
+
+theorem sig_eq_of_toNumberRatSig_eq_toNumberRatSig
+  {x y : PackedFloat e s}
+  (h : x.toNumberRatSig = y.toNumberRatSig)
+  (hnorm : x.isNorm = y.isNorm) : x.sig = y.sig := by
+simp [toNumberRatSig] at h
+by_cases hxnorm : x.isNorm
+· simp [hxnorm] at hnorm
+  simp [hxnorm, hnorm] at h
+  have : (2 ^ s : Rat) ≠ 0 := by
+    apply Rat.ne_zero_of_zero_lt
+    grind only [Rat.pow_pos]
+  have : (x.sig.toNat : Rat) = (y.sig.toNat : Rat) := by
+   grind only
+  simp only [Rat.natCast_inj] at this
+  apply BitVec.eq_of_toNat_eq
+  grind
+· simp [hxnorm] at hnorm
+  simp [hxnorm, hnorm] at h
+  have : (2 ^ s : Rat) ≠ 0 := by grind
+  have : (x.sig.toNat : Rat) = (y.sig.toNat : Rat) := by
+    grind only
+  simp only [Rat.natCast_inj] at this
+  apply BitVec.eq_of_toNat_eq
+  grind
+
 @[simp, grind .]
 theorem PackedFloat.sig_eq_and_ex_eq_of_toNumberRat_eq {x y : PackedFloat e s}
     (hx : x.isNormOrNonzeroSubnorm) (hy : y.isNormOrNonzeroSubnorm)
