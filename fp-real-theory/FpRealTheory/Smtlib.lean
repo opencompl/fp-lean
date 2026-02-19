@@ -149,7 +149,7 @@ noncomputable instance : ExtendedNumber ExtReal where
    isNaN r := r = .NaN
    smtLibEq r1 r2 := r1.eq r2
 
-instance embedPackedFloatExtReal (e s : Nat) : RoundableEmbed (PackedFloat e s) ExtReal where
+instance : RoundableEmbed (PackedFloat e s) ExtReal where
    embed := fun pf =>
       match pf.toExtRat with
       | .NaN => .NaN
@@ -159,9 +159,7 @@ instance embedPackedFloatExtReal (e s : Nat) : RoundableEmbed (PackedFloat e s) 
 end ExtReal
 
 noncomputable def smtLibRealRounder : RoundMethod (PackedFloat e s) ExtReal :=
-   smtLibRoundMethod e s
-      (smtLibV (ExtReal.embedPackedFloatExtReal e s))
-      (smtLibV (ExtReal.embedPackedFloatExtReal e (s + 1)))
+   smtLibRoundMethod e s smtLibV smtLibV
 
 namespace RealSemantics
 open Classical
