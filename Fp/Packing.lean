@@ -122,7 +122,7 @@ theorem PackedFloat.unpack_eq_NaN_of_isNaN (pf : PackedFloat e s) (hpf : pf.isNa
 
 @[simp]
 theorem EUnpackedFloat.mkNaN_pack_eq_mkNaN : (EUnpackedFloat.mkNaN : EUnpackedFloat _ _).pack =
-  (PackedFloat.mkNaN : PackedFloat e s) := rfl
+  (PackedFloat.getNaN e s) := rfl
 
 @[simp]
 theorem EUnpackedFloat.mkInfinity_pack_eq_getInfinity (sign : Bool) :

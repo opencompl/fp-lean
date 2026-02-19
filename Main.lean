@@ -54,7 +54,7 @@ theorem h (f : FP8Format)
 end FP8Format
 
 def PackedFloat.toBits' (pf : PackedFloat e s) (normNaN : Bool := true) :=
-  let pf := if pf.isNaN && normNaN then .mkNaN else pf
+  let pf := if pf.isNaN && normNaN then PackedFloat.getNaN e s else pf
   pf.toBits
 
 def toDigits (b : BitVec n) : String :=

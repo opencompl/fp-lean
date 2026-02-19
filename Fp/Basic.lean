@@ -59,7 +59,6 @@ instance : Repr (PackedFloat exWidth sigWidth) where
   reprPrec x _prec :=
     f!"\{ sign := {if x.sign then "-" else "+"}, ex := {x.ex}, sig := {x.sig} }"
 
-
 /--
 A fixed point number with specified exponent offset.
 -/
@@ -395,7 +394,7 @@ the canonical NaN for `exWidth = 3` and `sigWidth = 4` is `0.111.1000`.
 def getNaN (exWidth sigWidth : Nat) : PackedFloat exWidth sigWidth where
   sign := false
   ex := BitVec.allOnes exWidth
-  sig := BitVec.ofNat sigWidth (2 ^ (sigWidth - 1))
+  sig := BitVec.intMin sigWidth
 
 @[simp]
 theorem sign_getNaN (exWidth sigWidth : Nat) :
@@ -407,7 +406,7 @@ theorem ex_getNaN (exWidth sigWidth : Nat) :
 
 @[simp]
 theorem sig_getNaN (exWidth sigWidth : Nat) :
-    (PackedFloat.getNaN exWidth sigWidth).sig = BitVec.ofNat sigWidth (2 ^ (sigWidth - 1)) := rfl
+    (PackedFloat.getNaN exWidth sigWidth).sig = BitVec.intMin sigWidth := rfl
 
 /--
 Returns the infinity value of the specified sign for the given floating point
@@ -442,15 +441,15 @@ def getZero (exWidth sigWidth : Nat) (sign : Bool)
   ex := 0
   sig := 0
 
-@[simp]
+@[simp, grind =]
 theorem sign_getZero (exWidth sigWidth : Nat) (sign : Bool) :
     (PackedFloat.getZero exWidth sigWidth sign).sign = sign := rfl
 
-@[simp]
+@[simp, grind =]
 theorem sig_getZero (exWidth sigWidth : Nat) (sign : Bool) :
     (PackedFloat.getZero exWidth sigWidth sign).sig = 0 := rfl
 
-@[simp]
+@[simp, grind =]
 theorem ex_getZero (exWidth sigWidth : Nat) (sign : Bool) :
     (PackedFloat.getZero exWidth sigWidth sign).ex = 0 := rfl
 
@@ -492,6 +491,41 @@ theorem inj (a b : PackedFloat e s)
 def isNaN (pf : PackedFloat e s) : Bool :=
   -- Prioritize `NaN` over `Infinity`.
   pf.ex == .allOnes e && (s == 0 || pf.sig != .zero s)
+
+@[grind .]
+private theorem BitVec.eq_allOnes_iff_toNat_eq (x : BitVec w) :
+    x = .allOnes w ↔ x.toNat = 2 ^ w - 1 := by
+  constructor
+  · intros h
+    subst h
+    simp
+  · intros h
+    apply BitVec.toNat_inj.mp
+    simp [h]
+
+
+@[grind .]
+private theorem BitVec.eq_zero_iff_toNat_eq (x : BitVec w) :
+    x = .zero w ↔ x.toNat = 0 := by
+  constructor
+  · intros h
+    subst h
+    simp
+  · intros h
+    apply BitVec.toNat_inj.mp
+    simp [h]
+
+@[grind =>]
+theorem isNaN_iff_ex_eq_sig_eq (pf : PackedFloat e s) (hs : 0 < s) :
+    pf.isNaN ↔ (pf.ex = .allOnes e ∧ pf.sig ≠ 0#s) := by
+  simp [isNaN]
+  grind
+
+@[grind =>]
+theorem not_isNaN_iff_ex_ne_or_sig_ne (pf : PackedFloat e s) (hs : 0 < s) :
+    (¬ pf.isNaN) ↔ (pf.ex ≠ .allOnes e ∨ pf.sig = 0#s) := by
+  simp [isNaN]
+  grind
 
 @[bv_normalize]
 def isInfinite (pf : PackedFloat e s) : Bool :=
@@ -559,10 +593,23 @@ theorem isZero_getInfinity {exWidth sigWidth : Nat} (sign : Bool) :
 def isNonzeroSubnorm (pf : PackedFloat e s) : Bool :=
   e != 0 && pf.ex == .zero e && pf.sig != .zero s
 
+@[simp]
+theorem exp_eq_of_isNonzeroSubnorm {pf : PackedFloat e s}
+    (h : pf.isNonzeroSubnorm := by solve | simp | grind) :
+    pf.ex = 0#e := by
+  simp [isNonzeroSubnorm] at h
+  simp [h]
+
 -- | does this also need a 'e != 0' condition?
 @[bv_normalize]
 def isNorm {e s} (pf : PackedFloat e s) : Bool :=
   pf.ex != .allOnes e && pf.ex != .zero e
+
+@[grind .]
+theorem ex_ne_zero_if_isNorm {pf : PackedFloat e s} (h : pf.isNorm := by solve | simp | grind) :
+    pf.ex != .zero e := by
+  simp [isNorm] at h
+  simp [h]
 
 @[simp, bv_normalize]
 def isNormOrNonzeroSubnorm (pf : PackedFloat e s) : Bool :=
@@ -591,9 +638,12 @@ theorem isZeroOrSubnorm_of_isZero {pf : PackedFloat e s} :
     pf.isZero → pf.isZeroOrSubnorm := by
   grind [isZero, isZeroOrSubnorm]
 
+@[grind →]
 theorem isZeroOrSubnorm_of_isNonzeroSubnorm {pf : PackedFloat e s} :
     pf.isNonzeroSubnorm → pf.isZeroOrSubnorm := by
   grind [isNonzeroSubnorm, isZeroOrSubnorm]
+
+
 
 @[grind →]
 theorem isZero_of_isNZero {pf : PackedFloat e s} :
@@ -810,16 +860,7 @@ theorem isNaN_getZero {e s : Nat} (sign : Bool) :
 theorem isNaN_getNaN {e s : Nat}  :
     (PackedFloat.getNaN e s).isNaN = true := by
   simp [getNaN, isNaN]
-  by_cases hs : s = 0
-  · simp [hs]
-  · simp [hs]
-    intros hcontra
-    have := BitVec.toNat_inj.mpr hcontra
-    simp at this
-    rw [Nat.mod_eq_of_lt] at this
-    · have : 0 < 2 ^ (s - 1) := by exact Nat.two_pow_pos (s - 1)
-      grind
-    · apply Nat.pow_lt_pow_of_lt <;> grind
+  grind
 
 /--
 Returns the `PackedFloat` representation for the given `BitVec`.
@@ -1089,6 +1130,7 @@ def le (x y : ExtRat) : Bool :=
 
 instance : LE ExtRat where
   le a b := le a b
+
 
 
 @[simp]
@@ -1403,6 +1445,26 @@ theorem mul_comm (x y : ExtRat) : x * y = y * x := by
 
 end InfinityBehaviour
 
+theorem le_refl (x : ExtRat) : x ≤ x := by
+  rw [← ExtRat.le_def]
+  unfold ExtRat.le
+  grind
+
+theorem le_trans {x y z : ExtRat} (hxy : x ≤ y) (hyz : y ≤ z) : x ≤ z := by
+  rw [← ExtRat.le_def] at hxy hyz ⊢
+  unfold ExtRat.le at hxy hyz ⊢
+  grind
+
+theorem le_antisymm {x y : ExtRat} (hxy : x ≤ y) (hyx : y ≤ x) : x = y := by
+  rw [← ExtRat.le_def] at hxy hyx
+  unfold ExtRat.le at hxy hyx
+  grind
+
+instance : Std.IsPartialOrder ExtRat where
+  le_refl := le_refl
+  le_trans := by grind [le_trans]
+  le_antisymm := by grind [le_antisymm]
+
 
 def isNaN (r : ExtRat) : Bool :=
   r = .NaN
@@ -1419,8 +1481,22 @@ def ExtDyadic.toExtRat (ed : ExtDyadic) : ExtRat :=
   | .Infinity sign => .Infinity sign
   | .Number d => .Number d.toRat
 
+@[grind .]
 def Bool.toSign (b : Bool) : Int :=
   if b then -1 else 1
+
+@[simp]
+theorem toSign_true : Bool.toSign true = -1 := rfl
+
+@[simp]
+theorem toSign_false : Bool.toSign false = 1 := rfl
+
+@[simp]
+theorem Bool.toSign_ne_zero (b : Bool) : b.toSign ≠ 0 := by
+  cases b <;> simp [Bool.toSign]
+
+theorem Bool.toSign_lt_zero_iff (b : Bool) : b.toSign < 0 ↔ b = true := by
+  cases b <;> simp [Bool.toSign]
 
 @[bv_normalize]
 def bias (e : Nat) : Nat :=
@@ -1428,8 +1504,6 @@ def bias (e : Nat) : Nat :=
 
 namespace PackedFloat
 
-def mkNaN (sign := false) (sig := BitVec.intMin s) : PackedFloat e s :=
-  { sign, ex := BitVec.allOnes e, sig }
 
 def toExtDyadic (pf : PackedFloat e s) : ExtDyadic :=
   bif pf.isNaN then
@@ -1461,18 +1535,252 @@ theorem toExtDyadic_eq_Infinity_of_isInfinite (pf : PackedFloat e s) (hp : pf.is
 def toExtRat (pf : PackedFloat e s) : ExtRat :=
   pf.toExtDyadic.toExtRat
 
+
+/--
+'An Automatable Formal Semantics for IEEE-754 Floating-Point Arithmetic',
+definition from the model of floating point.
+
+We differ in one aspect: Since we have multiple NaNs,
+we declare that two NaNs are equal iff they are bit-pattern
+equivalent.
+
+This changes the partial order, such that we have
+one isolated NaN for each NaN bit-pattern,
+along with the usual ordering for all other values.
+-/
+def le (x y : PackedFloat e s) : Prop :=
+    (x.isNaN ∧ y.isNaN ∧ x = y) ∨
+    (¬ x.isNaN ∧ ¬ y.isNaN ∧
+      ((x.sign = true ∧ y.sign = false) ∨ -- x negative, y positive.
+      (x.sign = false ∧ y.sign = false ∧ x.ex.toNat < y.ex.toNat) ∨ -- both +ve, x smaller ex.
+      (x.sign = false ∧ y.sign = false ∧ x.ex = y.ex ∧ x.sig.toNat ≤ y.sig.toNat) ∨ -- both +ve, x smaller sig.
+      (x.sign = true ∧ y.sign = true ∧ y.ex.toNat < x.ex.toNat) ∨ -- both -ve, y smaller ex.
+      (x.sign = true ∧ y.sign = true ∧ x.ex = y.ex ∧ y.sig.toNat ≤ x.sig.toNat))
+    )
+
+instance {x y : PackedFloat e s} : Decidable (le x y) := by
+  simp [le]; infer_instance
+
+instance : LE (PackedFloat exWidth sigWidth) where
+  le x y := le x y
+
+@[simp]
+theorem le_def (x y : PackedFloat e s) :
+  x.le y = (x ≤ y) := rfl
+
+@[simp, grind =]
+theorem minus_zero_le_plus_zero {e s} :
+    (PackedFloat.getZero e s true ≤ PackedFloat.getZero e s false) =
+    (e = 0 → s ≠ 0) := by
+  simp [getZero, ← PackedFloat.le_def, PackedFloat.le, PackedFloat.isNaN]
+
+@[simp, grind .]
+theorem plus_zero_not_le_minus_zero :
+    ¬ (PackedFloat.getZero e s false ≤ PackedFloat.getZero e s true) := by
+  simp [getZero, ← PackedFloat.le_def, PackedFloat.le, PackedFloat.isNaN]
+
+
+instance {x y : PackedFloat e s} : Decidable (x ≤ y) := by
+    simp only [← PackedFloat.le_def]
+    infer_instance
+
+def toNumberRatSig {e s} (pf : PackedFloat e s) : Rat :=
+  if pf.isNorm then
+    1 + pf.sig.toNat / 2 ^ s
+  else
+    0 + pf.sig.toNat / 2 ^ s
+
+
+@[grind .]
+theorem one_le_toNumberRatSig_of_isNorm {e s} (pf : PackedFloat e s) (hnorm : pf.isNorm) :
+  1 ≤ pf.toNumberRatSig := by
+  simp [toNumberRatSig, hnorm]
+  have : (pf.sig.toNat : Rat) / (2 : Rat) ^ s ≥ 0 := by grind
+  have : (1 + pf.sig.toNat / 2^s) ≥ 0 := by grind
+  grind
+
+@[grind .]
+theorem zero_le_twoNumberRatSig {e s} (pf : PackedFloat e s) :
+  0 ≤ pf.toNumberRatSig := by
+  have : (pf.sig.toNat : Rat) / (2 : Rat) ^ s ≥ 0 := by grind only [Fp.Rat.div_nonneg,
+    Rat.pow_nonneg]
+  have : (0 + pf.sig.toNat / 2^s) ≥ 0 := by grind only
+  have : pf.sig.toNat / 2^s ≥ 0 := by grind only
+  have : pf.sig.toNat ≥ 0 := by grind only
+  simp only [toNumberRatSig, Rat.zero_add, ge_iff_le]
+  grind only
+
+theorem toRatNumberSig_eq_of_isNorm {e s} {pf : PackedFloat e s} (hnorm : pf.isNorm) :
+  pf.toNumberRatSig = 1 + pf.sig.toNat / 2 ^ s := by
+  simp [toNumberRatSig, hnorm]
+
+theorem toRatNumberSig_eq_of_not_isNorm {e s} {pf : PackedFloat e s} (hnorm : ¬ pf.isNorm) :
+  pf.toNumberRatSig = pf.sig.toNat / 2 ^ s := by
+  simp [toNumberRatSig, hnorm]
+
+theorem toNumberRatSig_lt_one_of_not_isNorm {e s} (pf : PackedFloat e s) (hnorm : ¬ pf.isNorm) :
+  pf.toNumberRatSig < 1 := by
+  simp [toNumberRatSig, hnorm]
+  have : (pf.sig.toNat : Rat) / (2 : Rat) ^ s ≥ 0 := by grind
+  have : pf.sig.toNat < 2^s := by grind
+  apply Rat.div_lt_iff .. |>.mpr
+  · simp
+    norm_cast
+  · grind => instantiate only [Rat.pow_pos]
+
+theorem toNumberRatSig_lt_two_of_not_isNorm {e s} (pf : PackedFloat e s) (hnorm : pf.isNorm):
+  pf.toNumberRatSig < 2 := by
+  simp [toNumberRatSig, hnorm]
+  have : (pf.sig.toNat : Rat) / (2 : Rat) ^ s ≥ 0 := by grind
+  have : pf.sig.toNat < 2^s := by grind
+  suffices (pf.sig.toNat : Rat) / (2 : Rat) ^ s < 1 from by
+    grind
+  apply Rat.div_lt_iff .. |>.mpr
+  · simp
+    norm_cast
+  · grind => instantiate only [Rat.pow_pos]
+
+@[grind! .]
+theorem toNumberRatSig_lt_ite {e s} (pf : PackedFloat e s) :
+  pf.toNumberRatSig < 1 + pf.isNorm.toNat := by
+  by_cases hnorm : pf.isNorm
+  · simp [hnorm]; grind [toNumberRatSig_lt_two_of_not_isNorm pf hnorm]
+  · simp [hnorm]; grind [toNumberRatSig_lt_one_of_not_isNorm pf hnorm]
+
+@[grind .]
+theorem toNumberRatSig_lt_two {e s} (pf : PackedFloat e s) :
+  pf.toNumberRatSig < 2 := by
+  have := toNumberRatSig_lt_ite pf
+  by_cases hnorm : pf.isNorm
+  · grind [toNumberRatSig_lt_two_of_not_isNorm pf hnorm]
+  · grind [toNumberRatSig_lt_one_of_not_isNorm pf hnorm]
+
+def toNumberRatExp {e s} (pf : PackedFloat e s) : Int :=
+  if pf.isNorm then
+    pf.ex.toNat - bias e
+  else
+    -(bias e - 1 : Nat)
+
+theorem toNumberRatExp_eq_of_not_isNorm {e s} {pf : PackedFloat e s} (hnorm : ¬ pf.isNorm) :
+  pf.toNumberRatExp = -(bias e - 1 : Nat) := by
+  simp [toNumberRatExp, hnorm]
+
+theorem toNumberRatExp_eq_of_isNorm {e s} {pf : PackedFloat e s} (hnorm : pf.isNorm) :
+  pf.toNumberRatExp = pf.ex.toNat - bias e := by
+  simp [toNumberRatExp, hnorm]
+
+def toNumberRat {e s} (pf : PackedFloat e s) : Rat :=
+    pf.sign.toSign * pf.toNumberRatSig * 2 ^ (pf.toNumberRatExp)
+
+
+@[simp]
+theorem toNumberRatSig_eq_zero_of_isZero {e s} (pf : PackedFloat e s) (hzero : pf.isZero := by grind) :
+  pf.toNumberRatSig = 0 := by
+  simp [toNumberRatSig]
+  have hnorm : ¬ pf.isNorm := by grind
+  simp [hnorm]
+  have : pf.sig = 0#s := by grind
+  simp only [this, BitVec.toNat_ofNat, Nat.zero_mod, Rat.natCast_ofNat]
+  grind
+
+@[simp, grind .]
+theorem zero_le_toNumberRatSig {e s} (pf : PackedFloat e s) :
+  0 ≤ pf.toNumberRatSig  := by
+  simp [toNumberRatSig]
+  by_cases hnorm : pf.isNorm
+  · simp [hnorm]
+    have : (pf.sig.toNat : Rat) / (2 : Rat) ^ s ≥ 0 := by grind only [Fp.Rat.div_nonneg,
+      Rat.pow_nonneg]
+    have : (1 + pf.sig.toNat / 2^s) ≥ 0 := by grind
+    grind
+  · simp [hnorm]
+    have : (pf.sig.toNat : Rat) / (2 : Rat) ^ s ≥ 0 := by grind
+    have : (0 + pf.sig.toNat / 2^s) ≥ 0 := by grind
+    grind
+
+@[grind . ]
+theorem sig_ne_zero_of_isNormOrNonzeroSubnorm_of_not_isNorm {pf : PackedFloat e s} (h : pf.isNormOrNonzeroSubnorm) (hnorm : ¬ pf.isNorm) :
+    pf.sig ≠ 0#s := by
+  simp [isNorm] at hnorm
+  simp [isNormOrNonzeroSubnorm] at h
+  grind
+
+attribute [grind .] Rat.natCast_eq_zero_iff
+
+@[simp, grind .]
+theorem toNumberRatSig_ne_zero_of_isNormOrNonzeroSubnorm {pf : PackedFloat e s} (h : pf.isNormOrNonzeroSubnorm) :
+  pf.toNumberRatSig ≠ 0 := by
+  simp [toNumberRatSig]
+  by_cases hnorm : pf.isNorm
+  · simp [hnorm]
+    have : (pf.sig.toNat : Rat) / (2 : Rat) ^ s ≥ 0 := by grind only [Fp.Rat.div_nonneg,
+      Rat.pow_nonneg]
+    simp only [ne_eq]
+    grind
+  · simp [hnorm]
+    have := sig_ne_zero_of_isNormOrNonzeroSubnorm_of_not_isNorm h (hnorm := by grind)
+    have : pf.sig.toNat ≠ 0 := by grind
+    have : (pf.sig.toNat : Rat) ≠ 0 := by
+      grind only [Rat.natCast_eq_zero_iff]
+    grind only [Fp.Rat.div_pos, Rat.pow_pos]
+
+@[simp, grind =]
+theorem toNumberRat_eq_Zero_of_isZero {e s} (pf : PackedFloat e s) (hp : pf.isZero) :
+    pf.toNumberRat = 0 := by
+  rw [toNumberRat]
+  have : pf.toNumberRatSig = 0 := by exact toNumberRatSig_eq_zero_of_isZero pf hp
+  grind
+
+@[simp]
+theorem Rat.natCast_ne_zero_iff {n : Nat} : ((n : Rat) ≠ 0) ↔ n ≠ 0 := by
+  grind
+
+theorem toNumberRat_ne_zero {pf : PackedFloat e s} (h : pf.isNormOrNonzeroSubnorm) :
+    pf.toNumberRat ≠ 0 := by
+  simp [toNumberRat]
+  have : pf.sign.toSign ≠ 0 := by grind only [Bool.toSign, #26b7]
+  have : pf.toNumberRatSig ≠ 0 := by exact toNumberRatSig_ne_zero_of_isNormOrNonzeroSubnorm h
+  have : (2 : Rat) ^ (pf.toNumberRatExp) > 0 := by grind only [Fp.Rat.two_pow_pos]
+  rw [Rat.mul_ne_zero_iff]
+  simp only [ne_eq]
+  rw [Rat.mul_ne_zero_iff]
+  constructor
+  · constructor
+    · simp
+    · grind only
+  · grind only
+
+@[simp, grind →, grind =]
+theorem sign_iff_toNumberRat_neg {pf : PackedFloat e s} (h : pf.isNormOrNonzeroSubnorm) :
+    pf.sign = decide (pf.toNumberRat < 0) := by
+  rw  [toNumberRat]
+  have : pf.toNumberRatSig ≠ 0 := by
+    exact toNumberRatSig_ne_zero_of_isNormOrNonzeroSubnorm h
+  have : 0 ≤ pf.toNumberRatSig := by exact zero_le_toNumberRatSig pf
+  have : (2 : Rat) ^ pf.toNumberRatExp > 0 := by grind only [Fp.Rat.two_pow_pos]
+  by_cases hsign : pf.sign <;> simp [hsign] <;> grind
+
+
 def toExtRat' (pf : PackedFloat e s) : ExtRat :=
   bif pf.isNaN then
     .NaN
   else bif pf.isInfinite then
     .Infinity pf.sign
-  else bif pf.isZero  then
-    .Number 0
-  else bif pf.isNorm then
-    .Number (pf.sign.toSign * (1 + pf.sig.toNat / 2 ^ s) * 2 ^ (pf.ex.toNat - bias e : Int))
-  else
-    -- `-(bias e - 1)` is slightly different from SMT-LIB standard `1 - bias e` to allow `e = 1`.
-    .Number (pf.sign.toSign * (0 + pf.sig.toNat / 2 ^ s) * 2 ^ (-(bias e - 1 : Nat) : Int))
+  else .Number pf.toNumberRat
+
+
+@[simp]
+theorem toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm {pf : PackedFloat e s} (hp : pf.isNormOrNonzeroSubnorm := by grind) :
+    pf.toExtRat' =
+        .Number pf.toNumberRat := by
+  have hnan : pf.isNaN = false := by
+    grind [isNaN, isNormOrNonzeroSubnorm]
+  have hinf : pf.isInfinite = false := by
+    grind [isInfinite, isNormOrNonzeroSubnorm]
+  have hzero : pf.isZero = false := by
+    grind [isZero, isNormOrNonzeroSubnorm]
+  simp [toExtRat', hnan, hinf, toNumberRat]
+
 
 @[simp]
 theorem toExtRat'_eq_zero_of_isZero (pf : PackedFloat e s) (hp : pf.isZero) :
@@ -1481,7 +1789,8 @@ theorem toExtRat'_eq_zero_of_isZero (pf : PackedFloat e s) (hp : pf.isZero) :
     grind [isNaN, isZero]
   have hinf : pf.isInfinite = false := by
     grind [isInfinite, isZero]
-  simp [toExtRat', hp, hnan, hinf]
+  simp only [toExtRat', hnan, hinf, cond_false, ExtRat.Number.injEq]
+  grind
 
 @[simp]
 theorem toExtRat'_eq_NaN_of_isNaN (pf : PackedFloat e s) (hp : pf.isNaN) :
@@ -1494,89 +1803,456 @@ theorem toExtRat'_eq_Infinity_of_isInfinite (pf : PackedFloat e s) (hp : pf.isIn
   rw [toExtRat', hp]
   grind [not_isNaN_of_isInfinite]
 
-def toNumberRat {e s} (pf : PackedFloat e s) : Rat :=
-  if pf.isNorm then
-    pf.sign.toSign * (1 + pf.sig.toNat / 2 ^ s) * 2 ^ (pf.ex.toNat - bias e : Int)
-  else
-    pf.sign.toSign * (0 + pf.sig.toNat / 2 ^ s) * 2 ^ (-(bias e - 1 : Nat) : Int)
 
-/-- This is true, because 'sign' -/
-axiom toNumberRat_ne_zero {pf : PackedFloat e s} (h : pf.isNormOrNonzeroSubnorm) :
-    pf.toNumberRat ≠ 0
-
-@[simp, grind →, grind =]
-theorem sign_iff_toNumberRat_neg {pf : PackedFloat e s} (h : pf.isNormOrNonzeroSubnorm) :
-    pf.sign = decide (pf.toNumberRat < 0) := by
-  have hnum : pf.toNumberRat ≠ 0 := toNumberRat_ne_zero h
-  simp [toNumberRat, Bool.toSign] at hnum ⊢
-  by_cases hnorm : pf.isNorm
-  · simp [hnorm] at hnum ⊢
-    have : (pf.sig.toNat : Rat) ≥ 0 := by grind
-    have : (2 : Rat) ^s ≥ 0 := by grind
-    have : (pf.sig.toNat : Rat) / 2^s ≥ 0 := by grind
-    have : (1 + pf.sig.toNat / 2^s) ≥ 0 := by grind
-    have : (2 : Rat) ^ ((pf.ex.toNat : Int) - (bias e : Int)) > 0 := by grind
-    have : (1 + pf.sig.toNat / 2^s) * (2 : Rat) ^ ((pf.ex.toNat : Int) - (bias e : Int)) > 0 := by
-      apply Rat.mul_pos <;> grind
-    rw [Rat.mul_assoc]
-    by_cases hsign : pf.sign
-    · simp [hsign]
-      rw [Rat.mul_neg_iff_of_pos_right]
-      · grind
-      · grind
-    · simp [hsign]
-      apply Rat.mul_nonneg
-      · grind
-      · grind
-  · simp [hnorm] at hnum ⊢
-    have : (pf.sig.toNat : Rat) ≥ 0 := by grind
-    have : (2 : Rat) ^s > 0 := by grind
-    have : (pf.sig.toNat : Rat) / 2^s ≥ 0 := by grind -- grind
-    have : ¬ ((pf.sig.toNat : Rat) / 2 ^ s = 0) := by
-      intros hcontra
-      rw [hcontra] at hnum
-      simp [Rat.zero_add, Rat.mul_zero, Rat.zero_mul] at hnum
-    have : (0 + pf.sig.toNat / 2^s) * (2 : Rat) ^ (-(bias e - 1 : Nat) : Int) > 0 := by
-      apply Rat.mul_pos <;> grind
-    rw [Rat.mul_assoc]
-    by_cases hsign : pf.sign
-    · simp [hsign]
-      rw [Rat.mul_neg_iff_of_pos_right]
-      · grind
-      · grind
-    · simp [hsign]
-      apply Rat.mul_nonneg
-      · grind
-      · grind
-
-@[simp]
-theorem toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm {pf : PackedFloat e s} (hp : pf.isNormOrNonzeroSubnorm) :
-    pf.toExtRat' =
-        .Number pf.toNumberRat := by
-  have hnan : pf.isNaN = false := by
-    grind [isNaN, isNormOrNonzeroSubnorm]
-  have hinf : pf.isInfinite = false := by
-    grind [isInfinite, isNormOrNonzeroSubnorm]
-  have hzero : pf.isZero = false := by
-    grind [isZero, isNormOrNonzeroSubnorm]
-  simp [toExtRat', hnan, hinf, hzero, toNumberRat]
-  grind
-
-@[simp]
-theorem toExtRat'_mkInfinity (sign : Bool) (hs : 0 < s := by grind) :
+@[simp, grind! .]
+theorem toExtRat'_getInfinity {sign : Bool} (hs : 0 < s := by grind) :
     (PackedFloat.getInfinity e s sign).toExtRat' = .Infinity sign := by
   have : (PackedFloat.getInfinity e s sign).isInfinite = true := by
     grind
   simp [hs]
 
-@[simp]
-axiom toExtRat'_getZero (sign : Bool) (hs : 0 < s := by grind) :
-    (PackedFloat.getZero e s sign).toExtRat' = .Number 0 -- := by
-  -- have : (PackedFloat.getZero e s sign).isZero = true := by
-    -- sorry
-  -- simp [this]
-    -- grind
+@[simp, grind! .]
+theorem isNaN_mkNaN : (PackedFloat.getNaN e s).isNaN = true := by
+  simp [getNaN, isNaN]
+  grind
 
+@[simp]
+theorem toExtRat'_mkNaN :
+    (PackedFloat.getNaN e s).toExtRat' = .NaN := by
+  rw [toExtRat']
+  simp
+
+@[simp, grind! .]
+theorem toExtRat'_getZero (sign : Bool) (he : 0 < e := by grind) (hs : 0 < s := by grind) :
+    (PackedFloat.getZero e s sign).toExtRat' = .Number 0 := by
+  rw [toExtRat']
+  simp [show ¬ s = 0 by grind]
+  simp [show ¬ e = 0 by grind]
+  simp [he]
+
+/--
+Case splitting on the different values a packed float
+can have: it can be nan, infinity, zero, or a nonzero normal/subnormal.+
+-/
+@[elab_as_elim]
+theorem classification {P : PackedFloat e s → Prop}
+    (x : PackedFloat e s)
+    (nanCase : ∀ (n : PackedFloat e s), n.isNaN → P n)
+    (infCase : ∀ sign, P (PackedFloat.getInfinity e s sign))
+    (zeroCase : ∀ sign, P (PackedFloat.getZero e s sign))
+    (numCase : ∀ (n : PackedFloat e s), n.isNormOrNonzeroSubnorm → P n) :
+    P x := by
+  have := x.classification_exhaustive
+  simp at this
+  by_cases h1 : x.isNaN
+  · grind
+  · by_cases h2 : x.isInfinite
+    · grind
+    · by_cases h3 : x.isZero
+      · grind
+      · by_cases h4 : x.isNonzeroSubnorm
+        · grind
+        · by_cases h5 : x.isNorm
+          · grind only [→ isNormOrSubnorm_of_isNorm, #d1e2]
+          · grind only
+
+@[simp, grind .]
+theorem le_refl (x : PackedFloat e s) : x ≤ x := by simp [← le_def, PackedFloat.le]
+
+@[simp, grind .]
+theorem le_NaN (x : PackedFloat e s) :
+    x ≤ PackedFloat.getNaN e s ↔ x = PackedFloat.getNaN e s := by
+  by_cases hx : x.isNaN
+  · simp only [← PackedFloat.le_def, PackedFloat.le, hx]
+    simp only [isNaN_mkNaN, and_self, not_true_eq_false, false_and]
+    grind
+  · simp only [← PackedFloat.le_def, PackedFloat.le]
+    simp [hx]
+    grind
+
+@[simp, grind .]
+theorem NaN_le (x : PackedFloat e s)
+    : PackedFloat.getNaN e s ≤ x ↔ x = PackedFloat.getNaN e s := by
+  simp only [← PackedFloat.le_def, PackedFloat.le]
+  simp only [isNaN_getNaN]
+  by_cases hx : x.isNaN
+  · simp [hx]
+    grind
+  · simp [hx]
+    grind
+
+@[simp, grind .]
+theorem le_iff_eq_of_isNaN (x y : PackedFloat e s)
+  (hx : x.isNaN) : x ≤ y ↔ x = y := by
+  simp only [← PackedFloat.le_def, PackedFloat.le, hx]
+  simp only [not_true_eq_false, false_and]
+  grind
+
+@[simp, grind .]
+theorem le_iff_eq_of_isNaN' (x y : PackedFloat e s)
+  (hy : y.isNaN) : x ≤ y ↔ x = y := by
+  simp only [← PackedFloat.le_def, PackedFloat.le, hy]
+  simp only [not_true_eq_false]
+  grind
+
+/--
+x is infinite iff it is equal to the infinity value with the same sign.
+-/
+@[grind .]
+theorem eq_getInfinity_iff_isInfinity (hs : 0 < s)
+    {x : PackedFloat e s} :
+    (x.isInfinite) ↔ x = .getInfinity e s x.sign := by
+  simp [getInfinity, isInfinite]
+  grind [PackedFloat]
+
+
+-- recall that -0 ≤ +0. So if x has sign = false, then y also needs sign = false
+@[simp]
+theorem le_iff_sign_eq_of_isZero (x y : PackedFloat e s)
+  (hx : x.isZero) (hy : y.isZero) : x ≤ y ↔ (x.sign = false → y.sign = false) := by
+  rw [← PackedFloat.le_def, PackedFloat.le]
+  have hxnan : ¬ x.isNaN := by grind [isNaN, isZero]
+  have hynan : ¬ y.isNaN := by grind [isNaN, isZero]
+  simp [hxnan, hynan]
+  simp [PackedFloat.isZero] at hx hy
+  by_cases hxsign : x.sign
+  · simp [hxsign]
+    by_cases hysign : y.sign
+    · simp [hysign]
+      -- both negative zero.
+      grind
+    · simp [hysign]
+  · simp [hxsign]
+    by_cases hysign : y.sign
+    · simp [hysign]
+    · simp [hysign]
+      grind
+
+attribute [grind .] BitVec.toNat_inj
+attribute [grind .] BitVec.toInt_inj
+
+@[grind .]
+theorem le_antisymm_of_ne_NaN
+  {x y : PackedFloat e s}
+  (hxy : x ≤ y) (hyx : y ≤ x) (hx : ¬ x.isNaN) (hy : ¬ y.isNaN) :
+    x = y := by
+  simp only [← PackedFloat.le_def] at hxy hyx
+  simp only [PackedFloat.le] at hxy hyx
+  simp [hx] at hxy hyx
+  simp [hy] at hxy hyx
+  grind [PackedFloat]
+
+theorem le_antisymm_iff {x y : PackedFloat e s}
+  (hxy : x ≤ y) (hyx : y ≤ x) :
+  (x.isNaN ∧ y.isNaN) ∨ (¬ x.isNaN ∧ ¬ y.isNaN ∧ x = y) := by
+  by_cases hx : x.isNaN
+  · simp [hx]
+    simp [hx] at hxy hyx
+    grind
+  · simp [hx]
+    by_cases hy : y.isNaN
+    · simp [hy]
+      simp [hy] at hxy hyx
+      grind
+    · simp [hy]
+      grind only [PackedFloat.le_antisymm_of_ne_NaN hxy hyx hx hy]
+
+theorem le_trans
+    {x y z : PackedFloat e s} (hxy : x ≤ y) (hyz : y ≤ z) : x ≤ z := by
+  simp only [← PackedFloat.le_def] at hxy hyz ⊢
+  simp only [PackedFloat.le] at hxy hyz ⊢
+  by_cases hx : x.isNaN
+  · simp [hx] at hxy
+    simp at hyz
+    grind
+  · simp [hx] at hxy
+    simp at hyz
+    by_cases hy : y.isNaN
+    · simp [hy] at hxy
+    · simp [hy] at hxy hyz
+      by_cases hz : z.isNaN
+      · simp [hz] at hxy hyz
+      · simp [hz] at hxy hyz
+        grind (splits := 10)
+           only [BitVec.toNat_inj, #fde2d389667160e9, #54fdc8e31fc2dc1c, #bf4f9097212d569d,
+          #0ddaf51762ab63df, #8dc2e2b3e678dc39, #b28eea1a75158fe1, #71fd579644e57b0a,
+          #ca7289c2a156499b, #8f9092e537ef6258, #ef1611d882ec5869, #e781b8f11c51b17b,
+          #2d6d3bcdb3a3b35c, #31dd348e5c4aee2a, #a7908cd812b01724, #f811994cd6c34475,
+          #7d54ade5a8b64ca3, #b35f21abfee2096d]
+
+/-
+If the numbers are notNaN, then 'x ≤ y' if the x is negative and y is positive.
+-/
+@[simp]
+theorem le_of_sign_eq_true_sign_eq_false {x y : PackedFloat e s}
+    (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN) (hxsign : x.sign = true) (hysign : y.sign = false) :
+    (x ≤ y) := by
+  rw [← PackedFloat.le_def, PackedFloat.le]
+  grind only
+
+/-
+If the numbers are notNaN, then 'x ≤ y' if the x is negative and y is positive.
+-/
+@[simp, grind .]
+theorem not_le_of_sign_eq_false_of_sign_eq_true {x y : PackedFloat e s}
+    (hxnan : ¬ x.isNaN) (hxsign : x.sign = false) (hysign : y.sign = true) :
+    ¬ (x ≤ y) := by
+  rw [← PackedFloat.le_def, PackedFloat.le]
+  grind only
+
+@[simp, grind .]
+theorem le_eq_of_sign_eq_false_of_sign_eq_false {x y : PackedFloat e s}
+    (hxnan : ¬ x.isNaN := by solve | simp | grind)
+    (hynan : ¬ y.isNaN := by solve | simp | grind)
+    (hxsign : x.sign = false := by solve | simp | grind)
+    (hysign : y.sign = false := by solve | simp | grind) :
+    (x ≤ y) = ((x.ex.toNat < y.ex.toNat) ∨ (x.ex.toNat = y.ex.toNat ∧ x.sig.toNat ≤ y.sig.toNat)):= by
+  rw [← PackedFloat.le_def, PackedFloat.le]
+  grind only [BitVec.toNat_inj, #0bf13ef81725cfb4]
+
+@[simp, grind .]
+theorem le_eq_of_sign_eq_true_of_sign_eq_true {x y : PackedFloat e s}
+    (hxnan : ¬ x.isNaN := by solve | simp | grind)
+    (hynan : ¬ y.isNaN := by solve | simp | grind)
+    (hxsign : x.sign = true := by solve | simp | grind)
+    (hysign : y.sign = true := by solve | simp | grind) :
+    (x ≤ y) = ((y.ex.toNat < x.ex.toNat) ∨ (x.ex.toNat = y.ex.toNat ∧  y.sig.toNat ≤ x.sig.toNat)):= by
+  rw [← PackedFloat.le_def, PackedFloat.le]
+  grind only [BitVec.toNat_inj, #1f279ccc014b26d2]
+
+/--
+Every number is less than +∞
+-/
+@[grind =>]
+theorem le_getInfinity_false_of_not_isNaN (hs : 0 < s) (y : PackedFloat e s) :
+    (y ≤ PackedFloat.getInfinity e s false) ↔ ¬ y.isNaN := by
+  by_cases hnan : y.isNaN
+  · simp [hnan]
+    grind only [→ not_isInfinite_of_isNaN, !isInfinite_getInfinity]
+  · simp [hnan]
+    rw [← PackedFloat.le_def, PackedFloat.le]
+    simp [hnan, hs]
+    by_cases hysign : y.sign
+    · simp [hysign]
+    · simp [hysign]
+      grind only [=> isNaN_iff_ex_eq_sig_eq, usr Nat.pow_pos, usr BitVec.isLt,
+        BitVec.eq_allOnes_iff_toNat_eq, = BitVec.toNat_ofNat, = BitVec.toNat_zero]
+
+@[simp, grind →]
+theorem eq_getInfinity_of_getInfinity_le (hs : 0 < s) (y : PackedFloat e s)
+  (hle : PackedFloat.getInfinity e s false ≤ y) :
+  y = .getInfinity e s false := by
+  have : (getInfinity e s false).sign = false := by grind
+  by_cases hysign : y.sign
+  · have : ¬ ((getInfinity e s false) ≤ y) := by grind only [le_iff_eq_of_isNaN,
+    not_le_of_sign_eq_false_of_sign_eq_true]
+    grind only
+  · simp at hysign
+    have hle' := hle
+    rw [le_eq_of_sign_eq_false_of_sign_eq_false] at hle'
+    simp at hle'
+    have : y.ex.toNat = 2 ^ e - 1 := by grind only [usr Nat.pow_pos, usr BitVec.isLt]
+    have : y.sig = 0#s := by grind only [le_iff_eq_of_isNaN', !isInfinite_getInfinity,
+      => isNaN_iff_ex_eq_sig_eq, eq_getInfinity_iff_isInfinity, → not_isNaN_of_isInfinite,
+      BitVec.eq_allOnes_iff_toNat_eq]
+    apply PackedFloat.ext <;> simp <;> grind
+
+
+/--
+If a number is +infty, then only +infty is larger than it.
+-/
+@[simp]
+theorem PackedFloat.getInfinity_false_le_iff_eq (hs : 0 < s)
+    (y : PackedFloat e s) :
+    (PackedFloat.getInfinity e s false) ≤ y ↔ y = .getInfinity e s false := by
+  constructor
+  · intros h
+    grind only [→ eq_getInfinity_of_getInfinity_le]
+  · intros h
+    subst h
+    grind only [le_refl]
+
+
+@[grind =>]
+theorem PackedFloat.getInfinity_true_le_of_not_isNaN (hs : 0 < s) (y : PackedFloat e s) :
+    (PackedFloat.getInfinity e s true ≤ y) ↔ ¬ y.isNaN := by
+  by_cases hnan : y.isNaN
+  · simp [hnan]
+    grind only [→ not_isInfinite_of_isNaN, !isInfinite_getInfinity]
+  · simp [hnan]
+    rw [← PackedFloat.le_def, PackedFloat.le]
+    simp [hnan, hs]
+    by_cases hysign : y.sign
+    · simp [hysign]
+      grind
+    · simp [hysign]
+
+@[simp, grind .]
+theorem PackedFloat.sign_eq_of_toNumberRat_eq {x y : PackedFloat e s}
+  (hx : x.isNormOrNonzeroSubnorm) (hy : y.isNormOrNonzeroSubnorm)
+  (heq : x.toNumberRat = y.toNumberRat) : x.sign = y.sign := by
+  by_cases hxsign : x.sign <;> grind only [→ sign_iff_toNumberRat_neg]
+
+-- When normal, the bases are in [1, 2),
+-- so we can use the fact that the function 'base * 2^pow' is injective on this domain.
+-- This follows by a fairly simple argument.
+theorem mul_two_pow_inj_aux (base0 base1 : Rat)
+    (pow0 pow1 : Int) (h : base0 * (2 : Rat) ^ pow0 = base1 * (2 : Rat) ^ pow1)
+    (hLtBase0 : 1 ≤ base0)
+    (hLtBase1 : 1 ≤ base1)
+    (hBase0Lt : base0 < 2)
+    -- (hBase1Lt : base1 < 2)
+    (hle : pow0 ≤ pow1):
+    base0 = base1 ∧ pow0 = pow1 :=
+  if heq : pow0 = pow1 then by
+    subst heq
+    simp only [and_true] at h ⊢
+    rw [← Rat.mul_cancel_right (x := 2 ^ pow0)]
+    · grind only
+    · grind only [Rat.twoPowNeZero]
+  else by
+    have hlt : pow0 < pow1 := by grind only
+    have : ∃ (k : Nat), pow0 + k = pow1 := by
+      exact Int.le.dest hle
+    obtain ⟨k, hk⟩ := this
+    have : 0 < k := by grind
+    have : (2 : Rat) ≤ 2 ^ k := by
+      norm_cast
+      rcases k with rfl | k
+      · grind only
+      · rw [Nat.pow_succ]
+        have : 1 ≤ 2 ^ k := by grind only [usr Nat.pow_pos]
+        grind
+    subst hk
+    rw [Rat.zpow_add (hq := by grind only)] at h
+    rw [Rat.mul_comm (2 ^ pow0)] at h
+    rw [← Rat.mul_assoc base1] at h
+    simp only [Rat.zpow_natCast] at h
+    rw [Rat.mul_cancel_right (by grind only [Rat.twoPowNeZero])] at h
+    have : base1 * (2 : Rat) ^ k < 2 := by
+      subst h
+      grind
+    have : base1 * 2 ^ k ≥ 2 := by
+      simp only [ge_iff_le]
+      rw [show (2 : Rat) = 1 * 2 by grind only]
+      apply Rat.mul_le_mul_of_le_of_le_of_nonneg_of_nonneg <;> grind only
+    grind only
+
+theorem mul_two_pow_inj (base0 base1 : Rat)
+    (pow0 pow1 : Int) (h : base0 * (2 : Rat) ^ pow0 = base1 * (2 : Rat) ^ pow1)
+    (hLtBase0 : 1 ≤ base0)
+    (hLtBase1 : 1 ≤ base1)
+    (hBase0Lt : base0 < 2)
+    (hBase1Lt : base1 < 2) :
+    base0 = base1 ∧ pow0 = pow1 := by
+  by_cases hle : pow0 ≤ pow1
+  · apply mul_two_pow_inj_aux <;> grind only
+  · have hgt : pow1 < pow0 := by grind only
+    have := mul_two_pow_inj_aux base1 base0 pow1 pow0 h.symm hLtBase1 hLtBase0 hBase1Lt (by grind only)
+    grind only
+
+/--
+Show that the exponents are equal
+if their interpretation as Rats are equal.
+-/
+theorem exp_eq_of_toNumberRatExp_eq
+  (x y : PackedFloat e s)
+  (h : x.toNumberRatExp = y.toNumberRatExp)
+  (hx : x.isNormOrNonzeroSubnorm) (hy : y.isNormOrNonzeroSubnorm)
+  (hnorm : x.isNorm = y.isNorm) : x.ex = y.ex := by
+simp [toNumberRatExp] at h
+by_cases hxnorm : x.isNorm
+· simp [hxnorm] at hnorm
+  simp [hxnorm, hnorm] at h
+  have : (x.ex.toNat : Int) = (y.ex.toNat : Int) := by grind only
+  simp only [Int.natCast_inj] at this
+  apply BitVec.eq_of_toNat_eq
+  grind
+· simp [hxnorm] at hnorm
+  simp [hxnorm, hnorm] at h
+  have : x.isNonzeroSubnorm := by grind
+  simp [this]
+  have : y.isNonzeroSubnorm := by grind
+  simp [this]
+
+/--
+Show that the significands are equal
+if their interpretation as Rats are equal.
+-/
+theorem sig_eq_of_toNumberRatSig_eq_toNumberRatSig
+  {x y : PackedFloat e s}
+  (h : x.toNumberRatSig = y.toNumberRatSig)
+  (hnorm : x.isNorm = y.isNorm) : x.sig = y.sig := by
+simp [toNumberRatSig] at h
+by_cases hxnorm : x.isNorm
+· simp [hxnorm] at hnorm
+  simp [hxnorm, hnorm] at h
+  have : (2 ^ s : Rat) ≠ 0 := by
+    apply Rat.ne_zero_of_zero_lt
+    grind only [Rat.pow_pos]
+  have : (x.sig.toNat : Rat) = (y.sig.toNat : Rat) := by
+   grind only
+  simp only [Rat.natCast_inj] at this
+  apply BitVec.eq_of_toNat_eq
+  grind
+· simp [hxnorm] at hnorm
+  simp [hxnorm, hnorm] at h
+  have : (2 ^ s : Rat) ≠ 0 := by grind
+  have : (x.sig.toNat : Rat) = (y.sig.toNat : Rat) := by
+    grind only
+  simp only [Rat.natCast_inj] at this
+  apply BitVec.eq_of_toNat_eq
+  grind
+
+
+
+/-
+@[simp]
+theorem le_iff_toExtRat'_le_toExtRat'_of_not_isZero (he : 0 < e) (hs : 0 < s)
+    (x y : PackedFloat e s)
+    (hxzero : ¬ x.isZero) (hyzero : ¬ y.isZero) (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN) :
+    x ≤ y ↔ x.toExtRat' ≤ y.toExtRat' := by
+  sorry
+-/
+
+@[simp]
+theorem le_zero_iff_sign_eq_true {x : PackedFloat e s} (he : 0 < e):
+    (x ≤ PackedFloat.getZero e s true) ↔ (x.sign = true ∧ ¬ x.isNaN) := by
+  by_cases hxNaN : x.isNaN
+  · grind only [→ not_isZero_of_isNaN, PackedFloat.le_iff_eq_of_isNaN, isZero_getZero]
+  · simp [hxNaN]
+    by_cases hxsign : x.sign
+    · simp [hxsign]
+      rw [← PackedFloat.le_def, PackedFloat.le]
+      simp [hxNaN]
+      simp [show ¬ e = 0 by grind]
+      simp [hxsign]
+      have := BitVec.toNat_inj (x := x.ex) (y := 0#_)
+      simp at this
+      grind
+    · simp [hxsign]
+      have : (getZero e s true).sign = true := by grind only [= sign_getZero]
+      grind only [not_le_of_sign_eq_false_of_sign_eq_true]
+
+@[simp]
+theorem zero_le_iff_sign_eq_false {x : PackedFloat e s} (he : 0 < e):
+  (PackedFloat.getZero e s false ≤ x) ↔ (x.sign = false ∧ ¬ x.isNaN) := by
+  by_cases hxNaN : x.isNaN
+  · simp [hxNaN]
+    grind
+  · simp [hxNaN]
+    by_cases hxsign : x.sign
+    · simp [hxsign]
+      rw [← PackedFloat.le_def, PackedFloat.le]
+      simp [hxNaN]
+      simp [show ¬ e = 0 by grind]
+      simp [hxsign]
+    · simp [hxsign]
+      have : (getZero e s false).sign = false := by grind only [= sign_getZero]
+      have := le_eq_of_sign_eq_false_of_sign_eq_false (x := (getZero e s false)) (y := x)
+        (by grind) (by grind) (by grind) (by grind)
+      simp at this
+      grind
 
 end PackedFloat
 
@@ -1656,6 +2332,7 @@ def toDyadic (uf : UnpackedFloat e s) : Dyadic :=
 def toRat (uf : UnpackedFloat e s) : Rat :=
   uf.toDyadic.toRat
 
+-- TODO: add a toRat', and show that these are equivalent.
 
 end UnpackedFloat
 
@@ -1906,6 +2583,272 @@ does not overflow when its width is set to `exponentWidth 1 s` (where
 @[bv_normalize]
 def exponentWidth (e s : Nat) : Nat :=
   (2 ^ (e - 1) + s - 1).log2 + 2
+
+
+theorem Rat.lt_mul_self_of_lt_one {y} {x : Rat} (hx0 : 0 ≤ x ∧ x < 1) (hy : 0 < y)
+    : x * y < y := by
+  suffices x * y < 1 * y by grind only
+  apply Rat.lt_of_le_of_ne
+  · apply Rat.mul_le_mul_of_le_of_le_of_nonneg_of_nonneg <;> grind only
+  · intros hcontra
+    rw [Rat.mul_cancel_right] at hcontra <;> grind only
+
+
+namespace PackedFloat
+
+/--
+Subnormal numbers are smaller than '2^minNormalExp'.
+-/
+@[simp, grind .]
+theorem toNumberRatSig_times_toNumberRatExp_lt_two_pow_minNormalExp_of_isNonzeroSubnorm {x : PackedFloat e s}
+    (hx : x.isNonzeroSubnorm) :
+      x.toNumberRatSig * (2 : Rat) ^ x.toNumberRatExp < (2 : Rat) ^ minNormalExp e := by
+  rw [toNumberRatExp_eq_of_not_isNorm]
+  apply Rat.lt_mul_self_of_lt_one
+  · grind only [zero_le_twoNumberRatSig, !toNumberRatSig_lt_ite, → not_isSubnorm_of_isNorm,
+    Rat.natCast_eq_zero_iff, = Bool.toNat.eq_1]
+  · grind only [Fp.Rat.two_pow_pos]
+  · grind only [→ not_isNorm_of_isSubnorm]
+
+
+theorem Rat.zpow_sub_eq_zpow_mul_zpow {b : Rat} (hb : b ≠ 0)
+    (x y: Int) : b ^ (x - y) = b ^ x * b ^ (-y) := by
+  rw [Int.sub_eq_add_neg]
+  rw [Rat.zpow_add hb]
+
+theorem Rat.mul_sub (b x y : Rat) : b * (x - y) = b * x - b * y := by
+  grind only
+
+@[simp, grind .]
+theorem Rat.one_le_two_pow_nat {n : Nat} : 1 ≤ (2 : Rat) ^ n := by
+  induction n with
+  | zero => grind
+  | succ n ih =>
+    rw [Rat.pow_succ]
+    grind
+
+theorem Rat.two_pow_le_two_pow_of_le {x y : Int} (h : x ≤ y) : (2 : Rat) ^ x ≤ (2 : Rat) ^ y := by
+  rw [Rat.le_iff_sub_nonneg]
+  rw [show (2 : Rat) ^ x = (2 : Rat) ^ x * 1 by grind only]
+  rw [show y = x + (y - x) by grind only]
+  rw [Rat.zpow_add (by grind only)]
+  rw [← Rat.mul_sub]
+  have : 1 ≤ (2 : Rat) ^ (y - x) := by
+    have : ∃ (k : Nat), y - x = k := by
+      exact Int.nonneg_def.mp h
+    obtain ⟨k, hk⟩ := this
+    rw [hk]
+    simp
+  grind only [Rat.mul_nonneg, Rat.le_of_lt, Fp.Rat.two_pow_pos]
+
+
+theorem Rat.le_mul_of_one_le_of_le  {x y y' : Rat} (hx1 : 1 ≤ x) (hy : 0 ≤ y) (hy' : y ≤ y')
+    : y ≤ x * y' := by
+  suffices 1 * y ≤ x * y' by grind only
+  apply Rat.mul_le_mul_of_le_of_le_of_nonneg_of_nonneg
+  · grind only
+  · grind only
+  · grind only [Rat.le_of_lt, Fp.Rat.two_pow_pos]
+  · grind only [Rat.le_of_lt, Fp.Rat.two_pow_pos]
+
+
+theorem Rat.le_mul_self_of_le_one_of_nonneg {y} {x : Rat} (hx0 : 0 ≤ x ∧ x ≤ 1) (hy : 0 ≤ y)
+    : x * y ≤ y := by
+  suffices x * y ≤ 1 * y by grind only
+  apply Rat.mul_le_mul_of_le_of_le_of_nonneg_of_nonneg
+  · grind only
+  · grind only
+  · grind only [Rat.le_of_lt, Fp.Rat.two_pow_pos]
+  · grind only [Rat.le_of_lt, Fp.Rat.two_pow_pos]
+
+@[simp, grind .]
+theorem toNumberRatSig_times_toNumberRatExp_le_of_isNorm
+    {x : PackedFloat e s}
+    (hx : x.isNorm) :
+    (2 : Rat) ^ minNormalExp e ≤ x.toNumberRatSig * (2 : Rat) ^ x.toNumberRatExp  := by
+  rw [x.toNumberRatExp_eq_of_isNorm (by grind only)]
+  norm_cast
+  -- rw [Rat.zpow_sub_eq_zpow_mul_zpow]
+  have : 1 ≤ x.toNumberRatSig := by grind only [one_le_toNumberRatSig_of_isNorm]
+  rw [minNormalExp]
+  have : x.ex ≠ 0 := by grind only [ex_ne_zero_if_isNorm, = BitVec.ofNat_eq_ofNat,
+    = BitVec.zero_eq]
+  norm_cast
+    -- 2 ^ - (bias e - 1) ≤ 2 ^ (- bias e)
+  have : (2 : Rat) ^ ((- ((bias e - 1) : Nat)) : Int) ≤ (2 : Rat) ^ (((x.ex.toNat: Int) - (bias e : Int)) : Int) := by
+    norm_cast
+    apply Rat.two_pow_le_two_pow_of_le
+    grind
+  apply Rat.le_mul_of_one_le_of_le
+  · grind only
+  · grind only [Rat.le_of_lt, Fp.Rat.two_pow_pos]
+  · grind only
+
+
+/--
+write being isNorm in terms of an arithmetic condition.
+-/
+theorem isNorm_iff_toNumberRatSig_times_toNumberRatExp_ge
+    {x : PackedFloat e s}
+    (hx : x.isNormOrNonzeroSubnorm) :
+    x.isNorm ↔ decide ((2 : Rat) ^ minNormalExp e ≤ x.toNumberRatSig * (2 : Rat) ^ x.toNumberRatExp) := by
+  simp only [decide_eq_true_eq]
+  constructor
+  · apply toNumberRatSig_times_toNumberRatExp_le_of_isNorm
+  · apply Classical.byContradiction
+    intros h
+    simp at h
+    have := x.toNumberRatSig_times_toNumberRatExp_lt_two_pow_minNormalExp_of_isNonzeroSubnorm (by grind)
+    grind only
+
+/--
+This is true because we can separate out the
+cases of normal and subnormal based on values,
+and the largest subnormal is smaller than the smallest normal.
+-/
+@[simp, grind .]
+theorem isNorm_eq_of_toNumberRat_eq {x y : PackedFloat e s}
+    (hx : x.isNormOrNonzeroSubnorm) (hy : y.isNormOrNonzeroSubnorm)
+    (heq : x.toNumberRat = y.toNumberRat) :
+    (x.isNorm = y.isNorm) := by
+  have hsign : x.sign = y.sign := by
+    apply PackedFloat.sign_eq_of_toNumberRat_eq hx hy heq
+  have h' := heq
+  simp [toNumberRat] at h'
+  rw [hsign] at h'
+  have : x.toNumberRatSig * 2 ^ x.toNumberRatExp = y.toNumberRatSig * 2 ^ y.toNumberRatExp := by
+    rw [← Rat.mul_cancel_left (x := x.sign.toSign)]
+    · grind
+    · simp
+  have xval := x.isNorm_iff_toNumberRatSig_times_toNumberRatExp_ge (by grind)
+  have yval := y.isNorm_iff_toNumberRatSig_times_toNumberRatExp_ge (by grind)
+  rcases hxnorm : x.isNorm
+  · simp [hxnorm] at this xval
+    rcases hynorm : y.isNorm
+    · simp only
+    · simp only [hynorm, toNumberRatSig_times_toNumberRatExp_le_of_isNorm, decide_true,
+      Bool.false_eq_true] at this yval ⊢
+      grind only [toNumberRatSig_times_toNumberRatExp_le_of_isNorm]
+  · simp [hxnorm] at this xval
+    rcases hynorm : y.isNorm
+    · simp [hynorm] at this yval ⊢
+      grind only [toNumberRatSig_times_toNumberRatExp_le_of_isNorm]
+    · simp only
+
+
+@[simp, grind .]
+theorem sig_eq_and_ex_eq_of_toNumberRat_eq {x y : PackedFloat e s}
+    (hx : x.isNormOrNonzeroSubnorm) (hy : y.isNormOrNonzeroSubnorm)
+    (heq : x.toNumberRat = y.toNumberRat) :
+    x.sign = y.sign ∧ x.sig = y.sig ∧ x.ex = y.ex := by
+  have hNormState := PackedFloat.isNorm_eq_of_toNumberRat_eq hx hy heq
+  have hSignEq : x.sign = y.sign := by
+    apply PackedFloat.sign_eq_of_toNumberRat_eq hx hy heq
+  simp [PackedFloat.toNumberRat] at heq
+  rw [hSignEq] at heq
+  simp [hSignEq]
+  have : x.toNumberRatSig  * 2 ^ x.toNumberRatExp = y.toNumberRatSig * 2 ^ y.toNumberRatExp := by
+    rw [← Rat.mul_cancel_left (x := x.sign.toSign)]
+    · grind
+    · simp
+  have xsigNeZero : x.toNumberRatSig ≠ 0 := by grind only [toNumberRatSig_ne_zero_of_isNormOrNonzeroSubnorm]
+  have ySigNeZero : y.toNumberRatSig ≠ 0 := by grind only [toNumberRatSig_ne_zero_of_isNormOrNonzeroSubnorm]
+  by_cases hxnorm : x.isNorm
+  · have := mul_two_pow_inj
+      x.toNumberRatSig
+      y.toNumberRatSig
+      x.toNumberRatExp
+      y.toNumberRatExp
+      (by grind only)
+      (by grind only [one_le_toNumberRatSig_of_isNorm])
+      (by grind only [one_le_toNumberRatSig_of_isNorm])
+      (by grind only [toNumberRatSig_lt_two])
+      (by grind only [toNumberRatSig_lt_two])
+    -- now I need to know that 'toNumberRatSig', 'toNumberRatExp' are equal.
+    have hSigEq := sig_eq_of_toNumberRatSig_eq_toNumberRatSig
+       (x := x) (y := y) (by grind) (by grind)
+    simp [hSigEq]
+    have hExpEq := exp_eq_of_toNumberRatExp_eq
+      (x := x) (y := y) (by grind) (by grind) (by grind) (by grind)
+    simp [hExpEq]
+  · have xSubnorm : x.isNonzeroSubnorm := by grind only [isNormOrSubnorm_eq_isNorm_or_isSubnorm]
+    have ySubnorm : y.isNonzeroSubnorm := by grind only [isNormOrSubnorm_eq_isNorm_or_isSubnorm]
+    have expEq : x.toNumberRatExp = y.toNumberRatExp := by
+      simp [x.toNumberRatExp_eq_of_not_isNorm (by grind only)]
+      simp [y.toNumberRatExp_eq_of_not_isNorm (by grind only)]
+    have sigEq : x.toNumberRatSig = y.toNumberRatSig := by
+      rw [← Rat.mul_cancel_right (x := 2 ^ x.toNumberRatExp)]
+      · rw [expEq]
+        grind only
+      · grind only [Rat.two_pow_int_ne_zero]
+    have : x.sig = y.sig := by
+      rw [x.toRatNumberSig_eq_of_not_isNorm (by grind only)] at sigEq
+      rw [y.toRatNumberSig_eq_of_not_isNorm (by grind only)] at sigEq
+      have hTwoPowNeZero : (2 : Rat) ^ s ≠ 0 := by norm_cast; grind only [usr Nat.pow_pos]
+      rw [Rat.div_cancel hTwoPowNeZero] at sigEq
+      simp at sigEq
+      apply BitVec.eq_of_toNat_eq
+      assumption
+    simp [this]
+    rw [exp_eq_of_isNonzeroSubnorm (by grind only)]
+    rw [exp_eq_of_isNonzeroSubnorm (by grind only)]
+
+
+@[simp, grind =>]
+theorem le_getInfinity_true_iff_eq (hs : 0 < s)
+    (y : PackedFloat e s) :
+    y ≤ PackedFloat.getInfinity e s true ↔ y = .getInfinity e s true := by
+  constructor
+  · intros h
+    grind only [PackedFloat.le_iff_eq_of_isNaN, PackedFloat.le_iff_eq_of_isNaN', le_antisymm_of_ne_NaN,
+      => PackedFloat.getInfinity_true_le_of_not_isNaN]
+  · intros h
+    subst h
+    grind only [PackedFloat.le_refl]
+
+@[grind =]
+theorem isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero {pf : PackedFloat e s} (h : ¬ pf.isNaN) (h2 : ¬ pf.isInfinite) (h3 : ¬ pf.isZero) :
+    pf.isNormOrNonzeroSubnorm := by
+  simp [PackedFloat.isNormOrNonzeroSubnorm]
+  simp [PackedFloat.isNaN] at h
+  simp [PackedFloat.isInfinite] at h2
+  simp [PackedFloat.isZero] at h3
+  grind
+
+theorem eq_of_toExtRat'_eq (x y : PackedFloat e s)
+    (hx : ¬ x.isNaN) (hy : ¬ y.isNaN) (hxzero : ¬ x.isZero) (hyzero : ¬ y.isZero)
+    (h : x.toExtRat' = y.toExtRat') : x = y := by
+  simp [PackedFloat.toExtRat'] at h
+  have hExtRateq := h
+  simp [hx, hy] at h
+  by_cases hxinf : x.isInfinite
+  · simp [hxinf] at h
+    by_cases hyinf : y.isInfinite
+    · simp [hyinf] at h
+      grind only [PackedFloat.eq_getInfinity_iff_isInfinity, → eq_mkInfinity_of_isInfinite,
+        !isInfinite_getInfinity, #5505cb0d9cd21b53]
+    · by_cases hyinf : y.isInfinite
+      · simp [hyinf] at h
+        grind only
+      · simp [hyinf] at h
+  · simp [hxinf] at h
+    by_cases hyinf : y.isInfinite
+    · simp [hyinf] at h
+    · simp [hyinf] at h
+      have :=
+        PackedFloat.sig_eq_and_ex_eq_of_toNumberRat_eq (x := x) (y := y)
+        (by grind only [= isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero])
+        (by grind only [= isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero])
+        (by grind)
+      apply PackedFloat.ext <;> grind only
+
+
+/--
+info: 'PackedFloat.eq_of_toExtRat'_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms eq_of_toExtRat'_eq
+
+end PackedFloat
 
 -- Constants
 

@@ -2,6 +2,44 @@ import Std.Tactic.BVDecide
 import Fp.Tactics
 import Fp.Grind
 
+
+
+theorem Rat.mul_ne_zero_iff {x y : Rat} : (¬ (x * y = 0)) ↔ x ≠ 0 ∧ y ≠ 0 := by
+  grind
+
+theorem Rat.ne_zero_of_zero_lt {r : Rat} (h : 0 < r) : r ≠ 0 := by
+  grind
+
+attribute [simp] Rat.zero_add
+attribute [simp] Rat.add_zero
+attribute [simp] Rat.zero_mul
+attribute [simp] Rat.mul_zero
+attribute [simp] Rat.mul_one
+attribute [simp] Rat.one_mul
+
+attribute [simp] Rat.natCast_eq_zero_iff
+attribute [simp] Rat.natCast_inj
+attribute [simp] Rat.intCast_inj
+
+
+@[simp]
+theorem Rat.mul_cancel_left {x y z : Rat} (hx : x ≠ 0) : x * y = x * z ↔ y = z := by
+  grind
+
+
+@[simp]
+theorem Rat.mul_cancel_right {x y z : Rat} (hx : x ≠ 0) : y * x = z * x ↔ y = z := by
+  grind
+
+@[simp]
+theorem Rat.natCast_ne_natCast_iff {r s : Nat} : (r : Rat) ≠ (s : Rat) ↔ r ≠ s := by
+  apply not_congr; simp
+
+
+@[simp]
+theorem Rat.intCast_ne_intCast_iff {r s : Int} : (r : Rat) ≠ (s : Rat) ↔ r ≠ s := by
+  apply not_congr; simp
+
 /-- convert the sign bit to an integer value. Morally, this is (-1)^s -/
 def signToInt (s : Bool) : Int :=
   if s then -1 else 1
@@ -53,3 +91,90 @@ theorem toEFixed_hExOffset (e s : Nat) : 2 ^ (e - 1) + s - 2 < 2 ^ e + s := by
   have hexp0 : 0 < 2^e := Nat.two_pow_pos _
   have hexp1 : 2^(e-1) ≤ 2^e := two_pow_sub_one_le_two_pow e
   omega
+
+
+
+@[simp, grind .]
+theorem Rat.div_cancel {p q d : Rat} (hd : d ≠ 0) :
+    (p / d = q / d) <-> p = q := by
+  rw [Rat.div_def, Rat.div_def]
+  rw [Rat.mul_cancel_right]
+  · grind
+
+@[grind .]
+theorem Rat.twoPowNeZero (n : Int) : (2 : Rat) ^ n ≠ 0 := by
+  apply Rat.ne_zero_of_zero_lt
+  norm_cast
+  grind only [Fp.Rat.two_pow_pos]
+
+attribute [simp] Rat.zpow_natCast
+
+theorem Rat.mul_le_mul_of_le_of_le_of_nonneg_of_nonneg
+    {a b c d : Rat} (hab : a ≤ b) (hcd : c ≤ d) (hac : 0 ≤ a) (hcc : 0 ≤ c) :
+    a * c ≤ b * d := by
+  apply (Rat.le_iff_sub_nonneg (a * c) (b * d)).mpr
+  rw [show b = a + (b - a) by grind only]
+  rw [Rat.add_mul]
+  have : (b - a) ≥ 0 := by grind
+  have : 0 ≤ a * d := by
+    apply Rat.mul_nonneg <;> grind only
+  rw [show a * d + (b - a) * d - a * c = (b - a) * d + a * (d - c) by grind only]
+  have : 0 ≤ a * (d - c) := by
+    apply Rat.mul_nonneg <;> grind only
+  have : 0 ≤ (b - a) * d := by
+    apply Rat.mul_nonneg <;> grind only
+  grind only
+
+theorem Rat.mul_lt_mul_of_lt_of_le_of_nonneg_of_nonneg
+    {a b c d : Rat} (hab : a < b) (hcd : c ≤ d) (hac : 0 ≤ a) (hcc : 0 ≤ c) :
+    a * c ≤ b * d := by
+  apply (Rat.le_iff_sub_nonneg (a * c) (b * d)).mpr
+  rw [show b = a + (b - a) by grind only]
+  rw [Rat.add_mul]
+  have : (b - a) ≥ 0 := by grind
+  have : 0 ≤ a * d := by
+    apply Rat.mul_nonneg <;> grind only
+  rw [show a * d + (b - a) * d - a * c = (b - a) * d + a * (d - c) by grind only]
+  have : 0 ≤ a * (d - c) := by
+    apply Rat.mul_nonneg <;> grind only
+  have : 0 ≤ (b - a) * d := by
+    apply Rat.mul_nonneg <;> grind only
+  grind only
+
+theorem Rat.mul_lt_mul_of_le_of_lt_of_nonneg_of_nonneg
+    {a b c d : Rat} (hab : a <=  b) (hcd : c < d) (hac : 0 ≤ a) (hcc : 0 ≤ c) :
+    a * c ≤ b * d := by
+  apply (Rat.le_iff_sub_nonneg (a * c) (b * d)).mpr
+  rw [show b = a + (b - a) by grind only]
+  rw [Rat.add_mul]
+  have : (b - a) ≥ 0 := by grind
+  have : 0 ≤ a * d := by
+    apply Rat.mul_nonneg <;> grind only
+  rw [show a * d + (b - a) * d - a * c = (b - a) * d + a * (d - c) by grind only]
+  have : 0 ≤ a * (d - c) := by
+    apply Rat.mul_nonneg <;> grind only
+  have : 0 ≤ (b - a) * d := by
+    apply Rat.mul_nonneg <;> grind only
+  grind only
+
+attribute [grind .] Rat.pow_pos
+
+@[grind .]
+theorem Rat.two_pow_int_ne_zero {n : Int} : (2 : Rat) ^ n ≠ 0 := by
+  apply Rat.ne_zero_of_zero_lt
+  norm_cast
+  apply Rat.zpow_pos
+  grind only
+
+@[grind .]
+theorem Rat.two_pow_nat_ne_zero {n : Nat} : (2 : Rat) ^ n ≠ 0 := by
+  apply Rat.ne_zero_of_zero_lt
+  norm_cast
+  exact Nat.two_pow_pos n
+
+
+@[grind ., simp]
+theorem Rat.two_pow_ne_zero (n : Int) : (2 : Rat) ^ n ≠ 0 := by
+  apply Rat.ne_zero_of_zero_lt
+  norm_cast
+  grind

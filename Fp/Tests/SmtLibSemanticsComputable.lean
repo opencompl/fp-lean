@@ -20,8 +20,8 @@ def lowerFromEmbedByEnumeration {e s}
     RoundableLower (PackedFloat e s) ExtRat where
   lower := fun (r : ExtRat) =>
     match r with
-    | .NaN => .mkNaN
-    | .Infinity x => .getInfinity e s x -- infinity is representable.
+    | .NaN => PackedFloat.getNaN e s -- NaN is representable.
+    | .Infinity x => PackedFloat.getInfinity e s x -- infinity is representable.
     | .Number r =>
       -- for a number, if it is below the min number, return -inf
       match enum.greatestLowerBound r with
@@ -37,7 +37,7 @@ def upperFromEmbedByEnumeration {e s}
     RoundableUpper (PackedFloat e s) ExtRat where
   upper := fun (r : ExtRat) =>
     match r with
-    | .NaN => .mkNaN
+    | .NaN => PackedFloat.getNaN e s -- NaN is representable.
     | .Infinity x => .getInfinity e s x -- infinity is representable.
     | .Number r =>
       -- for a number, if it is above the max number, return +inf

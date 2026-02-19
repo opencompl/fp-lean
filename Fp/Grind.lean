@@ -21,6 +21,12 @@ theorem Rat.inv_nonneg {a : Rat} (ha : 0 ≤ a) : 0 ≤ a⁻¹ := by
 theorem Rat.div_nonneg (a b : Rat) (hb : 0 ≤ b) (ha : 0 ≤ a) : 0 ≤ a / b := by grind
 
 @[grind .]
+theorem Rat.div_pos (a b : Rat) (hb : 0 < b) (ha : 0 < a) : 0 < a / b := by
+  apply (Rat.lt_div_iff hb).mpr
+  simp
+  grind
+
+@[grind .]
 theorem Rat.two_pow_pos (n : Int) : 0 < (2 : Rat) ^ n := by exact Rat.zpow_pos rfl
 
 @[grind =]
@@ -108,5 +114,7 @@ theorem Nat.two_pow_le_two_pow_of_le {n m : Nat}
   · omega
 
 attribute [grind =, grind =_] Nat.shiftLeft_eq
+
+
 
 end Fp
