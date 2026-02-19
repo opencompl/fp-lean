@@ -1585,6 +1585,25 @@ def toNumberRatSig {e s} (pf : PackedFloat e s) : Rat :=
     0 + pf.sig.toNat / 2 ^ s
 
 
+@[grind .]
+theorem one_le_toNumberRatSig_of_isNorm {e s} (pf : PackedFloat e s) (hnorm : pf.isNorm) :
+  1 ≤ pf.toNumberRatSig := by
+  simp [toNumberRatSig, hnorm]
+  have : (pf.sig.toNat : Rat) / (2 : Rat) ^ s ≥ 0 := by grind
+  have : (1 + pf.sig.toNat / 2^s) ≥ 0 := by grind
+  grind
+
+@[grind .]
+theorem zero_le_twoNumberRatSig {e s} (pf : PackedFloat e s) :
+  0 ≤ pf.toNumberRatSig := by
+  have : (pf.sig.toNat : Rat) / (2 : Rat) ^ s ≥ 0 := by grind only [Fp.Rat.div_nonneg,
+    Rat.pow_nonneg]
+  have : (0 + pf.sig.toNat / 2^s) ≥ 0 := by grind only
+  have : pf.sig.toNat / 2^s ≥ 0 := by grind only
+  have : pf.sig.toNat ≥ 0 := by grind only
+  simp only [toNumberRatSig, Rat.zero_add, ge_iff_le]
+  grind only
+
 theorem toRatNumberSig_eq_of_isNorm {e s} {pf : PackedFloat e s} (hnorm : pf.isNorm) :
   pf.toNumberRatSig = 1 + pf.sig.toNat / 2 ^ s := by
   simp [toNumberRatSig, hnorm]
@@ -2081,18 +2100,81 @@ theorem Rat.twoPowNeZero (n : Int) : (2 : Rat) ^ n ≠ 0 := by
   norm_cast
   grind only [Fp.Rat.two_pow_pos]
 
--- when subnormal, note that the exponent is zero, so it follows trivially that the
--- bases are zero.
--- When normal, the bases are in [1, 2), so we can use the fact that the function 'base * 2^pow' is injective on this domain.
+attribute [simp] Rat.zpow_natCast
+
+theorem Rat.mul_le_mul_of_le_of_le_of_nonneg_of_nonneg
+    {a b c d : Rat} (hab : a ≤ b) (hcd : c ≤ d) (hac : 0 ≤ a) (hcc : 0 ≤ c) :
+    a * c ≤ b * d := by
+  apply (Rat.le_iff_sub_nonneg (a * c) (b * d)).mpr
+  rw [show b = a + (b - a) by grind only]
+  rw [Rat.add_mul]
+  have : (b - a) ≥ 0 := by grind
+  have : 0 ≤ a * d := by
+    apply Rat.mul_nonneg <;> grind only
+  rw [show a * d + (b - a) * d - a * c = (b - a) * d + a * (d - c) by grind only]
+  have : 0 ≤ a * (d - c) := by
+    apply Rat.mul_nonneg <;> grind only
+  have : 0 ≤ (b - a) * d := by
+    apply Rat.mul_nonneg <;> grind only
+  grind only
+
+-- When normal, the bases are in [1, 2),
+-- so we can use the fact that the function 'base * 2^pow' is injective on this domain.
+-- This follows by a fairly simple argument.
+theorem mul_two_pow_inj_aux (base0 base1 : Rat)
+    (pow0 pow1 : Int) (h : base0 * (2 : Rat) ^ pow0 = base1 * (2 : Rat) ^ pow1)
+    (hLtBase0 : 1 ≤ base0)
+    (hLtBase1 : 1 ≤ base1)
+    (hBase0Lt : base0 < 2)
+    (hBase1Lt : base1 < 2)
+    (hle : pow0 ≤ pow1):
+    base0 = base1 ∧ pow0 = pow1 :=
+  if heq : pow0 = pow1 then by
+    subst heq
+    simp only [and_true] at h ⊢
+    rw [← Rat.mul_cancel_right (x := 2 ^ pow0)]
+    · grind only
+    · grind only [Rat.twoPowNeZero]
+  else by
+    have hlt : pow0 < pow1 := by grind only
+    have : ∃ (k : Nat), pow0 + k = pow1 := by
+      exact Int.le.dest hle
+    obtain ⟨k, hk⟩ := this
+    have : 0 < k := by grind
+    have : (2 : Rat) ≤ 2 ^ k := by
+      norm_cast
+      rcases k with rfl | k
+      · grind only
+      · rw [Nat.pow_succ]
+        have : 1 ≤ 2 ^ k := by grind only [usr Nat.pow_pos]
+        grind
+    subst hk
+    rw [Rat.zpow_add (hq := by grind only)] at h
+    rw [Rat.mul_comm (2 ^ pow0)] at h
+    rw [← Rat.mul_assoc base1] at h
+    simp only [Rat.zpow_natCast] at h
+    rw [Rat.mul_cancel_right (by grind only [Rat.twoPowNeZero])] at h
+    have : base1 * (2 : Rat) ^ k < 2 := by
+      subst h
+      grind
+    have : base1 * 2 ^ k ≥ 2 := by
+      simp only [ge_iff_le]
+      rw [show (2 : Rat) = 1 * 2 by grind only]
+      apply Rat.mul_le_mul_of_le_of_le_of_nonneg_of_nonneg <;> grind only
+    grind only
+
 theorem mul_two_pow_inj (base0 base1 : Rat)
     (pow0 pow1 : Int) (h : base0 * (2 : Rat) ^ pow0 = base1 * (2 : Rat) ^ pow1)
     (hLtBase0 : 1 ≤ base0)
     (hLtBase1 : 1 ≤ base1)
     (hBase0Lt : base0 < 2)
     (hBase1Lt : base1 < 2) :
-  base0 = base1 ∧ pow0 = pow1 := by
-  sorry
-
+    base0 = base1 ∧ pow0 = pow1 := by
+  by_cases hle : pow0 ≤ pow1
+  · apply mul_two_pow_inj_aux <;> grind only
+  · have hgt : pow1 < pow0 := by grind only
+    have := mul_two_pow_inj_aux base1 base0 pow1 pow0 h.symm hLtBase1 hLtBase0 hBase1Lt hBase0Lt (by grind only)
+    grind only
 
 attribute [grind .] Rat.pow_pos
 
@@ -2186,11 +2268,11 @@ theorem PackedFloat.sig_eq_and_ex_eq_of_toNumberRat_eq {x y : PackedFloat e s}
       y.toNumberRatSig
       x.toNumberRatExp
       y.toNumberRatExp
-      (by grind)
-      (by sorry)
-      sorry
-      sorry
-      sorry
+      (by grind only)
+      (by grind only [one_le_toNumberRatSig_of_isNorm])
+      (by grind only [one_le_toNumberRatSig_of_isNorm])
+      (by grind only [toNumberRatSig_lt_two])
+      (by grind only [toNumberRatSig_lt_two])
     -- now I need to know that 'toNumberRatSig', 'toNumberRatExp' are equal.
     have hSigEq := sig_eq_of_toNumberRatSig_eq_toNumberRatSig
        (x := x) (y := y) (by grind) (by grind)
@@ -2207,7 +2289,7 @@ theorem PackedFloat.sig_eq_and_ex_eq_of_toNumberRat_eq {x y : PackedFloat e s}
       rw [← Rat.mul_cancel_right (x := 2 ^ x.toNumberRatExp)]
       · rw [expEq]
         grind only
-      · grind?
+      · grind only [Rat.two_pow_int_ne_zero]
     have : x.sig = y.sig := by
       rw [x.toRatNumberSig_eq_of_not_isNorm (by grind only)] at sigEq
       rw [y.toRatNumberSig_eq_of_not_isNorm (by grind only)] at sigEq
@@ -2220,7 +2302,6 @@ theorem PackedFloat.sig_eq_and_ex_eq_of_toNumberRat_eq {x y : PackedFloat e s}
     rw [exp_eq_of_isNonzeroSubnorm (by grind only)]
     rw [exp_eq_of_isNonzeroSubnorm (by grind only)]
 
-#exit
 
 
 @[simp, grind =>]
@@ -2250,46 +2331,11 @@ theorem Rat.two_pow_ne_zero (n : Int) : (2 : Rat) ^ n ≠ 0 := by
   norm_cast
   grind
 
-theorem Rat.lt_of_lt_mul_of_one_lt {left right large: Rat} (hr : 1 < large) (h : left < right)
-    : left < right * large := by
-  sorry
-
-
-/-- a lower bound on the division of two numbers. -/
-theorem lt_div {num den lnum uden : Rat}
-    (huden : 0 < den)
-    (hnum : lnum < num) (hden : den < uden) :
-    lnum / uden < num / den := by
-  rw [Rat.div_lt_iff]
-  · rw [Rat.div_def]
-    have : 1 < den⁻¹ * uden := by
-      rw [Rat.mul_comm]
-      rw [← Rat.div_def]
-      rw [Rat.lt_div_iff]
-      · simp; grind
-      · grind
-    · rw [Rat.mul_assoc]
-      apply Rat.lt_of_lt_mul_of_one_lt this
-      grind
-  · grind only
-
-
--- when subnormal, note that the exponent is zero, so it follows trivially that the
--- bases are zero.
--- When normal, the bases are in [1, 2), so we can use the fact that the function 'base * 2^pow' is injective on this domain.
-theorem technical_lemma_when_normal (base0 base1 : Rat)
-    (pow0 pow1 : Int) (h : base0 * (2 : Rat) ^ pow0 = base1 * (2 : Rat) ^ pow1)
-    (hLtBase0 : 1 ≤ base0)
-    (hLtBase1 : 1 ≤ base1)
-    (hBase0Lt : base0 < 2)
-    (hBase1Lt : base1 < 2) :
-  base0 = base1 ∧ pow0 = pow1 := by
-  sorry
-
 theorem eq_of_toExtRat'_eq (x y : PackedFloat e s)
     (hx : ¬ x.isNaN) (hy : ¬ y.isNaN) (hxzero : ¬ x.isZero) (hyzero : ¬ y.isZero)
     (h : x.toExtRat' = y.toExtRat') : x = y := by
   simp [toExtRat'] at h
+  have hExtRateq := h
   simp [hx, hy] at h
   by_cases hxinf : x.isInfinite
   · simp [hxinf] at h
@@ -2305,45 +2351,22 @@ theorem eq_of_toExtRat'_eq (x y : PackedFloat e s)
     by_cases hyinf : y.isInfinite
     · simp [hyinf] at h
     · simp [hyinf] at h
-      rw [PackedFloat.toNumberRat, PackedFloat.toNumberRat] at h
-      apply PackedFloat.ext
-      · apply PackedFloat.sign_eq_of_toNumberRat_eq
-        · grind
-        · grind
-        · grind
-      · sorry
+      have :=
+        PackedFloat.sig_eq_and_ex_eq_of_toNumberRat_eq (x := x) (y := y)
+        (by grind only [= isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero])
+        (by grind only [= isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero])
+        (by sorry)
+        (by grind)
+      apply PackedFloat.ext <;> grind only
 
-      -- 1. signs are equal if toNumberRat is equal.
-      -- 2. Then, sig * exp are equal. However, because these have different 'ranges', it must be that sig and exp are separately equal?
-      --   How to make this formal? Is this true?
-      sorry
-
-      -- simp [hxzero] at h
-      -- simp [hyzero] at h
-      -- by_cases hx : x.isNorm
-      -- · simp [hx] at h
-      --   by_cases hy : y.isNorm
-      --   · simp [hy] at h
-      --     sorry
-      --   · simp [hy] at h
-      --     sorry
-      -- · simp [hx] at h
-      --   by_cases hy : y.isNorm
-      --   · simp [hy] at h
-      --     sorry
-      --   · simp [hy] at h
-      --     sorry
-
+/-
 @[simp]
 theorem le_iff_toExtRat'_le_toExtRat'_of_not_isZero (he : 0 < e) (hs : 0 < s)
     (x y : PackedFloat e s)
     (hxzero : ¬ x.isZero) (hyzero : ¬ y.isZero) (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN) :
     x ≤ y ↔ x.toExtRat' ≤ y.toExtRat' := by
-  constructor
-  · intros h
-    sorry
-  · intros h
-    sorry
+  sorry
+-/
 
 @[simp]
 theorem le_zero_iff_sign_eq_true {x : PackedFloat e s} (he : 0 < e):
