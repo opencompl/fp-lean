@@ -14,9 +14,7 @@ into a packed float of 'eout, sout' according to the SMT-Lib semantics.
 Our proofs will be against this definition.
 -/
 noncomputable abbrev smtLibRoundMethodQ (eout sout : Nat) : SmtLibSemantics.RoundMethod (PackedFloat eout sout) ExtRat :=
-  SmtLibSemantics.smtLibRoundMethod eout sout
-    (SmtLibSemantics.smtLibV (SmtLibSemantics.embedPackedFloatExtRat eout sout))
-    (SmtLibSemantics.smtLibV (SmtLibSemantics.embedPackedFloatExtRat eout (sout + 1)))
+  SmtLibSemantics.smtLibRoundMethod eout sout (R := ExtRat) (SmtLibSemantics.smtLibV) (SmtLibSemantics.smtLibV)
 
 end SmtLibSemanticsQ
 

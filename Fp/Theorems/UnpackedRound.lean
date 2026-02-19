@@ -6,64 +6,52 @@ import Fp.Theorems.Packing
 
 
 namespace Fp
-open SmtLibSemantics
 
 @[simp]
 theorem roundQ_eq (eout sout : Nat) (rm : RoundingMode) (sign : Bool) (r : ExtRat):
     (Fp.SmtLibSemanticsQ.smtLibRoundMethodQ eout sout).round rm sign r =
     (SmtLibSemantics.smtLibRoundMethod eout sout
-      (SmtLibSemantics.smtLibV (SmtLibSemantics.embedPackedFloatExtRat eout sout))
-      (SmtLibSemantics.smtLibV (SmtLibSemantics.embedPackedFloatExtRat eout (sout + 1)))).round rm sign
+      SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round rm sign
     r := rfl
 
 set_option warn.sorry false in
 @[simp]
-theorem lower_NaN_eq_PackedFloat_getNaN :
-  SmtLibSemantics.smtLibLower.lower ExtRat.NaN = (PackedFloat.getNaN e s) := sorry
+theorem lower_NaN_eq_PackedFloat_mkNaN :
+  SmtLibSemantics.smtLibLower.lower ExtRat.NaN = (PackedFloat.getNaN e s : PackedFloat e s) := sorry
 
 set_option warn.sorry false in
 @[simp]
-theorem upper_NaN_eq_PackedFloat_getNaN :
-  SmtLibSemantics.smtLibUpper.upper ExtRat.NaN = (PackedFloat.getNaN e s) := sorry
+theorem upper_NaN_eq_PackedFloat_mkNaN :
+  SmtLibSemantics.smtLibUpper.upper ExtRat.NaN = (PackedFloat.getNaN e s : PackedFloat e s) := sorry
 
 @[simp]
 theorem roundRNA_mkNaN (eout sout : Nat) (sign : Bool) :
-  (SmtLibSemantics.smtLibRoundMethod eout sout
-    (SmtLibSemantics.smtLibV (SmtLibSemantics.embedPackedFloatExtRat eout sout))
-    (SmtLibSemantics.smtLibV (SmtLibSemantics.embedPackedFloatExtRat eout (sout + 1)))).roundRNA sign
+  (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRNA sign
     (ExtRat.NaN) = PackedFloat.getNaN eout sout := by
   simp [SmtLibSemantics.RoundMethod.roundRNA]
 
 @[simp]
 theorem roundRNE_mkNaN (eout sout : Nat) (sign : Bool) :
-  (SmtLibSemantics.smtLibRoundMethod eout sout
-    (SmtLibSemantics.smtLibV (SmtLibSemantics.embedPackedFloatExtRat eout sout))
-    (SmtLibSemantics.smtLibV (SmtLibSemantics.embedPackedFloatExtRat eout (sout + 1)))).roundRNE sign
+  (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRNE sign
     (ExtRat.NaN) = PackedFloat.getNaN eout sout := by
   simp [SmtLibSemantics.RoundMethod.roundRNE]
 
 @[simp]
 theorem roundRTP_mkNaN (eout sout : Nat) (sign : Bool) :
-  (SmtLibSemantics.smtLibRoundMethod eout sout
-    (SmtLibSemantics.smtLibV (SmtLibSemantics.embedPackedFloatExtRat eout sout))
-    (SmtLibSemantics.smtLibV (SmtLibSemantics.embedPackedFloatExtRat eout (sout + 1)))).roundRTP sign
+  (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRTP sign
     (ExtRat.NaN) = PackedFloat.getNaN eout sout := by
   simp [SmtLibSemantics.RoundMethod.roundRTP]
 
 @[simp]
 theorem roundRTN_mkNaN (eout sout : Nat) (sign : Bool) :
-  (SmtLibSemantics.smtLibRoundMethod eout sout
-    (SmtLibSemantics.smtLibV (SmtLibSemantics.embedPackedFloatExtRat eout sout))
-    (SmtLibSemantics.smtLibV (SmtLibSemantics.embedPackedFloatExtRat eout (sout + 1)))).roundRTN sign
+  (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRTN sign
     (ExtRat.NaN) = PackedFloat.getNaN eout sout := by
   simp [SmtLibSemantics.RoundMethod.roundRTN]
   rcases sign <;> simp
 
 @[simp]
 theorem rountRTZ_mkNaN (eout sout : Nat) (sign : Bool) :
-  (SmtLibSemantics.smtLibRoundMethod eout sout
-    (SmtLibSemantics.smtLibV (SmtLibSemantics.embedPackedFloatExtRat eout sout))
-    (SmtLibSemantics.smtLibV (SmtLibSemantics.embedPackedFloatExtRat eout (sout + 1)))).roundRTZ sign
+  (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRTZ sign
     (ExtRat.NaN) = PackedFloat.getNaN eout sout := by
   simp [SmtLibSemantics.RoundMethod.roundRTZ]
   rcases sign <;> simp
@@ -71,9 +59,7 @@ theorem rountRTZ_mkNaN (eout sout : Nat) (sign : Bool) :
 
 @[simp]
 theorem round_eq_mkNaN_of_NaN {sign} {eout sout : Nat} {rm : RoundingMode} :
-    (SmtLibSemantics.smtLibRoundMethod eout sout
-      (SmtLibSemantics.smtLibV (SmtLibSemantics.embedPackedFloatExtRat eout sout))
-      (SmtLibSemantics.smtLibV (SmtLibSemantics.embedPackedFloatExtRat eout (sout + 1)))).round
+    (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round
         rm sign ExtRat.NaN = PackedFloat.getNaN eout sout := by
   rcases rm
   · simp
@@ -85,34 +71,14 @@ theorem round_eq_mkNaN_of_NaN {sign} {eout sout : Nat} {rm : RoundingMode} :
 set_option warn.sorry false in
 @[simp]
 theorem round_eq_mkZero_of_mkZero {zeroSign : Bool} {eout sout : Nat} {rm : RoundingMode} :
-    (SmtLibSemantics.smtLibRoundMethod eout sout
-      (SmtLibSemantics.smtLibV (SmtLibSemantics.embedPackedFloatExtRat eout sout))
-      (SmtLibSemantics.smtLibV (SmtLibSemantics.embedPackedFloatExtRat eout (sout + 1)))
-    ).round
+    (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round
         rm zeroSign (ExtRat.Number 0) = PackedFloat.getZero eout sout zeroSign := by
   rcases rm <;> sorry
 
-/--
-'uf' approximtes 'r' upto rounding.
--/
-structure ApproximatesUptoRounding (uf : UnpackedFloat ein sin) (er : ExtRat) (eout sout : Nat) : Prop where
-  /-- we have at least 2 bits more, of guard and sticky. -/
-  hSigGe : sin + 2 ≥ sout
-  /-- we have at least as much exponent range. -/
-  hExpGe : ein ≥ eout -- we have at least as much exponent range
-  /-- rational values have (sout + 1) bits of precision. -/
-  hApproxUptoGuard : ∀ (r : Rat), .Number r = er → (uf.toRat - r).abs < (2 : Rat) ^ (-(sout + 1 : Int))
-  /-- the sticky bit is zero iff the number truncated upto the guard bit equals -/
-  hStickyBitCorrect : ∀ (r : Rat), .Number r = er → ((uf.sig.extractMsb' (sout + 1) (sin - (sout + 1)) ≠ 0) = decide (r = uf.toRat))
-
 set_option warn.sorry false in
-theorem roundQ_Number_eq_round
-    (er : ExtRat) (uf : UnpackedFloat ein sin)
-    (hruf : ApproximatesUptoRounding uf er eout sout) (rm : RoundingMode) (sign : Bool) :
-    (SmtLibSemantics.smtLibRoundMethod eout sout
-      (SmtLibSemantics.smtLibV (SmtLibSemantics.embedPackedFloatExtRat eout sout))
-      (SmtLibSemantics.smtLibV (SmtLibSemantics.embedPackedFloatExtRat eout (sout + 1)))
-    ).round rm sign
+theorem roundQ_Number_eq_round (er : ExtRat) (uf : UnpackedFloat ein sin)
+    (hruf : ExtRat.Number uf.toRat = er) :
+    (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round rm sign
       er =
       (UnpackedFloat.round uf rm).pack := by sorry
 
@@ -131,35 +97,42 @@ theorem roundQ_Number_eq_round
 
 @[simp]
 theorem roundQ_eq_round_of_Infinity {zeroSign infSign : Bool} {e s : Nat} {rm : RoundingMode} :
-    (SmtLibSemantics.smtLibRoundMethod e s
-      (SmtLibSemantics.smtLibV (SmtLibSemantics.embedPackedFloatExtRat e s))
-      (SmtLibSemantics.smtLibV (SmtLibSemantics.embedPackedFloatExtRat e (s + 1)))
-    ).round rm zeroSign
+    (SmtLibSemantics.smtLibRoundMethod e s SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round rm zeroSign
       (ExtRat.Infinity infSign) =
       PackedFloat.getInfinity e s infSign := by sorry
 
+/--
+Case splitting on the different values a packed float
+can have: it can be nan, infinity, zero, or a nonzero normal/subnormal.+
+-/
+@[elab_as_elim]
+theorem PackedFloat.kindCasesNaNInfZeroNum {P : PackedFloat e s → Prop}
+    (x : PackedFloat e s)
+    (nanCase : ∀ (n : PackedFloat e s), n.isNaN → P n)
+    (infCase : ∀ sign, P (PackedFloat.getInfinity e s sign))
+    (zeroCase : ∀ sign, P (PackedFloat.getZero e s sign))
+    (numCase : ∀ (n : PackedFloat e s), n.isNormOrNonzeroSubnorm → P n) :
+    P x := by
+  have := x.classification_exhaustive
+  simp at this
+  by_cases h1 : x.isNaN
+  · grind
+  · by_cases h2 : x.isInfinite
+    · grind
+    · by_cases h3 : x.isZero
+      · grind
+      · by_cases h4 : x.isNonzeroSubnorm
+        · grind
+        · by_cases h5 : x.isNorm
+          · grind
+          · grind
 
 @[grind <=]
 theorem PackedFloat.eq_of_unpack_eq_unpack_of_isInfinity {x y : PackedFloat e s}
     (hs : 0 < s) (he : 0 < e)
     (hx : x.isInfinite) (hy : y.isInfinite) (h : x.unpack = y.unpack) :
     x = y := by
-  cases x using PackedFloat.classification <;> try grind
-
-/--
-Purely arithmetic fact that needs to be proven,
-which should just be to show that the fixed point computation equals the
-rational multiplication.
-Actually, this is too strong, the theorem statemtnt should be able to state
-something weaker, that only upto (s+1) bits agree,
-and that the sticky bit is computed correctly.
--/
-theorem ApproximatesUptoRounding_mul_mul
-  (a b : PackedFloat ein sin)
-  (ha : a.isNormOrNonzeroSubnorm = true)
-  (hb : b.isNormOrNonzeroSubnorm = true) :
-  ApproximatesUptoRounding (a.unpackNormOrNonzeroSubnorm.mul b.unpackNormOrNonzeroSubnorm)
-  (ExtRat.Number a.toNumberRat * ExtRat.Number b.toNumberRat) ein sin := sorry
+  cases x using PackedFloat.kindCasesNaNInfZeroNum <;> try grind
 
 set_option warn.sorry false in
 /--
@@ -171,7 +144,7 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
     rm a b = PackedFloat.mul rm a b := by
   simp [SmtLibSemantics.SmtLibFunctions.mul]
   rw [PackedFloat.mul, EUnpackedFloat.mul]
-  cases a using PackedFloat.classification
+  cases a using PackedFloat.kindCasesNaNInfZeroNum
   case nanCase hnan =>
     simp [hnan]
     rw [round_eq_mkNaN_of_NaN]
@@ -180,7 +153,7 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
     rw [← ExtRat.mul_def]
     unfold ExtRat.mul
     simp
-    cases b using PackedFloat.classification
+    cases b using PackedFloat.kindCasesNaNInfZeroNum
     case nanCase hb =>
       simp [hb]
       -- | why does this not apply automatically?
@@ -211,7 +184,7 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
       sorry
   case zeroCase sign =>
     simp [he]
-    cases b using PackedFloat.classification
+    cases b using PackedFloat.kindCasesNaNInfZeroNum
     case nanCase hb =>
       simp [hb]
       rw [round_eq_mkNaN_of_NaN]
@@ -238,7 +211,7 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
     rw [PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm ha]
     rw [PackedFloat.toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm ha]
     -- interesting case, when a is a number.
-    cases b using PackedFloat.classification
+    cases b using PackedFloat.kindCasesNaNInfZeroNum
     case nanCase hb =>
       simp [hb]
       rw [round_eq_mkNaN_of_NaN]
@@ -248,9 +221,7 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
       simp [this]
       rw [← ExtRat.mul_def, ExtRat.mul]
       simp only [SmtLibSemantics.instExtendedRat, SmtLibSemantics.instExtendedRat.eq_1, roundQ_eq]
-      simp [show a.toNumberRat < 0 ↔ a.sign = true by grind only [→
-          PackedFloat.sign_iff_toNumberRat_neg,
-        #34bd]]
+      simp [show a.toNumberRat < 0 ↔ a.sign = true by sorry]
       simp [show a.toNumberRat = 0 ↔ a.isZero by sorry]
       simp [show ¬ a.isZero by grind]
       rw [roundQ_eq_round_of_Infinity]
@@ -266,7 +237,10 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
       simp [this]
       have : ¬ b.isZero := by grind
       simp [this]
+      rw [roundQ_Number_eq_round]
       rw [PackedFloat.toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm hb]
-      apply roundQ_Number_eq_round
-      apply ApproximatesUptoRounding_mul_mul <;> assumption
+      simp only [ExtRat.number_mul_number_eq, ExtRat.Number.injEq]
+      -- Purely arithmetic statement.
+      -- ⊢ (a.unpackNormOrNonzeroSubnorm.mul b.unpackNormOrNonzeroSubnorm).toRat = a.toNumberRat * b.toNumberRat
+      sorry
 end Fp

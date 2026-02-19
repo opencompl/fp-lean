@@ -187,7 +187,7 @@ def RoundMethod.roundRNE : PackedFloat e s :=
       else if ¬ (isZero r) ∧ roundMethod.tieBreak r ∧ roundMethod.isEven (roundMethod.lower r) then roundMethod.lower r
       else if ¬ (isZero r) ∧ roundMethod.tieBreak r ∧ roundMethod.isEven (roundMethod.upper r) then roundMethod.upper r
       else if ¬ (isZero r) ∧ !roundMethod.lowerHalf r ∧ !roundMethod.tieBreak r then roundMethod.upper r
-      else .mkNaN -- does not occur.
+      else .getNaN e s -- does not occur.
 
 def RoundMethod.roundRNA : PackedFloat e s :=
       if isNaN r then roundMethod.lower r
@@ -196,14 +196,14 @@ def RoundMethod.roundRNA : PackedFloat e s :=
       else if ¬ (isZero r) ∧ roundMethod.tieBreak r ∧ roundMethod.isEven (roundMethod.lower r) then roundMethod.lower r
       else if ¬ (isZero r) ∧ roundMethod.tieBreak r ∧ roundMethod.isEven (roundMethod.upper r) then roundMethod.upper r
       else if ¬ (isZero r) ∧ !roundMethod.lowerHalf r ∧ !roundMethod.tieBreak r then roundMethod.lower r
-      else .mkNaN -- does not occur.
+      else .getNaN e s -- does not occur.
 
 def RoundMethod.roundRTP : PackedFloat e s :=
       if isNaN r then roundMethod.lower r
       else if isZero r then roundMethod.rounderForSign sign r
       else if ¬ (isZero r) ∧ (gtZero r) then roundMethod.upper r
       else if ¬ (isZero r) ∧ (ltZero r) then roundMethod.rounderForSign sign r
-      else .mkNaN -- does not occur.
+      else .getNaN e s -- does not occur.
 
 
 def RoundMethod.roundRTN : PackedFloat e s :=
@@ -214,7 +214,7 @@ def RoundMethod.roundRTZ : PackedFloat e s :=
   if isZero r then roundMethod.rounderForSign sign r
   else if gtZero r then roundMethod.lower r
   else if ltZero r then roundMethod.upper r
-  else .mkNaN -- does not occur.
+  else .getNaN e s -- does not occur.
 
 
 /-- define the rounding function for a given choice of 'RoundMethod'. -/
