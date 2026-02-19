@@ -436,10 +436,9 @@ theorem toExtRat_unpack_eq_toExtRat {pf : PackedFloat e s}
         ·
           simp only [EUnpackedFloat.toExtRat, ↓reduceIte, cond_false,
           EUnpackedFloat.isNaN_mkNumber, EUnpackedFloat.isInfinite_mkNumber,
-          EUnpackedFloat.num_mkNumber, toExtRat', hNaN, hInf, hZero, hNorm, cond_true,
+          EUnpackedFloat.num_mkNumber, toExtRat', hNaN, hInf,
           ExtRat.Number.injEq]
-          simp only [PackedFloat.toNumberRat, PackedFloat.toNumberRatSig, PackedFloat.toNumberRatExp,
-            hZero, hNorm, if_true]
+          simp only [PackedFloat.toNumberRat, PackedFloat.toNumberRatSig, PackedFloat.toNumberRatExp, hNorm, if_true]
           simp only [UnpackedFloat.toRat_eq, Rat.mul_assoc]
           congr 1
           simp only [BitVec.toNat_cons', Nat.shiftLeft_eq, Bool.toNat, cond_true]

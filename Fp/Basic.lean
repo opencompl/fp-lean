@@ -2332,6 +2332,7 @@ def toDyadic (uf : UnpackedFloat e s) : Dyadic :=
 def toRat (uf : UnpackedFloat e s) : Rat :=
   uf.toDyadic.toRat
 
+-- TODO: add a toRat', and show that these are equivalent.
 
 end UnpackedFloat
 
@@ -2840,6 +2841,12 @@ theorem eq_of_toExtRat'_eq (x y : PackedFloat e s)
         (by grind only [= isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero])
         (by grind)
       apply PackedFloat.ext <;> grind only
+
+
+/--
+info: 'PackedFloat.eq_of_toExtRat'_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms eq_of_toExtRat'_eq
 
 end PackedFloat
 
