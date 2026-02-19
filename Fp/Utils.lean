@@ -3,6 +3,7 @@ import Fp.Tactics
 import Fp.Grind
 
 
+
 theorem Rat.mul_ne_zero_iff {x y : Rat} : (¬ (x * y = 0)) ↔ x ≠ 0 ∧ y ≠ 0 := by
   grind
 
@@ -90,3 +91,90 @@ theorem toEFixed_hExOffset (e s : Nat) : 2 ^ (e - 1) + s - 2 < 2 ^ e + s := by
   have hexp0 : 0 < 2^e := Nat.two_pow_pos _
   have hexp1 : 2^(e-1) ≤ 2^e := two_pow_sub_one_le_two_pow e
   omega
+
+
+
+@[simp, grind .]
+theorem Rat.div_cancel {p q d : Rat} (hd : d ≠ 0) :
+    (p / d = q / d) <-> p = q := by
+  rw [Rat.div_def, Rat.div_def]
+  rw [Rat.mul_cancel_right]
+  · grind
+
+@[grind .]
+theorem Rat.twoPowNeZero (n : Int) : (2 : Rat) ^ n ≠ 0 := by
+  apply Rat.ne_zero_of_zero_lt
+  norm_cast
+  grind only [Fp.Rat.two_pow_pos]
+
+attribute [simp] Rat.zpow_natCast
+
+theorem Rat.mul_le_mul_of_le_of_le_of_nonneg_of_nonneg
+    {a b c d : Rat} (hab : a ≤ b) (hcd : c ≤ d) (hac : 0 ≤ a) (hcc : 0 ≤ c) :
+    a * c ≤ b * d := by
+  apply (Rat.le_iff_sub_nonneg (a * c) (b * d)).mpr
+  rw [show b = a + (b - a) by grind only]
+  rw [Rat.add_mul]
+  have : (b - a) ≥ 0 := by grind
+  have : 0 ≤ a * d := by
+    apply Rat.mul_nonneg <;> grind only
+  rw [show a * d + (b - a) * d - a * c = (b - a) * d + a * (d - c) by grind only]
+  have : 0 ≤ a * (d - c) := by
+    apply Rat.mul_nonneg <;> grind only
+  have : 0 ≤ (b - a) * d := by
+    apply Rat.mul_nonneg <;> grind only
+  grind only
+
+theorem Rat.mul_lt_mul_of_lt_of_le_of_nonneg_of_nonneg
+    {a b c d : Rat} (hab : a < b) (hcd : c ≤ d) (hac : 0 ≤ a) (hcc : 0 ≤ c) :
+    a * c ≤ b * d := by
+  apply (Rat.le_iff_sub_nonneg (a * c) (b * d)).mpr
+  rw [show b = a + (b - a) by grind only]
+  rw [Rat.add_mul]
+  have : (b - a) ≥ 0 := by grind
+  have : 0 ≤ a * d := by
+    apply Rat.mul_nonneg <;> grind only
+  rw [show a * d + (b - a) * d - a * c = (b - a) * d + a * (d - c) by grind only]
+  have : 0 ≤ a * (d - c) := by
+    apply Rat.mul_nonneg <;> grind only
+  have : 0 ≤ (b - a) * d := by
+    apply Rat.mul_nonneg <;> grind only
+  grind only
+
+theorem Rat.mul_lt_mul_of_le_of_lt_of_nonneg_of_nonneg
+    {a b c d : Rat} (hab : a <=  b) (hcd : c < d) (hac : 0 ≤ a) (hcc : 0 ≤ c) :
+    a * c ≤ b * d := by
+  apply (Rat.le_iff_sub_nonneg (a * c) (b * d)).mpr
+  rw [show b = a + (b - a) by grind only]
+  rw [Rat.add_mul]
+  have : (b - a) ≥ 0 := by grind
+  have : 0 ≤ a * d := by
+    apply Rat.mul_nonneg <;> grind only
+  rw [show a * d + (b - a) * d - a * c = (b - a) * d + a * (d - c) by grind only]
+  have : 0 ≤ a * (d - c) := by
+    apply Rat.mul_nonneg <;> grind only
+  have : 0 ≤ (b - a) * d := by
+    apply Rat.mul_nonneg <;> grind only
+  grind only
+
+attribute [grind .] Rat.pow_pos
+
+@[grind .]
+theorem Rat.two_pow_int_ne_zero {n : Int} : (2 : Rat) ^ n ≠ 0 := by
+  apply Rat.ne_zero_of_zero_lt
+  norm_cast
+  apply Rat.zpow_pos
+  grind only
+
+@[grind .]
+theorem Rat.two_pow_nat_ne_zero {n : Nat} : (2 : Rat) ^ n ≠ 0 := by
+  apply Rat.ne_zero_of_zero_lt
+  norm_cast
+  exact Nat.two_pow_pos n
+
+
+@[grind ., simp]
+theorem Rat.two_pow_ne_zero (n : Int) : (2 : Rat) ^ n ≠ 0 := by
+  apply Rat.ne_zero_of_zero_lt
+  norm_cast
+  grind

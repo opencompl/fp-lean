@@ -318,7 +318,6 @@ theorem toExtRat_eq_toExtRat' {pf : PackedFloat e s}
     grind
   · simp only [Rat.add_mul]
     ac_nf
-    simp
     norm_cast
     congr 1
     · simp only [← Rat.zpow_add (q := 2) (hq := by decide)]
