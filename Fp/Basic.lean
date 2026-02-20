@@ -2660,55 +2660,6 @@ theorem toNumberRatSig_times_toNumberRatExp_lt_two_pow_minNormalExp_of_isNonzero
   · grind only [→ not_isNorm_of_isSubnorm]
 
 
-theorem Rat.zpow_sub_eq_zpow_mul_zpow {b : Rat} (hb : b ≠ 0)
-    (x y: Int) : b ^ (x - y) = b ^ x * b ^ (-y) := by
-  rw [Int.sub_eq_add_neg]
-  rw [Rat.zpow_add hb]
-
-theorem Rat.mul_sub (b x y : Rat) : b * (x - y) = b * x - b * y := by
-  grind only
-
-@[simp, grind .]
-theorem Rat.one_le_two_pow_nat {n : Nat} : 1 ≤ (2 : Rat) ^ n := by
-  induction n with
-  | zero => grind
-  | succ n ih =>
-    rw [Rat.pow_succ]
-    grind
-
-theorem Rat.two_pow_le_two_pow_of_le {x y : Int} (h : x ≤ y) : (2 : Rat) ^ x ≤ (2 : Rat) ^ y := by
-  rw [Rat.le_iff_sub_nonneg]
-  rw [show (2 : Rat) ^ x = (2 : Rat) ^ x * 1 by grind only]
-  rw [show y = x + (y - x) by grind only]
-  rw [Rat.zpow_add (by grind only)]
-  rw [← Rat.mul_sub]
-  have : 1 ≤ (2 : Rat) ^ (y - x) := by
-    have : ∃ (k : Nat), y - x = k := by
-      exact Int.nonneg_def.mp h
-    obtain ⟨k, hk⟩ := this
-    rw [hk]
-    simp
-  grind only [Rat.mul_nonneg, Rat.le_of_lt, Fp.Rat.two_pow_pos]
-
-
-theorem Rat.le_mul_of_one_le_of_le  {x y y' : Rat} (hx1 : 1 ≤ x) (hy : 0 ≤ y) (hy' : y ≤ y')
-    : y ≤ x * y' := by
-  suffices 1 * y ≤ x * y' by grind only
-  apply Rat.mul_le_mul_of_le_of_le_of_nonneg_of_nonneg
-  · grind only
-  · grind only
-  · grind only [Rat.le_of_lt, Fp.Rat.two_pow_pos]
-  · grind only [Rat.le_of_lt, Fp.Rat.two_pow_pos]
-
-
-theorem Rat.le_mul_self_of_le_one_of_nonneg {y} {x : Rat} (hx0 : 0 ≤ x ∧ x ≤ 1) (hy : 0 ≤ y)
-    : x * y ≤ y := by
-  suffices x * y ≤ 1 * y by grind only
-  apply Rat.mul_le_mul_of_le_of_le_of_nonneg_of_nonneg
-  · grind only
-  · grind only
-  · grind only [Rat.le_of_lt, Fp.Rat.two_pow_pos]
-  · grind only [Rat.le_of_lt, Fp.Rat.two_pow_pos]
 
 @[simp, grind .]
 theorem toNumberRatSig_times_toNumberRatExp_le_of_isNorm
@@ -2732,7 +2683,6 @@ theorem toNumberRatSig_times_toNumberRatExp_le_of_isNorm
   · grind only
   · grind only [Rat.le_of_lt, Fp.Rat.two_pow_pos]
   · grind only
-
 
 /--
 write being isNorm in terms of an arithmetic condition.
@@ -2947,10 +2897,28 @@ theorem toNat_shiftLeft_clz_eq_toNat (uf : UnpackedFloat e s) :
         · grind only
 
 
+theorem two_zpow_mul_two_zpow_neg_eq_one (z : Int) :
+  (2 : Rat) ^ z * (2 : Rat) ^ (-z) = 1 := by
+  rw [← Rat.zpow_add (by decide)]
+  rw [show z + (-z) = 0 by grind]
+  simp
+
+/-
+Use this to simplify exponentiation in Q,
+since grind knows the field axioms,
+and can correctly deduce from this
+that these are multiplicative inverses.
+-/
+theorem two_pow_mul_two_pow_neg_intCast_eq_one (z : Nat) :
+  (2 : Rat) ^ z * (2 : Rat) ^ (-( z : Int)) = 1 := by
+  have := two_zpow_mul_two_zpow_neg_eq_one (z := z)
+  simp at this
+  grind
+
 -- TODO: find a more natural phrasing that
 -- this does not overflow.
 theorem UnpackedFloat.toRat_normalize_eq {uf : UnpackedFloat e s}
-  (hex : -(↑(2 ^ e) / 2) ≤ uf.ex.toInt - ↑uf.sig.clz.toNat):
+  (hex : -(↑(2 ^ e) / 2) ≤ uf.ex.toInt - ↑uf.sig.clz.toNat) :
   uf.toRat = uf.normalize.toRat := by
   simp only [UnpackedFloat.toRat_eq_toRat']
   simp only [toRat', sign_normalize, beq_iff_eq, ite_self]
@@ -2969,17 +2937,15 @@ theorem UnpackedFloat.toRat_normalize_eq {uf : UnpackedFloat e s}
     have hbmod : (uf.ex.toInt - uf.sig.clz.toNat).bmod (2^e) = uf.ex.toInt - uf.sig.clz.toNat := by
       rw [Int.bmod_eq_of_le]
       · grind
-      · grind
+      · grind only [usr BitVec.two_mul_toInt_lt]
     rw [hbmod]
     have := BitVec.toNat_lt_two_pow_sub_clz (x := uf.sig) (w := s)
     rw [Nat.shiftLeft_eq]
     simp
     push_cast
-    --  ⊢ ↑uf.sign.toSign * ↑uf.sig.toNat * 2 ^ (-(↑(s - 1) - uf.ex.toInt)) =
-    --   ↑uf.sign.toSign * (↑uf.sig.toNat * 2 ^ uf.sig.clz.toNat) *
-    --    2 ^ (-(↑(s - 1) - (uf.ex.toInt - ↑uf.sig.clz.toNat)))
-    -- reassociate, we need to gather all the 2^(blah) and cancel the powers
-    sorry
+    simp only [Int.neg_sub]
+    simp only [Rat.zpow_sub_eq_zpow_mul_zpow (b := 2) (hb := by decide)]
+    grind only [two_pow_mul_two_pow_neg_intCast_eq_one]
 
 end UnpackedFloat
 
