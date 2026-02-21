@@ -1579,7 +1579,6 @@ theorem plus_zero_not_le_minus_zero :
     ¬ (PackedFloat.getZero e s false ≤ PackedFloat.getZero e s true) := by
   simp [getZero, ← PackedFloat.le_def, PackedFloat.le, PackedFloat.isNaN]
 
-
 instance {x y : PackedFloat e s} : Decidable (x ≤ y) := by
     simp only [← PackedFloat.le_def]
     infer_instance
@@ -2360,7 +2359,7 @@ theorem toSigNat_of_sig_eq_zero (uf : UnpackedFloat e s)  (h : uf.sig = 0#s) :
     uf.toSigNat = 0 := by
   simp [toSigNat, h]
 
-def toExpInt (uf : UnpackedFloat e s) : Int :=
+def toExpInt {e s} (uf : UnpackedFloat e s) : Int :=
   - ((s - 1 : Nat) - uf.ex.toInt)
 
 def toRat' (uf : UnpackedFloat e s) : Rat :=
@@ -2382,7 +2381,6 @@ theorem toRat_eq_toRat' (uf : UnpackedFloat e s) : uf.toRat = uf.toRat' := by
   norm_cast
 
 -- TODO: add a toRat', and show that these are equivalent.
-
 end UnpackedFloat
 
 namespace EUnpackedFloat
