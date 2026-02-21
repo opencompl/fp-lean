@@ -100,15 +100,19 @@ theorem toEUnpackedFloat_not_isInfinite {uf : UnpackedFloat e s}
 theorem toRat_eq {uf : UnpackedFloat e s}
   : uf.toRat = uf.sign.toSign * uf.sig.toNat * 2 ^ (uf.ex.toInt - (s - 1 : Nat)) := by
   have hmsb : (uf.sig.setWidth' _).msb = false := BitVec.msb_setWidth'_of_lt (Nat.lt_succ_self s)
-  simp only [toRat, toDyadic, cond_eq_ite, Dyadic.toRat_ofIntWithPrec_eq_mul_two_pow,
+  simp only [toRat, toDyadic, Dyadic.toRat_ofIntWithPrec_eq_mul_two_pow,
     Int.neg_sub, Bool.toSign]
   congr
   split
   · simp only [Rat.intCast_neg, Rat.intCast_ofNat, ← Rat.intCast_natCast, Rat.neg_mul, Rat.one_mul]
     rewrite [← Rat.intCast_neg]
     congr
-    rewrite [← Int.neg_inj, BitVec.neg_toInt_neg hmsb]
+    simp only [Int.reduceNeg, BitVec.setWidth'_eq, Int.neg_one_mul,
+      Int.neg_inj]
+    rw [BitVec.toInt_eq_msb_cond]
     simp
+    intros hcontra
+    simp [BitVec.msb_eq_getLsbD_last] at hcontra
   · rewrite [BitVec.toInt_eq_toNat_of_msb hmsb]
     simp [Rat.intCast_natCast]
 
@@ -230,7 +234,7 @@ theorem toRat_normalize_eq_toRat {uf : UnpackedFloat e s}
       have hSigClzNeZero' : uf.sig.clz.toNat < s := by
         rw [BitVec.lt_def] at hSigClzNeZero
         simp at hSigClzNeZero
-        sorry
+        apply (toNat_clz_lt_iff_ne_zero ..) |>.mpr h
       rw [BitVec.toInt_setWidth]
       have : (uf.sig.clz.toNat : Int).bmod (2 ^ e) = uf.sig.clz.toNat := by
         refine Int.bmod_eq_of_le hle ?_
@@ -372,7 +376,7 @@ theorem exponentWidth_gt_zero : exponentWidth e s > 0 := by
 -- | TODO: refactor by pulling out lemmas that talk about the 'toNat' of the various
 -- significand, and so on.
 theorem toExtRat_unpack_eq_toExtRat {pf : PackedFloat e s}
-  : pf.unpack.toExtRat = pf.toExtRat := by
+    : pf.unpack.toExtRat = pf.toExtRat := by
   simp only [unpack, unpackNormOrNonzeroSubnorm, BitVec.truncate_eq_setWidth, toExtRat_eq_toExtRat']
   cases hNaN : pf.isNaN
   · cases hInf : pf.isInfinite
@@ -480,7 +484,7 @@ theorem toExtRat_unpack_eq_toExtRat {pf : PackedFloat e s}
             Nat.add_one_sub_one, @Int.sub_eq_add_neg _ s, @Rat.zpow_add 2 (by decide)]
           rw [Rat.mul_comm _ (2 ^ (-s : Int)), ← Rat.mul_assoc, Rat.add_mul, ← Rat.zpow_natCast, ← Rat.zpow_add (by decide) s (-s), Int.add_neg_eq_sub, Int.sub_self, Rat.zpow_zero, Rat.zpow_neg, ← Rat.div_def]
       · simp only [EUnpackedFloat.toExtRat, cond_true, cond_false, EUnpackedFloat.mkZero_not_isNaN,
-        EUnpackedFloat.mkZero_not_isInfinite, toExtRat', hNaN, hInf, hZero]
+        EUnpackedFloat.mkZero_not_isInfinite, toExtRat', hNaN, hInf]
         simp [EUnpackedFloat.mkZero]
         simp [hZero]
     · simp only [EUnpackedFloat.toExtRat, cond_true, cond_false,
