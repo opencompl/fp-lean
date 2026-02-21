@@ -2919,7 +2919,7 @@ theorem two_pow_mul_two_pow_neg_intCast_eq_one (z : Nat) :
 -- this does not overflow.
 theorem UnpackedFloat.toRat_normalize_eq {uf : UnpackedFloat e s}
   (hex : -(↑(2 ^ e) / 2) ≤ uf.ex.toInt - ↑uf.sig.clz.toNat) :
-  uf.toRat = uf.normalize.toRat := by
+  uf.normalize.toRat = uf.toRat := by
   simp only [UnpackedFloat.toRat_eq_toRat']
   simp only [toRat', sign_normalize, beq_iff_eq, ite_self]
   rw [UnpackedFloat.normalize]

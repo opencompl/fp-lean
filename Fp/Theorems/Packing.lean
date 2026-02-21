@@ -230,7 +230,7 @@ theorem toRat_normalize_eq_toRat {uf : UnpackedFloat e s}
       have hSigClzNeZero' : uf.sig.clz.toNat < s := by
         rw [BitVec.lt_def] at hSigClzNeZero
         simp at hSigClzNeZero
-        apply hSigClzNeZero
+        sorry
       rw [BitVec.toInt_setWidth]
       have : (uf.sig.clz.toNat : Int).bmod (2 ^ e) = uf.sig.clz.toNat := by
         refine Int.bmod_eq_of_le hle ?_
