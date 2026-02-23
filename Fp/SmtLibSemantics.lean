@@ -501,7 +501,6 @@ theorem lower_eq_of_IsLawfulLower_of_not_isNaN_not_isZero {e s} {r : ExtRat}
     grind only
 
 
-
   · apply IsLawfulLower.functional
 
     have : (embedPackedFloatExtRat e s).embed x =  (embedPackedFloatExtRat e s).embed x' := by grind only [→
