@@ -644,7 +644,7 @@ theorem isZeroOrSubnorm_of_isNonzeroSubnorm {pf : PackedFloat e s} :
   grind [isNonzeroSubnorm, isZeroOrSubnorm]
 
 
--- TODO: delete 'isNZero', 'isPZero'.
+-- TODO: delete 'isNZero',
 @[grind →]
 theorem isZero_of_isNZero {pf : PackedFloat e s} :
     pf.isNZero → pf.isZero := by
@@ -1465,7 +1465,6 @@ instance : Std.IsPartialOrder ExtRat where
   le_trans := by grind [le_trans]
   le_antisymm := by grind [le_antisymm]
 
-
 def isNaN (r : ExtRat) : Bool :=
   r = .NaN
 
@@ -1568,6 +1567,16 @@ instance : LE (PackedFloat exWidth sigWidth) where
 theorem le_def (x y : PackedFloat e s) :
   x.le y = (x ≤ y) := rfl
 
+def lt (x y : PackedFloat e s) : Prop :=
+  x ≤ y ∧ x ≠ y
+
+instance : LT (PackedFloat e s) where
+  lt x y := x.lt y
+
+@[simp]
+theorem lt_def (x y : PackedFloat e s) :
+  x.lt y = (x < y) := rfl
+
 @[simp, grind =]
 theorem minus_zero_le_plus_zero {e s} :
     (PackedFloat.getZero e s true ≤ PackedFloat.getZero e s false) =
@@ -1582,6 +1591,18 @@ theorem plus_zero_not_le_minus_zero :
 instance {x y : PackedFloat e s} : Decidable (x ≤ y) := by
     simp only [← PackedFloat.le_def]
     infer_instance
+
+/--
+The successor is the least *strict* upper bound.
+This is used to show that the ordering on 'PackedFloat' is a discrete ordering,
+with adjacent elements having a gap of at least '2^-s'
+-/
+def IsSuccessor (p q : PackedFloat e s) : Prop :=
+  p < q ∧ (∀ (r : PackedFloat e s), p < r → q ≤ r)
+
+instance {x y : PackedFloat e s} : Decidable (x < y) := by
+  simp only [← PackedFloat.lt_def, PackedFloat.lt]
+  infer_instance
 
 def toNumberRatSig {e s} (pf : PackedFloat e s) : Rat :=
   if pf.isNorm then
