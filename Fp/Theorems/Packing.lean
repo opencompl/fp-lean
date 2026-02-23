@@ -188,7 +188,8 @@ theorem sigWidth_add_bias_le_exponentWidth_sub_one : s + bias e ≤ 2 ^ (exponen
   simp only [bias, exponentWidth]
   grind only [!Nat.two_pow_pos, !Nat.log2_eq_iff, #569066451790c837, #ccfcc644d1be4e5b]
 
--- theorem expWidth_lt_exponentWidth : e < exponentWidth e s := by
+-- theorem expWidth_lt_exponentWidth :
+--   e < exponentWidth e s := by
 --   unfold exponentWidth
 --   induction e with
 --   | zero => simp

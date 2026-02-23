@@ -644,7 +644,7 @@ theorem isZeroOrSubnorm_of_isNonzeroSubnorm {pf : PackedFloat e s} :
   grind [isNonzeroSubnorm, isZeroOrSubnorm]
 
 
-
+-- TODO: delete 'isNZero', 'isPZero'.
 @[grind →]
 theorem isZero_of_isNZero {pf : PackedFloat e s} :
     pf.isNZero → pf.isZero := by
@@ -1768,7 +1768,7 @@ def toExtRat' (pf : PackedFloat e s) : ExtRat :=
   else .Number pf.toNumberRat
 
 
-@[simp]
+@[simp, grind =]
 theorem toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm {pf : PackedFloat e s} (hp : pf.isNormOrNonzeroSubnorm := by grind) :
     pf.toExtRat' =
         .Number pf.toNumberRat := by
@@ -1781,7 +1781,7 @@ theorem toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm {pf : PackedFloat e s} (hp
   simp [toExtRat', hnan, hinf, toNumberRat]
 
 
-@[simp]
+@[simp, grind =]
 theorem toExtRat'_eq_zero_of_isZero (pf : PackedFloat e s) (hp : pf.isZero) :
     pf.toExtRat' = .Number 0 := by
   have hnan : pf.isNaN = false := by
@@ -1791,19 +1791,19 @@ theorem toExtRat'_eq_zero_of_isZero (pf : PackedFloat e s) (hp : pf.isZero) :
   simp only [toExtRat', hnan, hinf, cond_false, ExtRat.Number.injEq]
   grind
 
-@[simp]
+@[simp, grind =]
 theorem toExtRat'_eq_NaN_of_isNaN (pf : PackedFloat e s) (hp : pf.isNaN) :
     pf.toExtRat' = .NaN := by
   simp [toExtRat', hp]
 
-@[simp]
+@[simp, grind =]
 theorem toExtRat'_eq_Infinity_of_isInfinite (pf : PackedFloat e s) (hp : pf.isInfinite) :
     pf.toExtRat' = .Infinity pf.sign := by
   rw [toExtRat', hp]
   grind [not_isNaN_of_isInfinite]
 
 
-@[simp, grind! .]
+@[simp, grind! .] -- aggressive?
 theorem toExtRat'_getInfinity {sign : Bool} (hs : 0 < s := by grind) :
     (PackedFloat.getInfinity e s sign).toExtRat' = .Infinity sign := by
   have : (PackedFloat.getInfinity e s sign).isInfinite = true := by
@@ -2845,6 +2845,15 @@ info: 'PackedFloat.eq_of_toExtRat'_eq' depends on axioms: [propext, Classical.ch
 -/
 #guard_msgs in #print axioms eq_of_toExtRat'_eq
 
+
+@[grind ., grind =]
+theorem isNaN_iff_toExtRat'_eq_NaN (x : PackedFloat e s) (hs : 0 < s) :
+    x.isNaN ↔ x.toExtRat' = .NaN := by
+  constructor
+  · intros h
+    simp [h]
+  · intros hx
+    induction x using PackedFloat.classification <;> grind
 end PackedFloat
 
 namespace UnpackedFloat
