@@ -312,7 +312,6 @@ def IsLawfulUpper [ExtendedNumber R] [RE : RoundableEmbed X R] (r : R) (upper : 
   r ≤ RE.embed upper ∧ (∀ (upper' : X), r ≤ RE.embed upper' → RE.embed upper ≤ RE.embed upper')
 
 
-
 @[grind →]
 theorem IsLawfulUpper.embed_eq_of_IsLawfulUpper [ExtendedNumber R] [RE : RoundableEmbed X R] [Std.IsPartialOrder R] (r : R) (upper1 upper2 : X) :
   IsLawfulUpper r upper1 → IsLawfulUpper r upper2 → RE.embed upper1 = RE.embed upper2 := by
@@ -592,6 +591,7 @@ theorem upper_eq_of_ne_zero {r : ExtRat} {upper : PackedFloat e s} (h : r = uppe
 theorem le_upper (r : ExtRat) :
   r ≤ ((smtLibUpper.upper r) : PackedFloat e s).toExtRat := sorry
 
+
 instance (he : 0 < e) (hs : 0 < s) : LawfulRoundableAdjunction (smtLibV (embedPackedFloatExtRat e s)) where
   adjunctionLower := by
     intros r p
@@ -752,6 +752,19 @@ instance [hExtended : ExtendedNumber R]
     DecidablePred ((smtLibRoundMethod e s v ves).tieBreak) := by
   rw [smtLibRoundMethod]
   infer_instance
+
+/--
+A successor is the least *strict* upper bound. So, successor gives the next
+packed float.
+Note that this sucks, because this will mean that
+the successor of -0 is not necessarily +0,
+which is probably not what we want.
+Instead, we should build this as PackedFloat theory,
+and show that the ordering on PackedFloat has a 'successor'.
+-/
+def IsLawfulSuccessor [ExtendedNumber R] [RE : RoundableEmbed X R] (r : R) (upper : X) : Prop :=
+  r < RE.embed upper ∧ (∀ (upper' : X), r < RE.embed upper' → RE.embed upper ≤ RE.embed upper')
+
 
 -- end SmtLibRoundMethod
 
