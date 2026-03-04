@@ -397,6 +397,7 @@ theorem Int.two_pow_le_two_pow_of_le {x y : Nat} : (x ≤ y) ↔ (2 : Int) ^ x �
 @[simp]
 theorem toInt_ofInt_minNormalExp_eq_of_le (e s : Nat)
    (targetExponentWidth : Nat)
+   (h2 : sorry) 
    (h : exponentWidth e s ≤ targetExponentWidth) : 
     (BitVec.ofInt (targetExponentWidth) (minNormalExp e)).toInt = minNormalExp e := by
   rw [BitVec.toInt_ofInt_eq_self]
