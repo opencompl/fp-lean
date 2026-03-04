@@ -371,6 +371,53 @@ theorem minNormalExp_fits₂ : minNormalExp e < 2 ^ (exponentWidth e s - 1) := b
   · norm_cast
     apply Nat.two_pow_pos
 
+@[simp, grind .]
+theorem exponentWidth_pos (e s : Nat) : (0 < exponentWidth e s) := by
+  simp [exponentWidth]
+
+@[simp]
+theorem toInt_minNormalExp_eq_minNormalExp : 
+    (BitVec.ofInt (exponentWidth e s) (minNormalExp e)).toInt = minNormalExp e := by
+  rw [BitVec.toInt_ofInt_eq_self]
+  · simp
+  · exact minNormalExp_fits₁
+  · exact minNormalExp_fits₂
+
+theorem Int.two_pow_le_two_pow_of_le {x y : Nat} : (x ≤ y) ↔ (2 : Int) ^ x ≤ (2 : Int) ^ y := by
+  apply Iff.intro
+  · intros h 
+    norm_cast
+    apply Nat.pow_le_pow_of_le (by decide) (by grind)
+  · intros h
+    norm_cast at h
+    have := Nat.pow_le_pow_iff_right (show 1 < 2 by decide) (n := x) (m := y)
+    grind
+
+@[simp]
+theorem toInt_minNormalExp_eq_minNormalExp_of_le 
+   (targetExponentWidth : Nat)
+   (h : exponentWidth e s ≤ targetExponentWidth) : 
+    (BitVec.ofInt (targetExponentWidth) (minNormalExp e)).toInt = minNormalExp e := by
+  rw [BitVec.toInt_ofInt_eq_self]
+  · have := exponentWidth_pos e s
+    grind
+  · have := minNormalExp_fits₁ (e := e) (s := s)
+    apply Int.le_trans (b := -2 ^ (exponentWidth e s - 1))
+    · simp
+      norm_cast
+      apply Nat.pow_le_pow_of_le (by decide) (by grind)
+    · norm_cast
+  · have := minNormalExp_fits₂ (e := e) (s := s)
+    apply Int.lt_of_le_of_lt (b := 2 ^ (exponentWidth e s - 1))
+    · norm_cast
+      grind
+    · norm_cast
+      apply Nat.pow_lt_pow_of_lt (by decide)
+      have := exponentWidth_pos e s
+      -- TODO: how to fix this?
+      sorry
+
+
 theorem exponentWidth_gt_zero : exponentWidth e s > 0 := by
   simp [exponentWidth]
 

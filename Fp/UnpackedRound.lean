@@ -770,6 +770,7 @@ def UnpackedFloat.proofRound {expWidth sigWidth : Nat}
   (inUf : UnpackedFloat expWidth sigWidth)
   (hTargetExponentWidth : targetExponentWidth ≤ expWidth)
   (hSigWidth : targetSignificandWidth + 2 ≤ sigWidth)
+  (hExpWidth : 0 < expWidth)
   (mode : RoundingMode) :
   EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
   -- round a normalized, normal float.
@@ -779,9 +780,13 @@ def UnpackedFloat.proofRound {expWidth sigWidth : Nat}
     BitVec.ofInt expWidth (minNormalExp targetExponentWidth)
 
   let hTargetMinNormalExp : targetMinNormalExp.toInt = minNormalExp targetExponentWidth := by
-    simp [targetMinNormalExp]
+    unfold targetMinNormalExp
+    rw [BitVec.toInt_ofInt_eq_self]
+    · simp [hExpWidth]
     -- use 'fits' theorems from Fp/Theorems/Packing.
-    sorry
+    · sorry
+    · sorry
+
   let earlyOverflow : Bool := exp.sgt (BitVec.ofInt expWidth (maxNormalExp targetExponentWidth))
   let hEarlyOverflow : earlyOverflow =
     decide (inUf.ex.toInt ≥ maxNormalExp targetExponentWidth) := sorry
