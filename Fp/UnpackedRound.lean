@@ -781,10 +781,7 @@ def UnpackedFloat.proofRound {expWidth sigWidth : Nat}
 
   let hTargetMinNormalExp : targetMinNormalExp.toInt = minNormalExp targetExponentWidth := by
     unfold targetMinNormalExp
-    rw [BitVec.toInt_ofInt_eq_self]
-    · simp [hExpWidth]
-    -- use 'fits' theorems from Fp/Theorems/Packing.
-    · sorry
+    apply PackedFloat.toInt_ofInt_minNormalExp_eq_of_le (s := sigWidth)
     · sorry
 
   let earlyOverflow : Bool := exp.sgt (BitVec.ofInt expWidth (maxNormalExp targetExponentWidth))

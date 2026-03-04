@@ -393,8 +393,9 @@ theorem Int.two_pow_le_two_pow_of_le {x y : Nat} : (x ≤ y) ↔ (2 : Int) ^ x �
     have := Nat.pow_le_pow_iff_right (show 1 < 2 by decide) (n := x) (m := y)
     grind
 
+-- TODO: move namespace.
 @[simp]
-theorem toInt_minNormalExp_eq_minNormalExp_of_le 
+theorem toInt_ofInt_minNormalExp_eq_of_le (e s : Nat)
    (targetExponentWidth : Nat)
    (h : exponentWidth e s ≤ targetExponentWidth) : 
     (BitVec.ofInt (targetExponentWidth) (minNormalExp e)).toInt = minNormalExp e := by
@@ -408,16 +409,14 @@ theorem toInt_minNormalExp_eq_minNormalExp_of_le
       apply Nat.pow_le_pow_of_le (by decide) (by grind)
     · norm_cast
   · have := minNormalExp_fits₂ (e := e) (s := s)
-    apply Int.lt_of_le_of_lt (b := 2 ^ (exponentWidth e s - 1))
+    apply Int.lt_of_lt_of_le (b := 2 ^ (exponentWidth e s - 1))
     · norm_cast
-      grind
     · norm_cast
-      apply Nat.pow_lt_pow_of_lt (by decide)
+      apply Nat.pow_le_pow_of_le (by decide)
       have := exponentWidth_pos e s
-      -- TODO: how to fix this?
-      sorry
+      grind
 
-
+   
 theorem exponentWidth_gt_zero : exponentWidth e s > 0 := by
   simp [exponentWidth]
 
@@ -441,7 +440,7 @@ theorem toExtRat_unpack_eq_toExtRat {pf : PackedFloat e s}
             simp only [BitVec.toNat_cons, Bool.toNat_false, Nat.zero_shiftLeft, Nat.zero_or, Rat.div_def, Rat.mul_assoc]
             congr
             simp only [← Rat.zpow_natCast, ← Rat.zpow_neg, ← @Rat.zpow_add 2 (by decide)]
-            simp only [BitVec.toInt_ofInt_eq_self exponentWidth_gt_zero minNormalExp_fits₁ minNormalExp_fits₂]
+            rw [toInt_ofInt_minNormalExp_eq_of_le (e := e) (s := s) (targetExponentWidth := exponentWidth e s) (h := by grind)]
             simp only [minNormalExp]
             grind
           · simp only [Nat.add_one_sub_one, Bool.not_eq_eq_eq_not, Bool.not_true]
