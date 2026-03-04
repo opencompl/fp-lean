@@ -365,11 +365,21 @@ theorem minNormalExp_fits₁ : -2 ^ (exponentWidth e s - 1) ≤ minNormalExp e :
   grind only [!Nat.two_pow_pos, !Nat.log2_eq_iff, #569066451790c837, #542258ac646a68ca,
     #ccfcc644d1be4e5b]
 
+
+theorem maxNormalExp_fits₁ : -2 ^ (exponentWidth e s - 1) ≤ maxNormalExp e := by
+  unfold maxNormalExp
+  grind
+
 theorem minNormalExp_fits₂ : minNormalExp e < 2 ^ (exponentWidth e s - 1) := by
   apply Int.lt_of_le_of_lt (b := 0)
   · grind [minNormalExp]
   · norm_cast
     apply Nat.two_pow_pos
+
+theorem maxNormalExp_fits₂ : maxNormalExp e < 2 ^ (exponentWidth e s - 1) := by
+  simp only [maxNormalExp]
+  norm_cast
+  grind [UnpackedFloat.bias_lt_exponentWidth_sub_one]
 
 @[simp, grind .]
 theorem exponentWidth_pos (e s : Nat) : (0 < exponentWidth e s) := by
@@ -397,7 +407,6 @@ theorem Int.two_pow_le_two_pow_of_le {x y : Nat} : (x ≤ y) ↔ (2 : Int) ^ x �
 @[simp]
 theorem toInt_ofInt_minNormalExp_eq_of_le (e s : Nat)
    (targetExponentWidth : Nat)
-   (h2 : sorry) 
    (h : exponentWidth e s ≤ targetExponentWidth) : 
     (BitVec.ofInt (targetExponentWidth) (minNormalExp e)).toInt = minNormalExp e := by
   rw [BitVec.toInt_ofInt_eq_self]
@@ -417,6 +426,28 @@ theorem toInt_ofInt_minNormalExp_eq_of_le (e s : Nat)
       have := exponentWidth_pos e s
       grind
 
+
+@[simp]
+theorem toInt_ofInt_maxNormalExp_eq_of_le (e s : Nat)
+   (targetExponentWidth : Nat)
+   (h : exponentWidth e s ≤ targetExponentWidth) : 
+    (BitVec.ofInt (targetExponentWidth) (maxNormalExp e)).toInt = maxNormalExp e := by
+  rw [BitVec.toInt_ofInt_eq_self]
+  · have := exponentWidth_pos e s
+    grind
+  · have := maxNormalExp_fits₁ (e := e) (s := s)
+    apply Int.le_trans (b := -2 ^ (exponentWidth e s - 1))
+    · simp
+      norm_cast
+      apply Nat.pow_le_pow_of_le (by decide) (by grind)
+    · norm_cast
+  · have := maxNormalExp_fits₂ (e := e) (s := s)
+    apply Int.lt_of_lt_of_le (b := 2 ^ (exponentWidth e s - 1))
+    · norm_cast
+    · norm_cast
+      apply Nat.pow_le_pow_of_le (by decide)
+      have := exponentWidth_pos e s
+      grind
    
 theorem exponentWidth_gt_zero : exponentWidth e s > 0 := by
   simp [exponentWidth]

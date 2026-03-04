@@ -790,7 +790,11 @@ def UnpackedFloat.proofRound {expWidth sigWidth : Nat}
 
   let earlyOverflow : Bool := exp.sgt (BitVec.ofInt expWidth (maxNormalExp targetExponentWidth))
   let hEarlyOverflow : earlyOverflow =
-    decide (inUf.ex.toInt ≥ maxNormalExp targetExponentWidth) := sorry
+    decide (maxNormalExp targetExponentWidth < exp.toInt) := by 
+    unfold earlyOverflow
+    rw [BitVec.sgt, BitVec.slt_eq_decide]
+    rw [PackedFloat.toInt_ofInt_maxNormalExp_eq_of_le (s := sigWidth)]
+    grind only
 
   -- early underflow:
   let earlyUnderflow : Bool := exp.slt (BitVec.ofInt expWidth (minSubnormalExp targetExponentWidth targetSignificandWidth - 1))
