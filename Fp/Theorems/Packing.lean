@@ -200,7 +200,7 @@ theorem sigWidth_add_bias_le_exponentWidth_sub_one : s + bias e ≤ 2 ^ (exponen
 --     · simp only [Nat.add_le_add_iff_right]
 --       apply Nat.log2_le_log2_add
 
-theorem bias_lt_exponentWidth : bias e < 2 ^ exponentWidth e s := by
+theorem bias_lt_exponentWidth {e s} : bias e < 2 ^ exponentWidth e s := by
   simp only [exponentWidth, bias]
   grind only [!Nat.two_pow_pos, !Nat.log2_eq_iff, #569066451790c837, #ccfcc644d1be4e5b]
 
@@ -357,6 +357,7 @@ theorem bias_fits₁ : -2 ^ (exponentWidth e s - 1) ≤ (bias e : Int) := by
   · norm_cast
     simp [bias]
 
+
 theorem minNormalExp_fits₁ : -2 ^ (exponentWidth e s - 1) ≤ minNormalExp e := by
   unfold minNormalExp
   simp only [Int.neg_le_neg_iff]
@@ -386,7 +387,7 @@ theorem exponentWidth_pos (e s : Nat) : (0 < exponentWidth e s) := by
   simp [exponentWidth]
 
 @[simp]
-theorem toInt_minNormalExp_eq_minNormalExp : 
+theorem toInt_minNormalExp_eq_minNormalExp :
     (BitVec.ofInt (exponentWidth e s) (minNormalExp e)).toInt = minNormalExp e := by
   rw [BitVec.toInt_ofInt_eq_self]
   · simp
@@ -395,7 +396,7 @@ theorem toInt_minNormalExp_eq_minNormalExp :
 
 theorem Int.two_pow_le_two_pow_of_le {x y : Nat} : (x ≤ y) ↔ (2 : Int) ^ x ≤ (2 : Int) ^ y := by
   apply Iff.intro
-  · intros h 
+  · intros h
     norm_cast
     apply Nat.pow_le_pow_of_le (by decide) (by grind)
   · intros h
@@ -407,7 +408,7 @@ theorem Int.two_pow_le_two_pow_of_le {x y : Nat} : (x ≤ y) ↔ (2 : Int) ^ x �
 @[simp]
 theorem toInt_ofInt_minNormalExp_eq_of_le (e s : Nat)
    (targetExponentWidth : Nat)
-   (h : exponentWidth e s ≤ targetExponentWidth) : 
+   (h : exponentWidth e s ≤ targetExponentWidth) :
     (BitVec.ofInt (targetExponentWidth) (minNormalExp e)).toInt = minNormalExp e := by
   rw [BitVec.toInt_ofInt_eq_self]
   · have := exponentWidth_pos e s
@@ -430,8 +431,9 @@ theorem toInt_ofInt_minNormalExp_eq_of_le (e s : Nat)
 @[simp]
 theorem toInt_ofInt_maxNormalExp_eq_of_le (e s : Nat)
    (targetExponentWidth : Nat)
-   (h : exponentWidth e s ≤ targetExponentWidth) : 
+   (h : exponentWidth e s ≤ targetExponentWidth) :
     (BitVec.ofInt (targetExponentWidth) (maxNormalExp e)).toInt = maxNormalExp e := by
+  -- simp
   rw [BitVec.toInt_ofInt_eq_self]
   · have := exponentWidth_pos e s
     grind
@@ -448,7 +450,45 @@ theorem toInt_ofInt_maxNormalExp_eq_of_le (e s : Nat)
       apply Nat.pow_le_pow_of_le (by decide)
       have := exponentWidth_pos e s
       grind
-   
+
+theorem bias_fits₂ :  (bias e) < 2 ^ (exponentWidth e s - 1) := by
+  have := UnpackedFloat.bias_lt_exponentWidth_sub_one (e := e) (s := s)
+  grind
+
+@[simp]
+theorem maxNormalExp_bmod_eq (e s : Nat) :
+    (maxNormalExp e).bmod (2 ^ (exponentWidth e s - 1)) = maxNormalExp e := by
+  simp  [maxNormalExp]
+  have := maxNormalExp_fits₁ (e := e) (s := s)
+  have := maxNormalExp_fits₂ (e := e) (s := s)
+  have := exponentWidth_pos e s
+  apply Int.bmod_eq_of_le_mul_two
+  · grind only
+  · sorry
+
+@[simp]
+theorem toInt_ofInt_minSubnormalExp_eq_of_le (e s : Nat)
+   (targetExponentWidth : Nat)
+   (h : exponentWidth e s ≤ targetExponentWidth) :
+    (BitVec.ofInt (targetExponentWidth) (minSubnormalExp e s)).toInt = minSubnormalExp e s := by
+  rw [BitVec.toInt_ofInt_eq_self]
+  · have := exponentWidth_pos e s
+    grind
+  · have := minSubnormalExp_fits₁ (e := e) (s := s)
+    apply Int.le_trans (b := -2 ^ (exponentWidth e s - 1))
+    · simp
+      norm_cast
+      apply Nat.pow_le_pow_of_le (by decide) (by grind)
+    · norm_cast
+  · have := minSubnormalExp_fits₂ (e := e) (s := s)
+    apply Int.lt_of_lt_of_le (b := 2 ^ (exponentWidth e s - 1))
+    · norm_cast
+    · norm_cast
+      apply Nat.pow_le_pow_of_le (by decide)
+      have := exponentWidth_pos e s
+      grind
+
+
 theorem exponentWidth_gt_zero : exponentWidth e s > 0 := by
   simp [exponentWidth]
 

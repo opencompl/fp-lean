@@ -768,16 +768,16 @@ that rounds an `UnpackedFloat` to the target exponent and significand widths.
 def UnpackedFloat.proofRound {expWidth sigWidth : Nat}
   {targetExponentWidth targetSignificandWidth : Nat}
   (inUf : UnpackedFloat expWidth sigWidth)
-  (hTargetExponentWidth2 : exponentWidth targetExponentWidth sigWidth ≤ expWidth) 
+  (hTargetExponentWidth2 : exponentWidth targetExponentWidth sigWidth ≤ expWidth)
   (hSigWidth : targetSignificandWidth + 2 ≤ sigWidth)
   (hExpWidth : 0 < expWidth)
   (mode : RoundingMode) :
   EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
   -- round a normalized, normal float.
-  have hTargetExponentWidth : targetExponentWidth ≤ expWidth := by 
+  have hTargetExponentWidth : targetExponentWidth ≤ expWidth := by
     grind [expWidth_le_exponentWidth]
-   
-  
+
+
   let exp : BitVec expWidth := inUf.ex
 
   let targetMinNormalExp : BitVec expWidth :=
@@ -790,7 +790,7 @@ def UnpackedFloat.proofRound {expWidth sigWidth : Nat}
 
   let earlyOverflow : Bool := exp.sgt (BitVec.ofInt expWidth (maxNormalExp targetExponentWidth))
   let hEarlyOverflow : earlyOverflow =
-    decide (maxNormalExp targetExponentWidth < exp.toInt) := by 
+    decide (maxNormalExp targetExponentWidth < exp.toInt) := by
     unfold earlyOverflow
     rw [BitVec.sgt, BitVec.slt_eq_decide]
     rw [PackedFloat.toInt_ofInt_maxNormalExp_eq_of_le (s := sigWidth)]
@@ -799,8 +799,8 @@ def UnpackedFloat.proofRound {expWidth sigWidth : Nat}
   -- early underflow:
   let earlyUnderflow : Bool := exp.slt (BitVec.ofInt expWidth (minSubnormalExp targetExponentWidth targetSignificandWidth - 1))
   let hEarlyUnderflow : earlyUnderflow =
-    decide (exp < minSubnormalExp targetExponentWidth targetSignificandWidth - 1) := sorry
-
+      decide (exp < minSubnormalExp targetExponentWidth targetSignificandWidth - 1) := by
+      simp only [earlyUnderflow, BitVec.slt]
   -- force exponent to be at least min normal exponent.
   let expGeMin :=
     if exp.slt targetMinNormalExp then
