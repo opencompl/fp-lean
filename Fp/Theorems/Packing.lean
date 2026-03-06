@@ -358,7 +358,7 @@ theorem bias_fits₁ : -2 ^ (exponentWidth e s - 1) ≤ (bias e : Int) := by
     simp [bias]
 
 
-theorem minNormalExp_fits₁ : -2 ^ (exponentWidth e s - 1) ≤ minNormalExp e := by
+theorem minNormalExp_fits₁ {e s} : -2 ^ (exponentWidth e s - 1) ≤ minNormalExp e := by
   unfold minNormalExp
   simp only [Int.neg_le_neg_iff]
   norm_cast
@@ -466,6 +466,9 @@ theorem maxNormalExp_bmod_eq (e s : Nat) :
   · grind only
   · sorry
 
+theorem minSubnormalExp_fits₁ : -2 ^ (e - 1) ≤ minSubnormalExp e s := sorry
+theorem minSubnormalExp_fits₂ : minSubnormalExp e s < 2 ^ (e - 1) := sorry
+
 @[simp]
 theorem toInt_ofInt_minSubnormalExp_eq_of_le (e s : Nat)
    (targetExponentWidth : Nat)
@@ -480,9 +483,11 @@ theorem toInt_ofInt_minSubnormalExp_eq_of_le (e s : Nat)
       norm_cast
       apply Nat.pow_le_pow_of_le (by decide) (by grind)
     · norm_cast
+      sorry
   · have := minSubnormalExp_fits₂ (e := e) (s := s)
     apply Int.lt_of_lt_of_le (b := 2 ^ (exponentWidth e s - 1))
     · norm_cast
+      sorry
     · norm_cast
       apply Nat.pow_le_pow_of_le (by decide)
       have := exponentWidth_pos e s

@@ -760,6 +760,28 @@ def UnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSig
     (isZero := inUf.isZero)
   result
 
+-- theorem BitVec.toInt_sub_eq_toInt_sub_toInt_of_le (a b : BitVec w) (h : b.sle a) :
+--     (a - b).toInt = a.toInt - b.toInt := by
+--   simp
+--   have : b.toInt ≤ a.toInt := by simp [BitVec.sle] at h; grind only
+--   apply Int.bmod_eq_of_le
+--   · simp
+--     grind
+--   · simp
+--     have ha := BitVec.toInt_le (x := a)
+--     have hb := BitVec.toInt_lt (x := b)
+--     have ha' := BitVec.le_two_mul_toInt (x := a)
+--     have hb' := BitVec.le_two_mul_toInt (x := b)
+--     rcases w with rfl | w
+--     · simp; grind only
+--     · simp [Int.pow_succ]
+--       have : ((2 : Int) ^ w * 2 + 1 ) / 2 = 2 ^ w := by sorry
+--       rw [this]
+--       simp [Int.pow_succ] at ha hb ha' hb'
+--       have : - 2 ^ w ≤ b.toInt := by grind
+
+--       grind
+
 /--
 The core rounding function,
 that rounds an `UnpackedFloat` to the target exponent and significand widths.
@@ -801,18 +823,28 @@ def UnpackedFloat.proofRound {expWidth sigWidth : Nat}
   let hEarlyUnderflow : earlyUnderflow =
       decide (exp < minSubnormalExp targetExponentWidth targetSignificandWidth - 1) := by
       simp only [earlyUnderflow, BitVec.slt]
+      sorry
   -- force exponent to be at least min normal exponent.
   let expGeMin :=
     if exp.slt targetMinNormalExp then
       targetMinNormalExp
     else
       exp
-  let hExpGeMin : expGeMin.toInt = max targetMinNormalExp.toInt exp.toInt := sorry
+  let hExpGeMin : expGeMin.toInt = max targetMinNormalExp.toInt exp.toInt := by
+    simp [expGeMin]
+    rw [Int.max_def]
+    simp [BitVec.slt]
+    grind only [BitVec.toInt_inj, #87550518d2ea581d]
 
   -- how much to shift 'sig' by.
   let shiftAmtPositive := expGeMin - exp
 
-  let hShiftAmtPositive1 : shiftAmtPositive.toInt = expGeMin.toInt - exp.toInt := by sorry
+  let hShiftAmtPositive1 : shiftAmtPositive.toInt = expGeMin.toInt - exp.toInt := by
+    simp only [shiftAmtPositive]
+    rw [BitVec.toInt_sub_of_not_ssubOverflow]
+    sorry
+
+  -- | this needs an even more complex bound.
   let hShiftAmtPositive2 : shiftAmtPositive.toNat = expGeMin.toInt - exp.toInt := by sorry
   -- have : shiftAmtPositive.toInt ≥ 0 := AxRoundNormal
   -- have : shiftAmtPositive.toNat = shiftAmtPositive.toInt := AxRoundNormal
