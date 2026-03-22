@@ -100,15 +100,20 @@ theorem toEUnpackedFloat_not_isInfinite {uf : UnpackedFloat e s}
 theorem toRat_eq {uf : UnpackedFloat e s}
   : uf.toRat = uf.sign.toSign * uf.sig.toNat * 2 ^ (uf.ex.toInt - (s - 1 : Nat)) := by
   have hmsb : (uf.sig.setWidth' _).msb = false := BitVec.msb_setWidth'_of_lt (Nat.lt_succ_self s)
-  simp only [toRat, toDyadic, cond_eq_ite, Dyadic.toRat_ofIntWithPrec_eq_mul_two_pow,
+  simp only [toRat, toDyadic, Dyadic.toRat_ofIntWithPrec_eq_mul_two_pow, Dyadic.toRat_ofIntWithPrec_eq_mul_two_pow,
     Int.neg_sub, Bool.toSign]
   congr
   split
   · simp only [Rat.intCast_neg, Rat.intCast_ofNat, ← Rat.intCast_natCast, Rat.neg_mul, Rat.one_mul]
     rewrite [← Rat.intCast_neg]
     congr
-    rewrite [← Int.neg_inj, BitVec.neg_toInt_neg hmsb]
-    simp
+    simp only [Int.reduceNeg, BitVec.setWidth'_eq, Int.neg_one_mul,
+      Int.neg_inj]
+    rw [BitVec.toInt_eq_msb_cond]
+    simp only [BitVec.toNat_setWidth, Nat.lt_add_one, BitVec.toNat_mod_cancel_of_lt,
+      Int.natCast_pow, Int.cast_ofNat_Int, ite_eq_right_iff]
+    intros hcontra
+    simp [BitVec.msb_eq_getLsbD_last] at hcontra
   · rewrite [BitVec.toInt_eq_toNat_of_msb hmsb]
     simp [Rat.intCast_natCast]
 
@@ -230,7 +235,7 @@ theorem toRat_normalize_eq_toRat {uf : UnpackedFloat e s}
       have hSigClzNeZero' : uf.sig.clz.toNat < s := by
         rw [BitVec.lt_def] at hSigClzNeZero
         simp at hSigClzNeZero
-        apply hSigClzNeZero
+        apply (toNat_clz_lt_iff_ne_zero ..) |>.mpr h
       rw [BitVec.toInt_setWidth]
       have : (uf.sig.clz.toNat : Int).bmod (2 ^ e) = uf.sig.clz.toNat := by
         refine Int.bmod_eq_of_le hle ?_

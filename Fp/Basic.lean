@@ -644,7 +644,7 @@ theorem isZeroOrSubnorm_of_isNonzeroSubnorm {pf : PackedFloat e s} :
   grind [isNonzeroSubnorm, isZeroOrSubnorm]
 
 
-
+-- TODO: delete 'isNZero',
 @[grind →]
 theorem isZero_of_isNZero {pf : PackedFloat e s} :
     pf.isNZero → pf.isZero := by
@@ -1465,7 +1465,6 @@ instance : Std.IsPartialOrder ExtRat where
   le_trans := by grind [le_trans]
   le_antisymm := by grind [le_antisymm]
 
-
 def isNaN (r : ExtRat) : Bool :=
   r = .NaN
 
@@ -1568,6 +1567,16 @@ instance : LE (PackedFloat exWidth sigWidth) where
 theorem le_def (x y : PackedFloat e s) :
   x.le y = (x ≤ y) := rfl
 
+def lt (x y : PackedFloat e s) : Prop :=
+  x ≤ y ∧ x ≠ y
+
+instance : LT (PackedFloat e s) where
+  lt x y := x.lt y
+
+@[simp]
+theorem lt_def (x y : PackedFloat e s) :
+  x.lt y = (x < y) := rfl
+
 @[simp, grind =]
 theorem minus_zero_le_plus_zero {e s} :
     (PackedFloat.getZero e s true ≤ PackedFloat.getZero e s false) =
@@ -1579,10 +1588,21 @@ theorem plus_zero_not_le_minus_zero :
     ¬ (PackedFloat.getZero e s false ≤ PackedFloat.getZero e s true) := by
   simp [getZero, ← PackedFloat.le_def, PackedFloat.le, PackedFloat.isNaN]
 
-
 instance {x y : PackedFloat e s} : Decidable (x ≤ y) := by
     simp only [← PackedFloat.le_def]
     infer_instance
+
+/--
+The successor is the least *strict* upper bound.
+This is used to show that the ordering on 'PackedFloat' is a discrete ordering,
+with adjacent elements having a gap of at least '2^-s'
+-/
+def IsSuccessor (p q : PackedFloat e s) : Prop :=
+  p < q ∧ (∀ (r : PackedFloat e s), p < r → q ≤ r)
+
+instance {x y : PackedFloat e s} : Decidable (x < y) := by
+  simp only [← PackedFloat.lt_def, PackedFloat.lt]
+  infer_instance
 
 def toNumberRatSig {e s} (pf : PackedFloat e s) : Rat :=
   if pf.isNorm then
@@ -1769,7 +1789,7 @@ def toExtRat' (pf : PackedFloat e s) : ExtRat :=
   else .Number pf.toNumberRat
 
 
-@[simp]
+@[simp, grind =]
 theorem toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm {pf : PackedFloat e s} (hp : pf.isNormOrNonzeroSubnorm := by grind) :
     pf.toExtRat' =
         .Number pf.toNumberRat := by
@@ -1782,7 +1802,7 @@ theorem toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm {pf : PackedFloat e s} (hp
   simp [toExtRat', hnan, hinf, toNumberRat]
 
 
-@[simp]
+@[simp, grind =]
 theorem toExtRat'_eq_zero_of_isZero (pf : PackedFloat e s) (hp : pf.isZero) :
     pf.toExtRat' = .Number 0 := by
   have hnan : pf.isNaN = false := by
@@ -1792,19 +1812,19 @@ theorem toExtRat'_eq_zero_of_isZero (pf : PackedFloat e s) (hp : pf.isZero) :
   simp only [toExtRat', hnan, hinf, cond_false, ExtRat.Number.injEq]
   grind
 
-@[simp]
+@[simp, grind =]
 theorem toExtRat'_eq_NaN_of_isNaN (pf : PackedFloat e s) (hp : pf.isNaN) :
     pf.toExtRat' = .NaN := by
   simp [toExtRat', hp]
 
-@[simp]
+@[simp, grind =]
 theorem toExtRat'_eq_Infinity_of_isInfinite (pf : PackedFloat e s) (hp : pf.isInfinite) :
     pf.toExtRat' = .Infinity pf.sign := by
   rw [toExtRat', hp]
   grind [not_isNaN_of_isInfinite]
 
 
-@[simp, grind! .]
+@[simp, grind! .] -- aggressive?
 theorem toExtRat'_getInfinity {sign : Bool} (hs : 0 < s := by grind) :
     (PackedFloat.getInfinity e s sign).toExtRat' = .Infinity sign := by
   have : (PackedFloat.getInfinity e s sign).isInfinite = true := by
@@ -2303,6 +2323,7 @@ theorem sig_mkZero (sign : Bool) : (mkZero sign : UnpackedFloat e s).sig = 0#s :
 def isZero (uf : UnpackedFloat e s) : Bool :=
   uf.ex == BitVec.intMin e && uf.sig == 0#s
 
+-- | Why does the 'ex' fit?
 @[bv_normalize]
 def normalize (uf : UnpackedFloat e s) (sign := uf.sign) : UnpackedFloat e s :=
   bif uf.sig == 0#s then
@@ -2320,20 +2341,67 @@ theorem sign_normalize (uf : UnpackedFloat e s) : (normalize uf zsign).sign =
   if uf.sig == 0#s then zsign else uf.sign := by
   grind [normalize, mkZero]
 
+@[simp]
+theorem sig_normalize (uf : UnpackedFloat e s) : (normalize uf zsign).sig =
+  if uf.sig == 0#s then 0#s else uf.sig <<< uf.sig.clz := by
+  grind [normalize, mkZero]
+
+@[simp]
+theorem exp_normalize (uf : UnpackedFloat e s) : (normalize uf zsign).ex =
+  if uf.sig == 0#s then BitVec.intMin e else uf.ex - uf.sig.clz.setWidth _ := by
+  grind [normalize, mkZero]
+
+
 @[bv_normalize]
 def toEUnpackedFloat (uf : UnpackedFloat e s) : EUnpackedFloat e s :=
   .mk .Number uf
 
 def toDyadic (uf : UnpackedFloat e s) : Dyadic :=
   let sig : BitVec (s + 1) := uf.sig.setWidth' (Nat.le.step Nat.le.refl)
-  let sig := bif uf.sign then -sig else sig
-  .ofIntWithPrec sig.toInt ((s - 1 : Nat) - uf.ex.toInt)
+  -- | this can lead to overflow in the case where
+  -- sig = intMin. negating intMin causes overflow, so we need to be careful.
+  .ofIntWithPrec (uf.sign.toSign * sig.toInt) ((s - 1 : Nat) - uf.ex.toInt)
 
 def toRat (uf : UnpackedFloat e s) : Rat :=
   uf.toDyadic.toRat
 
--- TODO: add a toRat', and show that these are equivalent.
 
+def toSigNat (uf : UnpackedFloat e s) : Nat :=
+  let sig : BitVec (s + 1) := uf.sig.setWidth' (Nat.le.step Nat.le.refl)
+  sig.toNat
+
+@[simp]
+theorem toNat_toSigNat_eq (uf : UnpackedFloat e s) :
+    toSigNat uf = uf.sig.toNat := by
+  simp [toSigNat]
+
+@[simp]
+theorem toSigNat_of_sig_eq_zero (uf : UnpackedFloat e s)  (h : uf.sig = 0#s) :
+    uf.toSigNat = 0 := by
+  simp [toSigNat, h]
+
+def toExpInt {e s} (uf : UnpackedFloat e s) : Int :=
+  - ((s - 1 : Nat) - uf.ex.toInt)
+
+def toRat' (uf : UnpackedFloat e s) : Rat :=
+  uf.sign.toSign * uf.toSigNat * (2 : Rat) ^ uf.toExpInt
+
+theorem toInt_setWidth_succ_eq_toNat (x : BitVec w) :
+    (x.setWidth (w + 1)).toInt = x.toNat := by
+  rw [BitVec.toInt_eq_toNat_of_msb]
+  · simp
+  · grind only [= BitVec.msb_eq_getMsbD_zero, = BitVec.getMsbD_setWidth]
+
+theorem toRat_eq_toRat' (uf : UnpackedFloat e s) : uf.toRat = uf.toRat' := by
+  rw [toRat, toRat']
+  rw [UnpackedFloat.toDyadic]
+  rw [Dyadic.toRat_ofIntWithPrec_eq_mul_two_pow]
+  simp only [BitVec.setWidth'_eq]
+  rw [toInt_setWidth_succ_eq_toNat (x := uf.sig)]
+  simp [toExpInt]
+  norm_cast
+
+-- TODO: add a toRat', and show that these are equivalent.
 end UnpackedFloat
 
 namespace EUnpackedFloat
@@ -2611,55 +2679,6 @@ theorem toNumberRatSig_times_toNumberRatExp_lt_two_pow_minNormalExp_of_isNonzero
   · grind only [→ not_isNorm_of_isSubnorm]
 
 
-theorem Rat.zpow_sub_eq_zpow_mul_zpow {b : Rat} (hb : b ≠ 0)
-    (x y: Int) : b ^ (x - y) = b ^ x * b ^ (-y) := by
-  rw [Int.sub_eq_add_neg]
-  rw [Rat.zpow_add hb]
-
-theorem Rat.mul_sub (b x y : Rat) : b * (x - y) = b * x - b * y := by
-  grind only
-
-@[simp, grind .]
-theorem Rat.one_le_two_pow_nat {n : Nat} : 1 ≤ (2 : Rat) ^ n := by
-  induction n with
-  | zero => grind
-  | succ n ih =>
-    rw [Rat.pow_succ]
-    grind
-
-theorem Rat.two_pow_le_two_pow_of_le {x y : Int} (h : x ≤ y) : (2 : Rat) ^ x ≤ (2 : Rat) ^ y := by
-  rw [Rat.le_iff_sub_nonneg]
-  rw [show (2 : Rat) ^ x = (2 : Rat) ^ x * 1 by grind only]
-  rw [show y = x + (y - x) by grind only]
-  rw [Rat.zpow_add (by grind only)]
-  rw [← Rat.mul_sub]
-  have : 1 ≤ (2 : Rat) ^ (y - x) := by
-    have : ∃ (k : Nat), y - x = k := by
-      exact Int.nonneg_def.mp h
-    obtain ⟨k, hk⟩ := this
-    rw [hk]
-    simp
-  grind only [Rat.mul_nonneg, Rat.le_of_lt, Fp.Rat.two_pow_pos]
-
-
-theorem Rat.le_mul_of_one_le_of_le  {x y y' : Rat} (hx1 : 1 ≤ x) (hy : 0 ≤ y) (hy' : y ≤ y')
-    : y ≤ x * y' := by
-  suffices 1 * y ≤ x * y' by grind only
-  apply Rat.mul_le_mul_of_le_of_le_of_nonneg_of_nonneg
-  · grind only
-  · grind only
-  · grind only [Rat.le_of_lt, Fp.Rat.two_pow_pos]
-  · grind only [Rat.le_of_lt, Fp.Rat.two_pow_pos]
-
-
-theorem Rat.le_mul_self_of_le_one_of_nonneg {y} {x : Rat} (hx0 : 0 ≤ x ∧ x ≤ 1) (hy : 0 ≤ y)
-    : x * y ≤ y := by
-  suffices x * y ≤ 1 * y by grind only
-  apply Rat.mul_le_mul_of_le_of_le_of_nonneg_of_nonneg
-  · grind only
-  · grind only
-  · grind only [Rat.le_of_lt, Fp.Rat.two_pow_pos]
-  · grind only [Rat.le_of_lt, Fp.Rat.two_pow_pos]
 
 @[simp, grind .]
 theorem toNumberRatSig_times_toNumberRatExp_le_of_isNorm
@@ -2683,7 +2702,6 @@ theorem toNumberRatSig_times_toNumberRatExp_le_of_isNorm
   · grind only
   · grind only [Rat.le_of_lt, Fp.Rat.two_pow_pos]
   · grind only
-
 
 /--
 write being isNorm in terms of an arithmetic condition.
@@ -2848,7 +2866,118 @@ info: 'PackedFloat.eq_of_toExtRat'_eq' depends on axioms: [propext, Classical.ch
 -/
 #guard_msgs in #print axioms eq_of_toExtRat'_eq
 
+
+@[grind ., grind =]
+theorem isNaN_iff_toExtRat'_eq_NaN (x : PackedFloat e s) (hs : 0 < s) :
+    x.isNaN ↔ x.toExtRat' = .NaN := by
+  constructor
+  · intros h
+    simp [h]
+  · intros hx
+    induction x using PackedFloat.classification <;> grind
 end PackedFloat
+
+namespace UnpackedFloat
+
+@[simp]
+theorem BitVec.clz_zero (w : Nat) : (0#w : BitVec w).clz = w := by
+  rw [BitVec.clz_eq_iff_eq_zero]
+
+
+@[simp, grind =]
+theorem toNat_clz_lt_iff_ne_zero (x : BitVec w) : x.clz.toNat < w ↔ x ≠ 0#w := by
+  have := BitVec.clz_lt_iff_ne_zero (x := x)
+  by_cases hx : x = 0#w
+  · simp [hx]
+  · simp [hx]
+    have := this.mpr (by grind only)
+    simp [BitVec.lt_def] at this
+    grind only
+
+-- | TODO: move this into a separate 'def', because it does sth important:
+-- it moves the leading 1 of the significand to the front,
+-- so we probably want to buidld theory about it?
+theorem toNat_shiftLeft_clz_eq_toNat (uf : UnpackedFloat e s) :
+    (uf.sig <<< uf.sig.clz.toNat).toNat = uf.sig.toNat <<< uf.sig.clz.toNat := by
+  by_cases hs : s = 0
+  · simp [hs]
+    grind only [= Nat.shiftLeft_eq, = BitVec.toNat_zero_length]
+  · by_cases hsig : uf.sig = 0#s
+    · simp [hsig]
+    · simp only [BitVec.toNat_shiftLeft]
+      apply Nat.mod_eq_of_lt
+      have : uf.sig.toNat < 2 ^ s := by grind
+      have := BitVec.two_pow_sub_clz_le_toNat_of_ne_zero (x := uf.sig) (by grind only) (by grind only)
+      have := BitVec.toNat_lt_two_pow_sub_clz (x := uf.sig) (w := s)
+      have : uf.sig.clz.toNat < s := by
+        grind only [#61b3]
+      rw [Nat.shiftLeft_eq]
+      apply Nat.lt_of_lt_of_le (m := 2 ^ (s - uf.sig.clz.toNat) * (2 ^ uf.sig.clz.toNat))
+      · apply Nat.mul_lt_mul_of_lt_of_le
+        · grind only
+        · apply Nat.pow_le_pow_of_le
+          · grind only
+          · grind only
+        · grind only [usr Nat.pow_pos]
+      · rw [← Nat.pow_add]
+        apply Nat.pow_le_pow_of_le
+        · grind only
+        · grind only
+
+
+theorem two_zpow_mul_two_zpow_neg_eq_one (z : Int) :
+  (2 : Rat) ^ z * (2 : Rat) ^ (-z) = 1 := by
+  rw [← Rat.zpow_add (by decide)]
+  rw [show z + (-z) = 0 by grind]
+  simp
+
+/-
+Use this to simplify exponentiation in Q,
+since grind knows the field axioms,
+and can correctly deduce from this
+that these are multiplicative inverses.
+-/
+theorem two_pow_mul_two_pow_neg_intCast_eq_one (z : Nat) :
+  (2 : Rat) ^ z * (2 : Rat) ^ (-( z : Int)) = 1 := by
+  have := two_zpow_mul_two_zpow_neg_eq_one (z := z)
+  simp at this
+  grind
+
+-- TODO: find a more natural phrasing that
+-- this does not overflow.
+-- TODO: this is also in Fp/Theorems/Packing.lean, called 'toRat_normalize_eq_toRat'.
+-- Find a way to remove this duplication.
+theorem UnpackedFloat.toRat_normalize_eq {uf : UnpackedFloat e s}
+  (hex : -(↑(2 ^ e) / 2) ≤ uf.ex.toInt - ↑uf.sig.clz.toNat) :
+  uf.normalize.toRat = uf.toRat := by
+  simp only [UnpackedFloat.toRat_eq_toRat']
+  simp only [toRat', sign_normalize, beq_iff_eq, ite_self]
+  rw [UnpackedFloat.normalize]
+  by_cases hsig : uf.sig = 0#s
+  · simp [hsig]
+  · simp only [show ¬uf.sig == 0#s by grind, BitVec.shiftLeft_eq', cond_false]
+    simp only [toNat_toSigNat_eq]
+    rw [toNat_shiftLeft_clz_eq_toNat]
+    simp only [toExpInt, BitVec.toInt_sub, BitVec.toInt_setWidth,
+      Int.sub_bmod_bmod]
+
+    have : uf.ex.toInt.bmod (2^e) = uf.ex.toInt := by
+      rw [BitVec.toInt_eq_toNat_bmod]
+      simp
+    have hbmod : (uf.ex.toInt - uf.sig.clz.toNat).bmod (2^e) = uf.ex.toInt - uf.sig.clz.toNat := by
+      rw [Int.bmod_eq_of_le]
+      · grind
+      · grind only [usr BitVec.two_mul_toInt_lt]
+    rw [hbmod]
+    have := BitVec.toNat_lt_two_pow_sub_clz (x := uf.sig) (w := s)
+    rw [Nat.shiftLeft_eq]
+    simp
+    push_cast
+    simp only [Int.neg_sub]
+    simp only [Rat.zpow_sub_eq_zpow_mul_zpow (b := 2) (hb := by decide)]
+    grind only [two_pow_mul_two_pow_neg_intCast_eq_one]
+
+end UnpackedFloat
 
 -- Constants
 
