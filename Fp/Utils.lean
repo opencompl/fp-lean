@@ -178,3 +178,52 @@ theorem Rat.two_pow_ne_zero (n : Int) : (2 : Rat) ^ n ≠ 0 := by
   apply Rat.ne_zero_of_zero_lt
   norm_cast
   grind
+
+theorem Rat.zpow_sub_eq_zpow_mul_zpow {b : Rat} (hb : b ≠ 0)
+    (x y: Int) : b ^ (x - y) = b ^ x * b ^ (-y) := by
+  rw [Int.sub_eq_add_neg]
+  rw [Rat.zpow_add hb]
+
+theorem Rat.mul_sub (b x y : Rat) : b * (x - y) = b * x - b * y := by
+  grind only
+
+@[simp, grind .]
+theorem Rat.one_le_two_pow_nat {n : Nat} : 1 ≤ (2 : Rat) ^ n := by
+  induction n with
+  | zero => grind
+  | succ n ih =>
+    rw [Rat.pow_succ]
+    grind
+
+theorem Rat.two_pow_le_two_pow_of_le {x y : Int} (h : x ≤ y) : (2 : Rat) ^ x ≤ (2 : Rat) ^ y := by
+  rw [Rat.le_iff_sub_nonneg]
+  rw [show (2 : Rat) ^ x = (2 : Rat) ^ x * 1 by grind only]
+  rw [show y = x + (y - x) by grind only]
+  rw [Rat.zpow_add (by grind only)]
+  rw [← Rat.mul_sub]
+  have : 1 ≤ (2 : Rat) ^ (y - x) := by
+    have : ∃ (k : Nat), y - x = k := by
+      exact Int.nonneg_def.mp h
+    obtain ⟨k, hk⟩ := this
+    rw [hk]
+    simp
+  grind only [Rat.mul_nonneg, Rat.le_of_lt, Fp.Rat.two_pow_pos]
+
+theorem Rat.le_mul_of_one_le_of_le  {x y y' : Rat} (hx1 : 1 ≤ x) (hy : 0 ≤ y) (hy' : y ≤ y')
+    : y ≤ x * y' := by
+  suffices 1 * y ≤ x * y' by grind only
+  apply Rat.mul_le_mul_of_le_of_le_of_nonneg_of_nonneg
+  · grind only
+  · grind only
+  · grind only [Rat.le_of_lt, Fp.Rat.two_pow_pos]
+  · grind only [Rat.le_of_lt, Fp.Rat.two_pow_pos]
+
+
+theorem Rat.le_mul_self_of_le_one_of_nonneg {y} {x : Rat} (hx0 : 0 ≤ x ∧ x ≤ 1) (hy : 0 ≤ y)
+    : x * y ≤ y := by
+  suffices x * y ≤ 1 * y by grind only
+  apply Rat.mul_le_mul_of_le_of_le_of_nonneg_of_nonneg
+  · grind only
+  · grind only
+  · grind only [Rat.le_of_lt, Fp.Rat.two_pow_pos]
+  · grind only [Rat.le_of_lt, Fp.Rat.two_pow_pos]
