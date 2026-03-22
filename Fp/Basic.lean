@@ -2945,6 +2945,8 @@ theorem two_pow_mul_two_pow_neg_intCast_eq_one (z : Nat) :
 
 -- TODO: find a more natural phrasing that
 -- this does not overflow.
+-- TODO: this is also in Fp/Theorems/Packing.lean, called 'toRat_normalize_eq_toRat'.
+-- Find a way to remove this duplication.
 theorem UnpackedFloat.toRat_normalize_eq {uf : UnpackedFloat e s}
   (hex : -(↑(2 ^ e) / 2) ≤ uf.ex.toInt - ↑uf.sig.clz.toNat) :
   uf.normalize.toRat = uf.toRat := by
