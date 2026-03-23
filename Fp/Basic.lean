@@ -1215,8 +1215,9 @@ theorem lt_iff {a b : ExtRat} : (a < b) ↔ (a ≤ b ∧ ¬ (a = b)) := by
   simp [← lt_def, lt]
 
 @[simp]
-theorem elim_lt_NaN {a : ExtRat} :  (a < .NaN) = False := by
+theorem NaN_lt_elim {a : ExtRat} :  (.NaN < a) = False := by
   simp [lt_iff]
+  grind only
 
 @[simp]
 theorem lt_NaN_elim {a : ExtRat} :  (a < .NaN) = False := by
@@ -1781,7 +1782,6 @@ theorem toNumberRatExp_eq_of_isNorm {e s} {pf : PackedFloat e s} (hnorm : pf.isN
 
 def toNumberRat {e s} (pf : PackedFloat e s) : Rat :=
     pf.sign.toSign * pf.toNumberRatSig * 2 ^ (pf.toNumberRatExp)
-
 
 @[simp]
 theorem toNumberRatSig_eq_zero_of_isZero {e s} (pf : PackedFloat e s) (hzero : pf.isZero := by grind) :
