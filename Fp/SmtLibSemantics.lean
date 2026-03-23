@@ -346,12 +346,14 @@ theorem smtLibRoundMethod.embed_eq {R : Type} (e s : Nat)
     [ExtendedNumber R] :
   (smtLibRoundMethod e s v ves).embed = v.embed := rfl
 
+@[simp]
 theorem smtLibRoundMethod.lowerHalf_eq {R : Type} (e s : Nat)
     (v : RoundableAdjunction (PackedFloat e s) R)
     (ves : RoundableAdjunction (PackedFloat e (s + 1)) R)
     [ExtendedNumber R] :
   (smtLibRoundMethod e s v ves).lowerHalf = (fun r => ExtendedNumber.smtLibEq (v.embed (v.lower r))  (ves.embed (ves.lower r))) := rfl
 
+@[simp]
 theorem smtLibRoundMethod.tieBreak_eq {R : Type} (e s : Nat)
     (v : RoundableAdjunction (PackedFloat e s) R)
     (ves : RoundableAdjunction (PackedFloat e (s + 1)) R)
@@ -359,6 +361,16 @@ theorem smtLibRoundMethod.tieBreak_eq {R : Type} (e s : Nat)
   (smtLibRoundMethod e s v ves).tieBreak = (fun r =>
     (v.embed (v.lower r) < ves.embed (ves.lower r)) =
     (ves.embed (ves.upper r) < (v.embed (v.upper r)))) := rfl
+
+@[simp]
+theorem smtLibRoundMethod.roundForSign_eq {R : Type} (e s : Nat)
+    (v : RoundableAdjunction (PackedFloat e s) R)
+    (ves : RoundableAdjunction (PackedFloat e (s + 1)) R)
+    [ExtendedNumber R] :
+  (smtLibRoundMethod e s v ves).rounderForSign = fun sign r =>
+    if sign then v.upper r else v.lower r := by
+  rfl
+
 
 instance [hExtended : ExtendedNumber R]
     [DecidableRel hExtended.smtLibEq]
