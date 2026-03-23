@@ -1030,7 +1030,11 @@ namespace ExtRat
 instance : Zero ExtRat where
   zero := .Number 0
 
+@[simp ←]
 theorem ExtRat.zero_def : ExtRat.Number 0 = (0 : ExtRat) := rfl
+
+@[simp ←]
+theorem ExtRat.zero_def' : ExtRat.Number 0 = Zero.zero := rfl
 
 @[match_pattern]
 abbrev plusInfinity : ExtRat :=
@@ -1136,6 +1140,49 @@ instance : LE ExtRat where
 @[simp]
 theorem le_def {a b : ExtRat} : a.le b = (a ≤ b) := rfl
 
+@[simp]
+theorem ExtRat.le_NaN_iff (x : ExtRat) : (x ≤ .NaN) = decide (x = .NaN) := by
+  simp [le, ← le_def]
+  grind
+
+@[simp]
+theorem ExtRat.NaN_le_iff (x : ExtRat) : (.NaN ≤ x) = decide (x = .NaN) := by
+  simp [le, ← le_def]
+  grind
+
+@[simp]
+theorem ExtRat.inf_false_le_iff (x : ExtRat) :
+    -- +infty ≤ x ↔ x = +infty
+    (.Infinity false ≤ x) = decide (x = .Infinity false) := by
+  simp [le, ← le_def]
+  grind
+
+@[simp]
+theorem ExtRat.le_inf_false_iff (x : ExtRat) :
+    -- x ≤ +infty ↔ x ≠ NaN
+    (x ≤ ExtRat.Infinity false) ↔ (x ≠ .NaN) := by
+  simp [le, ← le_def]
+  grind
+
+@[simp]
+theorem ExtRat.inf_true_le_iff (x : ExtRat) :
+    -- -infty ≤ x ↔ x ≠ NaN
+    (.Infinity true ≤ x) = decide (x ≠ .NaN) := by
+  simp [le, ← le_def]
+  grind
+
+@[simp]
+theorem ExtRat.le_inf_true_iff (x : ExtRat) :
+    -- x ≤ -infty ↔ x = -infty
+    (x ≤ ExtRat.Infinity true) = decide (x = .Infinity true) := by
+  simp [le, ← le_def]
+  grind
+
+@[simp]
+theorem ExtRat.num_le_num_iff (r1 r2 : Rat) :
+  ((ExtRat.Number r1) ≤ (ExtRat.Number r2)) = decide (r1 ≤ r2) := by
+  simp [le, ← le_def]
+
 instance {a b : ExtRat}: Decidable (a ≤ b) := by
   simp only [← ExtRat.le_def]
   infer_instance
@@ -1150,6 +1197,11 @@ def eq (x y : ExtRat) : Bool :=
   | _, .Infinity _ => false
   | .Number r1, .Number r2 => r1 == r2
 
+
+@[simp]
+theorem eq_iff (x y : ExtRat) : x.eq y = decide (x = y) := by
+  grind [ExtRat, eq]
+
 def lt (x y : ExtRat) : Bool :=
   x.le y && !(x.eq y)
 
@@ -1158,6 +1210,44 @@ instance : LT ExtRat where
 
 @[simp]
 theorem lt_def {a b : ExtRat} : a.lt b = (a < b) := rfl
+
+theorem lt_iff {a b : ExtRat} : (a < b) ↔ (a ≤ b ∧ ¬ (a = b)) := by
+  simp [← lt_def, lt]
+
+@[simp]
+theorem elim_lt_NaN {a : ExtRat} :  (a < .NaN) = False := by
+  simp [lt_iff]
+
+@[simp]
+theorem lt_NaN_elim {a : ExtRat} :  (a < .NaN) = False := by
+  simp [lt_iff]
+
+@[simp]
+theorem lt_infty_true_elim {a : ExtRat} : (a < .Infinity true) = False := by
+  simp [lt_iff]
+
+@[simp]
+theorem infty_true_lt_iff {a : ExtRat} : (.Infinity true < a) =
+  decide (a ≠ .Infinity true ∧ a ≠ .NaN) := by
+  simp [lt_iff]
+  grind
+
+@[simp]
+theorem lt_infty_false_iff {a : ExtRat} : (a < .Infinity false) =
+  decide (a ≠ .Infinity false ∧ a ≠ .NaN) := by
+  simp [lt_iff]
+  grind
+
+@[simp]
+theorem elim_infty_false_lt {a : ExtRat} : (.Infinity false < a) = False := by
+  simp [lt_iff]
+  grind
+
+@[simp]
+theorem num_lt_num_iff {r1 r2 : Rat} :
+  ((ExtRat.Number r1) < (ExtRat.Number r2)) = decide (r1 < r2) := by
+  simp [lt_iff]
+  grind
 
 instance {a b : ExtRat }: Decidable (a < b) := by
   simp only [· < ·]
