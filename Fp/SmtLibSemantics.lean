@@ -254,11 +254,7 @@ def IsLawfulLower [ExtendedNumber R] [RE : RoundableEmbed X R] (r : R) (lower : 
 
 open Classical in
 noncomputable def smtLibLower [Inhabited X] [ExtendedNumber R] [RoundableEmbed X R] : RoundableLower X R where
-  lower (r : R) : X :=
-    if hp : ∃ (x : X), IsLawfulLower r x then
-      Classical.choose hp
-    else
-      default
+  lower (r : R) : X := epsilon (fun x => IsLawfulLower r x)
 
 /-- 'upper' is a valid least upper bound for 'r'. -/
 def IsLawfulUpper [ExtendedNumber R] [RE : RoundableEmbed X R] (r : R) (upper : X) : Prop :=
@@ -266,12 +262,7 @@ def IsLawfulUpper [ExtendedNumber R] [RE : RoundableEmbed X R] (r : R) (upper : 
 
 open Classical in
 noncomputable def smtLibUpper {X R} [Inhabited X] [ExtendedNumber R] [RoundableEmbed X R] : RoundableUpper X R where
-  upper (r : R) : X :=
-    if hp : ∃ (x : X), IsLawfulUpper r x then
-      /- Use hilbert epsilon to pick -/
-      Classical.choose hp
-    else
-      default
+  upper (r : R) : X := epsilon (fun x => IsLawfulUpper r x)
 
 /--
 The default SMT-Lib adjunction of packed floats into rationals, written `v_ε,σ(f)`,
