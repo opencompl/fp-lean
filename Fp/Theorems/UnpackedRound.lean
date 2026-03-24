@@ -146,12 +146,27 @@ theorem round_eq_mkNaN_of_NaN {sign} {eout sout : Nat} {rm : RoundingMode} :
   · simp
   · simp
 
+@[simp]
+theorem roundRTZ_Zero {eout sout : Nat} {zeroSign : Bool} :
+  ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRTZ zeroSign
+    (ExtRat.Number 0)) = PackedFloat.getZero eout sout zeroSign := by
+  simp [SmtLibSemantics.RoundMethod.roundRTZ]
+  simp [SmtLibSemantics.ExtendedNumber.isZero]
+  simp [SmtLibSemantics.ExtendedNumber.smtLibEq]
+  -- TODO: upper/lower of zero.
+  sorry
+
 set_option warn.sorry false in
 @[simp]
 theorem round_eq_mkZero_of_mkZero {zeroSign : Bool} {eout sout : Nat} {rm : RoundingMode} :
     (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round
         rm zeroSign (ExtRat.Number 0) = PackedFloat.getZero eout sout zeroSign := by
-  rcases rm <;> sorry
+  rcases rm
+  · sorry
+  · sorry
+  · sorry
+  · sorry
+  · simp
 
 set_option warn.sorry false in
 theorem roundQ_Number_eq_round (er : ExtRat) (uf : UnpackedFloat ein sin)
@@ -338,6 +353,11 @@ theorem EquivUptoNaN.of_mkNaN_iff (x : PackedFloat e s) : EquivUptoNaN x (Packed
   simp [EquivUptoNaN]
   grind only [!PackedFloat.isNaN_mkNaN]
 
+
+theorem unpackedNormOrNonzeroSubnorm_mul_unpackNormOrNonzeroSubnorm_toRat_eq_mul_toNumberRat {a b : PackedFloat e s} (ha : a.isNormOrNonzeroSubnorm) (hb : b.isNormOrNonzeroSubnorm) :
+  (a.unpackNormOrNonzeroSubnorm.mul b.unpackNormOrNonzeroSubnorm).toRat = a.toNumberRat * b.toNumberRat := by sorry
+
+
 set_option warn.sorry false in
 /--
 Example theorem we will prove, using our proof strategy of proving against the SMT-Lib semantics.
@@ -444,7 +464,7 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
       rw [roundQ_Number_eq_round]
       rw [PackedFloat.toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm hb]
       simp only [ExtRat.number_mul_number_eq, ExtRat.Number.injEq]
-      -- Purely arithmetic statement.
-      -- ⊢ (a.unpackNormOrNonzeroSubnorm.mul b.unpackNormOrNonzeroSubnorm).toRat = a.toNumberRat * b.toNumberRat
-      sorry
+      apply unpackedNormOrNonzeroSubnorm_mul_unpackNormOrNonzeroSubnorm_toRat_eq_mul_toNumberRat
+      · grind
+      · grind
 end Fp
