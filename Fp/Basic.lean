@@ -1951,10 +1951,9 @@ theorem toExtRat'_mkNaN :
   simp
 
 @[simp, grind! .]
-theorem toExtRat'_getZero (sign : Bool) (he : 0 < e := by grind) (hs : 0 < s := by grind) :
+theorem toExtRat'_getZero (sign : Bool) (he : 0 < e := by grind) :
     (PackedFloat.getZero e s sign).toExtRat' = .Number 0 := by
   rw [toExtRat']
-  simp [show ¬ s = 0 by grind]
   simp [show ¬ e = 0 by grind]
   simp [he]
 
