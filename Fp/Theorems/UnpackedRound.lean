@@ -45,17 +45,19 @@ theorem roundQ_eq (eout sout : Nat) (rm : RoundingMode) (sign : Bool) (r : ExtRa
 theorem IsLawfulLower_NaN_iff (x : PackedFloat e s):
    SmtLibSemantics.IsLawfulLower ExtRat.NaN x ↔ x.isNaN := by
   simp [SmtLibSemantics.IsLawfulLower]
+  intros hnan lower hlower
   constructor
-  · intros h
-    obtain ⟨h1, h2⟩ := h
-    grind
-  · intros h
-    simp [h]
+  simp [hlower, hnan]
+  -- ⊢ lower = x
+  -- Indeed, I cannot prove this!
+  sorry
 
 @[simp]
 theorem IsLawfulLower_NaN_getNaN :
    SmtLibSemantics.IsLawfulLower ExtRat.NaN (PackedFloat.getNaN e s) := by
   simp [SmtLibSemantics.IsLawfulLower]
+  --  ∀ (lower' : PackedFloat e s), lower'.isNaN = true → lower' = PackedFloat.getNaN e
+  sorry
 
 @[elab_as_elim]
 theorem Classical.epsilon_elim {α : Sort u} {p q : α → Prop} (y : α) (hy : p y)
@@ -148,7 +150,7 @@ theorem round_eq_mkNaN_of_NaN {sign} {eout sout : Nat} {rm : RoundingMode} :
 
 @[simp]
 theorem IsLawfulLower_Zero_iff (x : PackedFloat e s) (he : 0 < e) :
-   SmtLibSemantics.IsLawfulLower (ExtRat.Number 0) x ↔ x.isZero := by
+   SmtLibSemantics.IsLawfulLower (ExtRat.Number 0) x ↔ (x = PackedFloat.getZero e s false) := by
   simp [SmtLibSemantics.IsLawfulLower]
   constructor
   · intros h
@@ -156,15 +158,13 @@ theorem IsLawfulLower_Zero_iff (x : PackedFloat e s) (he : 0 < e) :
     specialize h2 (PackedFloat.getZero e s false)
     simp [he] at h2
     specialize h2 (by grind only)
-    have hx : x.toExtRat' = ExtRat.Number 0 := by grind
-    grind only [= PackedFloat.toExtRat'_eq_Infinity_of_isInfinite,
-      = PackedFloat.toExtRat'_eq_NaN_of_isNaN,
-      = PackedFloat.toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm,
-      = PackedFloat.isZero_iff_toNumberRat_eq_zero_of_isNormOrNonzeroSubnorm,
-      = PackedFloat.isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero]
+    -- grind
+    sorry
   · intros h
     simp [h]
-    grind only
+    -- simp [show (0 : Rat) ≤ 0 by grind]
+    -- intros lower hlower
+    sorry
 
 set_option warn.sorry false in
 @[simp]
@@ -175,11 +175,11 @@ theorem lower_zero_eq {eout sout : Nat} (heout : 0 < eout) (hsout : 0 < sout) :
   apply Classical.epsilon_elim (q := fun (x : PackedFloat eout sout) => x = PackedFloat.getZero eout sout false)
     (y := PackedFloat.getZero eout sout false)
   · simp [SmtLibSemantics.IsLawfulLower, show 0 < sout by grind]
-    grind
+    simp [heout, hsout]
+    sorry
   · intros x hx
     simp [IsLawfulLower_Zero_iff, heout] at hx
-    -- | TODO: this needs some definnition fixing.
-    sorry
+    simp [hx]
 
 @[simp]
 theorem IsLawfulUpper_Zero_iff (x : PackedFloat e s) (he : 0 < e) :

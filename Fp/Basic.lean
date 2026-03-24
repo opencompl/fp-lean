@@ -1926,6 +1926,15 @@ theorem toExtRat'_eq_NaN_of_isNaN (pf : PackedFloat e s) (hp : pf.isNaN) :
   simp [toExtRat', hp]
 
 @[simp, grind =]
+theorem toExtRat'_eq_NaN_iff_isNaN (pf : PackedFloat e s) : pf.toExtRat' = .NaN ↔ pf.isNaN := by
+  constructor
+  · intros h
+    simp [toExtRat'] at h
+    grind only [#927d]
+  · intros h
+    simp [toExtRat', h]
+
+@[simp, grind =]
 theorem toExtRat'_eq_Infinity_of_isInfinite (pf : PackedFloat e s) (hp : pf.isInfinite) :
     pf.toExtRat' = .Infinity pf.sign := by
   rw [toExtRat', hp]
