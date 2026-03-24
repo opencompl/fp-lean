@@ -1870,6 +1870,24 @@ theorem sign_iff_toNumberRat_neg {pf : PackedFloat e s} (h : pf.isNormOrNonzeroS
   have : (2 : Rat) ^ pf.toNumberRatExp > 0 := by grind only [Fp.Rat.two_pow_pos]
   by_cases hsign : pf.sign <;> simp [hsign] <;> grind
 
+@[simp, grind =, grind =_]
+theorem isZero_iff_toNumberRat_eq_zero_of_isNormOrNonzeroSubnorm {pf : PackedFloat e s}
+    (h : pf.isNormOrNonzeroSubnorm) (he : 0 < e) :
+    pf.isZero ↔ pf.toNumberRat = 0 := by
+  constructor
+  · grind only [→ not_isZero_of_isNormOrSubnorm]
+  · intros hzero
+    simp [isZero]
+    simp [show ¬ e = 0 by grind]
+    simp [PackedFloat.toNumberRat] at hzero
+    have hsign_ne_zero : pf.sign.toSign ≠ (0 : Rat) := by
+      simp
+    have hcontra : pf.toNumberRatSig * 2 ^ pf.toNumberRatExp = 0 := by
+      grind
+    have : (2 : Rat) ^ pf.toNumberRatExp ≠ 0 := by
+      grind only [Rat.two_pow_ne_zero]
+    grind only [toNumberRatSig_ne_zero_of_isNormOrNonzeroSubnorm]
+
 
 def toExtRat' (pf : PackedFloat e s) : ExtRat :=
   bif pf.isNaN then
