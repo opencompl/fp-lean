@@ -249,11 +249,11 @@ end Round
 -- namespace SmtLibRoundMethod
 
 /-- 'lower' is a valid greatest lower bound for 'r'. -/
-def IsLawfulLower [ExtendedNumber R] [RE : RoundableEmbed X R] (r : R) (lower : X) : Prop :=
-  RE.embed lower ≤ r ∧ (∀ (lower' : X), RE.embed lower' ≤ r → RE.embed lower' ≤ RE.embed lower)
+def IsLawfulLower [ExtendedNumber R] [RE : RoundableEmbed X R] [LE X] (r : R) (lower : X) : Prop :=
+  RE.embed lower ≤ r ∧ (∀ (lower' : X), RE.embed lower' ≤ r → lower' ≤ lower)
 
 open Classical in
-noncomputable def smtLibLower [Inhabited X] [ExtendedNumber R] [RoundableEmbed X R] : RoundableLower X R where
+noncomputable def smtLibLower [Inhabited X] [ExtendedNumber R] [RoundableEmbed X R] [LE X] : RoundableLower X R where
   lower (r : R) : X := epsilon (fun x => IsLawfulLower r x)
 
 /--
@@ -262,11 +262,11 @@ TODO: need to use RoundableLe to say that `upper ≤ upper'`
 to get the correct ordering.
 This definition is too loose.
 -/
-def IsLawfulUpper [ExtendedNumber R] [RE : RoundableEmbed X R] (r : R) (upper : X) : Prop :=
-  r ≤ RE.embed upper ∧ (∀ (upper' : X), r ≤ RE.embed upper' → RE.embed upper ≤ RE.embed upper')
+def IsLawfulUpper [ExtendedNumber R] [RE : RoundableEmbed X R] [LE X] (r : R) (upper : X) : Prop :=
+  r ≤ RE.embed upper ∧ (∀ (upper' : X), r ≤ RE.embed upper' → upper ≤ upper')
 
 open Classical in
-noncomputable def smtLibUpper {X R} [Inhabited X] [ExtendedNumber R] [RoundableEmbed X R] : RoundableUpper X R where
+noncomputable def smtLibUpper {X R} [Inhabited X] [ExtendedNumber R] [RoundableEmbed X R] [LE X] : RoundableUpper X R where
   upper (r : R) : X := epsilon (fun x => IsLawfulUpper r x)
 
 /--
@@ -277,7 +277,7 @@ for better computational properties.
 We will show later that the `vlower` and `vupper` defined this way agree
 with the galois adjunction expected.
 -/
-noncomputable def smtLibV [Inhabited X] [ExtendedNumber R] [RoundableEmbed X R] :
+noncomputable def smtLibV [Inhabited X] [ExtendedNumber R] [RoundableEmbed X R] [LE X] :
     RoundableAdjunction X R where
   embed := RoundableEmbed.embed
   lower := smtLibLower.lower
@@ -285,17 +285,17 @@ noncomputable def smtLibV [Inhabited X] [ExtendedNumber R] [RoundableEmbed X R] 
 
 @[simp]
 theorem smtLibV_embed_eq [Inhabited X]
-  [ExtendedNumber R] [RoundableEmbed X R]
+  [ExtendedNumber R] [RoundableEmbed X R] [LE X]
     : (smtLibV (X := X) (R := R)).embed = RoundableEmbed.embed := rfl
 
 @[simp]
 theorem smtLibV_lower_eq [Inhabited X]
-  [ExtendedNumber R] [RoundableEmbed X R]
+  [ExtendedNumber R] [RoundableEmbed X R] [LE X]
     : (smtLibV (X := X) (R := R)).lower = smtLibLower.lower := rfl
 
 @[simp]
 theorem smtLibV_upper_eq [Inhabited X]
-  [ExtendedNumber R] [RoundableEmbed X R]
+  [ExtendedNumber R] [RoundableEmbed X R] [LE X]
     : (smtLibV (X := X) (R := R)).upper = smtLibUpper.upper := rfl
 
 /--
