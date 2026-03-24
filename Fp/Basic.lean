@@ -1,6 +1,7 @@
 import Fp.Utils
 import Fp.ForLean.Dyadic
 import Fp.Grind
+import Fp.ForLean.Rat
 
 /-!
 ## Packed Floating Point Numbers
@@ -1074,6 +1075,21 @@ instance : Add ExtRat where
 @[simp]
 theorem ExtRat.add_def {a b : ExtRat} : a.add b = a + b := rfl
 
+@[simp]
+theorem ExtRat.NaN_add (x : ExtRat) : (.NaN + x) = .NaN := rfl
+
+@[simp]
+theorem ExtRat.add_NaN (x : ExtRat) : (x + .NaN) = .NaN := by
+  simp [← add_def, add]
+  grind [ExtRat]
+
+@[simp]
+theorem ExtRat.add_Number (x y : Rat) :
+    (ExtRat.Number x + .Number y) = .Number (x + y) := by
+  simp [← add_def, add]
+
+-- TODO: write theorems for addition for infinity and such.
+
 def neg (x : ExtRat) : ExtRat :=
   match x with
   | .NaN => .NaN
@@ -1083,17 +1099,35 @@ def neg (x : ExtRat) : ExtRat :=
 def sub (x y : ExtRat) : ExtRat :=
   x.add (y.neg)
 
+
 instance : Neg ExtRat where
   neg a := neg a
 
 @[simp]
 theorem ExtRat.neg_def {a : ExtRat} : a.neg = -a := rfl
 
+@[simp]
+theorem ExtRat.neg_NaN : (-.NaN : ExtRat) = .NaN := rfl
+
+@[simp]
+theorem ExtRat.neg_infinity (s : Bool) : (-.Infinity s : ExtRat) = .Infinity (!s) := rfl
+
+@[simp]
+theorem ExtRat.neg_number (r : Rat) : (-.Number r : ExtRat) = .Number (-r) := rfl
+
+
 instance : Sub ExtRat where
   sub a b := sub a b
 
 @[simp]
 theorem sub_def {a b : ExtRat} : a.sub b = a - b := rfl
+
+@[simp]
+theorem number_sub_number {r1 r2 : Rat} :
+    (ExtRat.Number r1 - ExtRat.Number r2) = ExtRat.Number (r1 - r2) := by
+  rw [← sub_def, sub]
+  simp
+  grind only
 
 def mul (x y : ExtRat) : ExtRat :=
   match x, y with
@@ -1632,6 +1666,25 @@ def isNaN (r : ExtRat) : Bool :=
 @[simp] theorem isNaN_NaN : isNaN ExtRat.NaN = true := rfl
 @[simp] theorem isNaN_infinity (s : Bool) : isNaN (.Infinity s) = false := rfl
 @[simp] theorem isNaN_number (r : Rat) : isNaN (.Number r) = false := rfl
+
+
+/-- Absolute value of an extended rational number. -/
+def abs (r : ExtRat) : ExtRat :=
+  match r with
+  | .NaN => .NaN
+  | .Infinity _sign => .Infinity false
+  | .Number n => .Number (n.abs)
+
+@[simp]
+theorem abs_NaN : abs ExtRat.NaN = ExtRat.NaN := by
+  simp [abs]
+
+theorem abs_infinity (s : Bool) : abs (.Infinity s) = .Infinity false := by
+  simp [abs]
+
+@[simp]
+theorem abs_Number (n : Rat) : abs (.Number n) = .Number (n.abs) := by
+  simp [abs]
 
 end ExtRat
 
