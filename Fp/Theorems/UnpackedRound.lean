@@ -580,7 +580,7 @@ set_option warn.sorry false in
 Example theorem we will prove, using our proof strategy of proving against the SMT-Lib semantics.
 -/
 theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
-    (eout sout : Nat) (rm : RoundingMode) (a b : PackedFloat ein sin) :
+    (rm : RoundingMode) (a b : PackedFloat ein sin) :
     EquivUptoNaN
       (Fp.SmtLibSemantics.SmtLibFunctions.mul (Fp.SmtLibSemanticsQ.smtLibRoundMethodQ ein sin) rm a b)
     (PackedFloat.mul rm a b) := by
@@ -630,7 +630,7 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
       simp [hsin]
     case zeroCase signb =>
       simp [he]
-      simp [SmtLibSemantics.SmtLibFunctions.xorSign, he, hsin]
+      simp [SmtLibSemantics.SmtLibFunctions.xorSign, hsin]
       simp [show decide (ein = 0) = false by grind]
       apply EquivUptoNaN.of_eq
       grind only
