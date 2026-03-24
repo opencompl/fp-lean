@@ -233,49 +233,60 @@ theorem lower_zero_eq {eout sout : Nat} (heout : 0 < eout)  :
     simp [IsLawfulLower_Zero_iff, heout] at hx
     simp [hx]
 
+-- TODO: Can we somehow unify the lower/upper proofs?
 @[simp]
 theorem IsLawfulUpper_Zero_iff (x : PackedFloat e s) (he : 0 < e) :
-   SmtLibSemantics.IsLawfulUpper (ExtRat.Number 0) x ↔ x.isZero := by
+   SmtLibSemantics.IsLawfulUpper (ExtRat.Number 0) x ↔ ((x = PackedFloat.getZero e s true)):= by
   simp [SmtLibSemantics.IsLawfulUpper]
   constructor
   · intros h
     obtain ⟨h1, h2⟩ := h
-    specialize h2 (PackedFloat.getZero e s false)
-    simp [he] at h2
-    specialize h2 (by grind only)
-    sorry
-
-    -- have hx : x.toExtRat' = ExtRat.Number 0 := by grind
-    -- grind only [= PackedFloat.toExtRat'_eq_Infinity_of_isInfinite,
-    --   = PackedFloat.toExtRat'_eq_NaN_of_isNaN,
-    --   = PackedFloat.toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm,
-    --   = PackedFloat.isZero_iff_toNumberRat_eq_zero_of_isNormOrNonzeroSubnorm,
-    --   = PackedFloat.isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero]
+    specialize h2 (PackedFloat.getZero e s true)
+    simp [PackedFloat.isZero_getZero, he, decide_true,
+      Bool.not_eq_true, forall_const] at h2
+    specialize (h2 (by grind))
+    by_cases hzero : x.isZero
+    · simp [hzero] at h1
+      simp [h1] at h2
+      grind only [PackedFloat.eq_mkZero_of_isZero']
+    · simp [hzero] at h1
+      grind only
   · intros h
     simp [h]
-    sorry
-    -- grind only
+    simp [he]
+    constructor
+    · grind
+    · intros upper hupper
+      by_cases hzero : upper.isZero
+      · simp [hzero]
+        have hupper : upper = PackedFloat.getZero e s upper.sign := by
+          grind only [PackedFloat.eq_mkZero_of_isZero']
+        rw [hupper]
+        simp [he]
+      · simp [hzero]
+        intros hsign
+        apply PackedFloat.le_of_sign_eq_true_sign_eq_false
+        · grind
+        · grind
+        · grind
+        · grind
 
 
-set_option warn.sorry false in
 @[simp]
-theorem upper_zero_eq {eout sout : Nat} (heout : 0 < eout) (hsout : 0 < sout) :
+theorem upper_zero_eq {eout sout : Nat} (heout : 0 < eout) :
   (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number 0) : PackedFloat eout sout) =
     PackedFloat.getZero eout sout true := by
   simp [SmtLibSemantics.smtLibUpper]
   apply Classical.epsilon_elim (q := fun (x : PackedFloat eout sout) => x = PackedFloat.getZero eout sout true)
     (y := PackedFloat.getZero eout sout true)
-  · simp [SmtLibSemantics.IsLawfulUpper, show 0 < sout by grind]
-    sorry
+  · rw [IsLawfulUpper_Zero_iff]
+    · grind
   · intros x hx
     simp [IsLawfulUpper_Zero_iff, heout] at hx
-    -- | TODO: this needs some definnition fixing in `IsLower/IsUpper'.
-    -- They currently compare over ExtRat, but they should compare over PackedFloat.
-    sorry
-
+    simp [hx]
 
 @[simp]
-theorem roundRTZ_Zero {eout sout : Nat} {zeroSign : Bool} (heout : 0 < eout) (hsout : 0 < sout) :
+theorem roundRTZ_zero {eout sout : Nat} {zeroSign : Bool} (heout : 0 < eout) :
   ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRTZ zeroSign
     (ExtRat.Number 0)) = PackedFloat.getZero eout sout zeroSign := by
   simp [SmtLibSemantics.RoundMethod.roundRTZ]
@@ -283,22 +294,70 @@ theorem roundRTZ_Zero {eout sout : Nat} {zeroSign : Bool} (heout : 0 < eout) (hs
   simp [SmtLibSemantics.ExtendedNumber.smtLibEq]
   rcases zeroSign
   case false =>
-    simp [lower_zero_eq, heout, hsout]
+    simp [lower_zero_eq, heout]
   case true =>
-    simp [upper_zero_eq, heout, hsout]
+    simp [upper_zero_eq, heout]
+
+@[simp]
+theorem roundRNA_zero {eout sout : Nat} {zeroSign : Bool} (heout : 0 < eout) :
+  ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRNA zeroSign
+    (ExtRat.Number 0)) = PackedFloat.getZero eout sout zeroSign := by
+  simp [SmtLibSemantics.RoundMethod.roundRNA]
+  simp [SmtLibSemantics.ExtendedNumber.isNaN]
+  simp [SmtLibSemantics.ExtendedNumber.isZero]
+  simp [SmtLibSemantics.ExtendedNumber.smtLibEq]
+  rcases zeroSign
+  case false =>
+    simp [lower_zero_eq, heout]
+  case true =>
+    simp [upper_zero_eq, heout]
+
+@[simp]
+theorem roundRNE_zero {eout sout : Nat} {zeroSign : Bool} (heout : 0 < eout) :
+  ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRNE zeroSign
+    (ExtRat.Number 0)) = PackedFloat.getZero eout sout zeroSign := by
+  simp [SmtLibSemantics.RoundMethod.roundRNE]
+  simp [SmtLibSemantics.ExtendedNumber.isNaN]
+  simp [SmtLibSemantics.ExtendedNumber.isZero]
+  simp [SmtLibSemantics.ExtendedNumber.smtLibEq]
+  rcases zeroSign
+  case false =>
+    simp [lower_zero_eq, heout]
+  case true =>
+    simp [upper_zero_eq, heout]
+
+@[simp]
+theorem roundRTN_zero {eout sout : Nat} {zeroSign : Bool} (heout : 0 < eout) :
+  ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRTN zeroSign
+    (ExtRat.Number 0)) = PackedFloat.getZero eout sout zeroSign := by
+  simp [SmtLibSemantics.RoundMethod.roundRTN]
+  simp [SmtLibSemantics.ExtendedNumber.isZero, SmtLibSemantics.ExtendedNumber.smtLibEq]
+  rcases zeroSign
+  case false =>
+    simp [lower_zero_eq, heout]
+  case true =>
+    simp [upper_zero_eq, heout]
+
+@[simp]
+theorem roundRTP_zero {eout sout : Nat} {zeroSign : Bool} (heout : 0 < eout) :
+  ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRTP zeroSign
+    (ExtRat.Number 0)) = PackedFloat.getZero eout sout zeroSign := by
+  simp [SmtLibSemantics.RoundMethod.roundRTP]
+  simp [SmtLibSemantics.ExtendedNumber.isNaN]
+  simp [SmtLibSemantics.ExtendedNumber.isZero, SmtLibSemantics.ExtendedNumber.smtLibEq]
+  rcases zeroSign
+  case false =>
+    simp [lower_zero_eq, heout]
+  case true =>
+    simp [upper_zero_eq, heout]
 
 set_option warn.sorry false in
 @[simp]
 theorem round_eq_mkZero_of_mkZero {zeroSign : Bool} {eout sout : Nat} {rm : RoundingMode}
-   (heout : 0 < eout) (hsout : 0 < sout) :
+   (heout : 0 < eout) :
     (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round
         rm zeroSign (ExtRat.Number 0) = PackedFloat.getZero eout sout zeroSign := by
-  rcases rm
-  · sorry
-  · sorry
-  · sorry
-  · sorry
-  · simp [heout, hsout]
+  rcases rm <;> simp [heout]
 
 set_option warn.sorry false in
 theorem roundQ_Number_eq_round (er : ExtRat) (uf : UnpackedFloat ein sin)
