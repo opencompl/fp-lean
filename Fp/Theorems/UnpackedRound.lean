@@ -166,22 +166,6 @@ theorem isNaN_round_of_nan {sign} {eout sout : Nat} {rm : RoundingMode} :
 --   case numCase n hn =>
 --     sorry
 
-theorem PackedFloat.le_of_toExtRat_le {x y : PackedFloat e s} (he : 0 < e)
-    (hx : ¬ x.isNaN ∧ ¬ x.isZero) (hy : ¬ y.isNaN ∧ ¬ y.isZero)
-    (hle : x.toExtRat' ≤ y.toExtRat') :
-    x ≤ y := by
-  induction x using PackedFloat.kindCasesNaNInfZeroNum
-  case nanCase n hnan =>
-    simp [hnan] at hx
-  case infCase signx =>
-    sorry
-  case zeroCase signx =>
-    simp at hx
-    lia
-  case numCase n hn =>
-    sorry
-
-
 
 @[simp]
 theorem IsLawfulLower_Zero_iff (x : PackedFloat e s) (he : 0 < e) :
@@ -351,7 +335,6 @@ theorem roundRTP_zero {eout sout : Nat} {zeroSign : Bool} (heout : 0 < eout) :
   case true =>
     simp [upper_zero_eq, heout]
 
-set_option warn.sorry false in
 @[simp]
 theorem round_eq_mkZero_of_mkZero {zeroSign : Bool} {eout sout : Nat} {rm : RoundingMode}
    (heout : 0 < eout) :
@@ -378,19 +361,27 @@ theorem IsLawfulLower_Infinity_iff (x : PackedFloat e s)
     case nanCase n hnan =>
       simp [hnan] at h1
     case infCase signx =>
-      sorry
+      simp [hs] at h1
+      specialize h2 (PackedFloat.getInfinity e s sign)
+      simp [hs] at h2
+      grind only [Bool]
       -- grind only [= PackedFloat.toExtRat'_eq_Infinity_of_isInfinite,
       --   !PackedFloat.toExtRat'_getInfinity, !PackedFloat.isInfinite_getInfinity, #f30c]
     case zeroCase signx =>
-      sorry
-      -- grind only [!PackedFloat.toExtRat'_getZero, !PackedFloat.toExtRat'_getInfinity,
-      --   !PackedFloat.isInfinite_getInfinity, = PackedFloat.toExtRat'_eq_Infinity_of_isInfinite,
-      --   #ab7c]
+      simp [he, hs] at h1
+      subst h1
+      simp at h2
+      specialize (h2 (PackedFloat.getInfinity e s false))
+      simp [hs] at h2
+      exact h2
     case numCase n hn =>
-      sorry
-      -- grind only [= PackedFloat.toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm,
-      --   !PackedFloat.toExtRat'_getInfinity, !PackedFloat.isInfinite_getInfinity,
-      --   = PackedFloat.toExtRat'_eq_Infinity_of_isInfinite, #e8e0]
+      specialize h2 (PackedFloat.getInfinity e s sign)
+      simp [hs] at h2
+      rw [PackedFloat.toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm] at h1
+      simp at h1
+      subst h1
+      simp [hs] at h2
+      exact h2
   · intros h
     subst h
     sorry

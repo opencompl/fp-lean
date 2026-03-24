@@ -1192,9 +1192,65 @@ theorem ExtRat.le_inf_true_iff (x : ExtRat) :
   grind
 
 @[simp]
+theorem number_le_infinity_iff {n : Rat} {sign : Bool}:
+    (ExtRat.Number n ≤ ExtRat.Infinity sign) ↔ (sign = false) := by
+  simp [le, ← le_def]
+  grind
+
+@[simp]
+theorem infinity_le_number_iff {n : Rat} {sign : Bool}:
+    (ExtRat.Infinity sign ≤ ExtRat.Number n) ↔ (sign = true) := by
+  simp [le, ← le_def]
+  grind
+
+
+@[simp]
+theorem number_le_nan_iff {n : Rat} :
+    (ExtRat.Number n ≤ ExtRat.NaN) = False := by
+  simp [le, ← le_def]
+
+@[simp]
+theorem nan_le_number_iff {n : Rat} :
+    (.NaN ≤ ExtRat.Number n) = False := by
+  simp [le, ← le_def]
+
+@[simp]
+theorem nan_le_infinity_iff {sign : Bool}:
+    (.NaN ≤ ExtRat.Infinity sign) = False := by
+  simp [le, ← le_def]
+
+@[simp]
+theorem infinity_le_nan_iff {sign : Bool}:
+    (ExtRat.Infinity sign ≤ .NaN) = False := by
+  simp [le, ← le_def]
+
+
+
+@[simp]
 theorem ExtRat.num_le_num_iff (r1 r2 : Rat) :
   ((ExtRat.Number r1) ≤ (ExtRat.Number r2)) = decide (r1 ≤ r2) := by
   simp [le, ← le_def]
+
+@[simp]
+theorem ExtRat.le_refl {a : ExtRat} : a ≤ a := by
+  simp [le, ← le_def]
+  grind
+
+@[simp]
+theorem ExtRat.le_antisymm {a b : ExtRat} : (a ≤ b ∧ b ≤ a) ↔ a = b := by
+  simp [le, ← le_def]
+  grind
+
+@[simp]
+theorem ExtRat.eq_of_le_of_le {a b : ExtRat} (h1 : a ≤ b) (h2 : b ≤ a) : a = b := by
+  simp [le, ← le_def] at h1 h2
+  grind
+
+@[simp]
+theorem ExtRat.infinity_le_infinity_iff {s1 s2 : Bool} :
+    (ExtRat.Infinity s1 ≤ ExtRat.Infinity s2) = decide (s1 = false → s2 = false) := by
+  simp [le, ← le_def]
+  grind
 
 instance {a b : ExtRat}: Decidable (a ≤ b) := by
   simp only [← ExtRat.le_def]
@@ -1209,6 +1265,7 @@ def eq (x y : ExtRat) : Bool :=
   | .Infinity _, _ => false
   | _, .Infinity _ => false
   | .Number r1, .Number r2 => r1 == r2
+
 
 
 @[simp]
@@ -2041,6 +2098,14 @@ theorem le_iff_eq_of_isNaN' (x y : PackedFloat e s)
   simp only [← PackedFloat.le_def, PackedFloat.le, hy]
   simp only [not_true_eq_false]
   grind
+
+@[simp]
+theorem getInfinity_le_getInfinity_iff_of_lt (sign1 sign2 : Bool) (hs : 0 < s) :
+    (PackedFloat.getInfinity e s sign1 ≤ PackedFloat.getInfinity e s sign2) ↔ (sign1 = false → sign2 = false) := by
+  simp only [← PackedFloat.le_def, PackedFloat.le]
+  simp [hs]
+  grind
+
 
 /--
 x is infinite iff it is equal to the infinity value with the same sign.
