@@ -384,7 +384,26 @@ theorem IsLawfulLower_Infinity_iff (x : PackedFloat e s)
       exact h2
   · intros h
     subst h
-    sorry
+    simp [he, hs]
+    intros lower hlower
+    rcases sign
+    case false =>
+      simp [he, hs] at hlower ⊢
+      -- he : 0 < e
+      -- hs : 0 < s
+      -- lower : PackedFloat e s
+      -- hlower : lower.isNaN = false
+      -- ⊢ lower ≤ PackedFloat.getInfinity e s false
+      grind only [=> PackedFloat.le_getInfinity_false_of_not_isNaN]
+    case true =>
+      simp [he, hs] at hlower ⊢
+-- e s : Nat
+-- he : 0 < e
+-- hs : 0 < s
+-- lower : PackedFloat e s
+-- hlower : lower.toExtRat' = ExtRat.Infinity true
+-- ⊢ lower = PackedFloat.getInfinity e s true
+      sorry
     -- grind only [!PackedFloat.toExtRat'_getInfinity]
 
 @[simp]

@@ -2244,7 +2244,7 @@ theorem le_eq_of_sign_eq_true_of_sign_eq_true {x y : PackedFloat e s}
 /--
 Every number is less than +∞
 -/
-@[grind =>]
+@[simp, grind =>]
 theorem le_getInfinity_false_of_not_isNaN (hs : 0 < s) (y : PackedFloat e s) :
     (y ≤ PackedFloat.getInfinity e s false) ↔ ¬ y.isNaN := by
   by_cases hnan : y.isNaN
