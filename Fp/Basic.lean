@@ -1904,6 +1904,8 @@ theorem toNumberRatExp_eq_of_isNorm {e s} {pf : PackedFloat e s} (hnorm : pf.isN
   pf.toNumberRatExp = pf.ex.toNat - bias e := by
   simp [toNumberRatExp, hnorm]
 
+-- TODO: Give this definition a better name; It exists
+-- to be a nicer version of 'toRat'.
 def toNumberRat {e s} (pf : PackedFloat e s) : Rat :=
     pf.sign.toSign * pf.toNumberRatSig * 2 ^ (pf.toNumberRatExp)
 
@@ -2621,6 +2623,10 @@ def toDyadic (uf : UnpackedFloat e s) : Dyadic :=
 def toRat (uf : UnpackedFloat e s) : Rat :=
   uf.toDyadic.toRat
 
+@[simp]
+theorem toRat_mkZero (sign : Bool) : (mkZero sign : UnpackedFloat e s).toRat = 0 := by
+  simp [mkZero, toRat, toDyadic]
+
 
 def toSigNat (uf : UnpackedFloat e s) : Nat :=
   let sig : BitVec (s + 1) := uf.sig.setWidth' (Nat.le.step Nat.le.refl)
@@ -2855,6 +2861,13 @@ theorem toExtRat_mkNan : toExtRat (mkNaN : EUnpackedFloat e s) = .NaN := by
 @[simp]
 theorem toExtRat_mkInfinity (sign : Bool) : toExtRat (mkInfinity sign : EUnpackedFloat e s) = .Infinity sign := by
   simp [toExtRat]
+
+@[simp]
+theorem toExtRat_mkZero (sign : Bool) : toExtRat (mkZero sign : EUnpackedFloat e s) = .Number 0 := by
+  simp [mkZero, toExtRat,
+    isNaN, isInfinite,
+    show (State.Number == State.NaN) = false by rfl,
+    show (State.Number == State.Infinity) = false by rfl]
 
 @[simp]
 theorem toExtRat_mkNumber (num : UnpackedFloat e s) : toExtRat (mkNumber num : EUnpackedFloat e s) = .Number num.toRat := by

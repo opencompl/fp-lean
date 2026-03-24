@@ -494,6 +494,8 @@ theorem toExtRat_unpack_eq_toExtRat {pf : PackedFloat e s}
       simp [EUnpackedFloat.mkInfinity]
   · simp only [EUnpackedFloat.toExtRat, cond_true, EUnpackedFloat.mkNaN_isNaN, toExtRat', hNaN]
 
+
+
 /--
 info: 'PackedFloat.toExtRat_unpack_eq_toExtRat' depends on axioms: [propext,
  BitVec.toNat_clz_cons,
@@ -501,5 +503,56 @@ info: 'PackedFloat.toExtRat_unpack_eq_toExtRat' depends on axioms: [propext,
  Quot.sound]
 -/
 #guard_msgs in #print axioms toExtRat_unpack_eq_toExtRat
+
+/--
+why do I even get this 'unpackNormOrNonzeroSubnorm' stuff?
+-/
+theorem toRat_toExtRat_eq_unpackNormOrNonzeroSubnorm_toRat {pf : PackedFloat e s}
+    (hpf : pf.isNormOrNonzeroSubnorm)
+    : pf.toExtRat = .Number pf.unpackNormOrNonzeroSubnorm.toRat := by
+  rw [← PackedFloat.toExtRat_unpack_eq_toExtRat]
+  rw [PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm hpf]
+  simp
+
+/--
+This shows that calling 'toNumberRat' agrees with 'toExtRat'.
+-/
+theorem toNumberRat_eq_of_toExtRat_eq_Number {pf : PackedFloat e s}
+    (hpf : pf.isNormOrNonzeroSubnorm)
+    {r : Rat}
+    (hr : pf.toExtRat = .Number r)
+    : pf.toNumberRat = r := by
+  have := pf.toExtRat_unpack_eq_toExtRat
+  rw [PackedFloat.unpack] at this
+  simp at this
+  simp [show ¬ pf.isNaN by grind, show ¬ pf.isInfinite by grind] at this
+  by_cases hz : pf.isZero
+  · simp [hz] at this
+    rw [PackedFloat.toExtRat_eq_toExtRat'] at hr
+    simp [PackedFloat.toExtRat'] at hr
+    simp [show ¬ pf.isNaN by grind, show ¬ pf.isInfinite by grind] at hr
+    exact hr
+  · simp [hz] at this
+    simp [PackedFloat.toExtRat'] at hr
+    simp [show ¬ pf.isNaN by grind, show ¬ pf.isInfinite by grind] at hr
+    exact hr
+
+/--
+The result of `toExtRat'` when it is a number
+equals calling 'toNumberRat'.
+-/
+@[simp]
+theorem toExtRat'_eq_Number_toNumberRat {pf : PackedFloat e s}
+    (hpf : pf.isNormOrNonzeroSubnorm)
+    : pf.toExtRat' = .Number pf.toNumberRat := by
+  simp [toExtRat']
+  simp [show ¬ pf.isNaN by grind, show ¬ pf.isInfinite by grind]
+
+-- TODO: what is the right abstraction level to deal with all of these?
+theorem toNumberRat_eq_unpackNormOrNonzeroSubnorm_toRat {pf : PackedFloat e s}
+    (hpf : pf.isNormOrNonzeroSubnorm)
+    : pf.unpackNormOrNonzeroSubnorm.toRat = pf.toNumberRat := by
+  have := pf.toExtRat'_eq_Number_toNumberRat hpf
+
 
 end PackedFloat
