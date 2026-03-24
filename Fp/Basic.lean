@@ -2296,7 +2296,7 @@ theorem PackedFloat.getInfinity_false_le_iff_eq (hs : 0 < s)
     grind only [le_refl]
 
 
-@[grind =>]
+@[grind =>, simp]
 theorem PackedFloat.getInfinity_true_le_of_not_isNaN (hs : 0 < s) (y : PackedFloat e s) :
     (PackedFloat.getInfinity e s true ≤ y) ↔ ¬ y.isNaN := by
   by_cases hnan : y.isNaN
@@ -3156,6 +3156,17 @@ theorem PackedFloat.zero_lt_toExtRat'_iff (x : PackedFloat e s) :
       · simp [hxZero]
       · simp [hxZero]
         grind
+
+@[simp]
+theorem eq_getInfinity_iff_toExtRat'_eq_Infinity (x : PackedFloat e s)
+    (sign : Bool)
+    (hs : 0 < s := by solve | simp | grind) :
+    x.toExtRat' = ExtRat.Infinity sign ↔ x  = PackedFloat.getInfinity e s sign := by
+  grind only [= toExtRat'_eq_Infinity_of_isInfinite, = toExtRat'_eq_NaN_of_isNaN,
+    = toExtRat'_eq_zero_of_isZero, = toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm,
+    !toExtRat'_getInfinity, !isInfinite_getInfinity, eq_getInfinity_iff_isInfinity,
+    = isNaN_iff_toExtRat'_eq_NaN, = isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero, #8ef6]
+
 
 end PackedFloat
 
