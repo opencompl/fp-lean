@@ -1639,7 +1639,7 @@ one isolated NaN for each NaN bit-pattern,
 along with the usual ordering for all other values.
 -/
 def le (x y : PackedFloat e s) : Prop :=
-    (x.isNaN ∧ y.isNaN ∧ x = y) ∨
+    (x.isNaN ∧ y.isNaN) ∨
     (¬ x.isNaN ∧ ¬ y.isNaN ∧
       ((x.sign = true ∧ y.sign = false) ∨ -- x negative, y positive.
       (x.sign = false ∧ y.sign = false ∧ x.ex.toNat < y.ex.toNat) ∨ -- both +ve, x smaller ex.
@@ -1668,16 +1668,17 @@ instance : LT (PackedFloat e s) where
 theorem lt_def (x y : PackedFloat e s) :
   x.lt y = (x < y) := rfl
 
-@[simp, grind =]
-theorem minus_zero_le_plus_zero {e s} :
-    (PackedFloat.getZero e s true ≤ PackedFloat.getZero e s false) =
-    (e = 0 → s ≠ 0) := by
+@[simp, grind .]
+theorem minus_zero_le_plus_zero {e s} (he : 0 < e) :
+    (PackedFloat.getZero e s true ≤ PackedFloat.getZero e s false) := by
   simp [getZero, ← PackedFloat.le_def, PackedFloat.le, PackedFloat.isNaN]
+  grind
 
 @[simp, grind .]
-theorem plus_zero_not_le_minus_zero :
+theorem plus_zero_not_le_minus_zero (he : 0 < e) :
     ¬ (PackedFloat.getZero e s false ≤ PackedFloat.getZero e s true) := by
   simp [getZero, ← PackedFloat.le_def, PackedFloat.le, PackedFloat.isNaN]
+  grind
 
 instance {x y : PackedFloat e s} : Decidable (x ≤ y) := by
     simp only [← PackedFloat.le_def]
@@ -1997,36 +1998,33 @@ theorem le_refl (x : PackedFloat e s) : x ≤ x := by simp [← le_def, PackedFl
 
 @[simp, grind .]
 theorem le_NaN (x : PackedFloat e s) :
-    x ≤ PackedFloat.getNaN e s ↔ x = PackedFloat.getNaN e s := by
+    x ≤ PackedFloat.getNaN e s ↔ x.isNaN := by
   by_cases hx : x.isNaN
   · simp only [← PackedFloat.le_def, PackedFloat.le, hx]
     simp only [isNaN_mkNaN, and_self, not_true_eq_false, false_and]
     grind
   · simp only [← PackedFloat.le_def, PackedFloat.le]
     simp [hx]
-    grind
 
 @[simp, grind .]
 theorem NaN_le (x : PackedFloat e s)
-    : PackedFloat.getNaN e s ≤ x ↔ x = PackedFloat.getNaN e s := by
+    : PackedFloat.getNaN e s ≤ x ↔ x.isNaN := by
   simp only [← PackedFloat.le_def, PackedFloat.le]
   simp only [isNaN_getNaN]
   by_cases hx : x.isNaN
   · simp [hx]
-    grind
   · simp [hx]
-    grind
 
 @[simp, grind .]
 theorem le_iff_eq_of_isNaN (x y : PackedFloat e s)
-  (hx : x.isNaN) : x ≤ y ↔ x = y := by
+  (hx : x.isNaN) : x ≤ y ↔ y.isNaN := by
   simp only [← PackedFloat.le_def, PackedFloat.le, hx]
   simp only [not_true_eq_false, false_and]
   grind
 
 @[simp, grind .]
 theorem le_iff_eq_of_isNaN' (x y : PackedFloat e s)
-  (hy : y.isNaN) : x ≤ y ↔ x = y := by
+  (hy : y.isNaN) : x ≤ y ↔ x.isNaN := by
   simp only [← PackedFloat.le_def, PackedFloat.le, hy]
   simp only [not_true_eq_false]
   grind
@@ -2144,7 +2142,7 @@ theorem le_eq_of_sign_eq_false_of_sign_eq_false {x y : PackedFloat e s}
     (hysign : y.sign = false := by solve | simp | grind) :
     (x ≤ y) = ((x.ex.toNat < y.ex.toNat) ∨ (x.ex.toNat = y.ex.toNat ∧ x.sig.toNat ≤ y.sig.toNat)):= by
   rw [← PackedFloat.le_def, PackedFloat.le]
-  grind only [BitVec.toNat_inj, #0bf13ef81725cfb4]
+  grind only [BitVec.toNat_inj, #71d0eef1ae01d63f]
 
 @[simp, grind .]
 theorem le_eq_of_sign_eq_true_of_sign_eq_true {x y : PackedFloat e s}
@@ -2154,7 +2152,7 @@ theorem le_eq_of_sign_eq_true_of_sign_eq_true {x y : PackedFloat e s}
     (hysign : y.sign = true := by solve | simp | grind) :
     (x ≤ y) = ((y.ex.toNat < x.ex.toNat) ∨ (x.ex.toNat = y.ex.toNat ∧  y.sig.toNat ≤ x.sig.toNat)):= by
   rw [← PackedFloat.le_def, PackedFloat.le]
-  grind only [BitVec.toNat_inj, #1f279ccc014b26d2]
+  grind only [BitVec.toNat_inj, #388592556a470371]
 
 /--
 Every number is less than +∞
@@ -2180,8 +2178,10 @@ theorem eq_getInfinity_of_getInfinity_le (hs : 0 < s) (y : PackedFloat e s)
   y = .getInfinity e s false := by
   have : (getInfinity e s false).sign = false := by grind
   by_cases hysign : y.sign
-  · have : ¬ ((getInfinity e s false) ≤ y) := by grind only [le_iff_eq_of_isNaN,
-    not_le_of_sign_eq_false_of_sign_eq_true]
+  · have : ¬ ((getInfinity e s false) ≤ y) := by
+      grind only [le_iff_eq_of_isNaN,
+        le_antisymm_of_ne_NaN, not_le_of_sign_eq_false_of_sign_eq_true,
+        => le_getInfinity_false_of_not_isNaN]
     grind only
   · simp at hysign
     have hle' := hle

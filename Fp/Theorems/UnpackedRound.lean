@@ -52,16 +52,20 @@ theorem isNaN_of_isLawfulLower (x : PackedFloat e s)
 theorem isLawfulLower_of_isNaN :
   (SmtLibSemantics.IsLawfulLower ExtRat.NaN (PackedFloat.getNaN e s)) := by
   simp only [SmtLibSemantics.IsLawfulLower]
-  sorry
+  simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
+    PackedFloat.isNaN_getNaN, PackedFloat.toExtRat'_eq_NaN_of_isNaN, ExtRat.ge_eq_le_symm,
+    ExtRat.ExtRat.le_NaN_iff, decide_true, PackedFloat.toExtRat'_eq_NaN_iff_isNaN,
+    Bool.decide_eq_true, PackedFloat.le_iff_eq_of_isNaN', imp_self, implies_true, and_self]
 
-/-
 @[simp]
-theorem IsLawfulLower_NaN_getNaN :
-   SmtLibSemantics.IsLawfulLower ExtRat.NaN (PackedFloat.getNaN e s) := by
-  simp [SmtLibSemantics.IsLawfulLower]
-  --  ∀ (lower' : PackedFloat e s), lower'.isNaN = true → lower' = PackedFloat.getNaN e
-  sorry
--/
+theorem isLawfulLower_NaN_iff_isNaN (x : PackedFloat e s) :
+   SmtLibSemantics.IsLawfulLower ExtRat.NaN x ↔ x.isNaN := by
+  simp only [SmtLibSemantics.IsLawfulLower, SmtLibSemantics.smtLibV_embed_eq,
+    PackedFloat.toExtRat_eq_toExtRat', ExtRat.ge_eq_le_symm, ExtRat.ExtRat.le_NaN_iff,
+    PackedFloat.toExtRat'_eq_NaN_iff_isNaN, Bool.decide_eq_true, and_iff_left_iff_imp]
+  intros hx
+  intros lower hlower
+  simp [hx, hlower]
 
 @[elab_as_elim]
 theorem Classical.epsilon_elim {α : Sort u} {p q : α → Prop} (y : α) (hy : p y)
@@ -71,50 +75,31 @@ theorem Classical.epsilon_elim {α : Sort u} {p q : α → Prop} (y : α) (hy : 
   apply Classical.epsilon_spec_aux
   · exists y
 
-/-
-@[simp, grind =]
-theorem lower_NaN_eq_PackedFloat_mkNaN :
-  (SmtLibSemantics.smtLibLower.lower ExtRat.NaN : PackedFloat e s).isNaN  := by
-  simp [SmtLibSemantics.smtLibLower]
-  apply Classical.epsilon_elim (q := fun (x : PackedFloat e s) => x.isNaN) (y := PackedFloat.getNaN e s)
-  · simp
-  · simp
--/
-
-/-
-@[simp]
-theorem IsLawfulUpper_NaN_iff (x : PackedFloat e s):
-   SmtLibSemantics.IsLawfulUpper ExtRat.NaN x ↔ x.isNaN := by
-  simp [SmtLibSemantics.IsLawfulUpper]
-  intros hnan
-  intros upper hupper
-  sorry
--/
-
-  -- constructor
-  -- · intros h
-  --   obtain ⟨h1, h2⟩ := h
-  --   grind
-  -- · intros h
-  --   simp [h]
 
 
-/-
 @[simp]
 theorem IsLawfulUpper_NaN_mkNaN :
    SmtLibSemantics.IsLawfulUpper ExtRat.NaN (PackedFloat.getNaN e s) := by
   simp [SmtLibSemantics.IsLawfulUpper]
--/
-/-
+
 @[simp]
-theorem upper_NaN_eq_PackedFloat_mkNaN :
+theorem isLawfulUpper_NaN_iff_isNaN (x : PackedFloat e s) :
+   SmtLibSemantics.IsLawfulUpper ExtRat.NaN x ↔ x.isNaN := by
+  simp only [SmtLibSemantics.IsLawfulUpper, SmtLibSemantics.smtLibV_embed_eq,
+    PackedFloat.toExtRat_eq_toExtRat', ExtRat.ge_eq_le_symm, ExtRat.ExtRat.NaN_le_iff,
+    PackedFloat.toExtRat'_eq_NaN_iff_isNaN, Bool.decide_eq_true, and_iff_left_iff_imp]
+  intros hx upper
+  simp [hx]
+
+@[simp]
+theorem isNaN_upper_NaN :
   (SmtLibSemantics.smtLibUpper.upper ExtRat.NaN : PackedFloat e s).isNaN := by
-  simp [SmtLibSemantics.smtLibUpper]
+  simp only [SmtLibSemantics.smtLibUpper, isLawfulUpper_NaN_iff_isNaN]
   apply Classical.epsilon_elim (q := fun (x : PackedFloat e s) => x.isNaN) (y := PackedFloat.getNaN e s)
   · simp
   · simp
--/
 
+@[simp]
 theorem isNaN_lower_NaN (e s : Nat) :
     (SmtLibSemantics.smtLibLower.lower ExtRat.NaN : PackedFloat e s).isNaN := by
   simp [SmtLibSemantics.smtLibLower]
@@ -129,25 +114,20 @@ theorem roundRNA_mkNaN (eout sout : Nat) (sign : Bool) :
     (ExtRat.NaN)).isNaN := by
   simp [SmtLibSemantics.RoundMethod.roundRNA]
   simp [SmtLibSemantics.ExtendedNumber.isNaN]
-  --  (SmtLibSemantics.smtLibLower.lower ExtRat.NaN).isNaN = true
-  sorry
 
-  -- apply lower_NaN_eq_PackedFloat_mkNaN
-
-/--
 @[simp]
 theorem roundRNE_mkNaN (eout sout : Nat) (sign : Bool) :
    ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRNE sign
     (ExtRat.NaN)).isNaN := by
-  simp [SmtLibSemantics.RoundMethod.roundRNE]
-  apply lower_NaN_eq_PackedFloat_mkNaN
+  simp [SmtLibSemantics.RoundMethod.roundRNE, SmtLibSemantics.ExtendedNumber.isNaN]
 
 @[simp]
 theorem roundRTP_mkNaN (eout sout : Nat) (sign : Bool) :
    ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRTP sign
     (ExtRat.NaN)).isNaN := by
   simp [SmtLibSemantics.RoundMethod.roundRTP]
-  apply lower_NaN_eq_PackedFloat_mkNaN
+  simp [SmtLibSemantics.ExtendedNumber.isNaN]
+
 
 
 @[simp]
@@ -165,14 +145,12 @@ theorem roundRTZ_mkNaN {eout sout : Nat} {sign : Bool} :
   simp [SmtLibSemantics.RoundMethod.roundRTZ, SmtLibSemantics.ExtendedNumber.isZero, ExtRat.eq,
     SmtLibSemantics.ExtendedNumber.gtZero, SmtLibSemantics.ExtendedNumber.smtLibEq,
     SmtLibSemantics.ExtendedNumber.ltZero]
--/
 
 @[simp]
-theorem round_eq_mkNaN_of_NaN {sign} {eout sout : Nat} {rm : RoundingMode} :
+theorem isNaN_round_of_nan {sign} {eout sout : Nat} {rm : RoundingMode} :
     ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round
         rm sign ExtRat.NaN).isNaN := by
-  sorry
-
+  rcases rm <;> simp
 
 @[simp]
 theorem IsLawfulLower_Zero_iff (x : PackedFloat e s) (he : 0 < e) :
