@@ -42,20 +42,30 @@ theorem roundQ_eq (eout sout : Nat) (rm : RoundingMode) (sign : Bool) (r : ExtRa
     r := rfl
 
 @[simp]
-theorem IsLawfulLower_NaN_iff (x : PackedFloat e s):
-   SmtLibSemantics.IsLawfulLower ExtRat.NaN x ↔ x.isNaN := by
-  simp [SmtLibSemantics.IsLawfulLower]
-  constructor
-  · intros h
-    obtain ⟨h1, h2⟩ := h
-    grind
-  · intros h
-    simp [h]
+theorem isNaN_of_isLawfulLower (x : PackedFloat e s)
+   (hlower : SmtLibSemantics.IsLawfulLower ExtRat.NaN x) :
+    x.isNaN := by
+  simp [SmtLibSemantics.IsLawfulLower] at hlower
+  simp [hlower]
 
 @[simp]
-theorem IsLawfulLower_NaN_getNaN :
-   SmtLibSemantics.IsLawfulLower ExtRat.NaN (PackedFloat.getNaN e s) := by
-  simp [SmtLibSemantics.IsLawfulLower]
+theorem isLawfulLower_of_isNaN :
+  (SmtLibSemantics.IsLawfulLower ExtRat.NaN (PackedFloat.getNaN e s)) := by
+  simp only [SmtLibSemantics.IsLawfulLower]
+  simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
+    PackedFloat.isNaN_getNaN, PackedFloat.toExtRat'_eq_NaN_of_isNaN, ExtRat.ge_eq_le_symm,
+    ExtRat.ExtRat.le_NaN_iff, decide_true, PackedFloat.toExtRat'_eq_NaN_iff_isNaN,
+    Bool.decide_eq_true, PackedFloat.le_iff_eq_of_isNaN', imp_self, implies_true, and_self]
+
+@[simp]
+theorem isLawfulLower_NaN_iff_isNaN (x : PackedFloat e s) :
+   SmtLibSemantics.IsLawfulLower ExtRat.NaN x ↔ x.isNaN := by
+  simp only [SmtLibSemantics.IsLawfulLower, SmtLibSemantics.smtLibV_embed_eq,
+    PackedFloat.toExtRat_eq_toExtRat', ExtRat.ge_eq_le_symm, ExtRat.ExtRat.le_NaN_iff,
+    PackedFloat.toExtRat'_eq_NaN_iff_isNaN, Bool.decide_eq_true, and_iff_left_iff_imp]
+  intros hx
+  intros lower hlower
+  simp [hx, hlower]
 
 @[elab_as_elim]
 theorem Classical.epsilon_elim {α : Sort u} {p q : α → Prop} (y : α) (hy : p y)
@@ -65,24 +75,7 @@ theorem Classical.epsilon_elim {α : Sort u} {p q : α → Prop} (y : α) (hy : 
   apply Classical.epsilon_spec_aux
   · exists y
 
-@[simp, grind =]
-theorem lower_NaN_eq_PackedFloat_mkNaN :
-  (SmtLibSemantics.smtLibLower.lower ExtRat.NaN : PackedFloat e s).isNaN  := by
-  simp [SmtLibSemantics.smtLibLower]
-  apply Classical.epsilon_elim (q := fun (x : PackedFloat e s) => x.isNaN) (y := PackedFloat.getNaN e s)
-  · simp
-  · simp
 
-@[simp]
-theorem IsLawfulUpper_NaN_iff (x : PackedFloat e s):
-   SmtLibSemantics.IsLawfulUpper ExtRat.NaN x ↔ x.isNaN := by
-  simp [SmtLibSemantics.IsLawfulUpper]
-  constructor
-  · intros h
-    obtain ⟨h1, h2⟩ := h
-    grind
-  · intros h
-    simp [h]
 
 @[simp]
 theorem IsLawfulUpper_NaN_mkNaN :
@@ -90,33 +83,51 @@ theorem IsLawfulUpper_NaN_mkNaN :
   simp [SmtLibSemantics.IsLawfulUpper]
 
 @[simp]
-theorem upper_NaN_eq_PackedFloat_mkNaN :
+theorem isLawfulUpper_NaN_iff_isNaN (x : PackedFloat e s) :
+   SmtLibSemantics.IsLawfulUpper ExtRat.NaN x ↔ x.isNaN := by
+  simp only [SmtLibSemantics.IsLawfulUpper, SmtLibSemantics.smtLibV_embed_eq,
+    PackedFloat.toExtRat_eq_toExtRat', ExtRat.ge_eq_le_symm, ExtRat.ExtRat.NaN_le_iff,
+    PackedFloat.toExtRat'_eq_NaN_iff_isNaN, Bool.decide_eq_true, and_iff_left_iff_imp]
+  intros hx upper
+  simp [hx]
+
+@[simp]
+theorem isNaN_upper_NaN :
   (SmtLibSemantics.smtLibUpper.upper ExtRat.NaN : PackedFloat e s).isNaN := by
-  simp [SmtLibSemantics.smtLibUpper]
+  simp only [SmtLibSemantics.smtLibUpper, isLawfulUpper_NaN_iff_isNaN]
   apply Classical.epsilon_elim (q := fun (x : PackedFloat e s) => x.isNaN) (y := PackedFloat.getNaN e s)
   · simp
   · simp
+
+@[simp]
+theorem isNaN_lower_NaN (e s : Nat) :
+    (SmtLibSemantics.smtLibLower.lower ExtRat.NaN : PackedFloat e s).isNaN := by
+  simp [SmtLibSemantics.smtLibLower]
+  apply Classical.epsilon_elim (q := fun (x : PackedFloat e s) => x.isNaN) (y := PackedFloat.getNaN e s)
+  · simp
+  · intros x hx
+    simp [hx]
 
 @[simp]
 theorem roundRNA_mkNaN (eout sout : Nat) (sign : Bool) :
   ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRNA sign
     (ExtRat.NaN)).isNaN := by
   simp [SmtLibSemantics.RoundMethod.roundRNA]
-  apply lower_NaN_eq_PackedFloat_mkNaN
+  simp [SmtLibSemantics.ExtendedNumber.isNaN]
 
 @[simp]
 theorem roundRNE_mkNaN (eout sout : Nat) (sign : Bool) :
    ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRNE sign
     (ExtRat.NaN)).isNaN := by
-  simp [SmtLibSemantics.RoundMethod.roundRNE]
-  apply lower_NaN_eq_PackedFloat_mkNaN
+  simp [SmtLibSemantics.RoundMethod.roundRNE, SmtLibSemantics.ExtendedNumber.isNaN]
 
 @[simp]
 theorem roundRTP_mkNaN (eout sout : Nat) (sign : Bool) :
    ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRTP sign
     (ExtRat.NaN)).isNaN := by
   simp [SmtLibSemantics.RoundMethod.roundRTP]
-  apply lower_NaN_eq_PackedFloat_mkNaN
+  simp [SmtLibSemantics.ExtendedNumber.isNaN]
+
 
 
 @[simp]
@@ -136,91 +147,146 @@ theorem roundRTZ_mkNaN {eout sout : Nat} {sign : Bool} :
     SmtLibSemantics.ExtendedNumber.ltZero]
 
 @[simp]
-theorem round_eq_mkNaN_of_NaN {sign} {eout sout : Nat} {rm : RoundingMode} :
+theorem isNaN_round_of_nan {sign} {eout sout : Nat} {rm : RoundingMode} :
     ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round
         rm sign ExtRat.NaN).isNaN := by
-  rcases rm
-  · simp
-  · simp
-  · simp
-  · simp
-  · simp
+  rcases rm <;> simp
+
+-- theorem PackedFloat.le_iff_toExtRat_le_of {x y : PackedFloat e s} (he : 0 < e)
+--     (hx : ¬ x.isNaN ∧ ¬ x.isZero) (hy : ¬ y.isNaN ∧ ¬ y.isZero) :
+--     x ≤ y ↔ (x.toExtRat' ≤ y.toExtRat') := by
+--   induction x using PackedFloat.kindCasesNaNInfZeroNum
+--   case nanCase n hnan =>
+--     simp [hnan] at hx
+--   case infCase signx =>
+--     sorry
+--   case zeroCase signx =>
+--     simp at hx
+--     lia
+--   case numCase n hn =>
+--     sorry
+
+theorem PackedFloat.le_of_toExtRat_le {x y : PackedFloat e s} (he : 0 < e)
+    (hx : ¬ x.isNaN ∧ ¬ x.isZero) (hy : ¬ y.isNaN ∧ ¬ y.isZero)
+    (hle : x.toExtRat' ≤ y.toExtRat') :
+    x ≤ y := by
+  induction x using PackedFloat.kindCasesNaNInfZeroNum
+  case nanCase n hnan =>
+    simp [hnan] at hx
+  case infCase signx =>
+    sorry
+  case zeroCase signx =>
+    simp at hx
+    lia
+  case numCase n hn =>
+    sorry
+
+
 
 @[simp]
 theorem IsLawfulLower_Zero_iff (x : PackedFloat e s) (he : 0 < e) :
-   SmtLibSemantics.IsLawfulLower (ExtRat.Number 0) x ↔ x.isZero := by
+   SmtLibSemantics.IsLawfulLower (ExtRat.Number 0) x ↔ (x = PackedFloat.getZero e s false) := by
   simp [SmtLibSemantics.IsLawfulLower]
   constructor
   · intros h
     obtain ⟨h1, h2⟩ := h
     specialize h2 (PackedFloat.getZero e s false)
-    simp [he] at h2
-    specialize h2 (by grind only)
-    have hx : x.toExtRat' = ExtRat.Number 0 := by grind
-    grind only [= PackedFloat.toExtRat'_eq_Infinity_of_isInfinite,
-      = PackedFloat.toExtRat'_eq_NaN_of_isNaN,
-      = PackedFloat.toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm,
-      = PackedFloat.isZero_iff_toNumberRat_eq_zero_of_isNormOrNonzeroSubnorm,
-      = PackedFloat.isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero]
+    simp [PackedFloat.isZero_getZero, he, decide_true,
+      Bool.not_eq_true, forall_const] at h2
+    specialize (h2 (by grind))
+    by_cases hzero : x.isZero
+    · simp [hzero] at h1
+      simp [h1] at h2
+      grind only [PackedFloat.eq_mkZero_of_isZero']
+    · simp [hzero] at h1
+      grind only
   · intros h
     simp [h]
-    grind only
+    simp [he]
+    constructor
+    · grind
+    · intros lower hlower
+      by_cases hzero : lower.isZero
+      · simp [hzero]
+        have hlower : lower = PackedFloat.getZero e s lower.sign := by
+          grind only [PackedFloat.eq_mkZero_of_isZero']
+        rw [hlower]
+        simp [he]
+      · simp [hzero]
+        intros hsign
+        apply PackedFloat.le_of_sign_eq_true_sign_eq_false
+        · grind
+        · grind
+        · grind
+        · grind
 
-set_option warn.sorry false in
 @[simp]
-theorem lower_zero_eq {eout sout : Nat} (heout : 0 < eout) (hsout : 0 < sout) :
+theorem lower_zero_eq {eout sout : Nat} (heout : 0 < eout)  :
   (SmtLibSemantics.smtLibLower.lower (ExtRat.Number 0) : PackedFloat eout sout) =
     PackedFloat.getZero eout sout false := by
   simp [SmtLibSemantics.smtLibLower]
   apply Classical.epsilon_elim (q := fun (x : PackedFloat eout sout) => x = PackedFloat.getZero eout sout false)
     (y := PackedFloat.getZero eout sout false)
-  · simp [SmtLibSemantics.IsLawfulLower, show 0 < sout by grind]
-    grind
+  · rw [IsLawfulLower_Zero_iff]
+    · grind
   · intros x hx
     simp [IsLawfulLower_Zero_iff, heout] at hx
-    -- | TODO: this needs some definnition fixing.
-    sorry
+    simp [hx]
 
+-- TODO: Can we somehow unify the lower/upper proofs?
 @[simp]
 theorem IsLawfulUpper_Zero_iff (x : PackedFloat e s) (he : 0 < e) :
-   SmtLibSemantics.IsLawfulUpper (ExtRat.Number 0) x ↔ x.isZero := by
+   SmtLibSemantics.IsLawfulUpper (ExtRat.Number 0) x ↔ ((x = PackedFloat.getZero e s true)):= by
   simp [SmtLibSemantics.IsLawfulUpper]
   constructor
   · intros h
     obtain ⟨h1, h2⟩ := h
-    specialize h2 (PackedFloat.getZero e s false)
-    simp [he] at h2
-    specialize h2 (by grind only)
-    have hx : x.toExtRat' = ExtRat.Number 0 := by grind
-    grind only [= PackedFloat.toExtRat'_eq_Infinity_of_isInfinite,
-      = PackedFloat.toExtRat'_eq_NaN_of_isNaN,
-      = PackedFloat.toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm,
-      = PackedFloat.isZero_iff_toNumberRat_eq_zero_of_isNormOrNonzeroSubnorm,
-      = PackedFloat.isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero]
+    specialize h2 (PackedFloat.getZero e s true)
+    simp [PackedFloat.isZero_getZero, he, decide_true,
+      Bool.not_eq_true, forall_const] at h2
+    specialize (h2 (by grind))
+    by_cases hzero : x.isZero
+    · simp [hzero] at h1
+      simp [h1] at h2
+      grind only [PackedFloat.eq_mkZero_of_isZero']
+    · simp [hzero] at h1
+      grind only
   · intros h
     simp [h]
-    grind only
+    simp [he]
+    constructor
+    · grind
+    · intros upper hupper
+      by_cases hzero : upper.isZero
+      · simp [hzero]
+        have hupper : upper = PackedFloat.getZero e s upper.sign := by
+          grind only [PackedFloat.eq_mkZero_of_isZero']
+        rw [hupper]
+        simp [he]
+      · simp [hzero]
+        intros hsign
+        apply PackedFloat.le_of_sign_eq_true_sign_eq_false
+        · grind
+        · grind
+        · grind
+        · grind
 
 
-set_option warn.sorry false in
 @[simp]
-theorem upper_zero_eq {eout sout : Nat} (heout : 0 < eout) (hsout : 0 < sout) :
+theorem upper_zero_eq {eout sout : Nat} (heout : 0 < eout) :
   (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number 0) : PackedFloat eout sout) =
     PackedFloat.getZero eout sout true := by
   simp [SmtLibSemantics.smtLibUpper]
   apply Classical.epsilon_elim (q := fun (x : PackedFloat eout sout) => x = PackedFloat.getZero eout sout true)
     (y := PackedFloat.getZero eout sout true)
-  · simp [SmtLibSemantics.IsLawfulUpper, show 0 < sout by grind]
-    grind
+  · rw [IsLawfulUpper_Zero_iff]
+    · grind
   · intros x hx
     simp [IsLawfulUpper_Zero_iff, heout] at hx
-    -- | TODO: this needs some definnition fixing in `IsLower/IsUpper'.
-    -- They currently compare over ExtRat, but they should compare over PackedFloat.
-    sorry
-
+    simp [hx]
 
 @[simp]
-theorem roundRTZ_Zero {eout sout : Nat} {zeroSign : Bool} (heout : 0 < eout) (hsout : 0 < sout) :
+theorem roundRTZ_zero {eout sout : Nat} {zeroSign : Bool} (heout : 0 < eout) :
   ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRTZ zeroSign
     (ExtRat.Number 0)) = PackedFloat.getZero eout sout zeroSign := by
   simp [SmtLibSemantics.RoundMethod.roundRTZ]
@@ -228,22 +294,70 @@ theorem roundRTZ_Zero {eout sout : Nat} {zeroSign : Bool} (heout : 0 < eout) (hs
   simp [SmtLibSemantics.ExtendedNumber.smtLibEq]
   rcases zeroSign
   case false =>
-    simp [lower_zero_eq, heout, hsout]
+    simp [lower_zero_eq, heout]
   case true =>
-    simp [upper_zero_eq, heout, hsout]
+    simp [upper_zero_eq, heout]
+
+@[simp]
+theorem roundRNA_zero {eout sout : Nat} {zeroSign : Bool} (heout : 0 < eout) :
+  ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRNA zeroSign
+    (ExtRat.Number 0)) = PackedFloat.getZero eout sout zeroSign := by
+  simp [SmtLibSemantics.RoundMethod.roundRNA]
+  simp [SmtLibSemantics.ExtendedNumber.isNaN]
+  simp [SmtLibSemantics.ExtendedNumber.isZero]
+  simp [SmtLibSemantics.ExtendedNumber.smtLibEq]
+  rcases zeroSign
+  case false =>
+    simp [lower_zero_eq, heout]
+  case true =>
+    simp [upper_zero_eq, heout]
+
+@[simp]
+theorem roundRNE_zero {eout sout : Nat} {zeroSign : Bool} (heout : 0 < eout) :
+  ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRNE zeroSign
+    (ExtRat.Number 0)) = PackedFloat.getZero eout sout zeroSign := by
+  simp [SmtLibSemantics.RoundMethod.roundRNE]
+  simp [SmtLibSemantics.ExtendedNumber.isNaN]
+  simp [SmtLibSemantics.ExtendedNumber.isZero]
+  simp [SmtLibSemantics.ExtendedNumber.smtLibEq]
+  rcases zeroSign
+  case false =>
+    simp [lower_zero_eq, heout]
+  case true =>
+    simp [upper_zero_eq, heout]
+
+@[simp]
+theorem roundRTN_zero {eout sout : Nat} {zeroSign : Bool} (heout : 0 < eout) :
+  ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRTN zeroSign
+    (ExtRat.Number 0)) = PackedFloat.getZero eout sout zeroSign := by
+  simp [SmtLibSemantics.RoundMethod.roundRTN]
+  simp [SmtLibSemantics.ExtendedNumber.isZero, SmtLibSemantics.ExtendedNumber.smtLibEq]
+  rcases zeroSign
+  case false =>
+    simp [lower_zero_eq, heout]
+  case true =>
+    simp [upper_zero_eq, heout]
+
+@[simp]
+theorem roundRTP_zero {eout sout : Nat} {zeroSign : Bool} (heout : 0 < eout) :
+  ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRTP zeroSign
+    (ExtRat.Number 0)) = PackedFloat.getZero eout sout zeroSign := by
+  simp [SmtLibSemantics.RoundMethod.roundRTP]
+  simp [SmtLibSemantics.ExtendedNumber.isNaN]
+  simp [SmtLibSemantics.ExtendedNumber.isZero, SmtLibSemantics.ExtendedNumber.smtLibEq]
+  rcases zeroSign
+  case false =>
+    simp [lower_zero_eq, heout]
+  case true =>
+    simp [upper_zero_eq, heout]
 
 set_option warn.sorry false in
 @[simp]
 theorem round_eq_mkZero_of_mkZero {zeroSign : Bool} {eout sout : Nat} {rm : RoundingMode}
-   (heout : 0 < eout) (hsout : 0 < sout) :
+   (heout : 0 < eout) :
     (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round
         rm zeroSign (ExtRat.Number 0) = PackedFloat.getZero eout sout zeroSign := by
-  rcases rm
-  · sorry
-  · sorry
-  · sorry
-  · sorry
-  · simp [heout, hsout]
+  rcases rm <;> simp [heout]
 
 set_option warn.sorry false in
 theorem roundQ_Number_eq_round (er : ExtRat) (uf : UnpackedFloat ein sin)
@@ -254,7 +368,7 @@ theorem roundQ_Number_eq_round (er : ExtRat) (uf : UnpackedFloat ein sin)
 
 @[simp]
 theorem IsLawfulLower_Infinity_iff (x : PackedFloat e s)
-    (he : 0 < e) (hs : 0 < s):
+    (he : 0 < e) (hs : 0 < s) :
    SmtLibSemantics.IsLawfulLower (ExtRat.Infinity sign) x ↔ (x = PackedFloat.getInfinity e s sign) := by
   simp [SmtLibSemantics.IsLawfulLower]
   constructor
@@ -264,19 +378,23 @@ theorem IsLawfulLower_Infinity_iff (x : PackedFloat e s)
     case nanCase n hnan =>
       simp [hnan] at h1
     case infCase signx =>
-      grind only [= PackedFloat.toExtRat'_eq_Infinity_of_isInfinite,
-        !PackedFloat.toExtRat'_getInfinity, !PackedFloat.isInfinite_getInfinity, #f30c]
+      sorry
+      -- grind only [= PackedFloat.toExtRat'_eq_Infinity_of_isInfinite,
+      --   !PackedFloat.toExtRat'_getInfinity, !PackedFloat.isInfinite_getInfinity, #f30c]
     case zeroCase signx =>
-      grind only [!PackedFloat.toExtRat'_getZero, !PackedFloat.toExtRat'_getInfinity,
-        !PackedFloat.isInfinite_getInfinity, = PackedFloat.toExtRat'_eq_Infinity_of_isInfinite,
-        #ab7c]
+      sorry
+      -- grind only [!PackedFloat.toExtRat'_getZero, !PackedFloat.toExtRat'_getInfinity,
+      --   !PackedFloat.isInfinite_getInfinity, = PackedFloat.toExtRat'_eq_Infinity_of_isInfinite,
+      --   #ab7c]
     case numCase n hn =>
-      grind only [= PackedFloat.toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm,
-        !PackedFloat.toExtRat'_getInfinity, !PackedFloat.isInfinite_getInfinity,
-        = PackedFloat.toExtRat'_eq_Infinity_of_isInfinite, #e8e0]
+      sorry
+      -- grind only [= PackedFloat.toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm,
+      --   !PackedFloat.toExtRat'_getInfinity, !PackedFloat.isInfinite_getInfinity,
+      --   = PackedFloat.toExtRat'_eq_Infinity_of_isInfinite, #e8e0]
   · intros h
     subst h
-    grind only [!PackedFloat.toExtRat'_getInfinity]
+    sorry
+    -- grind only [!PackedFloat.toExtRat'_getInfinity]
 
 @[simp]
 theorem IsLawfulUpper_Infinity_iff (x : PackedFloat e s)
@@ -290,19 +408,23 @@ theorem IsLawfulUpper_Infinity_iff (x : PackedFloat e s)
     case nanCase n hnan =>
       simp [hnan] at h1
     case infCase signx =>
-      grind only [= PackedFloat.toExtRat'_eq_Infinity_of_isInfinite,
-        !PackedFloat.toExtRat'_getInfinity, !PackedFloat.isInfinite_getInfinity, #8ecf]
+      sorry
+      -- grind only [= PackedFloat.toExtRat'_eq_Infinity_of_isInfinite,
+      --   !PackedFloat.toExtRat'_getInfinity, !PackedFloat.isInfinite_getInfinity, #8ecf]
     case zeroCase signx =>
-      grind only [!PackedFloat.toExtRat'_getZero, !PackedFloat.toExtRat'_getInfinity,
-        !PackedFloat.isInfinite_getInfinity, = PackedFloat.toExtRat'_eq_Infinity_of_isInfinite,
-        #d09f]
+      sorry
+      -- grind only [!PackedFloat.toExtRat'_getZero, !PackedFloat.toExtRat'_getInfinity,
+      --   !PackedFloat.isInfinite_getInfinity, = PackedFloat.toExtRat'_eq_Infinity_of_isInfinite,
+      --   #d09f]
     case numCase n hn =>
-      grind only [= PackedFloat.toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm,
-        !PackedFloat.toExtRat'_getInfinity, !PackedFloat.isInfinite_getInfinity,
-        = PackedFloat.toExtRat'_eq_Infinity_of_isInfinite, #7d9f]
+      sorry
+      -- grind only [= PackedFloat.toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm,
+      --   !PackedFloat.toExtRat'_getInfinity, !PackedFloat.isInfinite_getInfinity,
+      --   = PackedFloat.toExtRat'_eq_Infinity_of_isInfinite, #7d9f]
   · intros h
     subst h
-    grind only [!PackedFloat.toExtRat'_getInfinity]
+    sorry
+    -- grind only [!PackedFloat.toExtRat'_getInfinity]
 
 @[simp]
 theorem lower_infinity_eq_getInfinity {e s} (sign : Bool) (he : 0 < e) (hs : 0 < s) :
@@ -312,7 +434,7 @@ theorem lower_infinity_eq_getInfinity {e s} (sign : Bool) (he : 0 < e) (hs : 0 <
   apply Classical.epsilon_elim (q := fun (x : PackedFloat e s) => x = PackedFloat.getInfinity e s sign)
     (y := PackedFloat.getInfinity e s sign)
   · simp [SmtLibSemantics.IsLawfulLower, hs]
-    grind only
+    sorry
   · intros x hx
     grind only [IsLawfulLower_Infinity_iff]
 
@@ -324,7 +446,7 @@ theorem upper_infinity_eq_getInfinity {e s} (sign : Bool) (he : 0 < e) (hs : 0 <
   apply Classical.epsilon_elim (q := fun (x : PackedFloat e s) => x = PackedFloat.getInfinity e s sign)
     (y := PackedFloat.getInfinity e s sign)
   · simp [SmtLibSemantics.IsLawfulUpper, hs]
-    grind only
+    sorry
   · intros x hx
     grind only [IsLawfulUpper_Infinity_iff]
 

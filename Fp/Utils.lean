@@ -227,3 +227,5 @@ theorem Rat.le_mul_self_of_le_one_of_nonneg {y} {x : Rat} (hx0 : 0 ≤ x ∧ x �
   · grind only
   · grind only [Rat.le_of_lt, Fp.Rat.two_pow_pos]
   · grind only [Rat.le_of_lt, Fp.Rat.two_pow_pos]
+
+attribute [simp] Rat.le_refl
