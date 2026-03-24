@@ -2075,6 +2075,14 @@ theorem le_iff_sign_eq_of_isZero (x y : PackedFloat e s)
     · simp [hysign]
       grind
 
+@[simp]
+theorem PackedFloat.getZero_le_getZero_iff
+    (he : 0 < e) (sign1 sign2 : Bool) :
+    (PackedFloat.getZero e s sign1 ≤ PackedFloat.getZero e s sign2) ↔ (sign1 = false → sign2 = false) := by
+  simp only [PackedFloat.isZero_getZero, he, decide_true, PackedFloat.le_iff_sign_eq_of_isZero,
+    PackedFloat.sign_getZero]
+
+
 attribute [grind .] BitVec.toNat_inj
 attribute [grind .] BitVec.toInt_inj
 

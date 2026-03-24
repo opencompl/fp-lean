@@ -152,6 +152,37 @@ theorem isNaN_round_of_nan {sign} {eout sout : Nat} {rm : RoundingMode} :
         rm sign ExtRat.NaN).isNaN := by
   rcases rm <;> simp
 
+-- theorem PackedFloat.le_iff_toExtRat_le_of {x y : PackedFloat e s} (he : 0 < e)
+--     (hx : ¬ x.isNaN ∧ ¬ x.isZero) (hy : ¬ y.isNaN ∧ ¬ y.isZero) :
+--     x ≤ y ↔ (x.toExtRat' ≤ y.toExtRat') := by
+--   induction x using PackedFloat.kindCasesNaNInfZeroNum
+--   case nanCase n hnan =>
+--     simp [hnan] at hx
+--   case infCase signx =>
+--     sorry
+--   case zeroCase signx =>
+--     simp at hx
+--     lia
+--   case numCase n hn =>
+--     sorry
+
+theorem PackedFloat.le_of_toExtRat_le {x y : PackedFloat e s} (he : 0 < e)
+    (hx : ¬ x.isNaN ∧ ¬ x.isZero) (hy : ¬ y.isNaN ∧ ¬ y.isZero)
+    (hle : x.toExtRat' ≤ y.toExtRat') :
+    x ≤ y := by
+  induction x using PackedFloat.kindCasesNaNInfZeroNum
+  case nanCase n hnan =>
+    simp [hnan] at hx
+  case infCase signx =>
+    sorry
+  case zeroCase signx =>
+    simp at hx
+    lia
+  case numCase n hn =>
+    sorry
+
+
+
 @[simp]
 theorem IsLawfulLower_Zero_iff (x : PackedFloat e s) (he : 0 < e) :
    SmtLibSemantics.IsLawfulLower (ExtRat.Number 0) x ↔ (x = PackedFloat.getZero e s false) := by
@@ -177,9 +208,10 @@ theorem IsLawfulLower_Zero_iff (x : PackedFloat e s) (he : 0 < e) :
     · intros lower hlower
       by_cases hzero : lower.isZero
       · simp [hzero]
-        -- | TODO: develop theory that says that le iff toExtRat_le
-        -- This grind? is just disgusting.
-        grind?
+        have hlower : lower = PackedFloat.getZero e s lower.sign := by
+          grind only [PackedFloat.eq_mkZero_of_isZero']
+        rw [hlower]
+        simp [he]
       · simp [hzero]
         intros hsign
         apply PackedFloat.le_of_sign_eq_true_sign_eq_false
