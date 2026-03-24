@@ -146,12 +146,104 @@ theorem round_eq_mkNaN_of_NaN {sign} {eout sout : Nat} {rm : RoundingMode} :
   · simp
   · simp
 
+@[simp]
+theorem IsLawfulLower_Zero_iff (x : PackedFloat e s) (he : 0 < e) :
+   SmtLibSemantics.IsLawfulLower (ExtRat.Number 0) x ↔ x.isZero := by
+  simp [SmtLibSemantics.IsLawfulLower]
+  constructor
+  · intros h
+    obtain ⟨h1, h2⟩ := h
+    specialize h2 (PackedFloat.getZero e s false)
+    simp [he] at h2
+    specialize h2 (by grind only)
+    have hx : x.toExtRat' = ExtRat.Number 0 := by grind
+    grind only [= PackedFloat.toExtRat'_eq_Infinity_of_isInfinite,
+      = PackedFloat.toExtRat'_eq_NaN_of_isNaN,
+      = PackedFloat.toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm,
+      = PackedFloat.isZero_iff_toNumberRat_eq_zero_of_isNormOrNonzeroSubnorm,
+      = PackedFloat.isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero]
+  · intros h
+    simp [h]
+    grind only
+
 set_option warn.sorry false in
 @[simp]
-theorem round_eq_mkZero_of_mkZero {zeroSign : Bool} {eout sout : Nat} {rm : RoundingMode} :
+theorem lower_zero_eq {eout sout : Nat} (heout : 0 < eout) (hsout : 0 < sout) :
+  (SmtLibSemantics.smtLibLower.lower (ExtRat.Number 0) : PackedFloat eout sout) =
+    PackedFloat.getZero eout sout false := by
+  simp [SmtLibSemantics.smtLibLower]
+  apply Classical.epsilon_elim (q := fun (x : PackedFloat eout sout) => x = PackedFloat.getZero eout sout false)
+    (y := PackedFloat.getZero eout sout false)
+  · simp [SmtLibSemantics.IsLawfulLower, show 0 < sout by grind]
+    grind
+  · intros x hx
+    simp [IsLawfulLower_Zero_iff, heout] at hx
+    -- | TODO: this needs some definnition fixing.
+    sorry
+
+@[simp]
+theorem IsLawfulUpper_Zero_iff (x : PackedFloat e s) (he : 0 < e) :
+   SmtLibSemantics.IsLawfulUpper (ExtRat.Number 0) x ↔ x.isZero := by
+  simp [SmtLibSemantics.IsLawfulUpper]
+  constructor
+  · intros h
+    obtain ⟨h1, h2⟩ := h
+    specialize h2 (PackedFloat.getZero e s false)
+    simp [he] at h2
+    specialize h2 (by grind only)
+    have hx : x.toExtRat' = ExtRat.Number 0 := by grind
+    grind only [= PackedFloat.toExtRat'_eq_Infinity_of_isInfinite,
+      = PackedFloat.toExtRat'_eq_NaN_of_isNaN,
+      = PackedFloat.toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm,
+      = PackedFloat.isZero_iff_toNumberRat_eq_zero_of_isNormOrNonzeroSubnorm,
+      = PackedFloat.isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero]
+  · intros h
+    simp [h]
+    grind only
+
+
+set_option warn.sorry false in
+@[simp]
+theorem upper_zero_eq {eout sout : Nat} (heout : 0 < eout) (hsout : 0 < sout) :
+  (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number 0) : PackedFloat eout sout) =
+    PackedFloat.getZero eout sout true := by
+  simp [SmtLibSemantics.smtLibUpper]
+  apply Classical.epsilon_elim (q := fun (x : PackedFloat eout sout) => x = PackedFloat.getZero eout sout true)
+    (y := PackedFloat.getZero eout sout true)
+  · simp [SmtLibSemantics.IsLawfulUpper, show 0 < sout by grind]
+    grind
+  · intros x hx
+    simp [IsLawfulUpper_Zero_iff, heout] at hx
+    -- | TODO: this needs some definnition fixing in `IsLower/IsUpper'.
+    -- They currently compare over ExtRat, but they should compare over PackedFloat.
+    sorry
+
+
+@[simp]
+theorem roundRTZ_Zero {eout sout : Nat} {zeroSign : Bool} (heout : 0 < eout) (hsout : 0 < sout) :
+  ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRTZ zeroSign
+    (ExtRat.Number 0)) = PackedFloat.getZero eout sout zeroSign := by
+  simp [SmtLibSemantics.RoundMethod.roundRTZ]
+  simp [SmtLibSemantics.ExtendedNumber.isZero]
+  simp [SmtLibSemantics.ExtendedNumber.smtLibEq]
+  rcases zeroSign
+  case false =>
+    simp [lower_zero_eq, heout, hsout]
+  case true =>
+    simp [upper_zero_eq, heout, hsout]
+
+set_option warn.sorry false in
+@[simp]
+theorem round_eq_mkZero_of_mkZero {zeroSign : Bool} {eout sout : Nat} {rm : RoundingMode}
+   (heout : 0 < eout) (hsout : 0 < sout) :
     (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round
         rm zeroSign (ExtRat.Number 0) = PackedFloat.getZero eout sout zeroSign := by
-  rcases rm <;> sorry
+  rcases rm
+  · sorry
+  · sorry
+  · sorry
+  · sorry
+  · simp [heout, hsout]
 
 set_option warn.sorry false in
 theorem roundQ_Number_eq_round (er : ExtRat) (uf : UnpackedFloat ein sin)
@@ -330,13 +422,16 @@ def EquivUptoNaN {e s : Nat} (x y : PackedFloat e s) : Prop :=
 theorem EquivUptoNaN.of_isNaN_isNaN (x y : PackedFloat e s) (hx : x.isNaN) (hy : y.isNaN) : EquivUptoNaN x y :=
   by simp [EquivUptoNaN, hx, hy]
 
-
 theorem EquivUptoNaN.of_eq (x y : PackedFloat e s) (h : x = y) : EquivUptoNaN x y := by simp [EquivUptoNaN, h]
 
 @[simp]
 theorem EquivUptoNaN.of_mkNaN_iff (x : PackedFloat e s) : EquivUptoNaN x (PackedFloat.getNaN e s) ↔ x.isNaN := by
   simp [EquivUptoNaN]
   grind only [!PackedFloat.isNaN_mkNaN]
+
+theorem unpackedNormOrNonzeroSubnorm_mul_unpackNormOrNonzeroSubnorm_toRat_eq_mul_toNumberRat {a b : PackedFloat e s} (ha : a.isNormOrNonzeroSubnorm) (hb : b.isNormOrNonzeroSubnorm) :
+  (a.unpackNormOrNonzeroSubnorm.mul b.unpackNormOrNonzeroSubnorm).toRat = a.toNumberRat * b.toNumberRat := by sorry
+
 
 set_option warn.sorry false in
 /--
@@ -393,7 +488,7 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
       simp [hsin]
     case zeroCase signb =>
       simp [he]
-      simp [SmtLibSemantics.SmtLibFunctions.xorSign]
+      simp [SmtLibSemantics.SmtLibFunctions.xorSign, he, hsin]
       simp [show decide (ein = 0) = false by grind]
       apply EquivUptoNaN.of_eq
       grind only
@@ -401,7 +496,7 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
       rw [PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm hb]
       simp
       rw [PackedFloat.toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm hb]
-      simp only [ExtRat.number_mul_number_eq, Rat.zero_mul, round_eq_mkZero_of_mkZero]
+      simp only [ExtRat.number_mul_number_eq, Rat.zero_mul, round_eq_mkZero_of_mkZero, he, hsin]
       simp [SmtLibSemantics.SmtLibFunctions.xorSign]
       simp [show ¬ b.isNaN by grind]
       simp [show ¬ b.isInfinite by grind]
@@ -430,7 +525,7 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
       rw [show (signb ^^ a.sign) = (a.sign ^^ signb) by grind]
     case zeroCase signb =>
       simp [he]
-      simp [SmtLibSemantics.SmtLibFunctions.xorSign]
+      simp [SmtLibSemantics.SmtLibFunctions.xorSign, he, hsin]
       apply EquivUptoNaN.of_eq
       grind only
     case numCase hb =>
@@ -444,7 +539,7 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
       rw [roundQ_Number_eq_round]
       rw [PackedFloat.toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm hb]
       simp only [ExtRat.number_mul_number_eq, ExtRat.Number.injEq]
-      -- Purely arithmetic statement.
-      -- ⊢ (a.unpackNormOrNonzeroSubnorm.mul b.unpackNormOrNonzeroSubnorm).toRat = a.toNumberRat * b.toNumberRat
-      sorry
+      apply unpackedNormOrNonzeroSubnorm_mul_unpackNormOrNonzeroSubnorm_toRat_eq_mul_toNumberRat
+      · grind
+      · grind
 end Fp

@@ -256,7 +256,12 @@ open Classical in
 noncomputable def smtLibLower [Inhabited X] [ExtendedNumber R] [RoundableEmbed X R] : RoundableLower X R where
   lower (r : R) : X := epsilon (fun x => IsLawfulLower r x)
 
-/-- 'upper' is a valid least upper bound for 'r'. -/
+/--
+'upper' is a valid least upper bound for 'r'.
+TODO: need to use RoundableLe to say that `upper ≤ upper'`
+to get the correct ordering.
+This definition is too loose.
+-/
 def IsLawfulUpper [ExtendedNumber R] [RE : RoundableEmbed X R] (r : R) (upper : X) : Prop :=
   r ≤ RE.embed upper ∧ (∀ (upper' : X), r ≤ RE.embed upper' → RE.embed upper ≤ RE.embed upper')
 
