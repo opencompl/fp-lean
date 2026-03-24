@@ -331,8 +331,11 @@ theorem round_eq_mkZero_of_mkZero {zeroSign : Bool} {eout sout : Nat} {rm : Roun
 -- | TODO: find the right theorem statement here,
 -- we should talk about guard and sticky bits and whatnot.
 set_option warn.sorry false in
-theorem roundQ_Number_eq_round (er : ExtRat) (uf : UnpackedFloat ein sin)
-    (hruf : ExtRat.Number uf.toRat = er) :
+theorem roundQ_Number_eq_round {rm : RoundingMode}
+    {ein sin eout sout : Nat} {sign : Bool}
+    (er : ExtRat) (uf : UnpackedFloat ein sin)
+    -- | round works correctly as long as our number is close enough.
+    (hApprox : (ExtRat.Number uf.toRat -  er).abs < ExtRat.Number ((2 : Rat) ^ (- (eout : Int)))) :
     (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round rm sign er =
     (UnpackedFloat.round uf rm).pack := by
   sorry
@@ -564,8 +567,12 @@ theorem EquivUptoNaN.of_mkNaN_iff (x : PackedFloat e s) : EquivUptoNaN x (Packed
   simp [EquivUptoNaN]
   grind only [!PackedFloat.isNaN_mkNaN]
 
-theorem unpackedNormOrNonzeroSubnorm_mul_unpackNormOrNonzeroSubnorm_toRat_eq_mul_toNumberRat {a b : PackedFloat e s} (ha : a.isNormOrNonzeroSubnorm) (hb : b.isNormOrNonzeroSubnorm) :
-  (a.unpackNormOrNonzeroSubnorm.mul b.unpackNormOrNonzeroSubnorm).toRat = a.toNumberRat * b.toNumberRat := by sorry
+theorem unpackedNormOrNonzeroSubnorm_mul_unpackNormOrNonzeroSubnorm_toRat_eq_mul_toNumberRat
+    {a b : PackedFloat e s}
+    (ha : a.isNormOrNonzeroSubnorm)
+    (hb : b.isNormOrNonzeroSubnorm) :
+    ((a.unpackNormOrNonzeroSubnorm.mul b.unpackNormOrNonzeroSubnorm).toRat - a.toNumberRat * b.toNumberRat).abs <
+  (2 : Rat) ^ (-(e : Int)) := by sorry
 
 
 set_option warn.sorry false in
@@ -660,7 +667,7 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
       rw [show (signb ^^ a.sign) = (a.sign ^^ signb) by grind]
     case zeroCase signb =>
       simp [he]
-      simp [SmtLibSemantics.SmtLibFunctions.xorSign, he, hsin]
+      simp [SmtLibSemantics.SmtLibFunctions.xorSign, hsin]
       apply EquivUptoNaN.of_eq
       grind only
     case numCase hb =>
@@ -673,7 +680,8 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
       apply EquivUptoNaN.of_eq
       rw [roundQ_Number_eq_round]
       rw [PackedFloat.toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm hb]
-      simp only [ExtRat.number_mul_number_eq, ExtRat.Number.injEq]
+      simp only [ExtRat.number_mul_number_eq]
+      simp
       apply unpackedNormOrNonzeroSubnorm_mul_unpackNormOrNonzeroSubnorm_toRat_eq_mul_toNumberRat
       · grind
       · grind
