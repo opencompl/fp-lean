@@ -328,6 +328,8 @@ theorem round_eq_mkZero_of_mkZero {zeroSign : Bool} {eout sout : Nat} {rm : Roun
         rm zeroSign (ExtRat.Number 0) = PackedFloat.getZero eout sout zeroSign := by
   rcases rm <;> simp [heout]
 
+-- | TODO: find the right theorem statement here,
+-- we should talk about guard and sticky bits and whatnot.
 set_option warn.sorry false in
 theorem roundQ_Number_eq_round (er : ExtRat) (uf : UnpackedFloat ein sin)
     (hruf : ExtRat.Number uf.toRat = er) :
@@ -428,7 +430,17 @@ theorem lower_infinity_eq_getInfinity {e s} (sign : Bool) (he : 0 < e) (hs : 0 <
   apply Classical.epsilon_elim (q := fun (x : PackedFloat e s) => x = PackedFloat.getInfinity e s sign)
     (y := PackedFloat.getInfinity e s sign)
   · simp [SmtLibSemantics.IsLawfulLower, hs]
-    sorry
+    intros lower hlower
+    rcases sign
+    case false =>
+      simp at hlower
+      simp [hs]
+      simp [hlower]
+    case true =>
+      simp at hlower
+      simp [hs] at hlower
+      subst hlower
+      simp
   · intros x hx
     grind only [IsLawfulLower_Infinity_iff]
 
@@ -440,7 +452,14 @@ theorem upper_infinity_eq_getInfinity {e s} (sign : Bool) (he : 0 < e) (hs : 0 <
   apply Classical.epsilon_elim (q := fun (x : PackedFloat e s) => x = PackedFloat.getInfinity e s sign)
     (y := PackedFloat.getInfinity e s sign)
   · simp [SmtLibSemantics.IsLawfulUpper, hs]
-    sorry
+    intros upper hupper
+    rcases sign
+    case false =>
+      simp [hs] at hupper ⊢
+      grind only [=> PackedFloat.le_getInfinity_false_of_not_isNaN]
+    case true =>
+      simp? [he, hs] at hupper ⊢
+      exact hupper
   · intros x hx
     grind only [IsLawfulUpper_Infinity_iff]
 
