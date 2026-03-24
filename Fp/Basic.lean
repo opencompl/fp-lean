@@ -549,12 +549,13 @@ def isZero (pf : PackedFloat e s) : Bool :=
 
 @[simp, grind →]
 theorem eq_mkZero_of_isZero {pf : PackedFloat e s} :
-    pf.isZero →  ∃ (sign : Bool), pf = PackedFloat.getZero e s sign := by
+    pf.isZero → ∃ (sign : Bool), pf = PackedFloat.getZero e s sign := by
   intro h
   simp [isZero] at h
   simp [PackedFloat.getZero]
   rcases pf with ⟨sign, ex, sig⟩
   simp_all
+
 
 @[simp, grind .]
 theorem isZero_getZero {exWidth sigWidth : Nat} (sign : Bool) :
@@ -562,6 +563,18 @@ theorem isZero_getZero {exWidth sigWidth : Nat} (sign : Bool) :
   simp [PackedFloat.getZero, isZero]
   grind
 
+@[simp, grind .]
+theorem eq_mkZero_of_isZero' {pf : PackedFloat e s} {sign : Bool} (he : 0 < e):
+    (pf.isZero ∧ sign = pf.sign) ↔  pf = PackedFloat.getZero e s sign := by
+  constructor
+  · intros h
+    simp [isZero] at h
+    simp [PackedFloat.getZero]
+    rcases pf with ⟨sign, ex, sig⟩
+    simp_all
+  · intros h
+    rw [h]
+    simp [he]
 @[simp, grind =]
 theorem zero_eq_allOnes_eq_decide (e : Nat) :
     (0#e = BitVec.allOnes e) = decide (e = 0) := by
@@ -2114,8 +2127,9 @@ theorem le_trans
           #2d6d3bcdb3a3b35c, #31dd348e5c4aee2a, #a7908cd812b01724, #f811994cd6c34475,
           #7d54ade5a8b64ca3, #b35f21abfee2096d]
 
-/-
+/--
 If the numbers are notNaN, then 'x ≤ y' if the x is negative and y is positive.
+TODO: tag as grind.
 -/
 @[simp]
 theorem le_of_sign_eq_true_sign_eq_false {x y : PackedFloat e s}
@@ -2124,7 +2138,7 @@ theorem le_of_sign_eq_true_sign_eq_false {x y : PackedFloat e s}
   rw [← PackedFloat.le_def, PackedFloat.le]
   grind only
 
-/-
+/--
 If the numbers are notNaN, then 'x ≤ y' if the x is negative and y is positive.
 -/
 @[simp, grind .]
@@ -2371,7 +2385,7 @@ theorem le_zero_iff_sign_eq_true {x : PackedFloat e s} (he : 0 < e):
       grind only [not_le_of_sign_eq_false_of_sign_eq_true]
 
 @[simp]
-theorem zero_le_iff_sign_eq_false {x : PackedFloat e s} (he : 0 < e):
+theorem zero_le_iff_sign_eq_false {x : PackedFloat e s} (he : 0 < e) :
   (PackedFloat.getZero e s false ≤ x) ↔ (x.sign = false ∧ ¬ x.isNaN) := by
   by_cases hxNaN : x.isNaN
   · simp [hxNaN]
@@ -2991,6 +3005,85 @@ theorem isNaN_iff_toExtRat'_eq_NaN (x : PackedFloat e s) (hs : 0 < s) :
     simp [h]
   · intros hx
     induction x using PackedFloat.classification <;> grind
+
+@[simp]
+theorem PackedFloat.zero_le_toExtRat'_iff (x : PackedFloat e s) :
+    ExtRat.Number 0 ≤ x.toExtRat' ↔ (¬ x.isNaN ∧ (x.isZero ∨ x.sign = false)) := by
+  simp [PackedFloat.toExtRat']
+  by_cases hxNaN : x.isNaN
+  · simp [hxNaN]
+  · simp [hxNaN]
+    by_cases hxInf : x.isInfinite
+    · simp [hxInf]
+      -- | TODO: this should be 'grind' able, I need to lint grind.
+      rcases x.sign
+      · simp
+      · simp; grind only [→ PackedFloat.not_isZero_of_isInfinite]
+    · simp [hxInf]
+      by_cases hxZero : x.isZero
+      · simp [hxZero]
+      · simp [hxZero]
+        grind
+
+@[simp]
+theorem PackedFloat.le_zero_toExtRat'_iff (x : PackedFloat e s) :
+    x.toExtRat' ≤ .Number 0 ↔ (¬ x.isNaN ∧ (x.isZero ∨ x.sign = true)) := by
+  simp [PackedFloat.toExtRat']
+  by_cases hxNaN : x.isNaN
+  · simp [hxNaN]
+  · simp [hxNaN]
+    by_cases hxInf : x.isInfinite
+    · simp [hxInf]
+      -- | TODO: this should be 'grind' able, I need to lint grind.
+      rcases x.sign
+      · simp
+        grind only [→ not_isZero_of_isInfinite]
+      · simp
+    · simp [hxInf]
+      by_cases hxZero : x.isZero
+      · simp [hxZero]
+      · simp [hxZero]
+        grind
+
+
+@[simp]
+theorem PackedFloat.lt_zero_toExtRat'_iff (x : PackedFloat e s) :
+    x.toExtRat' < .Number 0 ↔ (¬ x.isNaN ∧ ¬ x.isZero ∧ x.sign = true) := by
+  simp [PackedFloat.toExtRat']
+  by_cases hxNaN : x.isNaN
+  · simp [hxNaN]
+  · simp [hxNaN]
+    by_cases hxInf : x.isInfinite
+    · simp [hxInf]
+      -- | TODO: this should be 'grind' able, I need to lint grind.
+      rcases x.sign
+      · simp
+      · simp; grind only [→ not_isZero_of_isInfinite]
+    · simp [hxInf]
+      by_cases hxZero : x.isZero
+      · simp [hxZero]
+      · simp [hxZero]
+        grind
+
+@[simp]
+theorem PackedFloat.zero_lt_toExtRat'_iff (x : PackedFloat e s) :
+    .Number 0 < x.toExtRat' ↔ (¬ x.isNaN ∧ ¬ x.isZero ∧ x.sign = false) := by
+  simp [PackedFloat.toExtRat']
+  by_cases hxNaN : x.isNaN
+  · simp [hxNaN]
+  · simp [hxNaN]
+    by_cases hxInf : x.isInfinite
+    · simp [hxInf]
+      -- | TODO: this should be 'grind' able, I need to lint grind.
+      rcases x.sign
+      · simp; grind only [→ not_isZero_of_isInfinite]
+      · simp;
+    · simp [hxInf]
+      by_cases hxZero : x.isZero
+      · simp [hxZero]
+      · simp [hxZero]
+        grind
+
 end PackedFloat
 
 namespace UnpackedFloat

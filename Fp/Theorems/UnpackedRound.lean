@@ -160,27 +160,43 @@ theorem IsLawfulLower_Zero_iff (x : PackedFloat e s) (he : 0 < e) :
   · intros h
     obtain ⟨h1, h2⟩ := h
     specialize h2 (PackedFloat.getZero e s false)
-    simp [he] at h2
-    specialize h2 (by grind only)
-    -- grind
-    sorry
+    simp [PackedFloat.isZero_getZero, he, decide_true,
+      Bool.not_eq_true, forall_const] at h2
+    specialize (h2 (by grind))
+    by_cases hzero : x.isZero
+    · simp [hzero] at h1
+      simp [h1] at h2
+      grind only [PackedFloat.eq_mkZero_of_isZero']
+    · simp [hzero] at h1
+      grind only
   · intros h
     simp [h]
-    -- simp [show (0 : Rat) ≤ 0 by grind]
-    -- intros lower hlower
-    sorry
+    simp [he]
+    constructor
+    · grind
+    · intros lower hlower
+      by_cases hzero : lower.isZero
+      · simp [hzero]
+        -- | TODO: develop theory that says that le iff toExtRat_le
+        -- This grind? is just disgusting.
+        grind?
+      · simp [hzero]
+        intros hsign
+        apply PackedFloat.le_of_sign_eq_true_sign_eq_false
+        · grind
+        · grind
+        · grind
+        · grind
 
-set_option warn.sorry false in
 @[simp]
-theorem lower_zero_eq {eout sout : Nat} (heout : 0 < eout) (hsout : 0 < sout) :
+theorem lower_zero_eq {eout sout : Nat} (heout : 0 < eout)  :
   (SmtLibSemantics.smtLibLower.lower (ExtRat.Number 0) : PackedFloat eout sout) =
     PackedFloat.getZero eout sout false := by
   simp [SmtLibSemantics.smtLibLower]
   apply Classical.epsilon_elim (q := fun (x : PackedFloat eout sout) => x = PackedFloat.getZero eout sout false)
     (y := PackedFloat.getZero eout sout false)
-  · simp [SmtLibSemantics.IsLawfulLower, show 0 < sout by grind]
-    simp [heout, hsout]
-    sorry
+  · rw [IsLawfulLower_Zero_iff]
+    · grind
   · intros x hx
     simp [IsLawfulLower_Zero_iff, heout] at hx
     simp [hx]
