@@ -553,6 +553,6 @@ theorem toNumberRat_eq_unpackNormOrNonzeroSubnorm_toRat {pf : PackedFloat e s}
     (hpf : pf.isNormOrNonzeroSubnorm)
     : pf.unpackNormOrNonzeroSubnorm.toRat = pf.toNumberRat := by
   have := pf.toExtRat'_eq_Number_toNumberRat hpf
-
+  sorry
 
 end PackedFloat

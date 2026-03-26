@@ -576,10 +576,7 @@ theorem EquivUptoNaN.of_mkNaN_iff (x : PackedFloat e s) : EquivUptoNaN x (Packed
 theorem PackedFloat.toNumberRat_eq_toRat_unpackNormOrNonzeroSubnorm
     {x : PackedFloat e s} (hx : x.isNormOrNonzeroSubnorm) :
     x.toNumberRat = x.unpackNormOrNonzeroSubnorm.toRat := by
-  simp [UnpackedFloat.toRat']
-  by_cases hxnorm : x.isNorm
-  · simp [hxnorm]
-
+  sorry
 
 theorem unpackedNormOrNonzeroSubnorm_mul_unpackNormOrNonzeroSubnorm_toRat_eq_mul_toNumberRat
     {a b : PackedFloat e s}
@@ -589,7 +586,7 @@ theorem unpackedNormOrNonzeroSubnorm_mul_unpackNormOrNonzeroSubnorm_toRat_eq_mul
   2 ^ (- (e : Int)) := by
   have : a.toNumberRat = a.unpackNormOrNonzeroSubnorm.toRat := by
     sorry
-
+  sorry
 
 
 set_option warn.sorry false in
