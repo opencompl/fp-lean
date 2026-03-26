@@ -578,7 +578,7 @@ theorem PackedFloat.toRat_eq_toRat_unpackNormOrNonzeroSubnorm
     x.toRat = x.unpackNum.toRat := by
   sorry
 
-theorem unpackedNormOrNonzeroSubnorm_mul_unpackNormOrNonzeroSubnorm_toRat_eq_mul_toRat
+theorem unpackNum_mul_unpackNum_toRat_eq_mul_toRat
     {a b : PackedFloat e s}
     (ha : a.isNormOrNonzeroSubnorm)
     (hb : b.isNormOrNonzeroSubnorm) :
@@ -694,7 +694,7 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
       apply EquivUptoNaN.of_eq
       rw [SmtLibSemantics_round_eq_pack_UnpackedFloat_round (r := a.toRat * b.toRat)]
       · simp
-      · apply unpackedNormOrNonzeroSubnorm_mul_unpackNormOrNonzeroSubnorm_toRat_eq_mul_toRat
+      · apply unpackNum_mul_unpackNum_toRat_eq_mul_toRat
         · grind
         · grind
 end Fp
