@@ -330,7 +330,7 @@ theorem round_eq_mkZero_of_mkZero {zeroSign : Bool} {eout sout : Nat} {rm : Roun
 
 /-
 (SmtLibSemantics.smtLibRoundMethod ein sin SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round rm
-    (SmtLibSemantics.SmtLibFunctions.xorSign a b) (ExtRat.Number a.toNumberRat * b.toExtRat') =
+    (SmtLibSemantics.SmtLibFunctions.xorSign a b) (ExtRat.Number a.toRat * b.toExtRat') =
   ((a.unpackNormOrNonzeroSubnorm.mul b.unpackNormOrNonzeroSubnorm).round rm).pack
 -/
 -- | TODO: find the right theorem statement here,
@@ -573,18 +573,18 @@ theorem EquivUptoNaN.of_mkNaN_iff (x : PackedFloat e s) : EquivUptoNaN x (Packed
   simp [EquivUptoNaN]
   grind only [!PackedFloat.isNaN_mkNaN]
 
-theorem PackedFloat.toNumberRat_eq_toRat_unpackNormOrNonzeroSubnorm
+theorem PackedFloat.toRat_eq_toRat_unpackNormOrNonzeroSubnorm
     {x : PackedFloat e s} (hx : x.isNormOrNonzeroSubnorm) :
-    x.toNumberRat = x.unpackNum.toRat := by
+    x.toRat = x.unpackNum.toRat := by
   sorry
 
-theorem unpackedNormOrNonzeroSubnorm_mul_unpackNormOrNonzeroSubnorm_toRat_eq_mul_toNumberRat
+theorem unpackedNormOrNonzeroSubnorm_mul_unpackNormOrNonzeroSubnorm_toRat_eq_mul_toRat
     {a b : PackedFloat e s}
     (ha : a.isNormOrNonzeroSubnorm)
     (hb : b.isNormOrNonzeroSubnorm) :
-    ((a.unpackNum.mul b.unpackNum).toRat - a.toNumberRat * b.toNumberRat).abs <
+    ((a.unpackNum.mul b.unpackNum).toRat - a.toRat * b.toRat).abs <
   2 ^ (- (e : Int)) := by
-  have : a.toNumberRat = a.unpackNum.toRat := by
+  have : a.toRat = a.unpackNum.toRat := by
     sorry
   sorry
 
@@ -626,14 +626,14 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
       -- rw [<- PackedFloat.toExtRat_eq_toExtRat']
       -- rw [← PackedFloat.toExtRat_unpack_eq_toExtRat]
       rw [b.toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm hb]
-      simp [b.toNumberRat_ne_zero hb]
+      simp [b.toRat_ne_zero hb]
       simp [show ¬ b.isNaN by grind]
       simp [show ¬ b.isZero by grind]
       apply EquivUptoNaN.of_eq
-      have : b.unpack.num.sign = decide (b.toNumberRat < 0) := by
+      have : b.unpack.num.sign = decide (b.toRat < 0) := by
         rw [b.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm hb]
         simp only [EUnpackedFloat.num_mkNumber, PackedFloat.sign_unpackNormOrNonzeroSubnorm_eq_sign]
-        grind only [→ PackedFloat.sign_iff_toNumberRat_neg]
+        grind only [→ PackedFloat.sign_iff_toRat_neg]
       simp [this, hsin, he]
   case zeroCase sign =>
     simp [he]
@@ -673,8 +673,8 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
       simp [this]
       rw [← ExtRat.mul_def, ExtRat.mul]
       simp only [SmtLibSemantics.instExtendedRat, SmtLibSemantics.instExtendedRat.eq_1, roundQ_eq]
-      simp [show a.toNumberRat < 0 ↔ a.sign = true by grind]
-      simp [show a.toNumberRat = 0 ↔ a.isZero by grind]
+      simp [show a.toRat < 0 ↔ a.sign = true by grind]
+      simp [show a.toRat = 0 ↔ a.isZero by grind]
       simp [show ¬ a.isZero by grind]
       apply EquivUptoNaN.of_eq
       simp [hsin, he]
@@ -692,9 +692,9 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
       have : ¬ b.isZero := by grind
       simp [this]
       apply EquivUptoNaN.of_eq
-      rw [SmtLibSemantics_round_eq_pack_UnpackedFloat_round (r := a.toNumberRat * b.toNumberRat)]
+      rw [SmtLibSemantics_round_eq_pack_UnpackedFloat_round (r := a.toRat * b.toRat)]
       · simp
-      · apply unpackedNormOrNonzeroSubnorm_mul_unpackNormOrNonzeroSubnorm_toRat_eq_mul_toNumberRat
+      · apply unpackedNormOrNonzeroSubnorm_mul_unpackNormOrNonzeroSubnorm_toRat_eq_mul_toRat
         · grind
         · grind
 end Fp
