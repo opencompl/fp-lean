@@ -79,6 +79,12 @@ theorem PackedFloat.isZero_unpack_eq_isZero (pf : PackedFloat e s) :
     · by_cases hzero : pf.isZero <;> simp [hzero]
 
 
+@[simp, grind =]
+theorem PackedFloat.unpack_eq_unpackNum_of (pf : PackedFloat e s)
+    (hpf : pf.isNormOrNonzeroSubnorm) :
+     pf.unpack = EUnpackedFloat.mkNumber pf.unpackNum := by
+  unfold unpack
+  grind
 
 @[bv_normalize]
 def EUnpackedFloat.pack (uf : EUnpackedFloat (exponentWidth e s) (s + 1))

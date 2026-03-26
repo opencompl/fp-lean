@@ -372,7 +372,7 @@ theorem IsLawfulLower_Infinity_iff (x : PackedFloat e s)
     case numCase n hn =>
       specialize h2 (PackedFloat.getInfinity e s sign)
       simp [hs] at h2
-      rw [PackedFloat.toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm] at h1
+      rw [n.toExtRat'_eq_toRat_of] at h1
       simp at h1
       subst h1
       simp [hs] at h2
@@ -414,7 +414,7 @@ theorem IsLawfulUpper_Infinity_iff (x : PackedFloat e s)
     case numCase n hn =>
       specialize h2 (PackedFloat.getInfinity e s sign)
       simp [hs] at h2
-      rw [PackedFloat.toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm] at h1
+      rw [n.toExtRat'_eq_toRat_of] at h1
       simp at h1
       subst h1
       simp [he, hs] at h2
@@ -573,11 +573,6 @@ theorem EquivUptoNaN.of_mkNaN_iff (x : PackedFloat e s) : EquivUptoNaN x (Packed
   simp [EquivUptoNaN]
   grind only [!PackedFloat.isNaN_mkNaN]
 
-theorem PackedFloat.toRat_eq_toRat_unpackNormOrNonzeroSubnorm
-    {x : PackedFloat e s} (hx : x.isNormOrNonzeroSubnorm) :
-    x.toRat = x.unpackNum.toRat := by
-  sorry
-
 theorem unpackNum_mul_unpackNum_toRat_eq_mul_toRat
     {a b : PackedFloat e s}
     (ha : a.isNormOrNonzeroSubnorm)
@@ -625,7 +620,7 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
       -- rw [PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm hb]
       -- rw [<- PackedFloat.toExtRat_eq_toExtRat']
       -- rw [← PackedFloat.toExtRat_unpack_eq_toExtRat]
-      rw [b.toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm hb]
+      rw [b.toExtRat'_eq_toRat_of hb]
       simp [b.toRat_ne_zero hb]
       simp [show ¬ b.isNaN by grind]
       simp [show ¬ b.isZero by grind]
@@ -651,7 +646,7 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
     case numCase hb =>
       rw [PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm hb]
       simp
-      rw [PackedFloat.toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm hb]
+      rw [b.toExtRat'_eq_toRat_of hb]
       simp only [ExtRat.number_mul_number_eq, Rat.zero_mul, round_eq_mkZero_of_mkZero, he, hsin]
       simp [SmtLibSemantics.SmtLibFunctions.xorSign]
       simp [show ¬ b.isNaN by grind]
@@ -662,7 +657,7 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
       -- Use that to simplify the value.
   case numCase ha =>
     rw [PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm ha]
-    rw [PackedFloat.toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm ha]
+    rw [a.toExtRat'_eq_toRat_of ha]
     -- interesting case, when a is a number.
     cases b using PackedFloat.kindCasesNaNInfZeroNum
     case nanCase hb =>
@@ -686,7 +681,7 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
       grind only
     case numCase hb =>
       simp [PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm hb]
-      rw [PackedFloat.toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm hb]
+      rw [b.toExtRat'_eq_toRat_of hb]
       have : ¬ a.isZero := by grind
       simp [this]
       have : ¬ b.isZero := by grind

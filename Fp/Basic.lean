@@ -2024,7 +2024,7 @@ def toExtRat' (pf : PackedFloat e s) : ExtRat :=
 
 
 @[simp, grind =]
-theorem toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm {pf : PackedFloat e s} (hp : pf.isNormOrNonzeroSubnorm := by grind) :
+theorem toExtRat'_eq_toRat_of {pf : PackedFloat e s} (hp : pf.isNormOrNonzeroSubnorm := by grind) :
     pf.toExtRat' =
         .Number pf.toRat := by
   have hnan : pf.isNaN = false := by
@@ -3229,7 +3229,7 @@ theorem eq_getInfinity_iff_toExtRat'_eq_Infinity (x : PackedFloat e s)
     (hs : 0 < s := by solve | simp | grind) :
     x.toExtRat' = ExtRat.Infinity sign ↔ x  = PackedFloat.getInfinity e s sign := by
   grind only [= toExtRat'_eq_Infinity_of_isInfinite, = toExtRat'_eq_NaN_of_isNaN,
-    = toExtRat'_eq_zero_of_isZero, = toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm,
+    = toExtRat'_eq_zero_of_isZero, = toExtRat'_eq_toRat_of,
     !toExtRat'_getInfinity, !isInfinite_getInfinity, eq_getInfinity_iff_isInfinity,
     = isNaN_iff_toExtRat'_eq_NaN, = isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero, #8ef6]
 
