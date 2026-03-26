@@ -378,7 +378,7 @@ theorem exponentWidth_gt_zero : exponentWidth e s > 0 := by
 -- significand, and so on.
 theorem toExtRat_unpack_eq_toExtRat {pf : PackedFloat e s}
   : pf.unpack.toExtRat = pf.toExtRat := by
-  simp only [unpack, unpackNormOrNonzeroSubnorm, BitVec.truncate_eq_setWidth, toExtRat_eq_toExtRat']
+  simp only [unpack, unpackNum, BitVec.truncate_eq_setWidth, toExtRat_eq_toExtRat']
   cases hNaN : pf.isNaN
   · cases hInf : pf.isInfinite
     · cases hZero : pf.isZero
@@ -509,7 +509,7 @@ why do I even get this 'unpackNormOrNonzeroSubnorm' stuff?
 -/
 theorem toRat_toExtRat_eq_unpackNormOrNonzeroSubnorm_toRat {pf : PackedFloat e s}
     (hpf : pf.isNormOrNonzeroSubnorm)
-    : pf.toExtRat = .Number pf.unpackNormOrNonzeroSubnorm.toRat := by
+    : pf.toExtRat = .Number pf.unpackNum.toRat := by
   rw [← PackedFloat.toExtRat_unpack_eq_toExtRat]
   rw [PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm hpf]
   simp
@@ -551,7 +551,7 @@ theorem toExtRat'_eq_Number_toNumberRat {pf : PackedFloat e s}
 -- TODO: what is the right abstraction level to deal with all of these?
 theorem toNumberRat_eq_unpackNormOrNonzeroSubnorm_toRat {pf : PackedFloat e s}
     (hpf : pf.isNormOrNonzeroSubnorm)
-    : pf.unpackNormOrNonzeroSubnorm.toRat = pf.toNumberRat := by
+    : pf.unpackNum.toRat = pf.toNumberRat := by
   have := pf.toExtRat'_eq_Number_toNumberRat hpf
   sorry
 
