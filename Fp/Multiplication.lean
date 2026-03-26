@@ -135,7 +135,6 @@ theorem UnpackedFloat.toRat_mulUnadjustedMsb_eq_toRat_mul_toRat {a b : UnpackedF
         rw [Nat.pow_two_eq_mul_self]
         apply Nat.mul_lt_mul'' <;> assumption
   · rw [mulUnadjustedMsb.ex]
-    apply congrArg
     rw [← Rat.zpow_add]
     rw [BitVec.toInt_add_of_not_saddOverflow]
     · rw [BitVec.toInt_signExtend_of_le (by lia)]
@@ -144,7 +143,6 @@ theorem UnpackedFloat.toRat_mulUnadjustedMsb_eq_toRat_mul_toRat {a b : UnpackedF
       have : 1 < s := by sorry
       simp [Int.neg_sub]
       norm_cast
-
       sorry
     · sorry
     · decide
