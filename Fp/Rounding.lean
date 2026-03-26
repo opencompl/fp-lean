@@ -309,7 +309,7 @@ def roundToInt (mode : RoundingMode) (x : PackedFloat e s) : PackedFloat e s :=
       num := {
         sign := x.sign
         val := integral
-        hExOffset := by
+        hPrec := by
           have h := Nat.two_pow_pos e
           omega
       }
@@ -331,7 +331,7 @@ def ofRat (e s : Nat) (mode : RoundingMode) (num : Int) (den : Nat) : PackedFloa
       num := {
         sign := num < 0
         val := BitVec.ofNat width quot
-        hExOffset := by
+        hPrec := by
           have hexp0 : 0 < 2^e := Nat.two_pow_pos _
           have hexp1 : 2^(e-1) ≤ 2^e := two_pow_sub_one_le_two_pow e
           omega

@@ -573,14 +573,32 @@ theorem EquivUptoNaN.of_mkNaN_iff (x : PackedFloat e s) : EquivUptoNaN x (Packed
   simp [EquivUptoNaN]
   grind only [!PackedFloat.isNaN_mkNaN]
 
+-- Why do we need upto (s + 2) to approximate `y` with `approx`
+def CorrectlyApproximated (sout : Nat) (y : Rat) (approx : Rat) : Prop :=
+  (y - approx).abs < 2 ^ (- ((sout + 1): Int)) ∧
+  True -- TODO: I need to figure out what it means to have the sticky bit in a purely 'non-discrete' way
+
+def CorrectlyApproximated.mk (sout : Nat) (y : Rat) (approx : Rat)
+  (hguard : (y - approx).abs < 2 ^ (- (sout + 1 : Int))) :
+  CorrectlyApproximated sout y approx := by
+  simp [CorrectlyApproximated, hguard]
+
+
+
+
 theorem unpackNum_mul_unpackNum_toRat_eq_mul_toRat
     {a b : PackedFloat e s}
     (ha : a.isNormOrNonzeroSubnorm)
     (hb : b.isNormOrNonzeroSubnorm) :
     ((a.unpackNum.mul b.unpackNum).toRat - a.toRat * b.toRat).abs <
   2 ^ (- (e : Int)) := by
-  have : a.toRat = a.unpackNum.toRat := by
-    sorry
+  have ha : a.toRat = a.unpackNum.toRat := by grind
+  rw [ha]
+
+  have hb : b.toRat = b.unpackNum.toRat := by grind
+  rw [hb]
+
+
   sorry
 
 

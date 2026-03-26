@@ -64,11 +64,11 @@ instance : Repr (PackedFloat exWidth sigWidth) where
 A fixed point number with specified exponent offset.
 -/
 @[ext]
-structure FixedPoint (width exOffset : Nat) where
+structure FixedPoint (width prec : Nat) where
     sign : Bool
     val : BitVec width
     -- | This should not be part of the structure, but a side invariant we keep in mind.
-    hExOffset : exOffset < width
+    hPrec : prec < width
 deriving DecidableEq
 
 attribute [bv_normalize] FixedPoint.ext_iff
@@ -146,9 +146,9 @@ instance : Repr State where
 A fixed point number extended with infinity and NaN.
 -/
 @[ext]
-structure EFixedPoint (width exOffset : Nat) where
+structure EFixedPoint (width prec : Nat) where
   state : State
-  num : FixedPoint width exOffset
+  num : FixedPoint width prec
 deriving DecidableEq, Repr
 
 attribute [bv_normalize] EFixedPoint.ext_iff
@@ -202,7 +202,7 @@ def ofInt (i : Int) [HExOffset e m] : FixedPoint m e :=
   {
     sign := i < 0
     val := BitVec.ofNat m (i.natAbs)
-    hExOffset := HExOffset.h
+    hPrec := HExOffset.h
   }
 
 /-- Convert a fixed point number to an integer. -/
@@ -257,8 +257,8 @@ def expand (a : FixedPoint w e) (w' e' : Nat)
   : FixedPoint w' e' where
   sign := a.sign
   val := a.val.setWidth' (by omega) <<< (e' - e)
-  hExOffset := by
-    have hExOffset' := a.hExOffset
+  hPrec := by
+    have hPrec' := a.hPrec
     omega
 
 end FixedPoint
@@ -279,13 +279,13 @@ theorem inj (a b : EFixedPoint w e)
   simp_all only [← injEq]
 
 @[simp, bv_normalize]
-def getNaN (hExOffset : sigWidth < exWidth)
+def getNaN (hPrec : sigWidth < exWidth)
   : EFixedPoint exWidth sigWidth where
   state := .NaN
   num := {
     sign := False
     val := 0
-    hExOffset
+    hPrec
   }
 
 /-- Get a fixed-point number from the extended format. -/
@@ -304,32 +304,32 @@ def toRat? (ef : EFixedPoint e s) : Option Rat :=
 
 -- Sign = true ↔ negative
 @[simp, bv_normalize]
-def getInfinity (sign : Bool) (hExOffset : sigWidth < exWidth)
+def getInfinity (sign : Bool) (hPrec : sigWidth < exWidth)
   : EFixedPoint exWidth sigWidth where
   state := .Infinity
   num := {
     sign
     val := 0
-    hExOffset
+    hPrec
   }
 
-def getZero (sign : Bool) (hExOffset : sigWidth < exWidth)
+def getZero (sign : Bool) (hPrec : sigWidth < exWidth)
   : EFixedPoint exWidth sigWidth where
   state := .Number
   num := {
     sign
     val := 0
-    hExOffset
+    hPrec
   }
 
 @[simp, bv_normalize]
-def zero (hExOffset : sigWidth < exWidth)
+def zero (hPrec : sigWidth < exWidth)
   : EFixedPoint exWidth sigWidth where
   state := .Number
   num := {
     sign := False
     val := 0
-    hExOffset
+    hPrec
   }
 
 /--
@@ -905,9 +905,9 @@ cover the entire range of representable values.
 @[bv_normalize]
 def toEFixed (pf : PackedFloat e s)
   : EFixedPoint (2 ^ e + s) (2 ^ (e - 1) + s - 2) :=
-  let hExOffset := toEFixed_hExOffset e s
-  if pf.isNaN then EFixedPoint.getNaN hExOffset
-  else if pf.isInfinite then EFixedPoint.getInfinity pf.sign hExOffset
+  let hPrec := toEFixed_hPrec e s
+  if pf.isNaN then EFixedPoint.getNaN hPrec
+  else if pf.isInfinite then EFixedPoint.getInfinity pf.sign hPrec
   else {
     state := .Number
     num := {
@@ -919,7 +919,7 @@ def toEFixed (pf : PackedFloat e s)
         let hs : 1 + s <= 2^e + s := by
           exact Nat.add_le_add_right Nat.one_le_two_pow s
         (BitVec.setWidth' hs (unshifted)) <<< shift
-      hExOffset
+      hPrec
     }
   }
 
@@ -1714,6 +1714,10 @@ theorem Bool.toSign_lt_zero_iff (b : Bool) : b.toSign < 0 ↔ b = true := by
 @[bv_normalize]
 def bias (e : Nat) : Nat :=
   2 ^ (e - 1) - 1
+
+@[simp]
+theorem toSign_xor_eq_toSign_mul_toSign (a b : Bool) :
+  (a ^^ b).toSign = a.toSign * b.toSign := by grind [Bool.toSign]
 
 namespace PackedFloat
 

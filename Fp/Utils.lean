@@ -87,7 +87,7 @@ theorem le_two_pow : n ≤ 2^n := by
 theorem two_pow_sub_one_le_two_pow (e : Nat) : 2^(e-1) ≤ 2^e :=
   Nat.pow_le_pow_right (by omega) (by omega)
 
-theorem toEFixed_hExOffset (e s : Nat) : 2 ^ (e - 1) + s - 2 < 2 ^ e + s := by
+theorem toEFixed_hPrec (e s : Nat) : 2 ^ (e - 1) + s - 2 < 2 ^ e + s := by
   have hexp0 : 0 < 2^e := Nat.two_pow_pos _
   have hexp1 : 2^(e-1) ≤ 2^e := two_pow_sub_one_le_two_pow e
   omega
