@@ -170,6 +170,59 @@ theorem UnpackedFloat.toRat_mulUnadjustedMsb_eq_toRat_mul_toRat {a b : UnpackedF
     · grind
 
 
+/--
+When multiplying two numbers, if both of them have `msb` true,
+then in the result, then either 'msb' or the bit one below the msb is 1.
+This shows that to normalize, we only need to shift the msb by one.
+-/
+theorem BitVec.getMsbD_mul_eq_true_of_msb_eq_true_of_msb_eq_true (x y : BitVec w)
+    (hx : x.msb = true) (hy : y.msb = true) :
+    ((x.zeroExtend (2 * w)) * (y.zeroExtend (2 * w))).getMsbD 0 = true ∨
+    ((x.zeroExtend (2 * w)) * (y.zeroExtend (2 * w))).getMsbD 1 = true := by
+  by_cases hw : w = 0
+  · grind only [= msb_eq_getMsbD_zero, = getMsbD_eq_getLsbD]
+  · by_cases hw : w = 1
+    · sorry
+    · have : x.toNat ≥ 2 ^ (w - 1) := by
+          simp
+          exact le_toNat_of_msb_true hx
+      have : y.toNat ≥ 2 ^ (w - 1) := by
+        simp
+        exact le_toNat_of_msb_true hy
+      generalize hz : setWidth (2 * w) x *  (setWidth (2 * w) y) = z
+      apply Classical.byContradiction
+      intros hcontra
+      simp at hcontra
+      -- TODO: peel this non-overflw proof out
+      have hznat : z.toNat = x.toNat * y.toNat := by
+        simp [← hz]
+        apply Nat.mod_eq_of_lt
+        have : x.toNat < 2 ^ w := by grind
+        have : y.toNat < 2 ^ w := by grind
+        rw [Nat.pow_mul']
+        rw [Nat.pow_two_eq_mul_self]
+        apply Nat.mul_lt_mul'' <;> grind
+      have hcontraGt : z.toNat ≥ 2 ^ (w - 1) * 2 ^ (w - 1) := by
+        rw [hznat]
+        simp
+        apply Nat.mul_le_mul <;> grind
+      -- TODO: use this lemma to get the fact that
+      -- we will have either msb or one below msb to be true.
+      have hcontra' : z.toNat < 2 ^ (2 * w - 2) := by
+        apply (BitVec.toNat_lt_iff_getLsbD_eq_false (x := z) (i := 2 * w - 2) (by grind)).mpr
+        intros k
+        have hk : k = 0 ∨ k = 1 ∨ k ≥ 2 := by grind
+        rcases hk with rfl | rfl | hk
+        · grind only [= getMsbD_eq_getLsbD]
+        · grind only [= msb_eq_getMsbD_zero, = getMsbD_eq_getLsbD, = getLsbD_of_ge]
+        · grind only [= msb_eq_getMsbD_zero, = getLsbD_of_ge, = getMsbD_eq_getLsbD]
+      have : 2 ^ (w - 1) * 2 ^ (w - 1) = 2 ^(2 * w - 2) := by
+        rw [← Nat.pow_add]
+        apply congrArg
+        grind only [= msb_eq_getMsbD_zero, = getMsbD_eq_getLsbD]
+      grind only
+
+
 
 /-- info: some 16 -/
 #guard_msgs in #eval (PackedFloat.ofRat 5 2 .RNE 8 1 * PackedFloat.ofRat 5 2 .RNE 2 1).toRat?
