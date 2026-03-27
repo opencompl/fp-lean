@@ -2624,7 +2624,9 @@ theorem msb_normalize_eq_decide (uf : UnpackedFloat e s) :
   simp
   by_cases hs : uf.sig = 0#s <;> simp [hs]
 
-
+/-- When the number is nonzero,
+the normalization is idempotent iff  and its most significant bit is one.
+-/
 theorem normalize_eq_self_iff (uf : UnpackedFloat e s) (huf : uf.sig ≠ 0#s) :
     normalize uf zsign = uf ↔ (uf.sig.msb = true) := by
   simp [normalize]
@@ -2636,8 +2638,19 @@ theorem normalize_eq_self_iff (uf : UnpackedFloat e s) (huf : uf.sig ≠ 0#s) :
     simp only [mk.injEq, true_and]
     constructor
     · intros h
-      sorry
-    · sorry
+      simp only [ne_eq, beq_iff_eq] at huf hs
+      obtain ⟨hex, hsig⟩ := h
+      have := BitVec.shiftLeft_eq_self_iff_eq_zero.mp hsig
+      rcases this with this | this
+      · have := BitVec.clz_eq_zero_iff_msb_of_lt sig |>.mp (by grind)
+        simp [show s ≠ 0 by grind] at this
+        exact this
+      · grind only
+    · intros hmsb
+      have : sig.clz = 0#s := by grind [BitVec.clz_eq_zero_iff_msb_of_lt]
+      rw [this]
+      simp only [BitVec.setWidth_zero, BitVec.sub_zero, BitVec.toNat_ofNat, Nat.zero_mod,
+        BitVec.shiftLeft_zero, and_self]
 
 
 @[bv_normalize]

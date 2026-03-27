@@ -304,3 +304,120 @@ theorem BitVec.clz_eq_zero_iff_msb_of_lt (x : BitVec w) : x.clz = 0#w ↔ (x.msb
       rw [← BitVec.toNat_inj]
       simp only [BitVec.toNat_ofNat, Nat.zero_mod]
       grind only [!BitVec.clz_eq_zero_iff, !BitVec.le_toNat_of_msb_true]
+
+/--
+If we shift left by 1 and we get the same bitvector, the bitvector must be zero.
+-/
+@[simp]
+theorem BitVec.shiftLeft_one_eq_self_iff_eq_zero (x : BitVec w) :
+    x <<< 1 = x ↔ x = 0#w := by
+  by_cases hx : x = 0#w
+  · simp [hx]
+  · simp only [hx, iff_false]
+    intros hcontra
+    have : x.toNat ≠ 0 := by
+      intros hcontra
+      apply hx
+      apply BitVec.eq_of_toNat_eq
+      simp only [hcontra, BitVec.toNat_ofNat, Nat.zero_mod]
+    have hcontra : (x <<< 1).toNat = x.toNat := by grind only
+    simp only [BitVec.toNat_shiftLeft] at hcontra
+    rw [Nat.shiftLeft_eq] at hcontra
+    simp only [Nat.pow_one] at hcontra
+    by_cases hval : x.toNat * 2 < 2 ^ w
+    · rw [Nat.mod_eq_of_lt] at hcontra
+      · grind only
+      · grind only
+    · have : x.toNat * 2 < 2 * 2^w := by grind only [usr BitVec.isLt]
+      have : x.toNat * 2 - 2 ^ w < 2^w := by grind only
+      rw [Nat.mod_eq_sub_mod] at hcontra
+      · rw [Nat.mod_eq_of_lt] at hcontra
+        · grind only
+        · grind only
+      · grind only
+
+@[simp]
+theorem BitVec.shiftLeft_one_ne_self_iff (x : BitVec w) :
+    x <<< 1 ≠ x ↔ x ≠ 0#w := by
+  have := BitVec.shiftLeft_one_eq_self_iff_eq_zero x
+  grind
+
+theorem BitVec.ne_iff_getLsbD_ne (x y : BitVec w) : x ≠ y ↔ (x.getLsbD ≠ y.getLsbD) := by
+  constructor
+  · intros h1 h2
+    apply h1
+    apply BitVec.eq_of_getLsbD_eq
+    intros i hi
+    rw [h2]
+  · intros h1 h2
+    apply h1
+    subst h2
+    simp only
+
+
+/--
+Private lemma for establishing that 'x <<< n = x'
+implies that the bits at positions 'n + i' and 'i' are the same.
+-/
+protected theorem BitVec.getLsbD_add_eq_getLsbD_of_shiftLeft_eq_self {w i} {x : BitVec w} {n : Nat} (hx : x <<< n = x) (hi : n + i < w) :
+    x.getLsbD (n + i) = x.getLsbD i := by
+  conv =>
+    lhs
+    rw [← hx]
+  simp
+  intros hi
+  grind
+
+/--
+Private lemma for establishing that 'x <<< n = x'
+implies that the bits at positions 'k*n + i' and 'i' are the same.
+-/
+protected theorem BitVec.getLsbD_mul_add_eq_getLsbD_of_shiftLeft_eq_self
+    {x : BitVec w} {n : Nat} (hx : x <<< n = x) (hi : k * n + i < w) :
+    x.getLsbD (k * n + i) = x.getLsbD i := by
+  induction k generalizing i
+  case zero => simp
+  case succ k ih =>
+    simp [Nat.add_mul]
+    rw [Nat.add_assoc]
+    rw [ih]
+    · apply BitVec.getLsbD_add_eq_getLsbD_of_shiftLeft_eq_self <;> grind
+    · rw [Nat.add_mul] at hi
+      grind
+
+
+/--
+If x <<< n = x and n > 0, then x must be zero.
+-/
+protected theorem BitVec.eq_zero_of_shiftLeft_eq_self_of_lt
+    {x : BitVec w} {n : Nat} (hx : x <<< n = x)  (hn : 0 < n) :
+    x = 0#w := by
+  apply BitVec.eq_of_getLsbD_eq
+  intros i hi
+  have : i = (i / n) * n + (i % n) := by
+    grind [Nat.div_add_mod]
+  rw [this]
+  rw [BitVec.getLsbD_mul_add_eq_getLsbD_of_shiftLeft_eq_self hx (by grind)]
+  rw [← hx]
+  have : i % n < n := by
+    apply Nat.mod_lt
+    grind
+  simp [this]
+
+/--
+If we shift left by n and we get the same bitvector, then either `n = 0` or the bitvector is zero.
+-/
+theorem BitVec.shiftLeft_eq_self_iff_eq_zero {x : BitVec w} {n : Nat} :
+      x <<< n = x ↔ (n = 0 ∨ x = 0#w) := by
+  by_cases hx0 : x = 0#w
+  · simp [hx0]
+  · simp [hx0]
+    constructor
+    · intros hx
+      by_cases hn : n = 0
+      · simp [hn]
+      · have := BitVec.eq_zero_of_shiftLeft_eq_self_of_lt hx (by grind)
+        grind
+    · intros hn
+      subst hn
+      simp
