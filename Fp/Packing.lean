@@ -86,6 +86,17 @@ theorem PackedFloat.unpack_eq_unpackNum_of (pf : PackedFloat e s)
   unfold unpack
   grind
 
+/-- Unpacking a packed float always results in a normalized float. -/
+@[simp, grind =]
+theorem PackedFloat.msb_unpackNum_eq_true {pf : PackedFloat e s}
+    (hpf : pf.isNormOrNonzeroSubnorm) :
+    pf.unpackNum.sig.msb = true := by
+  simp only [unpackNum, BitVec.truncate_eq_setWidth]
+  by_cases hf : pf.isNorm <;> simp only [hf, ↓reduceIte, BitVec.msb_cons]
+  have : pf.sig ≠ 0#s := by grind
+  simp [this]
+
+
 @[bv_normalize]
 def EUnpackedFloat.pack (uf : EUnpackedFloat (exponentWidth e s) (s + 1))
   : PackedFloat e s :=
@@ -118,7 +129,7 @@ attribute [bv_normalize] BitVec.zero
 
 @[simp]
 theorem PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm
-  {pf : PackedFloat e s} (hpf : pf.isNormOrNonzeroSubnorm) :
+  {pf : PackedFloat e s} (hpf : pf.isNormOrNonzeroSubnorm := by solve | simp | grind) :
     pf.unpack = EUnpackedFloat.mkNumber pf.unpackNum := by
   have hnan : ¬ pf.isNaN := by grind
   have hinf : ¬ pf.isInfinite := by grind

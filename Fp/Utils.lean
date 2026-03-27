@@ -421,3 +421,19 @@ theorem BitVec.shiftLeft_eq_self_iff_eq_zero {x : BitVec w} {n : Nat} :
     · intros hn
       subst hn
       simp
+
+@[simp]
+theorem BitVec.cons_false_eq_zero_iff_eq_zero {x : BitVec w} :
+  (BitVec.cons false x = 0#(w + 1)) ↔ x = 0#w := by
+  constructor
+  · intros hcons
+    ext i hi
+    simp only [getElem_zero]
+    have := congrFun (congrArg BitVec.getLsbD hcons) (i)
+    simp only [getLsbD_zero] at this
+    rw [BitVec.getLsbD_cons] at this
+    simp only [show i ≠ w by grind only, ↓reduceIte] at this
+    grind only [= getLsbD_eq_getElem]
+  · intros hzero
+    subst hzero
+    simp

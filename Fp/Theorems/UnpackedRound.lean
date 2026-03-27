@@ -339,9 +339,10 @@ set_option warn.sorry false in
 theorem SmtLibSemantics_round_eq_pack_UnpackedFloat_round {rm : RoundingMode}
     {ein sin eout sout : Nat} {sign : Bool}
     (er : ExtRat) {r : Rat} (uf : UnpackedFloat ein sin)
+    (hnorm : uf.sig.msb = true)
     (hr : er = ExtRat.Number r)
     -- | round works correctly as long as our number is close enough.
-    (hApprox : (uf.toRat - r).abs < ((2 : Rat) ^ (- (eout : Int)))) :
+    (hApprox : (uf.toRat = r)) :
     (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round rm sign er =
     (UnpackedFloat.round uf rm).pack := by
   sorry
@@ -587,16 +588,18 @@ def CorrectlyApproximated.mk (sout : Nat) (y : Rat) (approx : Rat)
 
 theorem unpackNum_mul_unpackNum_toRat_eq_mul_toRat
     {a b : PackedFloat e s}
-    (ha : a.isNormOrNonzeroSubnorm)
-    (hb : b.isNormOrNonzeroSubnorm) :
-    ((a.unpackNum.mul b.unpackNum).toRat - a.toRat * b.toRat).abs <
-  2 ^ (- (e : Int)) := by
+    (ha : a.isNormOrNonzeroSubnorm := by solve | grind | simp)
+    (hb : b.isNormOrNonzeroSubnorm := by solve | grind | simp) :
+    -- (hamsb : a.unpackNum.sig.msb = true := by solve | grind | simp)
+    -- (hbmsb : b.unpackNum.sig.msb = true := by solve | grind | simp) :
+    ((a.unpackNum.mul b.unpackNum).toRat = a.toRat * b.toRat) := by
   have ha : a.toRat = a.unpackNum.toRat := by grind
   rw [ha]
   have hb : b.toRat = b.unpackNum.toRat := by grind
   rw [hb]
-  sorry
-
+  apply toRat_mul_eq_toRat_mul_toRat
+  · grind
+  · simp [exponentWidth]
 
 set_option warn.sorry false in
 /--
@@ -702,6 +705,9 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
       simp [this]
       apply EquivUptoNaN.of_eq
       rw [SmtLibSemantics_round_eq_pack_UnpackedFloat_round (r := a.toRat * b.toRat)]
+      · apply msb_mul_eq_true_of_msb_eq_true
+        · exact PackedFloat.msb_unpackNum_eq_true ha
+        · exact PackedFloat.msb_unpackNum_eq_true hb
       · simp
       · apply unpackNum_mul_unpackNum_toRat_eq_mul_toRat
         · grind

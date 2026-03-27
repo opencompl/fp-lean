@@ -2965,6 +2965,14 @@ def exponentWidth (e s : Nat) : Nat :=
   (2 ^ (e - 1) + s - 1).log2 + 2
 
 
+@[simp]
+theorem zero_lt_exponentWidth : 0 < exponentWidth e s  := by
+  simp [exponentWidth]
+
+@[simp]
+theorem one_lt_exponentWidth : 1 < exponentWidth e s  := by
+  simp [exponentWidth]
+
 theorem Rat.lt_mul_self_of_lt_one {y} {x : Rat} (hx0 : 0 ≤ x ∧ x < 1) (hy : 0 < y)
     : x * y < y := by
   suffices x * y < 1 * y by grind only
