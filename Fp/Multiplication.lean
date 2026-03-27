@@ -49,6 +49,17 @@ theorem PackedFloat.mul_def {x y : PackedFloat e s} : x * y = PackedFloat.mul .R
 end PackedFloat
 
 
+/--
+The result of raw multiplication, which has an un-normalized
+significand and exponent. The interpretation of this bitpattern is given by
+MulUnnormalized.toRat.
+-/
+structure MulUnnormalized (e s : Nat) where
+  sig : BitVec (2 * s)
+  ex : BitVec (e + 1)
+  sign : Bool
+
+
 -- our "bias" is (2 (s - 1)) = (2s - 2) but our width is (2s - 1)!
 -- This is because when we write an unpacked float, we sometimes
 
@@ -62,7 +73,7 @@ end PackedFloat
 -- 2^-s * 2^s = 2^(-2s)
 -- 2^
 @[bv_normalize]
-def UnpackedFloat.mulUnadjustedMsb (x y : UnpackedFloat e s) : UnpackedFloat (e + 1) (2 * s) :=
+def MulUnnormalized.mul (x y : UnpackedFloat e s) : MulUnnormalized e s :=
   {
     sign := sign
     -- Exponent guaranteed to fit in e+1 bits (no overflow):
@@ -80,38 +91,50 @@ def UnpackedFloat.mulUnadjustedMsb (x y : UnpackedFloat e s) : UnpackedFloat (e 
     ex := x.ex.signExtend (e + 1) + y.ex.signExtend (e + 1)
     sign := x.sign ^^ y.sign
 
--- If product in range [2,4) (i.e., 1x...x), then it is already normalized.
--- If product in range [1,2) (i.e., 01x..x), then normalize by shifting left once.
-def UnpackedFloat.mulAdjustMsb (u : UnpackedFloat (e + 1) (2 * s)) : UnpackedFloat (e + 1) (2 * s) := {
-    sign := u.sign
-    sig := sig
-    ex := ex
-  }
+/--
+The rational interpretation of this number. See that it has
+two bits to the left of the decimal point, since 'sig' is '2s' long,
+but the precisoin is `-2(s-1) = 2s - 2`.
+This is normalized away in the next step, and this intermediate
+computation is 'manually' normalized.
+-/
+def MulUnnormalized.toRat (m : MulUnnormalized e s) : Rat :=
+  m.sign.toSign * m.sig.toNat * (2 : Rat) ^ (- ((2 * (s - 1) : Int) - m.ex.toInt))
+
+/--
+Perform the normalization step.
+If product in range [2,4) (i.e., 1x...x), then it is already normalized.
+If product in range [1,2) (i.e., 01x..x), then normalize by shifting left once.
+-/
+def MulUnnormalized.mulAdjustMsb (u : MulUnnormalized e s) :
+  UnpackedFloat (e + 1) (2 * s) := {
+      sign := u.sign
+      sig := sig
+      ex := ex
+    }
   where
     sig := u.sig <<< (BitVec.ofBool (!u.sig.msb))
     ex := u.ex + (BitVec.ofBool u.sig.msb).setWidth' (by omega)
 
 /--
-For reasoning, breaking the mulitplication circuit down into an unadjusted multiplication,
-followed by an adjustment based on the msb.
+The multiplication circuit can be conceptualized as first
+
+- computing the multiplication as unadjusted, that results in a number that two digits
+  to the left of the dot, followed by digits of precision.
+- normalizing the unadjusted number to push the msb up.
 -/
 theorem UnpackedFloat.mul_eq_mulAdjustMsb_mulUnadjustedMsb (x y : UnpackedFloat e s) :
-  x.mul y = (x.mulUnadjustedMsb y).mulAdjustMsb := rfl
+    x.mul y = (MulUnnormalized.mul x y).mulAdjustMsb := by rfl
 
 private theorem Nat.pow_two_eq_mul_self (a : Nat) : a ^ 2 = a * a := by grind
 
--- | TODO: make a relation for approximated upto k bits, with guard?
--- in UnpackedFloat.toRat, we conflate the number of bits we use to *represent* the exponent,
--- with the actual "exponent range" we are working in (ie, the bias we want to apply.)
--- These two are different! For example, when we build a `UnpackedFloat` for multiplication,
--- we may use more bits to represent the exponent, but we are still 'interpreting'
--- the exponent in the old range, so we need to have a bias factor of `2^(-<old bias> + e)`.
-theorem UnpackedFloat.toRat_mulUnadjustedMsb_eq_toRat_mul_toRat {a b : UnpackedFloat e s} :
-    (a.mulUnadjustedMsb b).sign.toSign *
-    ((a.mulUnadjustedMsb b).sig.toNat) *
-    ((2 : Rat) ^ (a.mulUnadjustedMsb b).ex.toInt * (2 : Rat) ^ (- (s : Int))) =
-      (a.toRat * b.toRat) := by
-  simp [UnpackedFloat.mulUnadjustedMsb]
+/--
+The unadjusted result has the correct rational interpretation.
+-/
+theorem UnpackedFloat.toRat_mulUnadjustedMsb_eq_toRat_mul_toRat {a b : UnpackedFloat e s}
+    (hs : 0 < s) :
+    (MulUnnormalized.mul a b).toRat = (a.toRat * b.toRat) := by
+  simp [MulUnnormalized.mul, MulUnnormalized.toRat]
   simp [UnpackedFloat.toRat_eq_toRat']
   simp [UnpackedFloat.toRat']
   simp [UnpackedFloat.toExpInt]
@@ -123,30 +146,28 @@ theorem UnpackedFloat.toRat_mulUnadjustedMsb_eq_toRat_mul_toRat {a b : UnpackedF
         (↑b.sig.toNat * (2 : Rat) ^ (-(↑(s - 1) - b.ex.toInt))) := by grind
     _ = (↑a.sign.toSign * ↑b.sign.toSign) * (↑a.sig.toNat * ↑b.sig.toNat) *
           ((2 : Rat) ^ (-(↑(s - 1) - a.ex.toInt)) * (2 : Rat) ^ (-(↑(s - 1) - b.ex.toInt))) := by grind
-  congr 1
-  · congr 2
-    · simp [UnpackedFloat.mulUnadjustedMsb.sign]
-    · simp [UnpackedFloat.mulUnadjustedMsb.sig]
-      rw [Nat.mod_eq_of_lt]
-      · simp
-      · have : a.sig.toNat < 2 ^ s := by grind
-        have : b.sig.toNat < 2 ^ s := by grind
-        rw [Nat.pow_mul']
-        rw [Nat.pow_two_eq_mul_self]
-        apply Nat.mul_lt_mul'' <;> assumption
-  · rw [mulUnadjustedMsb.ex]
-    rw [← Rat.zpow_add]
-    rw [BitVec.toInt_add_of_not_saddOverflow]
-    · rw [BitVec.toInt_signExtend_of_le (by lia)]
-      rw [BitVec.toInt_signExtend_of_le (by lia)]
-      congr
-      have : 1 < s := by sorry
+  congr 2
+  · simp [MulUnnormalized.mul.sign]
+  · simp [MulUnnormalized.mul.sig]
+    rw [Nat.mod_eq_of_lt]
+    · simp
+    · have : a.sig.toNat < 2 ^ s := by grind
+      have : b.sig.toNat < 2 ^ s := by grind
+      rw [Nat.pow_mul']
+      rw [Nat.pow_two_eq_mul_self]
+      apply Nat.mul_lt_mul'' <;> assumption
+  · rw [MulUnnormalized.mul.ex]
+    rw [← Rat.zpow_add (show 2 ≠ 0 by decide)]
+    rw [BitVec.toInt_add]
+    rw [BitVec.toInt_signExtend_of_le (by lia)]
+    rw [BitVec.toInt_signExtend_of_le (by lia)]
+    rw [Int.bmod_eq_of_le]
+    · apply congrArg
       simp [Int.neg_sub]
       norm_cast
-      sorry
-    · sorry
-    · decide
-
+      grind
+    · grind
+    · grind
 
 
 
