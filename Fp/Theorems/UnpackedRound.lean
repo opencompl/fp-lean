@@ -585,7 +585,6 @@ def CorrectlyApproximated.mk (sout : Nat) (y : Rat) (approx : Rat)
 
 
 
-
 theorem unpackNum_mul_unpackNum_toRat_eq_mul_toRat
     {a b : PackedFloat e s}
     (ha : a.isNormOrNonzeroSubnorm)

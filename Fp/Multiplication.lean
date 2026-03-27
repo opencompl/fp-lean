@@ -19,6 +19,7 @@ def UnpackedFloat.mul (x y : UnpackedFloat e s) : UnpackedFloat (e + 1) (2 * s) 
     -- use 'where' blocks since they create auxiliary defs which can be neatly unfolded.
     sigProd := x.sig.setWidth' (by omega) * y.sig.setWidth' (by omega)
     sig := sigProd <<< BitVec.ofBool !sigProd.msb
+    -- | why does this not overflow? when `sigProd.msb` is `true`?
     ex := x.ex.signExtend (e + 1) + y.ex.signExtend (e + 1) + (BitVec.ofBool sigProd.msb).setWidth' (by omega)
     sign := x.sign ^^ y.sign
 
@@ -176,9 +177,11 @@ then in the result, then either 'msb' or the bit one below the msb is 1.
 This shows that to normalize, we only need to shift the msb by one.
 -/
 theorem BitVec.getMsbD_mul_eq_true_of_msb_eq_true_of_msb_eq_true (x y : BitVec w)
-    (hx : x.msb = true) (hy : y.msb = true) :
-    ((x.zeroExtend (2 * w)) * (y.zeroExtend (2 * w))).getMsbD 0 = true ∨
-    ((x.zeroExtend (2 * w)) * (y.zeroExtend (2 * w))).getMsbD 1 = true := by
+    (hx : x.msb = true) (hy : y.msb = true)
+    {z : BitVec (2 * w)}
+    (hz : z = (x.zeroExtend (2 * w)) * (y.zeroExtend (2 * w))) :
+    z.getMsbD 0 = true ∨ (z.getMsbD 0 = false ∧ z.getMsbD 1 = true) := by
+  subst hz
   by_cases hw : w = 0
   · grind only [= msb_eq_getMsbD_zero, = getMsbD_eq_getLsbD]
   · by_cases hw : w = 1
@@ -229,6 +232,144 @@ theorem BitVec.getMsbD_mul_eq_true_of_msb_eq_true_of_msb_eq_true (x y : BitVec w
       grind only
 
 
+@[simp]
+theorem Rat.mul_self_pow_eq_pow_succ (a : Rat) (n : Nat) :
+  a * a ^ n = a ^ (n + 1) := by
+  rw [Rat.mul_comm]
+  rw [← Rat.pow_succ]
+
+@[simp]
+theorem Rat.mul_self_zpow_eq_zpow_succ {a : Rat} {n : Int}
+  (ha : a ≠ 0 := by solve | simp | grind) :
+  a * a ^ n = a ^ (n + 1) := by
+  rw [Rat.mul_comm]
+  rw [Rat.zpow_add]
+  · simp
+  · simp [ha]
+
+/--
+The exponent of the unadjusted multiplication result is at most `2^e - 2`,
+which allows one to add *one* more bit to be `2^e - 1` and still be in range.
+This is important, because we need to add one more bit to the exponent when we adjust the msb.
+-/
+theorem MulUnnormalized.toInt_ex_le (x y : UnpackedFloat e s) (he : 0 < e):
+    (MulUnnormalized.mul x y).ex.toInt ≤ 2 ^ e - 2 := by
+  have : ∃ e', e = e' + 1 := by exact Nat.exists_eq_add_one.mpr he
+  obtain ⟨e', he'⟩ := this
+  subst he'
+  simp [MulUnnormalized.mul, mul.ex]
+  rw [BitVec.toInt_signExtend_of_le (by lia)]
+  rw [BitVec.toInt_signExtend_of_le (by lia)]
+  have := x.ex.toInt_le
+  have := y.ex.toInt_le
+  rw [Int.bmod_eq_of_le]
+  · grind
+  · grind
+  · grind
+
+/--
+The result of adjusting the MSB returns the same 'toRat' value.
+-/
+def MulUnnormalized.mulAdjustMsb_toRat_eq
+    (u : MulUnnormalized e s)
+    (hs : 0 < s)
+    (he : 0 < e)
+    -- | Since the exponent comes by adding two sign extended value,
+    -- it will be at most 2^(e-1) - 1 + 2^(e-1) - 1 + 1 = 2^e - 1, and at least -2^e.
+    (hex : u.ex.toInt ≤ 2 ^ e - 2) :
+    u.mulAdjustMsb.toRat = u.toRat := by
+  simp [toRat, mulAdjustMsb, UnpackedFloat.toRat_eq_toRat', UnpackedFloat.toRat', UnpackedFloat.toExpInt]
+  rw [Rat.mul_assoc u.sign.toSign]
+  rw [Rat.mul_assoc u.sign.toSign]
+  rw [Rat.mul_cancel_left (by simp)]
+  rw [mulAdjustMsb.sig]
+  rcases hmsb : u.sig.msb
+  · simp
+    rw [Nat.mod_eq_of_lt]
+    · simp [Nat.shiftLeft_eq]
+      simp [mulAdjustMsb.ex, hmsb]
+      rw [Rat.mul_assoc u.sig.toNat]
+      by_cases hsig : u.sig = 0#_
+      · simp [hsig]
+      · rw [Rat.mul_cancel_left (by simp; grind)]
+        rw [Rat.mul_self_zpow_eq_zpow_succ]
+        grind
+    · simp [Nat.shiftLeft_eq]
+      grind only [usr BitVec.msb_eq_false_iff_two_mul_lt]
+  · simp
+    rw [Rat.mul_cancel_left]
+    · simp only [mulAdjustMsb.ex, hmsb, BitVec.ofBool_true, BitVec.ofNat_eq_ofNat,
+      BitVec.setWidth'_eq, Nat.le_add_left, Nat.pow_one, Nat.lt_add_one,
+      BitVec.setWidth_ofNat_of_le_of_lt, BitVec.toInt_add, Nat.lt_add_left_iff_pos, he,
+      BitVec.toInt_one_of_lt]
+      rw [Int.mul_sub]
+      rw [Int.bmod_eq_of_le]
+      · grind
+      · grind
+      · grind
+    · grind only [Rat.natCast_eq_zero_iff, usr BitVec.msb_eq_false_iff_two_mul_lt, usr BitVec.isLt]
+
+/--
+The result of `MulUnormalized.mulAdjustMsb` is normalized if the inputs are normalized.
+i.e, the msb is `true`.
+-/
+def MulUnnormalized.mulAdjustMsb_msb_eq_true
+    (x y : UnpackedFloat e s)
+    (hx : x.sig.msb = true)
+    (hy : y.sig.msb = true) :
+    (MulUnnormalized.mul x y).mulAdjustMsb.sig.msb = true := by
+  simp only [mulAdjustMsb, mulAdjustMsb.sig, BitVec.shiftLeft_eq', BitVec.toNat_ofBool,
+    BitVec.msb_shiftLeft]
+  generalize hz : (mul x y).sig = z
+  have : z.getMsbD 0 = true ∨ (z.getMsbD 0 = false ∧ z.getMsbD 1 = true) := by
+    apply BitVec.getMsbD_mul_eq_true_of_msb_eq_true_of_msb_eq_true
+    · exact hx
+    · exact hy
+    · rw [← hz]
+      simp [mul, mul.sig]
+  rcases this with this0 | this1
+  · simp [BitVec.msb_eq_getMsbD_zero, this0]
+  · simp [BitVec.msb_eq_getMsbD_zero, this1]
+
+
+/--
+The result of `x.mul y` is exact.
+-/
+theorem toRat_mul_eq_toRat_mul_toRat {a b : UnpackedFloat e s}
+    (hs : 0 < s) (he : 0 < e) :
+    (a.mul b).toRat = a.toRat * b.toRat := by
+  rw [UnpackedFloat.mul_eq_mulAdjustMsb_mulUnadjustedMsb]
+  rw [MulUnnormalized.mulAdjustMsb_toRat_eq]
+  · rw [UnpackedFloat.toRat_mulUnadjustedMsb_eq_toRat_mul_toRat]
+    · grind only
+  · grind only
+  · grind only
+  · have : (MulUnnormalized.mul a b).ex.toInt ≤ 2 ^ e - 2 := by
+      apply MulUnnormalized.toInt_ex_le <;> grind only
+    grind only
+/--
+The result of `x.mul y` is normalized.
+-/
+theorem msb_mul_eq_true_of_msb_eq_true {x y : UnpackedFloat e s}
+    (hx : x.sig.msb = true)
+    (hy : y.sig.msb = true) :
+    (x.mul y).sig.msb = true := by
+  rw [UnpackedFloat.mul_eq_mulAdjustMsb_mulUnadjustedMsb]
+  apply MulUnnormalized.mulAdjustMsb_msb_eq_true <;> grind only
+
+-- guard bit:
+--  |r| - |uf[0..guard].toRat| <= 2 ^ -(s + 1)
+-- sticky bit:
+--   |r| - |uf[0..guard+1].toRat| < 2 ^ -(s + 1)
+-- sticky bit tells you whether to use strict or
+--  non-strict inequality.
+-- Also, abdal made me realize that we only need
+--  to compare (r - result), because we always
+--  under-approximate the result.
+-- for representables, the difference between them ie
+-- 2^-s.
+-- Z: x < y -> x <= y + 1
+--theorem: FP: x < y -> x <= y + 2^-s
 
 /-- info: some 16 -/
 #guard_msgs in #eval (PackedFloat.ofRat 5 2 .RNE 8 1 * PackedFloat.ofRat 5 2 .RNE 2 1).toRat?
