@@ -289,3 +289,18 @@ theorem getMsbD_true_clz_of_ne_zero {x : BitVec w} :
       · grind only [= toNat_clz_lt_iff_ne_zero]
       · grind only
       · grind only
+
+/-- The clz is zero iff the msb is true, or the width is zero. -/
+@[simp]
+theorem BitVec.clz_eq_zero_iff_msb_of_lt (x : BitVec w) : x.clz = 0#w ↔ (x.msb = true ∨ w = 0) := by
+  by_cases hw : w = 0
+  · subst hw
+    grind only
+  · constructor
+    · intros h
+      have h' : x.clz.toNat = 0 := by grind
+      grind only [BitVec.msb_eq_decide, BitVec.clz_eq_zero_iff]
+    · intros h
+      rw [← BitVec.toNat_inj]
+      simp only [BitVec.toNat_ofNat, Nat.zero_mod]
+      grind only [!BitVec.clz_eq_zero_iff, !BitVec.le_toNat_of_msb_true]

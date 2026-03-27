@@ -2624,6 +2624,22 @@ theorem msb_normalize_eq_decide (uf : UnpackedFloat e s) :
   simp
   by_cases hs : uf.sig = 0#s <;> simp [hs]
 
+
+theorem normalize_eq_self_iff (uf : UnpackedFloat e s) (huf : uf.sig ≠ 0#s) :
+    normalize uf zsign = uf ↔ (uf.sig.msb = true) := by
+  simp [normalize]
+  by_cases hs : uf.sig == 0#s
+  · simp [hs]
+    grind only
+  · simp only [hs, cond_false]
+    rcases uf with ⟨sign, ex, sig⟩
+    simp only [mk.injEq, true_and]
+    constructor
+    · intros h
+      sorry
+    · sorry
+
+
 @[bv_normalize]
 def toEUnpackedFloat (uf : UnpackedFloat e s) : EUnpackedFloat e s :=
   .mk .Number uf
