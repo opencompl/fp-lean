@@ -594,11 +594,8 @@ theorem unpackNum_mul_unpackNum_toRat_eq_mul_toRat
   2 ^ (- (e : Int)) := by
   have ha : a.toRat = a.unpackNum.toRat := by grind
   rw [ha]
-
   have hb : b.toRat = b.unpackNum.toRat := by grind
   rw [hb]
-
-
   sorry
 
 

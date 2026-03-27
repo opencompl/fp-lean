@@ -229,3 +229,63 @@ theorem Rat.le_mul_self_of_le_one_of_nonneg {y} {x : Rat} (hx0 : 0 ≤ x ∧ x �
   · grind only [Rat.le_of_lt, Fp.Rat.two_pow_pos]
 
 attribute [simp] Rat.le_refl
+
+
+
+@[simp]
+theorem BitVec.clz_zero (w : Nat) : (0#w : BitVec w).clz = w := by
+  rw [BitVec.clz_eq_iff_eq_zero]
+
+
+@[simp, grind =]
+theorem toNat_clz_lt_iff_ne_zero (x : BitVec w) : x.clz.toNat < w ↔ x ≠ 0#w := by
+  have := BitVec.clz_lt_iff_ne_zero (x := x)
+  by_cases hx : x = 0#w
+  · simp [hx]
+  · simp [hx]
+    have := this.mpr (by grind only)
+    simp [BitVec.lt_def] at this
+    grind only
+
+/--
+Shifting by the clz never overflows.
+-/
+theorem toNat_shiftLeft_clz_eq_toNat (x : BitVec w) :
+    (x <<< x.clz.toNat).toNat = x.toNat <<< x.clz.toNat := by
+  by_cases hs : w = 0
+  · simp [hs]
+    grind only [= Nat.shiftLeft_eq, = BitVec.toNat_zero_length]
+  · by_cases hsig : x = 0#w
+    · simp [hsig]
+    · simp only [BitVec.toNat_shiftLeft]
+      apply Nat.mod_eq_of_lt
+      have : x.toNat < 2 ^ w := by grind
+      have := BitVec.two_pow_sub_clz_le_toNat_of_ne_zero (x := x) (by grind only) (by grind only)
+      have := BitVec.toNat_lt_two_pow_sub_clz (x := x) (w := w)
+      have : x.clz.toNat < w := by
+        grind only [#2867]
+      rw [Nat.shiftLeft_eq]
+      apply Nat.lt_of_lt_of_le (m := 2 ^ (w - x.clz.toNat) * (2 ^ x.clz.toNat))
+      · apply Nat.mul_lt_mul_of_lt_of_le
+        · grind only
+        · apply Nat.pow_le_pow_of_le
+          · grind only
+          · grind only
+        · grind only [usr Nat.pow_pos]
+      · rw [← Nat.pow_add]
+        apply Nat.pow_le_pow_of_le
+        · grind only
+        · grind only
+
+@[simp, grind =]
+theorem getMsbD_true_clz_of_ne_zero {x : BitVec w} :
+    x.getMsbD ((x.clz).toNat) = (decide (x ≠ 0#w)) := by
+  by_cases hw : w = 0
+  · grind only [= BitVec.getMsbD_of_ge, = BitVec.toNat_zero_length]
+  · by_cases hx : x = 0#w
+    · simp [hx]
+    · rw [BitVec.getMsbD_eq_getLsbD]
+      rw [BitVec.getLsbD_true_clz_of_ne_zero]
+      · grind only [= toNat_clz_lt_iff_ne_zero]
+      · grind only
+      · grind only

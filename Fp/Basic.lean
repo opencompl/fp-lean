@@ -2598,6 +2598,7 @@ def normalize (uf : UnpackedFloat e s) (sign := uf.sign) : UnpackedFloat e s :=
       sig := uf.sig <<< uf.sig.clz
     }
 
+
 @[simp]
 theorem sign_normalize (uf : UnpackedFloat e s) : (normalize uf zsign).sign =
   if uf.sig == 0#s then zsign else uf.sign := by
@@ -2613,6 +2614,15 @@ theorem exp_normalize (uf : UnpackedFloat e s) : (normalize uf zsign).ex =
   if uf.sig == 0#s then BitVec.intMin e else uf.ex - uf.sig.clz.setWidth _ := by
   grind [normalize, mkZero]
 
+/--
+Normalize gives a number whose most significant bit is one,
+iff the number is nonzero.
+-/
+@[simp]
+theorem msb_normalize_eq_decide (uf : UnpackedFloat e s) :
+    ((normalize uf zsign).sig.msb = decide (uf.sig ≠ 0)) := by
+  simp
+  by_cases hs : uf.sig = 0#s <;> simp [hs]
 
 @[bv_normalize]
 def toEUnpackedFloat (uf : UnpackedFloat e s) : EUnpackedFloat e s :=
@@ -3241,51 +3251,6 @@ theorem eq_getInfinity_iff_toExtRat'_eq_Infinity (x : PackedFloat e s)
 end PackedFloat
 
 namespace UnpackedFloat
-
-@[simp]
-theorem BitVec.clz_zero (w : Nat) : (0#w : BitVec w).clz = w := by
-  rw [BitVec.clz_eq_iff_eq_zero]
-
-
-@[simp, grind =]
-theorem toNat_clz_lt_iff_ne_zero (x : BitVec w) : x.clz.toNat < w ↔ x ≠ 0#w := by
-  have := BitVec.clz_lt_iff_ne_zero (x := x)
-  by_cases hx : x = 0#w
-  · simp [hx]
-  · simp [hx]
-    have := this.mpr (by grind only)
-    simp [BitVec.lt_def] at this
-    grind only
-
--- | TODO: move this into a separate 'def', because it does sth important:
--- it moves the leading 1 of the significand to the front,
--- so we probably want to buidld theory about it?
-theorem toNat_shiftLeft_clz_eq_toNat (uf : UnpackedFloat e s) :
-    (uf.sig <<< uf.sig.clz.toNat).toNat = uf.sig.toNat <<< uf.sig.clz.toNat := by
-  by_cases hs : s = 0
-  · simp [hs]
-    grind only [= Nat.shiftLeft_eq, = BitVec.toNat_zero_length]
-  · by_cases hsig : uf.sig = 0#s
-    · simp [hsig]
-    · simp only [BitVec.toNat_shiftLeft]
-      apply Nat.mod_eq_of_lt
-      have : uf.sig.toNat < 2 ^ s := by grind
-      have := BitVec.two_pow_sub_clz_le_toNat_of_ne_zero (x := uf.sig) (by grind only) (by grind only)
-      have := BitVec.toNat_lt_two_pow_sub_clz (x := uf.sig) (w := s)
-      have : uf.sig.clz.toNat < s := by
-        grind only [#61b3]
-      rw [Nat.shiftLeft_eq]
-      apply Nat.lt_of_lt_of_le (m := 2 ^ (s - uf.sig.clz.toNat) * (2 ^ uf.sig.clz.toNat))
-      · apply Nat.mul_lt_mul_of_lt_of_le
-        · grind only
-        · apply Nat.pow_le_pow_of_le
-          · grind only
-          · grind only
-        · grind only [usr Nat.pow_pos]
-      · rw [← Nat.pow_add]
-        apply Nat.pow_le_pow_of_le
-        · grind only
-        · grind only
 
 
 theorem two_zpow_mul_two_zpow_neg_eq_one (z : Int) :
