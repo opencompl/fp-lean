@@ -36,7 +36,7 @@ def remainderFixed (a b : PackedFloat e s) : PackedFloat e s :=
         num := {
           sign := a.sign ^^ remSign
           val := val.setWidth _ <<< bshift
-          hExOffset := by
+          hPrec := by
             have hexp0 : 0 < 2^e := Nat.two_pow_pos _
             have hexp1 : 2^(e-1) ≤ 2^e := two_pow_sub_one_le_two_pow e
             omega

@@ -306,10 +306,10 @@ theorem toExtRat_eq_toExtRat' {pf : PackedFloat e s}
   cases hZero : pf.isZero <;>
   cases hNorm : pf.isNorm <;>
   all_goals simp only [toExtRat, toExtDyadic, ExtDyadic.toExtRat, toExtRat', hNaN, hInf, hZero, hNorm, cond_true,
-    cond_false, Dyadic.toRat_zero, PackedFloat.toNumberRat, PackedFloat.toNumberRatSig, PackedFloat.toNumberRatExp, Bool.false_eq_true, if_false, if_true]
+    cond_false, Dyadic.toRat_zero, toRat, PackedFloat.toRatSig, PackedFloat.toRatExp, Bool.false_eq_true, if_false, if_true]
   all_goals simp only [Dyadic.toRat_ofIntWithPrec_eq_mul_two_pow, ExtRat.Number.injEq,
     Int.neg_add, Int.neg_sub, Bool.apply_cond]
-  -- all_goals (simp only [PackedFloat.toNumberRat, PackedFloat.toNumberRatSig, PackedFloat.toNumberRatExp, if_true, if_false, hNorm, Bool.false_eq_true])
+  -- all_goals (simp only [PackedFloat.toRat, PackedFloat.toRatSig, PackedFloat.toRatExp, if_true, if_false, hNorm, Bool.false_eq_true])
   all_goals (try simp only [BitVec.toInt_setWidth'_of_lt (Nat.lt_succ_self (s + 1)), Rat.intCast_natCast, BitVec.toInt_neg_eq_of_msb (BitVec.msb_setWidth'_of_lt (Nat.lt_succ_self (s + 1))), BitVec.toNat_cons', Bool.toNat, cond_false, cond_true, Nat.zero_shiftLeft, Nat.one_shiftLeft, Nat.zero_add, Int.natCast_add, Rat.intCast_neg, Rat.intCast_add, Rat.natCast_pow, Rat.natCast_ofNat])
   all_goals (cases pf.sign <;> simp only [cond_false, cond_true, Bool.toSign, if_true, Bool.false_eq_true, if_false, Rat.intCast_ofNat, Rat.intCast_neg, Rat.zero_add, Rat.one_mul, Rat.neg_mul])
   all_goals (rewrite [Rat.div_def])
@@ -378,7 +378,7 @@ theorem exponentWidth_gt_zero : exponentWidth e s > 0 := by
 -- significand, and so on.
 theorem toExtRat_unpack_eq_toExtRat {pf : PackedFloat e s}
   : pf.unpack.toExtRat = pf.toExtRat := by
-  simp only [unpack, unpackNormOrNonzeroSubnorm, BitVec.truncate_eq_setWidth, toExtRat_eq_toExtRat']
+  simp only [unpack, unpackNum, BitVec.truncate_eq_setWidth, toExtRat_eq_toExtRat']
   cases hNaN : pf.isNaN
   · cases hInf : pf.isInfinite
     · cases hZero : pf.isZero
@@ -386,7 +386,7 @@ theorem toExtRat_unpack_eq_toExtRat {pf : PackedFloat e s}
         · simp only [EUnpackedFloat.toExtRat, Bool.false_eq_true, ↓reduceIte, cond_false,
           EUnpackedFloat.isNaN_mkNumber, EUnpackedFloat.isInfinite_mkNumber,
           EUnpackedFloat.num_mkNumber, toExtRat', hNaN, hInf, ExtRat.Number.injEq]
-          simp only [PackedFloat.toNumberRat, PackedFloat.toNumberRatSig, PackedFloat.toNumberRatExp]
+          simp only [toRat, PackedFloat.toRatSig, PackedFloat.toRatExp]
           simp [hNorm]
           rewrite [UnpackedFloat.toRat_normalize_eq_toRat UnpackedFloat.sigWidth_lt_exponentWidth_sub_one]
           · simp only [UnpackedFloat.toRat_eq, Rat.mul_assoc]
@@ -443,7 +443,7 @@ theorem toExtRat_unpack_eq_toExtRat {pf : PackedFloat e s}
           EUnpackedFloat.isNaN_mkNumber, EUnpackedFloat.isInfinite_mkNumber,
           EUnpackedFloat.num_mkNumber, toExtRat', hNaN, hInf,
           ExtRat.Number.injEq]
-          simp only [PackedFloat.toNumberRat, PackedFloat.toNumberRatSig, PackedFloat.toNumberRatExp, hNorm, if_true]
+          simp only [toRat, PackedFloat.toRatSig, PackedFloat.toRatExp, hNorm, if_true]
           simp only [UnpackedFloat.toRat_eq, Rat.mul_assoc]
           congr 1
           simp only [BitVec.toNat_cons', Nat.shiftLeft_eq, Bool.toNat, cond_true]
@@ -494,6 +494,8 @@ theorem toExtRat_unpack_eq_toExtRat {pf : PackedFloat e s}
       simp [EUnpackedFloat.mkInfinity]
   · simp only [EUnpackedFloat.toExtRat, cond_true, EUnpackedFloat.mkNaN_isNaN, toExtRat', hNaN]
 
+
+
 /--
 info: 'PackedFloat.toExtRat_unpack_eq_toExtRat' depends on axioms: [propext,
  BitVec.toNat_clz_cons,
@@ -501,5 +503,47 @@ info: 'PackedFloat.toExtRat_unpack_eq_toExtRat' depends on axioms: [propext,
  Quot.sound]
 -/
 #guard_msgs in #print axioms toExtRat_unpack_eq_toExtRat
+
+@[simp]
+theorem toExtRat_unpack_eq_toExtRat' (pf : PackedFloat e s) :
+    pf.unpack.toExtRat = pf.toExtRat' := by
+  rw [← PackedFloat.toExtRat_eq_toExtRat']
+  exact toExtRat_unpack_eq_toExtRat
+
+/--
+This shows that calling 'toRat' agrees with 'toExtRat'.
+-/
+theorem toRat_eq_of_toExtRat_eq_Number {pf : PackedFloat e s}
+    (hpf : pf.isNormOrNonzeroSubnorm)
+    {r : Rat}
+    (hr : pf.toExtRat = .Number r)
+    : pf.toRat = r := by
+  have := pf.toExtRat_unpack_eq_toExtRat
+  rw [PackedFloat.unpack] at this
+  simp at this
+  simp [show ¬ pf.isNaN by grind, show ¬ pf.isInfinite by grind] at this
+  by_cases hz : pf.isZero
+  · simp [hz] at this
+    rw [PackedFloat.toExtRat_eq_toExtRat'] at hr
+    simp [PackedFloat.toExtRat'] at hr
+    simp [show ¬ pf.isNaN by grind, show ¬ pf.isInfinite by grind] at hr
+    exact hr
+  · simp [hz] at this
+    simp [PackedFloat.toExtRat'] at hr
+    simp [show ¬ pf.isNaN by grind, show ¬ pf.isInfinite by grind] at hr
+    exact hr
+
+
+/-- the unpacked value as a rational number equals the packed float as a rational number. -/
+@[simp, grind =]
+theorem unpackNum_toRat_eq_toRat {pf : PackedFloat e s}
+    (hpf : pf.isNormOrNonzeroSubnorm)
+    : pf.unpackNum.toRat = pf.toRat := by
+  have hunpack := pf.toExtRat_unpack_eq_toExtRat'
+  rw [pf.unpack_eq_unpackNum_of hpf] at hunpack
+  rw [pf.toExtRat'_eq_toRat_of hpf] at hunpack
+  simp at hunpack
+  exact hunpack
+
 
 end PackedFloat

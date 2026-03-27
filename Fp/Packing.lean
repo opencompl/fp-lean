@@ -1,7 +1,11 @@
 import Fp.Basic
 
+/--
+Convert a packed float into an 'UnpackedFloat',
+ignoring the possibility that it could be NaN/± infinity.
+-/
 @[bv_normalize]
-def PackedFloat.unpackNormOrNonzeroSubnorm (pf : PackedFloat e s) :
+def PackedFloat.unpackNum (pf : PackedFloat e s) :
   UnpackedFloat (exponentWidth e s) (s + 1) :=
   if pf.isNorm then
     {
@@ -26,12 +30,12 @@ then we know that the unpacked version of it is also not zero. This is a useful 
 -/
 @[simp, grind! →]
 axiom PackedFloat.unpackNormOrNonzeroSubnorm_isZero_eq_of_not_isZero (pf : PackedFloat e s) (hpf : ¬ pf.isZero := by grind) :
-  pf.unpackNormOrNonzeroSubnorm.isZero = false
+  pf.unpackNum.isZero = false
 
 @[simp]
 theorem PackedFloat.sign_unpackNormOrNonzeroSubnorm_eq_sign (pf : PackedFloat e s) :
-    pf.unpackNormOrNonzeroSubnorm.sign = pf.sign := by
-  simp [PackedFloat.unpackNormOrNonzeroSubnorm]
+    pf.unpackNum.sign = pf.sign := by
+  simp [unpackNum]
   by_cases hpf : pf.isNorm <;> simp [hpf]
 
 
@@ -44,7 +48,7 @@ def PackedFloat.unpack (pf : PackedFloat e s)
     EUnpackedFloat.mkInfinity pf.sign
   else bif pf.isZero then
     EUnpackedFloat.mkZero pf.sign
-  else EUnpackedFloat.mkNumber (pf.unpackNormOrNonzeroSubnorm)
+  else EUnpackedFloat.mkNumber (pf.unpackNum)
 
 @[simp, grind! .]
 theorem PackedFloat.isNaN_unpack_eq_isNaN (pf : PackedFloat e s) :
@@ -74,6 +78,23 @@ theorem PackedFloat.isZero_unpack_eq_isZero (pf : PackedFloat e s) :
     · grind
     · by_cases hzero : pf.isZero <;> simp [hzero]
 
+
+@[simp, grind =]
+theorem PackedFloat.unpack_eq_unpackNum_of (pf : PackedFloat e s)
+    (hpf : pf.isNormOrNonzeroSubnorm) :
+     pf.unpack = EUnpackedFloat.mkNumber pf.unpackNum := by
+  unfold unpack
+  grind
+
+/-- Unpacking a packed float always results in a normalized float. -/
+@[simp, grind =]
+theorem PackedFloat.msb_unpackNum_eq_true {pf : PackedFloat e s}
+    (hpf : pf.isNormOrNonzeroSubnorm) :
+    pf.unpackNum.sig.msb = true := by
+  simp only [unpackNum, BitVec.truncate_eq_setWidth]
+  by_cases hf : pf.isNorm <;> simp only [hf, ↓reduceIte, BitVec.msb_cons]
+  have : pf.sig ≠ 0#s := by grind
+  simp [this]
 
 
 @[bv_normalize]
@@ -108,8 +129,8 @@ attribute [bv_normalize] BitVec.zero
 
 @[simp]
 theorem PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm
-  {pf : PackedFloat e s} (hpf : pf.isNormOrNonzeroSubnorm) :
-    pf.unpack = EUnpackedFloat.mkNumber pf.unpackNormOrNonzeroSubnorm := by
+  {pf : PackedFloat e s} (hpf : pf.isNormOrNonzeroSubnorm := by solve | simp | grind) :
+    pf.unpack = EUnpackedFloat.mkNumber pf.unpackNum := by
   have hnan : ¬ pf.isNaN := by grind
   have hinf : ¬ pf.isInfinite := by grind
   have hzero : ¬ pf.isZero := by grind

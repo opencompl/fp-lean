@@ -1,7 +1,6 @@
 import Fp.UnpackedRound
 import Fp.SmtLibSemantics
 import Fp.Theorems.SmtLibSemanticsQ
-import Fp.Multiplication
 import Fp.Theorems.Packing
 
 
@@ -328,14 +327,18 @@ theorem round_eq_mkZero_of_mkZero {zeroSign : Bool} {eout sout : Nat} {rm : Roun
         rm zeroSign (ExtRat.Number 0) = PackedFloat.getZero eout sout zeroSign := by
   rcases rm <;> simp [heout]
 
--- | TODO: find the right theorem statement here,
--- we should talk about guard and sticky bits and whatnot.
 set_option warn.sorry false in
-theorem roundQ_Number_eq_round {rm : RoundingMode}
+/--
+Find the right theorem statement here,
+we should talk about guard and sticky bits and whatnot.
+-/
+theorem SmtLibSemantics_round_eq_pack_UnpackedFloat_round {rm : RoundingMode}
     {ein sin eout sout : Nat} {sign : Bool}
-    (er : ExtRat) (uf : UnpackedFloat ein sin)
+    (er : ExtRat) {r : Rat} (uf : UnpackedFloat ein sin)
+    (hnorm : uf.sig.msb = true)
+    (hr : er = ExtRat.Number r)
     -- | round works correctly as long as our number is close enough.
-    (hApprox : (ExtRat.Number uf.toRat -  er).abs < ExtRat.Number ((2 : Rat) ^ (- (eout : Int)))) :
+    (hApprox : (uf.toRat = r)) :
     (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round rm sign er =
     (UnpackedFloat.round uf rm).pack := by
   sorry
@@ -366,7 +369,7 @@ theorem IsLawfulLower_Infinity_iff (x : PackedFloat e s)
     case numCase n hn =>
       specialize h2 (PackedFloat.getInfinity e s sign)
       simp [hs] at h2
-      rw [PackedFloat.toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm] at h1
+      rw [n.toExtRat'_eq_toRat_of] at h1
       simp at h1
       subst h1
       simp [hs] at h2
@@ -408,7 +411,7 @@ theorem IsLawfulUpper_Infinity_iff (x : PackedFloat e s)
     case numCase n hn =>
       specialize h2 (PackedFloat.getInfinity e s sign)
       simp [hs] at h2
-      rw [PackedFloat.toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm] at h1
+      rw [n.toExtRat'_eq_toRat_of] at h1
       simp at h1
       subst h1
       simp [he, hs] at h2
@@ -567,122 +570,5 @@ theorem EquivUptoNaN.of_mkNaN_iff (x : PackedFloat e s) : EquivUptoNaN x (Packed
   simp [EquivUptoNaN]
   grind only [!PackedFloat.isNaN_mkNaN]
 
-theorem unpackedNormOrNonzeroSubnorm_mul_unpackNormOrNonzeroSubnorm_toRat_eq_mul_toNumberRat
-    {a b : PackedFloat e s}
-    (ha : a.isNormOrNonzeroSubnorm)
-    (hb : b.isNormOrNonzeroSubnorm) :
-    ((a.unpackNormOrNonzeroSubnorm.mul b.unpackNormOrNonzeroSubnorm).toRat - a.toNumberRat * b.toNumberRat).abs <
-  (2 : Rat) ^ (-(e : Int)) := by sorry
 
-
-set_option warn.sorry false in
-/--
-Example theorem we will prove, using our proof strategy of proving against the SMT-Lib semantics.
--/
-theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
-    (rm : RoundingMode) (a b : PackedFloat ein sin) :
-    EquivUptoNaN
-      (Fp.SmtLibSemantics.SmtLibFunctions.mul (Fp.SmtLibSemanticsQ.smtLibRoundMethodQ ein sin) rm a b)
-    (PackedFloat.mul rm a b) := by
-  simp [SmtLibSemantics.SmtLibFunctions.mul]
-  rw [PackedFloat.mul, EUnpackedFloat.mul]
-  cases a using PackedFloat.kindCasesNaNInfZeroNum
-  case nanCase hnan =>
-    simp [hnan]
-  case infCase signa =>
-    simp [hsin]
-    rw [← ExtRat.mul_def]
-    unfold ExtRat.mul
-    simp
-    cases b using PackedFloat.kindCasesNaNInfZeroNum
-    case nanCase hb =>
-      simp [hb]
-    case infCase signb =>
-      simp [hsin]
-      apply EquivUptoNaN.of_eq
-      simp [hsin, he]
-    case zeroCase signb =>
-      simp [he]
-    case numCase hb =>
-      -- TODO: prove a theorem that says that 'isNumber -> ∃ r such that b.toExtRat' = Number r'.
-      -- Use that to simplify the value.
-      -- simp [he, hsin]
-      -- | I want this to automatically apply with simp?
-      -- rw [PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm hb]
-      -- rw [<- PackedFloat.toExtRat_eq_toExtRat']
-      -- rw [← PackedFloat.toExtRat_unpack_eq_toExtRat]
-      rw [b.toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm hb]
-      simp [b.toNumberRat_ne_zero hb]
-      simp [show ¬ b.isNaN by grind]
-      simp [show ¬ b.isZero by grind]
-      apply EquivUptoNaN.of_eq
-      have : b.unpack.num.sign = decide (b.toNumberRat < 0) := by
-        rw [b.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm hb]
-        simp only [EUnpackedFloat.num_mkNumber, PackedFloat.sign_unpackNormOrNonzeroSubnorm_eq_sign]
-        grind only [→ PackedFloat.sign_iff_toNumberRat_neg]
-      simp [this, hsin, he]
-  case zeroCase sign =>
-    simp [he]
-    cases b using PackedFloat.kindCasesNaNInfZeroNum
-    case nanCase hb =>
-      simp [hb]
-    case infCase signb =>
-      simp [hsin]
-    case zeroCase signb =>
-      simp [he]
-      simp [SmtLibSemantics.SmtLibFunctions.xorSign, hsin]
-      simp [show decide (ein = 0) = false by grind]
-      apply EquivUptoNaN.of_eq
-      grind only
-    case numCase hb =>
-      rw [PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm hb]
-      simp
-      rw [PackedFloat.toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm hb]
-      simp only [ExtRat.number_mul_number_eq, Rat.zero_mul, round_eq_mkZero_of_mkZero, he, hsin]
-      simp [SmtLibSemantics.SmtLibFunctions.xorSign]
-      simp [show ¬ b.isNaN by grind]
-      simp [show ¬ b.isInfinite by grind]
-      apply EquivUptoNaN.of_eq
-      grind only
-      -- TODO: prove a theorem that says that 'isNumber -> ∃ r such that b.toExtRat' = Number r'.
-      -- Use that to simplify the value.
-  case numCase ha =>
-    rw [PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm ha]
-    rw [PackedFloat.toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm ha]
-    -- interesting case, when a is a number.
-    cases b using PackedFloat.kindCasesNaNInfZeroNum
-    case nanCase hb =>
-      simp [hb]
-    case infCase signb =>
-      simp [hsin]
-      have : ¬ a.isZero := by grind
-      simp [this]
-      rw [← ExtRat.mul_def, ExtRat.mul]
-      simp only [SmtLibSemantics.instExtendedRat, SmtLibSemantics.instExtendedRat.eq_1, roundQ_eq]
-      simp [show a.toNumberRat < 0 ↔ a.sign = true by grind]
-      simp [show a.toNumberRat = 0 ↔ a.isZero by grind]
-      simp [show ¬ a.isZero by grind]
-      apply EquivUptoNaN.of_eq
-      simp [hsin, he]
-      rw [show (signb ^^ a.sign) = (a.sign ^^ signb) by grind]
-    case zeroCase signb =>
-      simp [he]
-      simp [SmtLibSemantics.SmtLibFunctions.xorSign, hsin]
-      apply EquivUptoNaN.of_eq
-      grind only
-    case numCase hb =>
-      rw [PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm hb]
-      simp
-      have : ¬ a.isZero := by grind
-      simp [this]
-      have : ¬ b.isZero := by grind
-      simp [this]
-      apply EquivUptoNaN.of_eq
-      rw [roundQ_Number_eq_round]
-      rw [PackedFloat.toExtRat'_eq_Number_of_isNormOrNonzeroSubnorm hb]
-      simp only [ExtRat.number_mul_number_eq]
-      simp
-      apply unpackedNormOrNonzeroSubnorm_mul_unpackNormOrNonzeroSubnorm_toRat_eq_mul_toNumberRat
-      · grind
-      · grind
 end Fp
