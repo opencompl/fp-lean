@@ -12,19 +12,6 @@ structure MulUnnormalized (e s : Nat) where
   ex : BitVec (e + 1)
   sign : Bool
 
-
--- our "bias" is (2 (s - 1)) = (2s - 2) but our width is (2s - 1)!
--- This is because when we write an unpacked float, we sometimes
-
--- the actual formula for multiplication should say that if we have
--- 'UnpackedFloat e s p * Unpackedfloat e s' p', then we get a
--- UnpackedFloat (e + 1) (s * s') (p + p'), where p is number of bits of precision.
--- The mismatch where `p` is conflated with `s` causes accounting problems.
--- / (s - 1) * (s - 1) = 2 (s - 1)
--- [1.1] * [1.1] = 1.5 * 1.5 = 3 / 2 * 3/2 = 9 / 4 = [1001] / 4 = [10.01]
--- 2*(s-1) + 1 = 2 * s - 1
--- 2^-s * 2^s = 2^(-2s)
--- 2^
 @[bv_normalize]
 def MulUnnormalized.mul (x y : UnpackedFloat e s) : MulUnnormalized e s :=
   {
@@ -122,7 +109,6 @@ theorem UnpackedFloat.toRat_mulUnadjustedMsb_eq_toRat_mul_toRat {a b : UnpackedF
     · grind
     · grind
 
-
 /--
 When multiplying two numbers, if both of them have `msb` true,
 then in the result, then either 'msb' or the bit one below the msb is 1.
@@ -182,22 +168,6 @@ theorem BitVec.getMsbD_mul_eq_true_of_msb_eq_true_of_msb_eq_true (x y : BitVec w
         apply congrArg
         grind only [= msb_eq_getMsbD_zero, = getMsbD_eq_getLsbD]
       grind only
-
-
-@[simp]
-theorem Rat.mul_self_pow_eq_pow_succ (a : Rat) (n : Nat) :
-  a * a ^ n = a ^ (n + 1) := by
-  rw [Rat.mul_comm]
-  rw [← Rat.pow_succ]
-
-@[simp]
-theorem Rat.mul_self_zpow_eq_zpow_succ {a : Rat} {n : Int}
-  (ha : a ≠ 0 := by solve | simp | grind) :
-  a * a ^ n = a ^ (n + 1) := by
-  rw [Rat.mul_comm]
-  rw [Rat.zpow_add]
-  · simp
-  · simp [ha]
 
 /--
 The exponent of the unadjusted multiplication result is at most `2^e - 2`,
@@ -309,20 +279,6 @@ theorem msb_mul_eq_true_of_msb_eq_true {x y : UnpackedFloat e s}
   rw [UnpackedFloat.mul_eq_mulAdjustMsb_mulUnadjustedMsb]
   apply MulUnnormalized.mulAdjustMsb_msb_eq_true <;> grind only
 
--- guard bit:
---  |r| - |uf[0..guard].toRat| <= 2 ^ -(s + 1)
--- sticky bit:
---   |r| - |uf[0..guard+1].toRat| < 2 ^ -(s + 1)
--- sticky bit tells you whether to use strict or
---  non-strict inequality.
--- Also, abdal made me realize that we only need
---  to compare (r - result), because we always
---  under-approximate the result.
--- for representables, the difference between them ie
--- 2^-s.
--- Z: x < y -> x <= y + 1
---theorem: FP: x < y -> x <= y + 2^-s
-
 namespace Fp
 
 theorem unpackNum_mul_unpackNum_toRat_eq_mul_toRat
@@ -340,7 +296,6 @@ theorem unpackNum_mul_unpackNum_toRat_eq_mul_toRat
   · grind
   · simp [exponentWidth]
 
-set_option warn.sorry false in
 /--
 Example theorem we will prove, using our proof strategy of proving against the SMT-Lib semantics.
 -/

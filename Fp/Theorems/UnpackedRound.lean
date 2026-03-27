@@ -327,14 +327,11 @@ theorem round_eq_mkZero_of_mkZero {zeroSign : Bool} {eout sout : Nat} {rm : Roun
         rm zeroSign (ExtRat.Number 0) = PackedFloat.getZero eout sout zeroSign := by
   rcases rm <;> simp [heout]
 
-/-
-(SmtLibSemantics.smtLibRoundMethod ein sin SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round rm
-    (SmtLibSemantics.SmtLibFunctions.xorSign a b) (ExtRat.Number a.toRat * b.toExtRat') =
-  ((a.unpackNormOrNonzeroSubnorm.mul b.unpackNormOrNonzeroSubnorm).round rm).pack
--/
--- | TODO: find the right theorem statement here,
--- we should talk about guard and sticky bits and whatnot.
 set_option warn.sorry false in
+/--
+Find the right theorem statement here,
+we should talk about guard and sticky bits and whatnot.
+-/
 theorem SmtLibSemantics_round_eq_pack_UnpackedFloat_round {rm : RoundingMode}
     {ein sin eout sout : Nat} {sign : Bool}
     (er : ExtRat) {r : Rat} (uf : UnpackedFloat ein sin)

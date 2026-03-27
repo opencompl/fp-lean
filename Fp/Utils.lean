@@ -230,6 +230,20 @@ theorem Rat.le_mul_self_of_le_one_of_nonneg {y} {x : Rat} (hx0 : 0 ≤ x ∧ x �
 
 attribute [simp] Rat.le_refl
 
+@[simp]
+theorem Rat.mul_self_pow_eq_pow_succ (a : Rat) (n : Nat) :
+  a * a ^ n = a ^ (n + 1) := by
+  rw [Rat.mul_comm]
+  rw [← Rat.pow_succ]
+
+@[simp]
+theorem Rat.mul_self_zpow_eq_zpow_succ {a : Rat} {n : Int}
+  (ha : a ≠ 0 := by solve | simp | grind) :
+  a * a ^ n = a ^ (n + 1) := by
+  rw [Rat.mul_comm]
+  rw [Rat.zpow_add]
+  · simp
+  · simp [ha]
 
 
 @[simp]
