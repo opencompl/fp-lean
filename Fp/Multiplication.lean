@@ -182,7 +182,13 @@ theorem BitVec.getMsbD_mul_eq_true_of_msb_eq_true_of_msb_eq_true (x y : BitVec w
   by_cases hw : w = 0
   · grind only [= msb_eq_getMsbD_zero, = getMsbD_eq_getLsbD]
   · by_cases hw : w = 1
-    · sorry
+    · subst hw
+      simp only [Nat.reduceMul, truncate_eq_setWidth]
+      have : x = 1#1 := by grind
+      subst this
+      have : y = 1#1 := by grind
+      subst this
+      grind only
     · have : x.toNat ≥ 2 ^ (w - 1) := by
           simp
           exact le_toNat_of_msb_true hx
