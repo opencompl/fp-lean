@@ -85,7 +85,8 @@ When guard = 0, the value is in the lower half of `[lower, upper]`.
 When guard = 1, the value is in the upper half or at the midpoint.
 Corresponds (negated) to `RoundMethod.lowerHalf`. -/
 @[bv_normalize]
-def computeGuardBit (ctx : RoundingContext expWidth sigWidth targetExponentWidth targetSignificandWidth) : Bool :=
+def computeGuardBit
+    (ctx : RoundingContext expWidth sigWidth targetExponentWidth targetSignificandWidth) : Bool :=
   (ctx.inUf.sig &&& ctx.guardBitMask) != 0#sigWidth
 
 /-- The sticky bit: OR of all bits below the guard bit.
@@ -93,34 +94,39 @@ When sticky = 0 and guard = 1, the value is exactly at the midpoint (tie).
 When sticky = 1, the value is strictly between two representable values.
 Together with guard, determines `RoundMethod.tieBreak`. -/
 @[bv_normalize]
-def computeStickyBit (ctx : RoundingContext expWidth sigWidth targetExponentWidth targetSignificandWidth) : Bool :=
+def computeStickyBit
+    (ctx : RoundingContext expWidth sigWidth targetExponentWidth targetSignificandWidth) : Bool :=
   (ctx.inUf.sig &&& ctx.stickyBitsMask) != 0#sigWidth
 
 /-- Whether the LSB of the truncated (lower) significand is even.
 Corresponds to `RoundableIsEven.isEven` applied to `lower r`. -/
 @[bv_normalize]
-def computeIsEven (ctx : RoundingContext expWidth sigWidth targetExponentWidth targetSignificandWidth) : Bool :=
+def computeIsEven
+    (ctx : RoundingContext expWidth sigWidth targetExponentWidth targetSignificandWidth) : Bool :=
   ctx.inUf.sig &&& ctx.lsbMask = 0#sigWidth
 
 /-- Whether the value is strictly in the lower half of `[lower, upper]`.
 This holds when `guard = 0`, meaning the discarded bits are less than half a ULP.
 Corresponds to `RoundMethod.lowerHalf`. -/
 @[bv_normalize]
-def computeLowerHalf (ctx : RoundingContext expWidth sigWidth targetExponentWidth targetSignificandWidth) : Bool :=
+def computeLowerHalf
+    (ctx : RoundingContext expWidth sigWidth targetExponentWidth targetSignificandWidth) : Bool :=
   !(computeGuardBit ctx)
 
 /-- Whether the value is exactly at the midpoint between `lower` and `upper`.
 This holds when `guard = 1` and `sticky = 0`.
 Corresponds to `RoundMethod.tieBreak`. -/
 @[bv_normalize]
-def computeTieBreak (ctx : RoundingContext expWidth sigWidth targetExponentWidth targetSignificandWidth) : Bool :=
+def computeTieBreak
+    (ctx : RoundingContext expWidth sigWidth targetExponentWidth targetSignificandWidth) : Bool :=
   computeGuardBit ctx && !(computeStickyBit ctx)
 
 /-- The significand of the "lower" representable value (truncation).
 Obtained by clearing all bits at and below the guard position.
 Corresponds to the significand of `smtLibLower.lower (embed uf)`. -/
 @[bv_normalize]
-def computeLowerSig (ctx : RoundingContext expWidth sigWidth targetExponentWidth targetSignificandWidth) : BitVec sigWidth :=
+def computeLowerSig
+    (ctx : RoundingContext expWidth sigWidth targetExponentWidth targetSignificandWidth) : BitVec sigWidth :=
   ctx.inUf.sig &&& (~~~(ctx.guardBitMask ||| ctx.stickyBitsMask))
 
 /-- The significand of the "upper" representable value (truncation + increment).
@@ -261,7 +267,8 @@ theorem roundNaive_eq_round {expWidth sigWidth : Nat}
 Width conditions that must hold for the bitvector operations to be meaningful. -/
 
 /-- Preconditions ensuring the bitvector widths are sufficient for rounding. -/
-structure RoundingPreconditions (expWidth sigWidth targetExponentWidth targetSignificandWidth : Nat) : Prop where
+structure RoundingPreconditions
+    (expWidth sigWidth targetExponentWidth targetSignificandWidth : Nat) : Prop where
   /-- Significand has enough room for target precision + guard + sticky. -/
   hSigWidth : sigWidth ≥ targetSignificandWidth + 3
   /-- Exponent is wide enough to represent all target exponent values. -/
