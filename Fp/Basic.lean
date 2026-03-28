@@ -1811,13 +1811,6 @@ instance {x y : PackedFloat e s} : Decidable (x ≤ y) := by
     simp only [← PackedFloat.le_def]
     infer_instance
 
-/--
-The successor is the least *strict* upper bound.
-This is used to show that the ordering on 'PackedFloat' is a discrete ordering,
-with adjacent elements having a gap of at least '2^-s'
--/
-def IsSuccessor (p q : PackedFloat e s) : Prop :=
-  p < q ∧ (∀ (r : PackedFloat e s), p < r → q ≤ r)
 
 instance {x y : PackedFloat e s} : Decidable (x < y) := by
   simp only [← PackedFloat.lt_def, PackedFloat.lt]
@@ -2535,6 +2528,155 @@ theorem zero_le_iff_sign_eq_false {x : PackedFloat e s} (he : 0 < e) :
         (by grind) (by grind) (by grind) (by grind)
       simp at this
       grind
+
+
+/--
+`x < y` if `x ≤ y` and `x ≠ y`.
+-/
+@[grind .]
+theorem lt_of_le_of_ne (x y : PackedFloat e s) (hle : x ≤ y) (hne : x ≠ y) : x < y := by
+  rw [← PackedFloat.lt_def, PackedFloat.lt]
+  grind
+
+/--
+`<` is transitive on non-NaN
+-/
+@[grind <=] -- TODO: maybe a bad grind pattern, uncertain.
+theorem lt_trans (x y z : PackedFloat e s)
+  (hxnan : ¬ x.isNaN)
+  (hynan : ¬ y.isNaN)
+  (hxy : x < y)
+  (hyz : y < z) : x < z := by
+  rw [← PackedFloat.lt_def, PackedFloat.lt] at hxy hyz ⊢
+  constructor
+  · grind only [PackedFloat.le_trans]
+  · intros hcontra
+    subst hcontra
+    grind only [le_antisymm_of_ne_NaN]
+
+/--
+`<` is stronger than `≤`.
+-/
+@[grind .]
+theorem le_of_lt {x y : PackedFloat e s}
+  (hxy : x < y) : x ≤ y := by
+  rw [← PackedFloat.lt_def, PackedFloat.lt] at hxy
+  simp [hxy]
+
+/--
+Get the next packed float to a given packed float.
+returns the same `NaN` in case of `NaN`
+-/
+def succ (pf : PackedFloat e s) : PackedFloat e s := sorry
+
+/--
+The successor is always less than or equal to the value.
+-/
+@[simp, grind .]
+theorem le_succ (pf : PackedFloat e s) : pf ≤ pf.succ := by sorry
+
+@[simp,  grind .]
+theorem eq_succ_iff {pf : PackedFloat e s} (hs : 0 < s) : (pf = pf.succ) ↔
+  pf.isNaN ∨ (pf = PackedFloat.getInfinity e s false) := by sorry
+
+/--
+the succcessor of a NaN is defined as the number itself.
+-/
+@[simp, grind =]
+theorem succ_getInfinity_eq_self (hs : 0 < s) :
+    (PackedFloat.getInfinity e s false).succ = (PackedFloat.getInfinity e s false) := by
+  grind
+
+/--
+the succcessor of a NaN is defined as the number itself.
+-/
+@[simp, grind =]
+theorem succ_eq_self_of_isNaN {pf : PackedFloat e s} (hs : 0 < s) (hpf : pf.isNaN) :
+  pf.succ = pf := by grind
+
+
+@[simp, grind =, grind =_]
+theorem succ_eq_NaN_iff (pf : PackedFloat e s) :
+  pf.succ.isNaN ↔ pf.isNaN := sorry
+
+/--
+the successor has andpoint at infinity, iff the input is not `NaN`
+-/
+@[simp, grind .]
+theorem succ_eq_self_iff_eq_of_not_isNaN {pf : PackedFloat e s}
+  (hs : 0 < s) (hpf : ¬ pf.isNaN) :
+  pf.succ = pf ↔ (pf = PackedFloat.getInfinity _ _ false) := sorry
+
+/-- Key characterization: x < y ↔ x + 1 ≤ y
+TODO: add conditions  -/
+@[simp]
+def lt_iff_succ_le (x y : PackedFloat e s)  :
+  x < y ↔ x.succ ≤ y := by sorry
+
+
+/-- A packed float cannot be less than infinity. -/
+@[simp, grind .]
+theorem elim_infinity_lt (x : PackedFloat e s)
+    (hs : 0 < s) : ¬ (PackedFloat.getInfinity e s false < x) := by
+  intros hcontra
+  rw [← PackedFloat.lt_def, PackedFloat.lt] at hcontra
+  simp at hcontra
+  have : x = getInfinity e s false := by grind
+  grind only
+
+
+
+/- for any target number `t` if `t ≤ x < t + 1`, then `t = x` -/
+@[simp]
+def eq_of_le_of_lt_succ {t x : PackedFloat e s}
+  (hs : 0 < s)  (ht : ¬ t.isNaN) (hx : ¬ x.isNaN)
+  (hle : x ≤ t) (hlt : t < x.succ) :
+  t = x := by
+  sorry
+
+/- for any target number `t` if `t < x ≤ t + 1`, then `t + 1 = x` -/
+@[simp]
+def eq_succ_of_lt_of_le_succ {t x : PackedFloat e s}
+    (hs : 0 < s) (htnan : ¬ t.isNaN) (hxnan : ¬ x.isNaN)
+    (htinf : ¬ t = PackedFloat.getInfinity e s false)
+    (hlt : x < t) (hle : t ≤ x.succ) : t.succ = x := by
+  sorry
+
+
+/--
+A successor is always larger, except for the singular case where
+the floating point number is infinity.
+-/
+@[simp, grind .]
+theorem lt_succ_iff (pf : PackedFloat e s) (hpf : ¬ pf.isNaN) (hs : 0 < s) :
+  pf < pf.succ ↔ (¬ pf = PackedFloat.getInfinity _ _ false) := by
+  grind only [=_ succ_eq_NaN_iff, lt_of_le_of_ne,
+    succ_eq_self_iff_eq_of_not_isNaN, le_succ,
+    elim_infinity_lt]
+
+@[simp]
+def succ_le_succ_iff_le  {t x : PackedFloat e s} (hs : 0 < s)
+    (htnan : ¬ t.isNaN)
+    (hxnan : ¬ x.isNaN) :
+    t.succ ≤ x.succ ↔ t ≤ x := by
+  constructor
+  · intros hlt
+    sorry
+  · intros hlt
+    sorry
+
+@[simp]
+def succ_lt_succ_iff_lt  {t x : PackedFloat e s} (hs : 0 < s)
+    (htnan : ¬ t.isNaN)
+    (hxnan : ¬ x.isNaN) :
+    t.succ < x.succ  ↔ t < x := by sorry
+
+@[simp]
+def succ_lt_succ_of_lt {t x : PackedFloat e s} (hs : 0 < s)
+    (htnan : ¬ t.isNaN)
+    (hxnan : ¬ x.isNaN)
+    (hlt : t < x) : t.succ < x.succ := by
+  rw [succ_lt_succ_iff_lt] <;> assumption
 
 end PackedFloat
 
