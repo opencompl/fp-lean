@@ -327,7 +327,38 @@ def UnpackedFloat.roundNaive {expWidth sigWidth : Nat}
 
 `roundNaive` is definitionally equal to `round` since it computes the same thing
 with named intermediates.
+
+Helper lemmas for reconciling the bitvector representations used by `round` (which
+sign-extends the exponent to width+1 before comparison) against `computeLower/Upper`
+(which compare directly at width `expWidth`).
 -/
+
+/-- Sign-extending and then truncating back is a no-op when the target width ≤ original. -/
+private theorem setWidth_signExtend_succ {w n : Nat} (hn : n ≤ w) (x : BitVec w) :
+    (x.signExtend (w + 1)).setWidth n = x.setWidth n := by
+  ext i; rename_i hi
+  simp only [BitVec.getElem_setWidth, BitVec.getLsbD_signExtend]
+  simp [show i < w by omega, show i < w + 1 by omega]
+
+/-- Used to prove 2^(w-1) ≤ 2^w for casting `pow_le_pow` from Nat to Int. -/
+private theorem two_pow_pred_le_pow_int {w : Nat} : (2:Int)^(w-1) ≤ (2:Int)^w := by
+  have : (2:Nat)^(w-1) ≤ (2:Nat)^w := Nat.pow_le_pow_right (by omega) (Nat.sub_le w 1)
+  exact_mod_cast this
+
+/-- `slt` against a constant that fits in `w` bits is the same whether the LHS is `w`-wide
+or sign-extended to `w+1` bits, as long as `0 < w` and the constant is in range. -/
+theorem slt_signExtend_succ_ofInt_range {w : Nat} (hw : 0 < w) (x : BitVec w) (n : Int)
+    (hn_lo : -(2:Int)^(w-1) ≤ n) (hn_hi : n < (2:Int)^(w-1)) :
+    (x.signExtend (w + 1)).slt (BitVec.ofInt (w + 1) n) = x.slt (BitVec.ofInt w n) := by
+  have hpow := @two_pow_pred_le_pow_int w
+  have h1 : (BitVec.ofInt w n).toInt = n :=
+    BitVec.toInt_ofInt_eq_self hw hn_lo hn_hi
+  have h2 : (BitVec.ofInt (w + 1) n).toInt = n := by
+    refine BitVec.toInt_ofInt_eq_self (by omega) ?_ ?_
+    · simp only [Nat.add_sub_cancel]; omega
+    · simp only [Nat.add_sub_cancel]; omega
+  simp only [BitVec.slt_eq_decide,
+    BitVec.toInt_signExtend_of_le (by omega : w ≤ w + 1), h1, h2]
 
 set_option warn.sorry false in
 theorem roundNaive_eq_round {expWidth sigWidth : Nat}
@@ -344,17 +375,29 @@ theorem roundNaive_eq_round {expWidth sigWidth : Nat}
   Proof strategy:
   Both `roundNaive` and `round` compute the same bitvector operations in the same order,
   but `roundNaive` extracts named intermediates via `RoundingContext`.
-  After fully unfolding both via `simp only`, the expressions should become syntactically
-  equal, modulo:
-    1. `exp.sgt max` (used in `round`) vs `max.slt exp` (used in `mkRoundingContext`):
-       these are equal by `BitVec.sgt_eq_slt` or `@[simp] BitVec.sgt_comm`.
-    2. `(exp.signExtend(w+1)).slt (ofInt (w+1) n)` (late underflow in `round`) vs
-       `exp.slt (ofInt w n)` (in `computeLower`/`computeUpper`):
-       these require `BitVec.signExtend_slt_ofInt_iff` which should hold for the
-       specific constants `minSubnormalExp` / `maxNormalExp` within the bitvector's range.
-  A full proof would proceed by `rcases mode` to split into 5 subcases, then for each:
-    simp only [all definitions] to reduce to a common normal form, then close with rfl
-    after addressing the two mismatches above via targeted rewrites.
+
+  After fully unfolding both via `simp only`, the expressions become syntactically
+  equal, modulo these mismatches that need targeted rewrites:
+
+  1. `exp.sgt max` (used in `round`) vs `max.slt exp` (used in `mkRoundingContext`):
+     resolved by unfolding `BitVec.sgt` (private def, but kernel-unfoldable).
+
+  2. `(exp.signExtend(w+1)).slt (ofInt (w+1) n)` (late underflow/overflow in `round`) vs
+     `exp.slt (ofInt w n)` (in `computeLower`/`computeUpper`):
+     resolved by `slt_signExtend_succ_ofInt_range` (proved above), applied with
+     `hw := RoundingPreconditions.hTargetExpPos` and range proof for the constants.
+
+  3. Exponent truncation: `roundedClampedExpExtended.truncate(exponentWidth(...))` in
+     `round` vs `adjustedExp.truncate(...)` in `computeUpper`, vs
+     `ctx.inUf.ex.signExtend _` in `computeLower`:
+     resolved by `setWidth_signExtend_succ` (proved above).
+
+  4. `underflow = lateUnderflow || earlyUnderflow` in `round` vs just `lateUnderflow` in
+     `computeLower`: need `Bool.or_eq_left` with proof that earlyUnderflow → lateUnderflow
+     (since exp < minSubnormal - 1 implies exp.signExtend < minSubnormal).
+
+  5. `rounderSpecialCases` in `round` vs per-mode functions in `roundNaive`:
+     need to expand `rounderSpecialCases` and match each branch per mode.
   -/
   rcases mode <;>
   simp only [UnpackedFloat.roundNaive, roundNaiveRNE, roundNaiveRNA, roundNaiveRTP,
