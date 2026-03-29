@@ -90,6 +90,8 @@ namespace UnpackedRoundNaive
 
 Captures the shared setup computation (masks, indices, exponent clamping)
 from the first half of `UnpackedFloat.round`.
+
+TODO: add `outSign` as a separate argument which is used to guide `rounderForSign`.
 -/
 
 /-- The precomputed masks and indices needed for rounding.
