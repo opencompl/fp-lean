@@ -13,75 +13,6 @@ to the SMT-LIB `RoundMethod` concepts (`lower`, `upper`, `lowerHalf`, `tieBreak`
 This enables modular proofs bridging the bitvector circuit to the SMT-LIB specification.
 -/
 
-/--
-Increment the value in the unpacked float by one.
--1.1 x 10
--1.0 x 10
--0.1 x 10
-
--1.1 x 01
--1.0 x 01
--0.1 x 01
-
-+0.0 x 01
-+0.1 x 01
-+1.0 x 01
-+1.1 x 01
-
-+0.1 x 02
--/
-@[bv_normalize]
-def UnpackedFloat.succ (uf : UnpackedFloat e s)
-    (targetExponentWidth targetSignificandWidth : Nat)
-     : EUnpackedFloat e s :=
-  if uf.sign = true
-  then
-    -- -ve
-    if uf.sig = BitVec.zero _
-    then
-      -- -ve ∧ sig =0
-      if uf.ex = BitVec.ofInt _ (minSubnormalExp targetExponentWidth targetSignificandWidth)
-      then
-        -- -ve ∧ sig = 0 ∧ ex = minSubnormalExp
-        EUnpackedFloat.mkNumber (UnpackedFloat.mkZero true)
-      else
-        -- -ve ∧ sig = 0 ∧ ex = minSubnormalExp
-        EUnpackedFloat.mkNumber {
-          sig := 1#_,
-          ex := uf.ex - 1,
-          sign := true
-        }
-    else
-      -- -ve ∧ sig ≠ 0
-      EUnpackedFloat.mkNumber {
-        sig := uf.sig - 1#_,
-        ex := uf.ex,
-        sign := true
-      }
-  else
-    -- +ve.
-    if uf.sig = BitVec.allOnes _
-    then
-      -- +ve ∧ sig overflow
-      if uf.ex = BitVec.ofInt _ (maxNormalExp targetExponentWidth)
-      then
-        -- +ve ∧ sig overflow ∧ ex overflow
-        EUnpackedFloat.mkInfinity false
-      else
-        -- +ve ∧ sig overflow ∧ ¬ ex overflow
-        EUnpackedFloat.mkNumber {
-          sig := 1#_,
-          ex := uf.ex + 1#_,
-          sign := false
-        }
-    else
-      EUnpackedFloat.mkNumber {
-        sig := uf.sig + 1#_,
-        ex := uf.ex,
-        sign := false
-      }
-
-
 namespace Fp
 
 namespace UnpackedRoundNaive
@@ -91,7 +22,6 @@ namespace UnpackedRoundNaive
 Captures the shared setup computation (masks, indices, exponent clamping)
 from the first half of `UnpackedFloat.round`.
 
-TODO: add `outSign` as a separate argument which is used to guide `rounderForSign`.
 -/
 
 /-- The precomputed masks and indices needed for rounding.
@@ -193,14 +123,6 @@ def RoundingContext.computeTieBreak
     (ctx : RoundingContext expWidth sigWidth targetExponentWidth targetSignificandWidth) : Bool :=
   computeGuardBit ctx && !(computeStickyBit ctx)
 
--- /-- The significand of the "lower" representable value (truncation).
--- Obtained by clearing all bits at and below the guard position.
--- Corresponds to the significand of `smtLibLower.lower (embed uf)`. -/
--- @[bv_normalize]
--- def RoundingContext.computeLowerSig {expWidth sigWidth targetExponentWidth targetSignificandWidth}
---     (ctx : RoundingContext expWidth sigWidth targetExponentWidth targetSignificandWidth) : BitVec sigWidth :=
---   ctx.inUf.sig &&& (~~~(ctx.guardBitMask ||| ctx.stickyBitsMask))
-
 /--
 Make the largest possible number that is representable, of a given sign.
 -/
@@ -239,7 +161,6 @@ def RoundingContext.computeLower
       else
         -- just right in magnitude, so return the truncated number
         EUnpackedFloat.mkNumber {
-          -- sigWithHiddenCleared
           sig := finalSigTruncated
           sign := ctx.inUf.sign
           ex := ctx.inUf.ex.signExtend _
@@ -247,22 +168,7 @@ def RoundingContext.computeLower
   where
     outSig := sigWithHidden &&& (~~~(ctx.guardBitMask ||| ctx.stickyBitsMask))
     sigWithHidden := ctx.inUf.sig
-    finalSigTruncated := outSig.extractMsb' 0 _ -- why does the other impl to 'targetSignificantWidth + 1'?
-
-
--- /-- The significand of the "upper" representable value (truncation + increment).
--- Returns a `(sigWidth + 1)`-bit value; the MSB indicates significand overflow.
--- Corresponds to the significand of `smtLibUpper.upper (embed uf)`. -/
--- @[bv_normalize]
--- def computeUpperSig (ctx : RoundingContext expWidth sigWidth targetExponentWidth targetSignificandWidth) :
---     BitVec (sigWidth + 1) :=
---   let lower := computeLowerSig ctx
---   if lower = 0#sigWidth && ctx.lsbMask = 0#sigWidth then
---     BitVec.oneHotBV (w := sigWidth + 1) sigWidth
---   else
---     lower.zeroExtend (sigWidth + 1) + ctx.lsbMask.zeroExtend (sigWidth + 1)
-
-
+    finalSigTruncated := outSig.extractMsb' 0 _
 
 
 /-- The magnitude-larger candidate: truncation + 1 ULP in magnitude.
@@ -282,9 +188,6 @@ def RoundingContext.computeUpper
   else if ctx.earlyUnderflow then
     -- Underflow: lower is ±0, upper is ±min_subnormal
     EUnpackedFloat.mkNumber (UnpackedFloat.mkSmallestRepresentable targetExponentWidth targetSignificandWidth ctx.inUf.sign)
-  else if ctx.inUf.isZero then
-    EUnpackedFloat.mkZero ctx.inUf.sign
-    -- zero is exact, so upper = lower (dead code: guard=sticky=0 for zero)
   else
     -- Normal inexact case: increment magnitude by 1 ULP
     let sigCleared := ctx.inUf.sig &&& (~~~(ctx.guardBitMask ||| ctx.stickyBitsMask))
@@ -420,14 +323,6 @@ def UnpackedFloat.roundNaive {expWidth sigWidth : Nat}
     let unreachable : False := by grind [RoundingMode]
     False.elim unreachable
 
-/-
-  match mode with
-  | .RNE => roundNaiveRNE ctx
-  | .RNA => roundNaiveRNA ctx
-  | .RTP => roundNaiveRTP ctx
-  | .RTN => roundNaiveRTN ctx
-  | .RTZ => roundNaiveRTZ ctx
--/
 /-! ### Circuit Equivalence
 
 `roundNaive` is definitionally equal to `round` since it computes the same thing
@@ -520,17 +415,33 @@ def checkRoundNaiveCorrect (EUnpacked SUnpackedNoHidden : Nat) (EOut SOutNoHidde
 #guard_msgs(drop info) in #eval checkRoundNaiveCorrect 4 5 4 2 .RTN
 #guard_msgs(drop info) in #eval checkRoundNaiveCorrect 2 6 2 4 .RTP
 
-/-! ### Bitblasting Test
+/-! ### Identity Theorem
 
--- /-- `roundNaive` agrees with `round` at concrete bitwidths, proved by `bv_decide`.
--- This confirms the definitions are bitblastable. -/
--- theorem roundNaive_eq_round_bv_decide_2_3_2_1 (inpf : PackedFloat 3 2)
---     (mode : RoundingMode)
---     (uf : UnpackedFloat 4 3)
---     (huf : inpf.unpack = EUnpackedFloat.mkNumber uf) :
---     (UnpackedFloat.roundNaive (targetExponentWidth := 3) (targetSignificandWidth := 2) inpf.unpack mode) =
---     EUnpackedFloat.mkNumber  uf := by
---   bv_decide
+When the input value is exactly representable in the target format
+(extra low bits are zero, exponent in range), `roundNaive` preserves the value
+regardless of rounding mode. Uses wider input (`sigWidth=4 > targetSig+2=3`)
+so the guard bit index `(sigWidth-1) - (targetSignificandWidth+1) = 1` doesn't
+underflow in Nat. -/
+
+/-- When the input is exactly representable in the target format,
+`roundNaive` preserves the value regardless of rounding mode. -/
+theorem roundNaive_identity_exact_2_1 :
+    ∀ (inUf : UnpackedFloat 3 4) (mode : RoundingMode),
+      -- Value is exactly representable: guard and sticky bits are zero
+      inUf.sig &&& 3#4 = 0#4 →
+      -- Not overflow
+      ¬(BitVec.ofInt 3 (maxNormalExp 2)).slt inUf.ex →
+      -- Not underflow
+      ¬inUf.ex.slt (BitVec.ofInt 3 (minSubnormalExp 2 1)) →
+      -- Not zero (zero case follows a different code path)
+      ¬inUf.isZero →
+      UnpackedFloat.roundNaive (targetExponentWidth := 2) (targetSignificandWidth := 1) inUf mode =
+        EUnpackedFloat.mkNumber {
+          sign := inUf.sign
+          sig := inUf.sig.extractMsb' 0 2
+          ex := inUf.ex
+        } := by
+  sorry
 
 end UnpackedRoundNaive
 end Fp
