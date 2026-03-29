@@ -276,7 +276,8 @@ def RoundingContext.computeUpper
     -- Underflow: lower is ±0, upper is ±min_subnormal
     EUnpackedFloat.mkNumber (UnpackedFloat.mkSmallestRepresentable targetExponentWidth targetSignificandWidth ctx.inUf.sign)
   else if ctx.inUf.isZero then
-    ctx.computeLower -- zero is exact, so upper = lower
+    EUnpackedFloat.mkZero false
+    -- ctx.computeLower -- zero is exact, so upper = lower
   else
     -- Normal inexact case: increment magnitude by 1 ULP
     let sigCleared := ctx.inUf.sig &&& (~~~(ctx.guardBitMask ||| ctx.stickyBitsMask))
