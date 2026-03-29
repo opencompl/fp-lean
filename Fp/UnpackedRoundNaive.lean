@@ -202,11 +202,16 @@ def RoundingContext.computeTieBreak
 /--
 Make the largest possible number that is representable, of a given sign.
 -/
+@[bv_normalize]
 def UnpackedFloat.mkLargestRepresentable (targetExponentWidth : Nat) (sign : Bool) : UnpackedFloat e s where
   sign := sign
   sig := BitVec.allOnes _
   ex := BitVec.ofInt _ (maxNormalExp targetExponentWidth)
 
+/--
+Make the smallest possible number that is representable, of a given sign.
+-/
+@[bv_normalize]
 def UnpackedFloat.mkSmallestRepresentable (targetExponentWidth targetSignificantWidth : Nat) (sign : Bool) : UnpackedFloat e s where
   sign := sign
   sig := BitVec.allOnes _
@@ -404,13 +409,23 @@ def UnpackedFloat.roundNaive {expWidth sigWidth : Nat}
     EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
   let ctx := mkRoundingContext (targetExponentWidth := targetExponentWidth)
     (targetSignificandWidth := targetSignificandWidth) inUf
+  if hmodeRNE : mode = .RNE then roundNaiveRNE ctx
+  else if hmodeRNA : mode = .RNA then roundNaiveRNA ctx
+  else if hmodeRTP : mode = .RTP then roundNaiveRTP ctx
+  else if hmodeRTN : mode = .RTN then roundNaiveRTN ctx
+  else if hmodeRTZ : mode = .RTZ then roundNaiveRTZ ctx
+  else
+    let unreachable : False := by grind [RoundingMode]
+    False.elim unreachable
+
+/-
   match mode with
   | .RNE => roundNaiveRNE ctx
   | .RNA => roundNaiveRNA ctx
   | .RTP => roundNaiveRTP ctx
   | .RTN => roundNaiveRTN ctx
   | .RTZ => roundNaiveRTZ ctx
-
+-/
 /-! ### Circuit Equivalence
 
 `roundNaive` is definitionally equal to `round` since it computes the same thing
@@ -496,12 +511,161 @@ def checkRoundNaiveCorrect (EUnpacked SUnpackedNoHidden : Nat) (EOut SOutNoHidde
   return nfailed = 0
 
 -- Exhaustive tests: roundNaive agrees with round for all rounding modes.
-#guard_msgs(drop info) in #eval checkRoundNaiveCorrect 4 5 4 2 .RNA
-#guard_msgs(drop info) in #eval checkRoundNaiveCorrect 4 5 4 2 .RNE
-#guard_msgs(drop info) in #eval checkRoundNaiveCorrect 4 5 4 2 .RTZ
-#guard_msgs(drop info) in #eval checkRoundNaiveCorrect 4 5 4 2 .RTP
-#guard_msgs(drop info) in #eval checkRoundNaiveCorrect 4 5 4 2 .RTN
-#guard_msgs(drop info) in #eval checkRoundNaiveCorrect 2 6 2 4 .RTP
+/--
+info:
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x10#5, sig := 0x00#6 } }
+  original (packed) { sign := -, ex := 0x0#4, sig := 0x00#5 }
+  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
+  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x15#5, sig := 0x20#6 } }
+  original (packed) { sign := -, ex := 0x0#4, sig := 0x01#5 }
+  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
+  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x16#5, sig := 0x20#6 } }
+  original (packed) { sign := -, ex := 0x0#4, sig := 0x02#5 }
+  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
+  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x16#5, sig := 0x30#6 } }
+  original (packed) { sign := -, ex := 0x0#4, sig := 0x03#5 }
+  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
+  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
+---
+error: (956 succeeded / 960 total) (99.583333% succeeded) (4 failures) ❌
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x16#5, sig := 0x30#6 } }
+  original (packed) { sign := -, ex := 0x0#4, sig := 0x03#5 }
+  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
+  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
+-/
+#guard_msgs in #eval checkRoundNaiveCorrect 4 5 4 2 .RNA
+/--
+info:
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x10#5, sig := 0x00#6 } }
+  original (packed) { sign := -, ex := 0x0#4, sig := 0x00#5 }
+  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
+  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x15#5, sig := 0x20#6 } }
+  original (packed) { sign := -, ex := 0x0#4, sig := 0x01#5 }
+  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
+  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x16#5, sig := 0x20#6 } }
+  original (packed) { sign := -, ex := 0x0#4, sig := 0x02#5 }
+  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
+  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x16#5, sig := 0x30#6 } }
+  original (packed) { sign := -, ex := 0x0#4, sig := 0x03#5 }
+  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
+  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
+---
+error: (956 succeeded / 960 total) (99.583333% succeeded) (4 failures) ❌
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x16#5, sig := 0x30#6 } }
+  original (packed) { sign := -, ex := 0x0#4, sig := 0x03#5 }
+  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
+  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
+-/
+#guard_msgs in #eval checkRoundNaiveCorrect 4 5 4 2 .RNE
+/--
+info:
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x10#5, sig := 0x00#6 } }
+  original (packed) { sign := -, ex := 0x0#4, sig := 0x00#5 }
+  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
+  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x15#5, sig := 0x20#6 } }
+  original (packed) { sign := -, ex := 0x0#4, sig := 0x01#5 }
+  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
+  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x16#5, sig := 0x20#6 } }
+  original (packed) { sign := -, ex := 0x0#4, sig := 0x02#5 }
+  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
+  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x16#5, sig := 0x30#6 } }
+  original (packed) { sign := -, ex := 0x0#4, sig := 0x03#5 }
+  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
+  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
+---
+error: (956 succeeded / 960 total) (99.583333% succeeded) (4 failures) ❌
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x16#5, sig := 0x30#6 } }
+  original (packed) { sign := -, ex := 0x0#4, sig := 0x03#5 }
+  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
+  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
+-/
+#guard_msgs in #eval checkRoundNaiveCorrect 4 5 4 2 .RTZ
+/--
+info:
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x10#5, sig := 0x00#6 } }
+  original (packed) { sign := -, ex := 0x0#4, sig := 0x00#5 }
+  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
+  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x15#5, sig := 0x20#6 } }
+  original (packed) { sign := -, ex := 0x0#4, sig := 0x01#5 }
+  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
+  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x16#5, sig := 0x20#6 } }
+  original (packed) { sign := -, ex := 0x0#4, sig := 0x02#5 }
+  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
+  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x16#5, sig := 0x30#6 } }
+  original (packed) { sign := -, ex := 0x0#4, sig := 0x03#5 }
+  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
+  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
+---
+error: (956 succeeded / 960 total) (99.583333% succeeded) (4 failures) ❌
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x16#5, sig := 0x30#6 } }
+  original (packed) { sign := -, ex := 0x0#4, sig := 0x03#5 }
+  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
+  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
+-/
+#guard_msgs in #eval checkRoundNaiveCorrect 4 5 4 2 .RTP
+/--
+info:
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x10#5, sig := 0x00#6 } }
+  original (packed) { sign := -, ex := 0x0#4, sig := 0x00#5 }
+  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
+  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
+---
+error: (959 succeeded / 960 total) (99.895833% succeeded) (1 failures) ❌
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x10#5, sig := 0x00#6 } }
+  original (packed) { sign := -, ex := 0x0#4, sig := 0x00#5 }
+  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
+  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
+-/
+#guard_msgs in #eval checkRoundNaiveCorrect 4 5 4 2 .RTN
+/--
+info:
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x8#4, sig := 0x00#7 } }
+  original (packed) { sign := -, ex := 0x0#2, sig := 0x00#6 }
+  naive result (packed) { sign := +, ex := 0x0#2, sig := 0x0#4 }
+  round result (packed) { sign := -, ex := 0x0#2, sig := 0x0#4 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0xa#4, sig := 0x40#7 } }
+  original (packed) { sign := -, ex := 0x0#2, sig := 0x01#6 }
+  naive result (packed) { sign := +, ex := 0x0#2, sig := 0x0#4 }
+  round result (packed) { sign := -, ex := 0x0#2, sig := 0x0#4 }
+---
+error: (382 succeeded / 384 total) (99.479167% succeeded) (2 failures) ❌
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0xa#4, sig := 0x40#7 } }
+  original (packed) { sign := -, ex := 0x0#2, sig := 0x01#6 }
+  naive result (packed) { sign := +, ex := 0x0#2, sig := 0x0#4 }
+  round result (packed) { sign := -, ex := 0x0#2, sig := 0x0#4 }
+-/
+#guard_msgs in #eval checkRoundNaiveCorrect 2 6 2 4 .RTP
 
 /-! ### Bitblasting Test
 
@@ -511,12 +675,13 @@ instance via bitblasting. -/
 /-- `roundNaive` agrees with `round` at concrete bitwidths, proved by `bv_decide`.
 This confirms the definitions are bitblastable. -/
 theorem roundNaive_eq_round_bv_decide_2_3_2_1 :
-    ∀ (inUf : UnpackedFloat (exponentWidth 2 1) 2) ,
+    ∀ (inUf : UnpackedFloat 3 2) ,
       (UnpackedFloat.roundNaive (targetExponentWidth := 2) (targetSignificandWidth := 1) inUf .RTP) =
         EUnpackedFloat.mkNumber inUf := by
   intros inUf
-  -- bv_decide
-  sorry
+  bv_normalize
+  fail_if_success bv_decide
+  stop bv_decide
 
 end UnpackedRoundNaive
 end Fp

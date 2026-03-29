@@ -1027,6 +1027,9 @@ structure EUnpackedFloat (e s : Nat) where
   num   : UnpackedFloat e s
 deriving Repr
 
+attribute [bv_normalize] EUnpackedFloat.ext_iff
+
+
 inductive ExtDyadic where
   | NaN : ExtDyadic
   | Infinity : Bool → ExtDyadic
@@ -2712,7 +2715,7 @@ end UnpackedFloat
 namespace EUnpackedFloat
 
 @[bv_normalize]
-theorem eq_state_ex {x y : EUnpackedFloat e s} :
+theorem eq_state_ex {e s b} {x y : EUnpackedFloat e s} :
   (bif b then x else y).state = bif b then x.state else y.state := by
   cases b <;> rfl
 
