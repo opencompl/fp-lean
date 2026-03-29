@@ -340,6 +340,29 @@ theorem roundNaive_eq_round {expWidth sigWidth : Nat}
     UnpackedFloat.round
       (targetExponentWidth := targetExponentWidth)
       (targetSignificandWidth := targetSignificandWidth) inUf mode := by
+  /-
+  Proof strategy:
+  Both `roundNaive` and `round` compute the same bitvector operations in the same order,
+  but `roundNaive` extracts named intermediates via `RoundingContext`.
+  After fully unfolding both via `simp only`, the expressions should become syntactically
+  equal, modulo:
+    1. `exp.sgt max` (used in `round`) vs `max.slt exp` (used in `mkRoundingContext`):
+       these are equal by `BitVec.sgt_eq_slt` or `@[simp] BitVec.sgt_comm`.
+    2. `(exp.signExtend(w+1)).slt (ofInt (w+1) n)` (late underflow in `round`) vs
+       `exp.slt (ofInt w n)` (in `computeLower`/`computeUpper`):
+       these require `BitVec.signExtend_slt_ofInt_iff` which should hold for the
+       specific constants `minSubnormalExp` / `maxNormalExp` within the bitvector's range.
+  A full proof would proceed by `rcases mode` to split into 5 subcases, then for each:
+    simp only [all definitions] to reduce to a common normal form, then close with rfl
+    after addressing the two mismatches above via targeted rewrites.
+  -/
+  rcases mode <;>
+  simp only [UnpackedFloat.roundNaive, roundNaiveRNE, roundNaiveRNA, roundNaiveRTP,
+    roundNaiveRTN, roundNaiveRTZ, UnpackedFloat.round, mkRoundingContext,
+    RoundingContext.computeLower, RoundingContext.computeUpper,
+    RoundingContext.computeGuardBit, RoundingContext.computeStickyBit,
+    RoundingContext.computeIsEven, RoundingContext.computeLowerHalf,
+    RoundingContext.computeTieBreak, roundingDecision, rounderSpecialCases] <;>
   sorry
 
 /-! ### Preconditions for Rounding
