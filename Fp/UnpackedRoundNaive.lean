@@ -510,4 +510,15 @@ theorem roundNaive_identity_exact_2_1 :
   sorry
 
 end UnpackedRoundNaive
+
 end Fp
+
+def EUnpackedFloat.roundNaive {expWidth sigWidth : Nat} {targetExponentWidth targetSignificandWidth : Nat}
+  (inEuf : EUnpackedFloat expWidth sigWidth)
+  (mode : RoundingMode) :
+  EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
+  if inEuf.isNumber then
+    Fp.UnpackedRoundNaive.UnpackedFloat.roundNaive (targetExponentWidth := targetExponentWidth) (targetSignificandWidth := targetSignificandWidth)
+      inEuf.num mode
+  else if inEuf.isNaN then EUnpackedFloat.mkNaN
+  else EUnpackedFloat.mkInfinity inEuf.sign

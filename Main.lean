@@ -265,7 +265,7 @@ def test_roundCircuitAgainstSmtlib (ein sin eout sout : Nat) : IO ExitCode := do
       let pf := e2m4.packedFloatOfNat x
       if pf.isNaN then continue
       let roundSmt : PackedFloat e2m2.e e2m2.m := Fp.SmtLibSemanticsComputable.computableSmtLibRound rm pf.sign pf.unpack.toExtRat
-      let roundCircuit : PackedFloat e2m2.e e2m2.m := (pf.unpack |>.round rm (targetExponentWidth := e2m2.e) (targetSignificandWidth := e2m2.m)).pack
+      let roundCircuit : PackedFloat e2m2.e e2m2.m := (pf.unpack |>.roundNaive rm (targetExponentWidth := e2m2.e) (targetSignificandWidth := e2m2.m)).pack
 
       if roundSmt.equal_denotation roundCircuit then
         nsuccess := nsuccess + 1
