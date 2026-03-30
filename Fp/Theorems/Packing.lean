@@ -551,6 +551,88 @@ private theorem Rat.neg_one_mul_le_neg_one_mul_iff {a b : Rat} : -1 * a ≤ -1 *
   grind
 
 /--
+if `a.ex ≤ b.ex`,
+then `a.toRatExp ≤ b.toRatExp`..
+-/
+theorem PackedFloat.toRatExp_le_toRatExp_of_le (a b : PackedFloat e s)
+    (hbnan : ¬ b.isNaN)
+    (hbinf : ¬ b.isInfinite)
+    (hbzero : ¬ b.isZero)
+    (hle : a.ex ≤ b.ex)
+    : a.toRatExp ≤ b.toRatExp := by
+  simp [PackedFloat.toRatExp]
+  by_cases ha : a.isNorm
+  · simp [ha]
+    by_cases hb : b.isNorm
+    · simp [hb]
+      rw [← BitVec.le_def]
+      apply hle
+    · simp [hb]
+      have haexp := a.ex_ne_zero_if_isNorm
+      simp at haexp
+      have : b.isNonzeroSubnorm = true := by grind only [=
+          isZero_iff_toRat_eq_zero_of_isNormOrNonzeroSubnorm,
+        = isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero,
+        isNormOrSubnorm_eq_isNorm_or_isSubnorm]
+      have := b.exp_eq_of_isNonzeroSubnorm
+      rw [this] at hle
+      simp at hle
+      grind only
+  · by_cases hb : b.isNorm
+    · simp [ha]
+      simp [hb]
+      grind
+    · simp [hb, ha]
+
+
+theorem PackedFloat.toRatExp_lt_toRatExp_of_lt (a b : PackedFloat e s)
+    (he : 0 < e)
+    (hanan : ¬ a.isNaN)
+    (hainf : ¬ a.isInfinite)
+    (hazero : ¬ a.isZero)
+    (hbnan : ¬ b.isNaN)
+    (hbinf : ¬ b.isInfinite)
+    (hbzero : ¬ b.isZero)
+    (hle : a.ex < b.ex)
+    : a.toRatExp < b.toRatExp := by
+  simp [PackedFloat.toRatExp]
+  by_cases ha : a.isNorm
+  · simp [ha]
+    by_cases hb : b.isNorm
+    · simp [hb]
+      rw [← BitVec.lt_def]
+      apply hle
+    · simp [hb]
+      have haexp := a.ex_ne_zero_if_isNorm
+      simp at haexp
+      have : b.isNonzeroSubnorm = true := by grind only [=
+          isZero_iff_toRat_eq_zero_of_isNormOrNonzeroSubnorm,
+        = isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero,
+        isNormOrSubnorm_eq_isNorm_or_isSubnorm]
+      have := b.exp_eq_of_isNonzeroSubnorm
+      rw [this] at hle
+      simp at hle
+  · by_cases hb : b.isNorm
+    · simp [ha]
+      simp [hb]
+      have haexp := a.exp_eq_of_isNonzeroSubnorm
+      have hbexp := b.ex_ne_zero_if_isNorm
+      simp at haexp hbexp
+      have : 0 < b.ex.toNat := by exact BitVec.toNat_pos_of_ne_zero hbexp
+      have hbias : bias e = 0 ∨ bias e = 1 ∨ 1 < bias e := by grind
+      rcases hbias with (hbias | hbias | hbias)
+      · simp [hbias]
+        grind
+      · simp [hbias]
+        grind
+      · simp [hbias]
+        sorry
+    · simp [hb, ha]
+      have := b.exp_eq_of_isNonzeroSubnorm
+      have := a.exp_eq_of_isNonzeroSubnorm
+      grind only
+
+/--
 The packed float '≤' relationship captures ordering by `toRat'`.
 -/
 @[simp]
@@ -600,9 +682,9 @@ theorem toExtRat'_le_toExtRat'_of_le (he : 0 < e) (hs : 0 < s)
           simp only [Rat.neg_one_mul_le_neg_one_mul_iff]
           have := y.toRatSig_lt_two
           have := x.toRatSig_lt_two
-          -- ⊢ y.toRatSig * 2 ^ y.toRatExp ≤ x.toRatSig * 2 ^ x.toRatExp
-          -- hxy' : y.ex.toNat < x.ex.toNat ∨ x.ex = y.ex ∧ y.sig.toNat ≤ x.sig.toNat
-          sorry
+          rcases hxy' with (hxy' | hxy')
+          · sorry
+          · sorry
         · -- x -ve, y +ve
           simp [hysign]
           simp [hxsign, hysign] at hxy'
