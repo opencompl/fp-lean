@@ -130,7 +130,7 @@ def UnpackedFloat.mkSmallestRepresentable (targetExponentWidth targetSignificand
 
 -- upper x = - lower(-x)
 @[bv_normalize]
-def computeLowerPos (targetExponentWidth targetSignificandWidth : Nat)
+def computeLowerPos {expWidth sigWidth} (targetExponentWidth targetSignificandWidth : Nat)
     (inUf : UnpackedFloat expWidth sigWidth) :
     EUnpackedFloat  (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
     if inUf.ex.slt (BitVec.ofInt expWidth (minSubnormalExp targetExponentWidth targetSignificandWidth))
@@ -142,7 +142,6 @@ def computeLowerPos (targetExponentWidth targetSignificandWidth : Nat)
       if (BitVec.ofInt expWidth (maxNormalExp targetExponentWidth)).slt inUf.ex
       then
         -- Overflow: return largest representable (toward zero direction).
-        -- This is the magnitude-smaller candidate; `computeUpper` returns ±∞.
         EUnpackedFloat.mkNumber (UnpackedFloat.mkLargestRepresentable targetExponentWidth false)
       else
         -- just right in magnitude, so return the truncated number
@@ -194,8 +193,7 @@ def computeUpperPos (targetExponentWidth targetSignificandWidth : Nat)
       if sigOverflow then uf.ex.signExtend (expWidth + 1) + 1#(expWidth + 1)
       else uf.ex.signExtend (expWidth + 1)
     -- Late overflow check
-    let maxExpBV := BitVec.ofInt (expWidth + 1) (maxNormalExp targetExponentWidth)
-    if maxExpBV.slt adjustedExp then
+    if (BitVec.ofInt (expWidth + 1) (maxNormalExp targetExponentWidth)).slt adjustedExp then
       EUnpackedFloat.mkInfinity false
     else
       EUnpackedFloat.mkNumber {
@@ -312,8 +310,8 @@ def roundNaiveRTP (targetExponentWidth targetSignificandWidth : Nat)
     let lower := computeLower targetExponentWidth targetSignificandWidth uf
     let upper := computeUpper targetExponentWidth targetSignificandWidth uf
   if uf.isZero then (if uf.sign then upper else lower)
-  else if !uf.sign then upper  -- positive: toward +∞ = increase magnitude
-  else lower                          -- negative: toward +∞ = decrease magnitude
+  else if !uf.sign then upper
+  else lower
 
 /-- RTN: Round toward negative infinity.
 Mirrors `RoundMethod.roundRTN` from `SmtLibSemantics.lean`.
@@ -321,8 +319,7 @@ Mirrors `RoundMethod.roundRTN` from `SmtLibSemantics.lean`.
 - positive → lower (decrease magnitude = toward -∞) -/
 @[bv_normalize]
 def roundNaiveRTN (targetExponentWidth targetSignificandWidth : Nat)
-    (uf : UnpackedFloat expWidth sigWidth)
-     :
+    (uf : UnpackedFloat expWidth sigWidth) :
     EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
   let lower := computeLower targetExponentWidth targetSignificandWidth uf
   let upper := computeUpper targetExponentWidth targetSignificandWidth uf
