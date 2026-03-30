@@ -326,9 +326,13 @@ def get_long_operation (args : List String) : IO ExitCode := do
       IO.println result.toFormat
       return .ofFailures result.failures
   | ["roundCircuitAgainstSmtLib"] =>
-      let exit1 ← test_roundCircuitAgainstSmtlib (ein := 4) (sin := 6) (eout := 3) (sout := 4)
-      let exit2 ← test_roundCircuitAgainstSmtlib (ein := 3) (sin := 6) (eout := 3) (sout := 4)
-      return exit1 &&& exit2
+      -- eout > sout
+      let exit1 ← test_roundCircuitAgainstSmtlib (ein := 5) (sin := 7) (eout := 4) (sout := 3)
+      -- eoout = soug
+      let exit2 ← test_roundCircuitAgainstSmtlib (ein := 4) (sin := 6) (eout := 4) (sout := 4)
+      -- eoout < soug
+      let exit3 ← test_roundCircuitAgainstSmtlib (ein := 3) (sin := 6) (eout := 3) (sout := 4)
+      return exit1 &&& exit2 &&& exit3
   | ["fpMaxRel"] =>
       let result ← Fp.SmtLibSemanticsComputable.testFpMaxRel 3 4
       IO.println result.toFormat

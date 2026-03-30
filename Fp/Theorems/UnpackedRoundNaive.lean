@@ -291,7 +291,7 @@ theorem computeTieBreak_eq_smtLibTieBreak
      Step 4. Implementation:
        Case-split on `ctx.computeGuardBit` and `ctx.computeStickyBit`.
        For guard=1 cases: use rational arithmetic about truncation and rounding intervals.
-       For guard=1, sticky=0: show r = embed(lo') = embed(hi') and lo < lo' and hi' < hi? 
+       For guard=1, sticky=0: show r = embed(lo') = embed(hi') and lo < lo' and hi' < hi?
          Actually we showed hi'=hi in this case. Need: lo < lo' = true and hi'=hi NOT < hi.
          So (true = false) = false... wait that's wrong for sticky=0.
          Recheck sticky=0 (guard=1):
