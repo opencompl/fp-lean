@@ -135,11 +135,6 @@ def computeLowerPos (targetExponentWidth targetSignificandWidth : Nat)
     EUnpackedFloat  (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
     if inUf.ex.slt (BitVec.ofInt expWidth (minSubnormalExp targetExponentWidth targetSignificandWidth))
     then
-      if inUf.sign
-      then
-        -- -ve: make smallest subnormal
-        EUnpackedFloat.mkNumber (UnpackedFloat.mkSmallestRepresentable targetExponentWidth targetSignificandWidth true)
-      else
         -- +ve: make +0, since it is the greatest lower bound.
         EUnpackedFloat.mkNumber (UnpackedFloat.mkZero false)
     else
@@ -148,7 +143,7 @@ def computeLowerPos (targetExponentWidth targetSignificandWidth : Nat)
       then
         -- Overflow: return largest representable (toward zero direction).
         -- This is the magnitude-smaller candidate; `computeUpper` returns ±∞.
-        EUnpackedFloat.mkNumber (UnpackedFloat.mkLargestRepresentable targetExponentWidth inUf.sign)
+        EUnpackedFloat.mkNumber (UnpackedFloat.mkLargestRepresentable targetExponentWidth false)
       else
         -- just right in magnitude, so return the truncated number
         EUnpackedFloat.mkNumber {
@@ -174,14 +169,16 @@ def computeUpperPos (targetExponentWidth targetSignificandWidth : Nat)
   EUnpackedFloat  (exponentWidth targetExponentWidth (targetSignificandWidth))
   (targetSignificandWidth + 1) :=
     if uf.ex.slt (BitVec.ofInt expWidth (minSubnormalExp targetExponentWidth targetSignificandWidth))
-    then EUnpackedFloat.mkNumber (UnpackedFloat.mkZero true)
+    then
+      -- +ve but too small in magnitude.  Return the smallest representable (toward zero direction).
+      EUnpackedFloat.mkNumber (UnpackedFloat.mkSmallestRepresentable targetExponentWidth targetSignificandWidth false)
     else
       -- not too small in magnitude. See if too big
       if (BitVec.ofInt expWidth (maxNormalExp targetExponentWidth)).slt uf.ex
       then
         -- Overflow: return largest representable (toward zero direction).
         -- This is the magnitude-smaller candidate; `computeUpper` returns ±∞.
-        EUnpackedFloat.mkNumber (UnpackedFloat.mkLargestRepresentable targetExponentWidth uf.sign)
+        EUnpackedFloat.mkInfinity false
   else
     -- Normal inexact case: increment magnitude by 1 ULP
     let sigCleared := uf.sig &&& (~~~(ctx.guardBitMask ||| ctx.stickyBitsMask))
@@ -477,961 +474,6 @@ def checkRoundNaiveCorrect (EUnpacked SUnpackedNoHidden : Nat) (EOut SOutNoHidde
 -- #guard_msgs in #eval checkRoundNaiveCorrect 4 5 4 2 .RNA
 /--
 info:
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x2d#6, sig := 0x20#6 } }
-  original (packed) { sign := -, ex := 0x00#5, sig := 0x01#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x2e#6, sig := 0x20#6 } }
-  original (packed) { sign := -, ex := 0x00#5, sig := 0x02#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x2e#6, sig := 0x30#6 } }
-  original (packed) { sign := -, ex := 0x00#5, sig := 0x03#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x2f#6, sig := 0x20#6 } }
-  original (packed) { sign := -, ex := 0x00#5, sig := 0x04#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x2f#6, sig := 0x28#6 } }
-  original (packed) { sign := -, ex := 0x00#5, sig := 0x05#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x2f#6, sig := 0x30#6 } }
-  original (packed) { sign := -, ex := 0x00#5, sig := 0x06#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x2f#6, sig := 0x38#6 } }
-  original (packed) { sign := -, ex := 0x00#5, sig := 0x07#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x30#6, sig := 0x20#6 } }
-  original (packed) { sign := -, ex := 0x00#5, sig := 0x08#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x30#6, sig := 0x24#6 } }
-  original (packed) { sign := -, ex := 0x00#5, sig := 0x09#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x30#6, sig := 0x28#6 } }
-  original (packed) { sign := -, ex := 0x00#5, sig := 0x0a#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x30#6, sig := 0x2c#6 } }
-  original (packed) { sign := -, ex := 0x00#5, sig := 0x0b#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x30#6, sig := 0x30#6 } }
-  original (packed) { sign := -, ex := 0x00#5, sig := 0x0c#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x30#6, sig := 0x34#6 } }
-  original (packed) { sign := -, ex := 0x00#5, sig := 0x0d#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x30#6, sig := 0x38#6 } }
-  original (packed) { sign := -, ex := 0x00#5, sig := 0x0e#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x30#6, sig := 0x3c#6 } }
-  original (packed) { sign := -, ex := 0x00#5, sig := 0x0f#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x31#6, sig := 0x20#6 } }
-  original (packed) { sign := -, ex := 0x00#5, sig := 0x10#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x31#6, sig := 0x22#6 } }
-  original (packed) { sign := -, ex := 0x00#5, sig := 0x11#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x31#6, sig := 0x24#6 } }
-  original (packed) { sign := -, ex := 0x00#5, sig := 0x12#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x31#6, sig := 0x26#6 } }
-  original (packed) { sign := -, ex := 0x00#5, sig := 0x13#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x31#6, sig := 0x28#6 } }
-  original (packed) { sign := -, ex := 0x00#5, sig := 0x14#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x31#6, sig := 0x2a#6 } }
-  original (packed) { sign := -, ex := 0x00#5, sig := 0x15#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x31#6, sig := 0x2c#6 } }
-  original (packed) { sign := -, ex := 0x00#5, sig := 0x16#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x31#6, sig := 0x2e#6 } }
-  original (packed) { sign := -, ex := 0x00#5, sig := 0x17#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x31#6, sig := 0x30#6 } }
-  original (packed) { sign := -, ex := 0x00#5, sig := 0x18#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x31#6, sig := 0x32#6 } }
-  original (packed) { sign := -, ex := 0x00#5, sig := 0x19#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x31#6, sig := 0x34#6 } }
-  original (packed) { sign := -, ex := 0x00#5, sig := 0x1a#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x31#6, sig := 0x36#6 } }
-  original (packed) { sign := -, ex := 0x00#5, sig := 0x1b#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x31#6, sig := 0x38#6 } }
-  original (packed) { sign := -, ex := 0x00#5, sig := 0x1c#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x31#6, sig := 0x3a#6 } }
-  original (packed) { sign := -, ex := 0x00#5, sig := 0x1d#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x31#6, sig := 0x3c#6 } }
-  original (packed) { sign := -, ex := 0x00#5, sig := 0x1e#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x31#6, sig := 0x3e#6 } }
-  original (packed) { sign := -, ex := 0x00#5, sig := 0x1f#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x32#6, sig := 0x20#6 } }
-  original (packed) { sign := -, ex := 0x01#5, sig := 0x00#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x32#6, sig := 0x21#6 } }
-  original (packed) { sign := -, ex := 0x01#5, sig := 0x01#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x32#6, sig := 0x22#6 } }
-  original (packed) { sign := -, ex := 0x01#5, sig := 0x02#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x32#6, sig := 0x23#6 } }
-  original (packed) { sign := -, ex := 0x01#5, sig := 0x03#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x32#6, sig := 0x24#6 } }
-  original (packed) { sign := -, ex := 0x01#5, sig := 0x04#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x32#6, sig := 0x25#6 } }
-  original (packed) { sign := -, ex := 0x01#5, sig := 0x05#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x32#6, sig := 0x26#6 } }
-  original (packed) { sign := -, ex := 0x01#5, sig := 0x06#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x32#6, sig := 0x27#6 } }
-  original (packed) { sign := -, ex := 0x01#5, sig := 0x07#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x32#6, sig := 0x28#6 } }
-  original (packed) { sign := -, ex := 0x01#5, sig := 0x08#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x32#6, sig := 0x29#6 } }
-  original (packed) { sign := -, ex := 0x01#5, sig := 0x09#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x32#6, sig := 0x2a#6 } }
-  original (packed) { sign := -, ex := 0x01#5, sig := 0x0a#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x32#6, sig := 0x2b#6 } }
-  original (packed) { sign := -, ex := 0x01#5, sig := 0x0b#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x32#6, sig := 0x2c#6 } }
-  original (packed) { sign := -, ex := 0x01#5, sig := 0x0c#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x32#6, sig := 0x2d#6 } }
-  original (packed) { sign := -, ex := 0x01#5, sig := 0x0d#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x32#6, sig := 0x2e#6 } }
-  original (packed) { sign := -, ex := 0x01#5, sig := 0x0e#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x32#6, sig := 0x2f#6 } }
-  original (packed) { sign := -, ex := 0x01#5, sig := 0x0f#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x32#6, sig := 0x30#6 } }
-  original (packed) { sign := -, ex := 0x01#5, sig := 0x10#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x32#6, sig := 0x31#6 } }
-  original (packed) { sign := -, ex := 0x01#5, sig := 0x11#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x32#6, sig := 0x32#6 } }
-  original (packed) { sign := -, ex := 0x01#5, sig := 0x12#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x32#6, sig := 0x33#6 } }
-  original (packed) { sign := -, ex := 0x01#5, sig := 0x13#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x32#6, sig := 0x34#6 } }
-  original (packed) { sign := -, ex := 0x01#5, sig := 0x14#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x32#6, sig := 0x35#6 } }
-  original (packed) { sign := -, ex := 0x01#5, sig := 0x15#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x32#6, sig := 0x36#6 } }
-  original (packed) { sign := -, ex := 0x01#5, sig := 0x16#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x32#6, sig := 0x37#6 } }
-  original (packed) { sign := -, ex := 0x01#5, sig := 0x17#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x32#6, sig := 0x38#6 } }
-  original (packed) { sign := -, ex := 0x01#5, sig := 0x18#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x32#6, sig := 0x39#6 } }
-  original (packed) { sign := -, ex := 0x01#5, sig := 0x19#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x32#6, sig := 0x3a#6 } }
-  original (packed) { sign := -, ex := 0x01#5, sig := 0x1a#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x32#6, sig := 0x3b#6 } }
-  original (packed) { sign := -, ex := 0x01#5, sig := 0x1b#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x32#6, sig := 0x3c#6 } }
-  original (packed) { sign := -, ex := 0x01#5, sig := 0x1c#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x32#6, sig := 0x3d#6 } }
-  original (packed) { sign := -, ex := 0x01#5, sig := 0x1d#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x32#6, sig := 0x3e#6 } }
-  original (packed) { sign := -, ex := 0x01#5, sig := 0x1e#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x32#6, sig := 0x3f#6 } }
-  original (packed) { sign := -, ex := 0x01#5, sig := 0x1f#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x33#6, sig := 0x20#6 } }
-  original (packed) { sign := -, ex := 0x02#5, sig := 0x00#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x33#6, sig := 0x21#6 } }
-  original (packed) { sign := -, ex := 0x02#5, sig := 0x01#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x33#6, sig := 0x22#6 } }
-  original (packed) { sign := -, ex := 0x02#5, sig := 0x02#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x33#6, sig := 0x23#6 } }
-  original (packed) { sign := -, ex := 0x02#5, sig := 0x03#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x33#6, sig := 0x24#6 } }
-  original (packed) { sign := -, ex := 0x02#5, sig := 0x04#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x33#6, sig := 0x25#6 } }
-  original (packed) { sign := -, ex := 0x02#5, sig := 0x05#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x33#6, sig := 0x26#6 } }
-  original (packed) { sign := -, ex := 0x02#5, sig := 0x06#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x33#6, sig := 0x27#6 } }
-  original (packed) { sign := -, ex := 0x02#5, sig := 0x07#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x33#6, sig := 0x28#6 } }
-  original (packed) { sign := -, ex := 0x02#5, sig := 0x08#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x33#6, sig := 0x29#6 } }
-  original (packed) { sign := -, ex := 0x02#5, sig := 0x09#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x33#6, sig := 0x2a#6 } }
-  original (packed) { sign := -, ex := 0x02#5, sig := 0x0a#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x33#6, sig := 0x2b#6 } }
-  original (packed) { sign := -, ex := 0x02#5, sig := 0x0b#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x33#6, sig := 0x2c#6 } }
-  original (packed) { sign := -, ex := 0x02#5, sig := 0x0c#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x33#6, sig := 0x2d#6 } }
-  original (packed) { sign := -, ex := 0x02#5, sig := 0x0d#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x33#6, sig := 0x2e#6 } }
-  original (packed) { sign := -, ex := 0x02#5, sig := 0x0e#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x33#6, sig := 0x2f#6 } }
-  original (packed) { sign := -, ex := 0x02#5, sig := 0x0f#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x33#6, sig := 0x30#6 } }
-  original (packed) { sign := -, ex := 0x02#5, sig := 0x10#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x33#6, sig := 0x31#6 } }
-  original (packed) { sign := -, ex := 0x02#5, sig := 0x11#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x33#6, sig := 0x32#6 } }
-  original (packed) { sign := -, ex := 0x02#5, sig := 0x12#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x33#6, sig := 0x33#6 } }
-  original (packed) { sign := -, ex := 0x02#5, sig := 0x13#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x33#6, sig := 0x34#6 } }
-  original (packed) { sign := -, ex := 0x02#5, sig := 0x14#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x33#6, sig := 0x35#6 } }
-  original (packed) { sign := -, ex := 0x02#5, sig := 0x15#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x33#6, sig := 0x36#6 } }
-  original (packed) { sign := -, ex := 0x02#5, sig := 0x16#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x33#6, sig := 0x37#6 } }
-  original (packed) { sign := -, ex := 0x02#5, sig := 0x17#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x33#6, sig := 0x38#6 } }
-  original (packed) { sign := -, ex := 0x02#5, sig := 0x18#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x33#6, sig := 0x39#6 } }
-  original (packed) { sign := -, ex := 0x02#5, sig := 0x19#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x33#6, sig := 0x3a#6 } }
-  original (packed) { sign := -, ex := 0x02#5, sig := 0x1a#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x33#6, sig := 0x3b#6 } }
-  original (packed) { sign := -, ex := 0x02#5, sig := 0x1b#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x33#6, sig := 0x3c#6 } }
-  original (packed) { sign := -, ex := 0x02#5, sig := 0x1c#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x33#6, sig := 0x3d#6 } }
-  original (packed) { sign := -, ex := 0x02#5, sig := 0x1d#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x33#6, sig := 0x3e#6 } }
-  original (packed) { sign := -, ex := 0x02#5, sig := 0x1e#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x33#6, sig := 0x3f#6 } }
-  original (packed) { sign := -, ex := 0x02#5, sig := 0x1f#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x34#6, sig := 0x20#6 } }
-  original (packed) { sign := -, ex := 0x03#5, sig := 0x00#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x34#6, sig := 0x21#6 } }
-  original (packed) { sign := -, ex := 0x03#5, sig := 0x01#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x34#6, sig := 0x22#6 } }
-  original (packed) { sign := -, ex := 0x03#5, sig := 0x02#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x34#6, sig := 0x23#6 } }
-  original (packed) { sign := -, ex := 0x03#5, sig := 0x03#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x34#6, sig := 0x24#6 } }
-  original (packed) { sign := -, ex := 0x03#5, sig := 0x04#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x34#6, sig := 0x25#6 } }
-  original (packed) { sign := -, ex := 0x03#5, sig := 0x05#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x34#6, sig := 0x26#6 } }
-  original (packed) { sign := -, ex := 0x03#5, sig := 0x06#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x34#6, sig := 0x27#6 } }
-  original (packed) { sign := -, ex := 0x03#5, sig := 0x07#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x34#6, sig := 0x28#6 } }
-  original (packed) { sign := -, ex := 0x03#5, sig := 0x08#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x34#6, sig := 0x29#6 } }
-  original (packed) { sign := -, ex := 0x03#5, sig := 0x09#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x34#6, sig := 0x2a#6 } }
-  original (packed) { sign := -, ex := 0x03#5, sig := 0x0a#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x34#6, sig := 0x2b#6 } }
-  original (packed) { sign := -, ex := 0x03#5, sig := 0x0b#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x34#6, sig := 0x2c#6 } }
-  original (packed) { sign := -, ex := 0x03#5, sig := 0x0c#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x34#6, sig := 0x2d#6 } }
-  original (packed) { sign := -, ex := 0x03#5, sig := 0x0d#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x34#6, sig := 0x2e#6 } }
-  original (packed) { sign := -, ex := 0x03#5, sig := 0x0e#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x34#6, sig := 0x2f#6 } }
-  original (packed) { sign := -, ex := 0x03#5, sig := 0x0f#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x34#6, sig := 0x30#6 } }
-  original (packed) { sign := -, ex := 0x03#5, sig := 0x10#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x34#6, sig := 0x31#6 } }
-  original (packed) { sign := -, ex := 0x03#5, sig := 0x11#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x34#6, sig := 0x32#6 } }
-  original (packed) { sign := -, ex := 0x03#5, sig := 0x12#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x34#6, sig := 0x33#6 } }
-  original (packed) { sign := -, ex := 0x03#5, sig := 0x13#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x34#6, sig := 0x34#6 } }
-  original (packed) { sign := -, ex := 0x03#5, sig := 0x14#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x34#6, sig := 0x35#6 } }
-  original (packed) { sign := -, ex := 0x03#5, sig := 0x15#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x34#6, sig := 0x36#6 } }
-  original (packed) { sign := -, ex := 0x03#5, sig := 0x16#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x34#6, sig := 0x37#6 } }
-  original (packed) { sign := -, ex := 0x03#5, sig := 0x17#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x34#6, sig := 0x38#6 } }
-  original (packed) { sign := -, ex := 0x03#5, sig := 0x18#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x34#6, sig := 0x39#6 } }
-  original (packed) { sign := -, ex := 0x03#5, sig := 0x19#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x34#6, sig := 0x3a#6 } }
-  original (packed) { sign := -, ex := 0x03#5, sig := 0x1a#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x34#6, sig := 0x3b#6 } }
-  original (packed) { sign := -, ex := 0x03#5, sig := 0x1b#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x34#6, sig := 0x3c#6 } }
-  original (packed) { sign := -, ex := 0x03#5, sig := 0x1c#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x34#6, sig := 0x3d#6 } }
-  original (packed) { sign := -, ex := 0x03#5, sig := 0x1d#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x34#6, sig := 0x3e#6 } }
-  original (packed) { sign := -, ex := 0x03#5, sig := 0x1e#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x34#6, sig := 0x3f#6 } }
-  original (packed) { sign := -, ex := 0x03#5, sig := 0x1f#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x35#6, sig := 0x20#6 } }
-  original (packed) { sign := -, ex := 0x04#5, sig := 0x00#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x35#6, sig := 0x21#6 } }
-  original (packed) { sign := -, ex := 0x04#5, sig := 0x01#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x35#6, sig := 0x22#6 } }
-  original (packed) { sign := -, ex := 0x04#5, sig := 0x02#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x35#6, sig := 0x23#6 } }
-  original (packed) { sign := -, ex := 0x04#5, sig := 0x03#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x35#6, sig := 0x24#6 } }
-  original (packed) { sign := -, ex := 0x04#5, sig := 0x04#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x35#6, sig := 0x25#6 } }
-  original (packed) { sign := -, ex := 0x04#5, sig := 0x05#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x35#6, sig := 0x26#6 } }
-  original (packed) { sign := -, ex := 0x04#5, sig := 0x06#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x35#6, sig := 0x27#6 } }
-  original (packed) { sign := -, ex := 0x04#5, sig := 0x07#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x35#6, sig := 0x28#6 } }
-  original (packed) { sign := -, ex := 0x04#5, sig := 0x08#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x35#6, sig := 0x29#6 } }
-  original (packed) { sign := -, ex := 0x04#5, sig := 0x09#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x35#6, sig := 0x2a#6 } }
-  original (packed) { sign := -, ex := 0x04#5, sig := 0x0a#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x35#6, sig := 0x2b#6 } }
-  original (packed) { sign := -, ex := 0x04#5, sig := 0x0b#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x35#6, sig := 0x2c#6 } }
-  original (packed) { sign := -, ex := 0x04#5, sig := 0x0c#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x35#6, sig := 0x2d#6 } }
-  original (packed) { sign := -, ex := 0x04#5, sig := 0x0d#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x35#6, sig := 0x2e#6 } }
-  original (packed) { sign := -, ex := 0x04#5, sig := 0x0e#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x35#6, sig := 0x2f#6 } }
-  original (packed) { sign := -, ex := 0x04#5, sig := 0x0f#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x35#6, sig := 0x30#6 } }
-  original (packed) { sign := -, ex := 0x04#5, sig := 0x10#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x35#6, sig := 0x31#6 } }
-  original (packed) { sign := -, ex := 0x04#5, sig := 0x11#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x35#6, sig := 0x32#6 } }
-  original (packed) { sign := -, ex := 0x04#5, sig := 0x12#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x35#6, sig := 0x33#6 } }
-  original (packed) { sign := -, ex := 0x04#5, sig := 0x13#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x35#6, sig := 0x34#6 } }
-  original (packed) { sign := -, ex := 0x04#5, sig := 0x14#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x35#6, sig := 0x35#6 } }
-  original (packed) { sign := -, ex := 0x04#5, sig := 0x15#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x35#6, sig := 0x36#6 } }
-  original (packed) { sign := -, ex := 0x04#5, sig := 0x16#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x35#6, sig := 0x37#6 } }
-  original (packed) { sign := -, ex := 0x04#5, sig := 0x17#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x35#6, sig := 0x38#6 } }
-  original (packed) { sign := -, ex := 0x04#5, sig := 0x18#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x35#6, sig := 0x39#6 } }
-  original (packed) { sign := -, ex := 0x04#5, sig := 0x19#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x35#6, sig := 0x3a#6 } }
-  original (packed) { sign := -, ex := 0x04#5, sig := 0x1a#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x35#6, sig := 0x3b#6 } }
-  original (packed) { sign := -, ex := 0x04#5, sig := 0x1b#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x35#6, sig := 0x3c#6 } }
-  original (packed) { sign := -, ex := 0x04#5, sig := 0x1c#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x35#6, sig := 0x3d#6 } }
-  original (packed) { sign := -, ex := 0x04#5, sig := 0x1d#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x35#6, sig := 0x3e#6 } }
-  original (packed) { sign := -, ex := 0x04#5, sig := 0x1e#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x35#6, sig := 0x3f#6 } }
-  original (packed) { sign := -, ex := 0x04#5, sig := 0x1f#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x36#6, sig := 0x20#6 } }
-  original (packed) { sign := -, ex := 0x05#5, sig := 0x00#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x36#6, sig := 0x21#6 } }
-  original (packed) { sign := -, ex := 0x05#5, sig := 0x01#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x36#6, sig := 0x22#6 } }
-  original (packed) { sign := -, ex := 0x05#5, sig := 0x02#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x36#6, sig := 0x23#6 } }
-  original (packed) { sign := -, ex := 0x05#5, sig := 0x03#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x36#6, sig := 0x24#6 } }
-  original (packed) { sign := -, ex := 0x05#5, sig := 0x04#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x36#6, sig := 0x25#6 } }
-  original (packed) { sign := -, ex := 0x05#5, sig := 0x05#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x36#6, sig := 0x26#6 } }
-  original (packed) { sign := -, ex := 0x05#5, sig := 0x06#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x36#6, sig := 0x27#6 } }
-  original (packed) { sign := -, ex := 0x05#5, sig := 0x07#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x36#6, sig := 0x28#6 } }
-  original (packed) { sign := -, ex := 0x05#5, sig := 0x08#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x36#6, sig := 0x29#6 } }
-  original (packed) { sign := -, ex := 0x05#5, sig := 0x09#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x36#6, sig := 0x2a#6 } }
-  original (packed) { sign := -, ex := 0x05#5, sig := 0x0a#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x36#6, sig := 0x2b#6 } }
-  original (packed) { sign := -, ex := 0x05#5, sig := 0x0b#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x36#6, sig := 0x2c#6 } }
-  original (packed) { sign := -, ex := 0x05#5, sig := 0x0c#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x36#6, sig := 0x2d#6 } }
-  original (packed) { sign := -, ex := 0x05#5, sig := 0x0d#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x36#6, sig := 0x2e#6 } }
-  original (packed) { sign := -, ex := 0x05#5, sig := 0x0e#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x36#6, sig := 0x2f#6 } }
-  original (packed) { sign := -, ex := 0x05#5, sig := 0x0f#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x36#6, sig := 0x30#6 } }
-  original (packed) { sign := -, ex := 0x05#5, sig := 0x10#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x36#6, sig := 0x31#6 } }
-  original (packed) { sign := -, ex := 0x05#5, sig := 0x11#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x36#6, sig := 0x32#6 } }
-  original (packed) { sign := -, ex := 0x05#5, sig := 0x12#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x36#6, sig := 0x33#6 } }
-  original (packed) { sign := -, ex := 0x05#5, sig := 0x13#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x36#6, sig := 0x34#6 } }
-  original (packed) { sign := -, ex := 0x05#5, sig := 0x14#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x36#6, sig := 0x35#6 } }
-  original (packed) { sign := -, ex := 0x05#5, sig := 0x15#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x36#6, sig := 0x36#6 } }
-  original (packed) { sign := -, ex := 0x05#5, sig := 0x16#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x36#6, sig := 0x37#6 } }
-  original (packed) { sign := -, ex := 0x05#5, sig := 0x17#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x36#6, sig := 0x38#6 } }
-  original (packed) { sign := -, ex := 0x05#5, sig := 0x18#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x36#6, sig := 0x39#6 } }
-  original (packed) { sign := -, ex := 0x05#5, sig := 0x19#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x36#6, sig := 0x3a#6 } }
-  original (packed) { sign := -, ex := 0x05#5, sig := 0x1a#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x36#6, sig := 0x3b#6 } }
-  original (packed) { sign := -, ex := 0x05#5, sig := 0x1b#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x36#6, sig := 0x3c#6 } }
-  original (packed) { sign := -, ex := 0x05#5, sig := 0x1c#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x36#6, sig := 0x3d#6 } }
-  original (packed) { sign := -, ex := 0x05#5, sig := 0x1d#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x36#6, sig := 0x3e#6 } }
-  original (packed) { sign := -, ex := 0x05#5, sig := 0x1e#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x36#6, sig := 0x3f#6 } }
-  original (packed) { sign := -, ex := 0x05#5, sig := 0x1f#5 }
-  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x37#6, sig := 0x20#6 } }
   original (packed) { sign := -, ex := 0x06#5, sig := 0x00#5 }
   naive result (packed) { sign := -, ex := 0x0#4, sig := 0x1#2 }
@@ -4152,50 +3194,25 @@ Failed ❌ | original { state := num, num := { sign := true, ex := 0x07#6, sig :
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x08#6, sig := 0x20#6 } }
-  original (packed) { sign := -, ex := 0x17#5, sig := 0x00#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x08#6, sig := 0x20#6 } }
   original (packed) { sign := +, ex := 0x17#5, sig := 0x00#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x08#6, sig := 0x21#6 } }
-  original (packed) { sign := -, ex := 0x17#5, sig := 0x01#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x08#6, sig := 0x21#6 } }
   original (packed) { sign := +, ex := 0x17#5, sig := 0x01#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x08#6, sig := 0x22#6 } }
-  original (packed) { sign := -, ex := 0x17#5, sig := 0x02#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x08#6, sig := 0x22#6 } }
   original (packed) { sign := +, ex := 0x17#5, sig := 0x02#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x08#6, sig := 0x23#6 } }
-  original (packed) { sign := -, ex := 0x17#5, sig := 0x03#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x08#6, sig := 0x23#6 } }
   original (packed) { sign := +, ex := 0x17#5, sig := 0x03#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x08#6, sig := 0x24#6 } }
-  original (packed) { sign := -, ex := 0x17#5, sig := 0x04#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x08#6, sig := 0x24#6 } }
   original (packed) { sign := +, ex := 0x17#5, sig := 0x04#5 }
@@ -4207,33 +3224,13 @@ Failed ❌ | original { state := num, num := { sign := true, ex := 0x08#6, sig :
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x08#6, sig := 0x25#6 } }
-  original (packed) { sign := +, ex := 0x17#5, sig := 0x05#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x08#6, sig := 0x26#6 } }
   original (packed) { sign := -, ex := 0x17#5, sig := 0x06#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x08#6, sig := 0x26#6 } }
-  original (packed) { sign := +, ex := 0x17#5, sig := 0x06#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x08#6, sig := 0x27#6 } }
   original (packed) { sign := -, ex := 0x17#5, sig := 0x07#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x08#6, sig := 0x27#6 } }
-  original (packed) { sign := +, ex := 0x17#5, sig := 0x07#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x08#6, sig := 0x28#6 } }
-  original (packed) { sign := -, ex := 0x17#5, sig := 0x08#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
@@ -4242,30 +3239,15 @@ Failed ❌ | original { state := num, num := { sign := false, ex := 0x08#6, sig 
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x08#6, sig := 0x29#6 } }
-  original (packed) { sign := -, ex := 0x17#5, sig := 0x09#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x08#6, sig := 0x29#6 } }
   original (packed) { sign := +, ex := 0x17#5, sig := 0x09#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x08#6, sig := 0x2a#6 } }
-  original (packed) { sign := -, ex := 0x17#5, sig := 0x0a#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x08#6, sig := 0x2a#6 } }
   original (packed) { sign := +, ex := 0x17#5, sig := 0x0a#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x08#6, sig := 0x2b#6 } }
-  original (packed) { sign := -, ex := 0x17#5, sig := 0x0b#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x08#6, sig := 0x2b#6 } }
   original (packed) { sign := +, ex := 0x17#5, sig := 0x0b#5 }
@@ -4277,43 +3259,18 @@ Failed ❌ | original { state := num, num := { sign := true, ex := 0x08#6, sig :
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x08#6, sig := 0x2c#6 } }
-  original (packed) { sign := +, ex := 0x17#5, sig := 0x0c#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x08#6, sig := 0x2d#6 } }
   original (packed) { sign := -, ex := 0x17#5, sig := 0x0d#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x08#6, sig := 0x2d#6 } }
-  original (packed) { sign := +, ex := 0x17#5, sig := 0x0d#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x08#6, sig := 0x2e#6 } }
   original (packed) { sign := -, ex := 0x17#5, sig := 0x0e#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x08#6, sig := 0x2e#6 } }
-  original (packed) { sign := +, ex := 0x17#5, sig := 0x0e#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x08#6, sig := 0x2f#6 } }
   original (packed) { sign := -, ex := 0x17#5, sig := 0x0f#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x08#6, sig := 0x2f#6 } }
-  original (packed) { sign := +, ex := 0x17#5, sig := 0x0f#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x08#6, sig := 0x30#6 } }
-  original (packed) { sign := -, ex := 0x17#5, sig := 0x10#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
@@ -4322,40 +3279,20 @@ Failed ❌ | original { state := num, num := { sign := false, ex := 0x08#6, sig 
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x08#6, sig := 0x31#6 } }
-  original (packed) { sign := -, ex := 0x17#5, sig := 0x11#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x08#6, sig := 0x31#6 } }
   original (packed) { sign := +, ex := 0x17#5, sig := 0x11#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x08#6, sig := 0x32#6 } }
-  original (packed) { sign := -, ex := 0x17#5, sig := 0x12#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x08#6, sig := 0x32#6 } }
   original (packed) { sign := +, ex := 0x17#5, sig := 0x12#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x08#6, sig := 0x33#6 } }
-  original (packed) { sign := -, ex := 0x17#5, sig := 0x13#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x08#6, sig := 0x33#6 } }
   original (packed) { sign := +, ex := 0x17#5, sig := 0x13#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x08#6, sig := 0x34#6 } }
-  original (packed) { sign := -, ex := 0x17#5, sig := 0x14#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x08#6, sig := 0x34#6 } }
   original (packed) { sign := +, ex := 0x17#5, sig := 0x14#5 }
@@ -4367,33 +3304,13 @@ Failed ❌ | original { state := num, num := { sign := true, ex := 0x08#6, sig :
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x08#6, sig := 0x35#6 } }
-  original (packed) { sign := +, ex := 0x17#5, sig := 0x15#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x08#6, sig := 0x36#6 } }
   original (packed) { sign := -, ex := 0x17#5, sig := 0x16#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x08#6, sig := 0x36#6 } }
-  original (packed) { sign := +, ex := 0x17#5, sig := 0x16#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x08#6, sig := 0x37#6 } }
   original (packed) { sign := -, ex := 0x17#5, sig := 0x17#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x08#6, sig := 0x37#6 } }
-  original (packed) { sign := +, ex := 0x17#5, sig := 0x17#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x08#6, sig := 0x38#6 } }
-  original (packed) { sign := -, ex := 0x17#5, sig := 0x18#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
@@ -4402,30 +3319,15 @@ Failed ❌ | original { state := num, num := { sign := false, ex := 0x08#6, sig 
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x08#6, sig := 0x39#6 } }
-  original (packed) { sign := -, ex := 0x17#5, sig := 0x19#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x08#6, sig := 0x39#6 } }
   original (packed) { sign := +, ex := 0x17#5, sig := 0x19#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x08#6, sig := 0x3a#6 } }
-  original (packed) { sign := -, ex := 0x17#5, sig := 0x1a#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x08#6, sig := 0x3a#6 } }
   original (packed) { sign := +, ex := 0x17#5, sig := 0x1a#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x08#6, sig := 0x3b#6 } }
-  original (packed) { sign := -, ex := 0x17#5, sig := 0x1b#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x08#6, sig := 0x3b#6 } }
   original (packed) { sign := +, ex := 0x17#5, sig := 0x1b#5 }
@@ -4437,43 +3339,18 @@ Failed ❌ | original { state := num, num := { sign := true, ex := 0x08#6, sig :
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x08#6, sig := 0x3c#6 } }
-  original (packed) { sign := +, ex := 0x17#5, sig := 0x1c#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x08#6, sig := 0x3d#6 } }
   original (packed) { sign := -, ex := 0x17#5, sig := 0x1d#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x08#6, sig := 0x3d#6 } }
-  original (packed) { sign := +, ex := 0x17#5, sig := 0x1d#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x08#6, sig := 0x3e#6 } }
   original (packed) { sign := -, ex := 0x17#5, sig := 0x1e#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x08#6, sig := 0x3e#6 } }
-  original (packed) { sign := +, ex := 0x17#5, sig := 0x1e#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x08#6, sig := 0x3f#6 } }
   original (packed) { sign := -, ex := 0x17#5, sig := 0x1f#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x08#6, sig := 0x3f#6 } }
-  original (packed) { sign := +, ex := 0x17#5, sig := 0x1f#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x09#6, sig := 0x20#6 } }
-  original (packed) { sign := -, ex := 0x18#5, sig := 0x00#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
@@ -4482,40 +3359,20 @@ Failed ❌ | original { state := num, num := { sign := false, ex := 0x09#6, sig 
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x09#6, sig := 0x21#6 } }
-  original (packed) { sign := -, ex := 0x18#5, sig := 0x01#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x09#6, sig := 0x21#6 } }
   original (packed) { sign := +, ex := 0x18#5, sig := 0x01#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x09#6, sig := 0x22#6 } }
-  original (packed) { sign := -, ex := 0x18#5, sig := 0x02#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x09#6, sig := 0x22#6 } }
   original (packed) { sign := +, ex := 0x18#5, sig := 0x02#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x09#6, sig := 0x23#6 } }
-  original (packed) { sign := -, ex := 0x18#5, sig := 0x03#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x09#6, sig := 0x23#6 } }
   original (packed) { sign := +, ex := 0x18#5, sig := 0x03#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x09#6, sig := 0x24#6 } }
-  original (packed) { sign := -, ex := 0x18#5, sig := 0x04#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x09#6, sig := 0x24#6 } }
   original (packed) { sign := +, ex := 0x18#5, sig := 0x04#5 }
@@ -4527,33 +3384,13 @@ Failed ❌ | original { state := num, num := { sign := true, ex := 0x09#6, sig :
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x09#6, sig := 0x25#6 } }
-  original (packed) { sign := +, ex := 0x18#5, sig := 0x05#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x09#6, sig := 0x26#6 } }
   original (packed) { sign := -, ex := 0x18#5, sig := 0x06#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x09#6, sig := 0x26#6 } }
-  original (packed) { sign := +, ex := 0x18#5, sig := 0x06#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x09#6, sig := 0x27#6 } }
   original (packed) { sign := -, ex := 0x18#5, sig := 0x07#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x09#6, sig := 0x27#6 } }
-  original (packed) { sign := +, ex := 0x18#5, sig := 0x07#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x09#6, sig := 0x28#6 } }
-  original (packed) { sign := -, ex := 0x18#5, sig := 0x08#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
@@ -4562,30 +3399,15 @@ Failed ❌ | original { state := num, num := { sign := false, ex := 0x09#6, sig 
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x09#6, sig := 0x29#6 } }
-  original (packed) { sign := -, ex := 0x18#5, sig := 0x09#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x09#6, sig := 0x29#6 } }
   original (packed) { sign := +, ex := 0x18#5, sig := 0x09#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x09#6, sig := 0x2a#6 } }
-  original (packed) { sign := -, ex := 0x18#5, sig := 0x0a#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x09#6, sig := 0x2a#6 } }
   original (packed) { sign := +, ex := 0x18#5, sig := 0x0a#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x09#6, sig := 0x2b#6 } }
-  original (packed) { sign := -, ex := 0x18#5, sig := 0x0b#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x09#6, sig := 0x2b#6 } }
   original (packed) { sign := +, ex := 0x18#5, sig := 0x0b#5 }
@@ -4597,43 +3419,18 @@ Failed ❌ | original { state := num, num := { sign := true, ex := 0x09#6, sig :
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x09#6, sig := 0x2c#6 } }
-  original (packed) { sign := +, ex := 0x18#5, sig := 0x0c#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x09#6, sig := 0x2d#6 } }
   original (packed) { sign := -, ex := 0x18#5, sig := 0x0d#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x09#6, sig := 0x2d#6 } }
-  original (packed) { sign := +, ex := 0x18#5, sig := 0x0d#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x09#6, sig := 0x2e#6 } }
   original (packed) { sign := -, ex := 0x18#5, sig := 0x0e#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x09#6, sig := 0x2e#6 } }
-  original (packed) { sign := +, ex := 0x18#5, sig := 0x0e#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x09#6, sig := 0x2f#6 } }
   original (packed) { sign := -, ex := 0x18#5, sig := 0x0f#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x09#6, sig := 0x2f#6 } }
-  original (packed) { sign := +, ex := 0x18#5, sig := 0x0f#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x09#6, sig := 0x30#6 } }
-  original (packed) { sign := -, ex := 0x18#5, sig := 0x10#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
@@ -4642,40 +3439,20 @@ Failed ❌ | original { state := num, num := { sign := false, ex := 0x09#6, sig 
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x09#6, sig := 0x31#6 } }
-  original (packed) { sign := -, ex := 0x18#5, sig := 0x11#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x09#6, sig := 0x31#6 } }
   original (packed) { sign := +, ex := 0x18#5, sig := 0x11#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x09#6, sig := 0x32#6 } }
-  original (packed) { sign := -, ex := 0x18#5, sig := 0x12#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x09#6, sig := 0x32#6 } }
   original (packed) { sign := +, ex := 0x18#5, sig := 0x12#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x09#6, sig := 0x33#6 } }
-  original (packed) { sign := -, ex := 0x18#5, sig := 0x13#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x09#6, sig := 0x33#6 } }
   original (packed) { sign := +, ex := 0x18#5, sig := 0x13#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x09#6, sig := 0x34#6 } }
-  original (packed) { sign := -, ex := 0x18#5, sig := 0x14#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x09#6, sig := 0x34#6 } }
   original (packed) { sign := +, ex := 0x18#5, sig := 0x14#5 }
@@ -4687,33 +3464,13 @@ Failed ❌ | original { state := num, num := { sign := true, ex := 0x09#6, sig :
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x09#6, sig := 0x35#6 } }
-  original (packed) { sign := +, ex := 0x18#5, sig := 0x15#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x09#6, sig := 0x36#6 } }
   original (packed) { sign := -, ex := 0x18#5, sig := 0x16#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x09#6, sig := 0x36#6 } }
-  original (packed) { sign := +, ex := 0x18#5, sig := 0x16#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x09#6, sig := 0x37#6 } }
   original (packed) { sign := -, ex := 0x18#5, sig := 0x17#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x09#6, sig := 0x37#6 } }
-  original (packed) { sign := +, ex := 0x18#5, sig := 0x17#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x09#6, sig := 0x38#6 } }
-  original (packed) { sign := -, ex := 0x18#5, sig := 0x18#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
@@ -4722,30 +3479,15 @@ Failed ❌ | original { state := num, num := { sign := false, ex := 0x09#6, sig 
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x09#6, sig := 0x39#6 } }
-  original (packed) { sign := -, ex := 0x18#5, sig := 0x19#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x09#6, sig := 0x39#6 } }
   original (packed) { sign := +, ex := 0x18#5, sig := 0x19#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x09#6, sig := 0x3a#6 } }
-  original (packed) { sign := -, ex := 0x18#5, sig := 0x1a#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x09#6, sig := 0x3a#6 } }
   original (packed) { sign := +, ex := 0x18#5, sig := 0x1a#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x09#6, sig := 0x3b#6 } }
-  original (packed) { sign := -, ex := 0x18#5, sig := 0x1b#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x09#6, sig := 0x3b#6 } }
   original (packed) { sign := +, ex := 0x18#5, sig := 0x1b#5 }
@@ -4757,43 +3499,18 @@ Failed ❌ | original { state := num, num := { sign := true, ex := 0x09#6, sig :
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x09#6, sig := 0x3c#6 } }
-  original (packed) { sign := +, ex := 0x18#5, sig := 0x1c#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x09#6, sig := 0x3d#6 } }
   original (packed) { sign := -, ex := 0x18#5, sig := 0x1d#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x09#6, sig := 0x3d#6 } }
-  original (packed) { sign := +, ex := 0x18#5, sig := 0x1d#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x09#6, sig := 0x3e#6 } }
   original (packed) { sign := -, ex := 0x18#5, sig := 0x1e#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x09#6, sig := 0x3e#6 } }
-  original (packed) { sign := +, ex := 0x18#5, sig := 0x1e#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x09#6, sig := 0x3f#6 } }
   original (packed) { sign := -, ex := 0x18#5, sig := 0x1f#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x09#6, sig := 0x3f#6 } }
-  original (packed) { sign := +, ex := 0x18#5, sig := 0x1f#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0a#6, sig := 0x20#6 } }
-  original (packed) { sign := -, ex := 0x19#5, sig := 0x00#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
@@ -4802,40 +3519,20 @@ Failed ❌ | original { state := num, num := { sign := false, ex := 0x0a#6, sig 
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0a#6, sig := 0x21#6 } }
-  original (packed) { sign := -, ex := 0x19#5, sig := 0x01#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0a#6, sig := 0x21#6 } }
   original (packed) { sign := +, ex := 0x19#5, sig := 0x01#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0a#6, sig := 0x22#6 } }
-  original (packed) { sign := -, ex := 0x19#5, sig := 0x02#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0a#6, sig := 0x22#6 } }
   original (packed) { sign := +, ex := 0x19#5, sig := 0x02#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0a#6, sig := 0x23#6 } }
-  original (packed) { sign := -, ex := 0x19#5, sig := 0x03#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0a#6, sig := 0x23#6 } }
   original (packed) { sign := +, ex := 0x19#5, sig := 0x03#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0a#6, sig := 0x24#6 } }
-  original (packed) { sign := -, ex := 0x19#5, sig := 0x04#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0a#6, sig := 0x24#6 } }
   original (packed) { sign := +, ex := 0x19#5, sig := 0x04#5 }
@@ -4847,33 +3544,13 @@ Failed ❌ | original { state := num, num := { sign := true, ex := 0x0a#6, sig :
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0a#6, sig := 0x25#6 } }
-  original (packed) { sign := +, ex := 0x19#5, sig := 0x05#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0a#6, sig := 0x26#6 } }
   original (packed) { sign := -, ex := 0x19#5, sig := 0x06#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0a#6, sig := 0x26#6 } }
-  original (packed) { sign := +, ex := 0x19#5, sig := 0x06#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0a#6, sig := 0x27#6 } }
   original (packed) { sign := -, ex := 0x19#5, sig := 0x07#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0a#6, sig := 0x27#6 } }
-  original (packed) { sign := +, ex := 0x19#5, sig := 0x07#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0a#6, sig := 0x28#6 } }
-  original (packed) { sign := -, ex := 0x19#5, sig := 0x08#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
@@ -4882,30 +3559,15 @@ Failed ❌ | original { state := num, num := { sign := false, ex := 0x0a#6, sig 
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0a#6, sig := 0x29#6 } }
-  original (packed) { sign := -, ex := 0x19#5, sig := 0x09#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0a#6, sig := 0x29#6 } }
   original (packed) { sign := +, ex := 0x19#5, sig := 0x09#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0a#6, sig := 0x2a#6 } }
-  original (packed) { sign := -, ex := 0x19#5, sig := 0x0a#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0a#6, sig := 0x2a#6 } }
   original (packed) { sign := +, ex := 0x19#5, sig := 0x0a#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0a#6, sig := 0x2b#6 } }
-  original (packed) { sign := -, ex := 0x19#5, sig := 0x0b#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0a#6, sig := 0x2b#6 } }
   original (packed) { sign := +, ex := 0x19#5, sig := 0x0b#5 }
@@ -4917,43 +3579,18 @@ Failed ❌ | original { state := num, num := { sign := true, ex := 0x0a#6, sig :
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0a#6, sig := 0x2c#6 } }
-  original (packed) { sign := +, ex := 0x19#5, sig := 0x0c#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0a#6, sig := 0x2d#6 } }
   original (packed) { sign := -, ex := 0x19#5, sig := 0x0d#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0a#6, sig := 0x2d#6 } }
-  original (packed) { sign := +, ex := 0x19#5, sig := 0x0d#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0a#6, sig := 0x2e#6 } }
   original (packed) { sign := -, ex := 0x19#5, sig := 0x0e#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0a#6, sig := 0x2e#6 } }
-  original (packed) { sign := +, ex := 0x19#5, sig := 0x0e#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0a#6, sig := 0x2f#6 } }
   original (packed) { sign := -, ex := 0x19#5, sig := 0x0f#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0a#6, sig := 0x2f#6 } }
-  original (packed) { sign := +, ex := 0x19#5, sig := 0x0f#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0a#6, sig := 0x30#6 } }
-  original (packed) { sign := -, ex := 0x19#5, sig := 0x10#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
@@ -4962,40 +3599,20 @@ Failed ❌ | original { state := num, num := { sign := false, ex := 0x0a#6, sig 
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0a#6, sig := 0x31#6 } }
-  original (packed) { sign := -, ex := 0x19#5, sig := 0x11#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0a#6, sig := 0x31#6 } }
   original (packed) { sign := +, ex := 0x19#5, sig := 0x11#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0a#6, sig := 0x32#6 } }
-  original (packed) { sign := -, ex := 0x19#5, sig := 0x12#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0a#6, sig := 0x32#6 } }
   original (packed) { sign := +, ex := 0x19#5, sig := 0x12#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0a#6, sig := 0x33#6 } }
-  original (packed) { sign := -, ex := 0x19#5, sig := 0x13#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0a#6, sig := 0x33#6 } }
   original (packed) { sign := +, ex := 0x19#5, sig := 0x13#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0a#6, sig := 0x34#6 } }
-  original (packed) { sign := -, ex := 0x19#5, sig := 0x14#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0a#6, sig := 0x34#6 } }
   original (packed) { sign := +, ex := 0x19#5, sig := 0x14#5 }
@@ -5007,33 +3624,13 @@ Failed ❌ | original { state := num, num := { sign := true, ex := 0x0a#6, sig :
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0a#6, sig := 0x35#6 } }
-  original (packed) { sign := +, ex := 0x19#5, sig := 0x15#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0a#6, sig := 0x36#6 } }
   original (packed) { sign := -, ex := 0x19#5, sig := 0x16#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0a#6, sig := 0x36#6 } }
-  original (packed) { sign := +, ex := 0x19#5, sig := 0x16#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0a#6, sig := 0x37#6 } }
   original (packed) { sign := -, ex := 0x19#5, sig := 0x17#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0a#6, sig := 0x37#6 } }
-  original (packed) { sign := +, ex := 0x19#5, sig := 0x17#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0a#6, sig := 0x38#6 } }
-  original (packed) { sign := -, ex := 0x19#5, sig := 0x18#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
@@ -5042,30 +3639,15 @@ Failed ❌ | original { state := num, num := { sign := false, ex := 0x0a#6, sig 
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0a#6, sig := 0x39#6 } }
-  original (packed) { sign := -, ex := 0x19#5, sig := 0x19#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0a#6, sig := 0x39#6 } }
   original (packed) { sign := +, ex := 0x19#5, sig := 0x19#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0a#6, sig := 0x3a#6 } }
-  original (packed) { sign := -, ex := 0x19#5, sig := 0x1a#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0a#6, sig := 0x3a#6 } }
   original (packed) { sign := +, ex := 0x19#5, sig := 0x1a#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0a#6, sig := 0x3b#6 } }
-  original (packed) { sign := -, ex := 0x19#5, sig := 0x1b#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0a#6, sig := 0x3b#6 } }
   original (packed) { sign := +, ex := 0x19#5, sig := 0x1b#5 }
@@ -5077,43 +3659,18 @@ Failed ❌ | original { state := num, num := { sign := true, ex := 0x0a#6, sig :
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0a#6, sig := 0x3c#6 } }
-  original (packed) { sign := +, ex := 0x19#5, sig := 0x1c#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0a#6, sig := 0x3d#6 } }
   original (packed) { sign := -, ex := 0x19#5, sig := 0x1d#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0a#6, sig := 0x3d#6 } }
-  original (packed) { sign := +, ex := 0x19#5, sig := 0x1d#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0a#6, sig := 0x3e#6 } }
   original (packed) { sign := -, ex := 0x19#5, sig := 0x1e#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0a#6, sig := 0x3e#6 } }
-  original (packed) { sign := +, ex := 0x19#5, sig := 0x1e#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0a#6, sig := 0x3f#6 } }
   original (packed) { sign := -, ex := 0x19#5, sig := 0x1f#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0a#6, sig := 0x3f#6 } }
-  original (packed) { sign := +, ex := 0x19#5, sig := 0x1f#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0b#6, sig := 0x20#6 } }
-  original (packed) { sign := -, ex := 0x1a#5, sig := 0x00#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
@@ -5122,40 +3679,20 @@ Failed ❌ | original { state := num, num := { sign := false, ex := 0x0b#6, sig 
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0b#6, sig := 0x21#6 } }
-  original (packed) { sign := -, ex := 0x1a#5, sig := 0x01#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0b#6, sig := 0x21#6 } }
   original (packed) { sign := +, ex := 0x1a#5, sig := 0x01#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0b#6, sig := 0x22#6 } }
-  original (packed) { sign := -, ex := 0x1a#5, sig := 0x02#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0b#6, sig := 0x22#6 } }
   original (packed) { sign := +, ex := 0x1a#5, sig := 0x02#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0b#6, sig := 0x23#6 } }
-  original (packed) { sign := -, ex := 0x1a#5, sig := 0x03#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0b#6, sig := 0x23#6 } }
   original (packed) { sign := +, ex := 0x1a#5, sig := 0x03#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0b#6, sig := 0x24#6 } }
-  original (packed) { sign := -, ex := 0x1a#5, sig := 0x04#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0b#6, sig := 0x24#6 } }
   original (packed) { sign := +, ex := 0x1a#5, sig := 0x04#5 }
@@ -5167,33 +3704,13 @@ Failed ❌ | original { state := num, num := { sign := true, ex := 0x0b#6, sig :
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0b#6, sig := 0x25#6 } }
-  original (packed) { sign := +, ex := 0x1a#5, sig := 0x05#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0b#6, sig := 0x26#6 } }
   original (packed) { sign := -, ex := 0x1a#5, sig := 0x06#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0b#6, sig := 0x26#6 } }
-  original (packed) { sign := +, ex := 0x1a#5, sig := 0x06#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0b#6, sig := 0x27#6 } }
   original (packed) { sign := -, ex := 0x1a#5, sig := 0x07#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0b#6, sig := 0x27#6 } }
-  original (packed) { sign := +, ex := 0x1a#5, sig := 0x07#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0b#6, sig := 0x28#6 } }
-  original (packed) { sign := -, ex := 0x1a#5, sig := 0x08#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
@@ -5202,30 +3719,15 @@ Failed ❌ | original { state := num, num := { sign := false, ex := 0x0b#6, sig 
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0b#6, sig := 0x29#6 } }
-  original (packed) { sign := -, ex := 0x1a#5, sig := 0x09#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0b#6, sig := 0x29#6 } }
   original (packed) { sign := +, ex := 0x1a#5, sig := 0x09#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0b#6, sig := 0x2a#6 } }
-  original (packed) { sign := -, ex := 0x1a#5, sig := 0x0a#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0b#6, sig := 0x2a#6 } }
   original (packed) { sign := +, ex := 0x1a#5, sig := 0x0a#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0b#6, sig := 0x2b#6 } }
-  original (packed) { sign := -, ex := 0x1a#5, sig := 0x0b#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0b#6, sig := 0x2b#6 } }
   original (packed) { sign := +, ex := 0x1a#5, sig := 0x0b#5 }
@@ -5237,43 +3739,18 @@ Failed ❌ | original { state := num, num := { sign := true, ex := 0x0b#6, sig :
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0b#6, sig := 0x2c#6 } }
-  original (packed) { sign := +, ex := 0x1a#5, sig := 0x0c#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0b#6, sig := 0x2d#6 } }
   original (packed) { sign := -, ex := 0x1a#5, sig := 0x0d#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0b#6, sig := 0x2d#6 } }
-  original (packed) { sign := +, ex := 0x1a#5, sig := 0x0d#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0b#6, sig := 0x2e#6 } }
   original (packed) { sign := -, ex := 0x1a#5, sig := 0x0e#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0b#6, sig := 0x2e#6 } }
-  original (packed) { sign := +, ex := 0x1a#5, sig := 0x0e#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0b#6, sig := 0x2f#6 } }
   original (packed) { sign := -, ex := 0x1a#5, sig := 0x0f#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0b#6, sig := 0x2f#6 } }
-  original (packed) { sign := +, ex := 0x1a#5, sig := 0x0f#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0b#6, sig := 0x30#6 } }
-  original (packed) { sign := -, ex := 0x1a#5, sig := 0x10#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
@@ -5282,40 +3759,20 @@ Failed ❌ | original { state := num, num := { sign := false, ex := 0x0b#6, sig 
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0b#6, sig := 0x31#6 } }
-  original (packed) { sign := -, ex := 0x1a#5, sig := 0x11#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0b#6, sig := 0x31#6 } }
   original (packed) { sign := +, ex := 0x1a#5, sig := 0x11#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0b#6, sig := 0x32#6 } }
-  original (packed) { sign := -, ex := 0x1a#5, sig := 0x12#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0b#6, sig := 0x32#6 } }
   original (packed) { sign := +, ex := 0x1a#5, sig := 0x12#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0b#6, sig := 0x33#6 } }
-  original (packed) { sign := -, ex := 0x1a#5, sig := 0x13#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0b#6, sig := 0x33#6 } }
   original (packed) { sign := +, ex := 0x1a#5, sig := 0x13#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0b#6, sig := 0x34#6 } }
-  original (packed) { sign := -, ex := 0x1a#5, sig := 0x14#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0b#6, sig := 0x34#6 } }
   original (packed) { sign := +, ex := 0x1a#5, sig := 0x14#5 }
@@ -5327,33 +3784,13 @@ Failed ❌ | original { state := num, num := { sign := true, ex := 0x0b#6, sig :
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0b#6, sig := 0x35#6 } }
-  original (packed) { sign := +, ex := 0x1a#5, sig := 0x15#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0b#6, sig := 0x36#6 } }
   original (packed) { sign := -, ex := 0x1a#5, sig := 0x16#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0b#6, sig := 0x36#6 } }
-  original (packed) { sign := +, ex := 0x1a#5, sig := 0x16#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0b#6, sig := 0x37#6 } }
   original (packed) { sign := -, ex := 0x1a#5, sig := 0x17#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0b#6, sig := 0x37#6 } }
-  original (packed) { sign := +, ex := 0x1a#5, sig := 0x17#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0b#6, sig := 0x38#6 } }
-  original (packed) { sign := -, ex := 0x1a#5, sig := 0x18#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
@@ -5362,30 +3799,15 @@ Failed ❌ | original { state := num, num := { sign := false, ex := 0x0b#6, sig 
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0b#6, sig := 0x39#6 } }
-  original (packed) { sign := -, ex := 0x1a#5, sig := 0x19#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0b#6, sig := 0x39#6 } }
   original (packed) { sign := +, ex := 0x1a#5, sig := 0x19#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0b#6, sig := 0x3a#6 } }
-  original (packed) { sign := -, ex := 0x1a#5, sig := 0x1a#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0b#6, sig := 0x3a#6 } }
   original (packed) { sign := +, ex := 0x1a#5, sig := 0x1a#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0b#6, sig := 0x3b#6 } }
-  original (packed) { sign := -, ex := 0x1a#5, sig := 0x1b#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0b#6, sig := 0x3b#6 } }
   original (packed) { sign := +, ex := 0x1a#5, sig := 0x1b#5 }
@@ -5397,43 +3819,18 @@ Failed ❌ | original { state := num, num := { sign := true, ex := 0x0b#6, sig :
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0b#6, sig := 0x3c#6 } }
-  original (packed) { sign := +, ex := 0x1a#5, sig := 0x1c#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0b#6, sig := 0x3d#6 } }
   original (packed) { sign := -, ex := 0x1a#5, sig := 0x1d#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0b#6, sig := 0x3d#6 } }
-  original (packed) { sign := +, ex := 0x1a#5, sig := 0x1d#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0b#6, sig := 0x3e#6 } }
   original (packed) { sign := -, ex := 0x1a#5, sig := 0x1e#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0b#6, sig := 0x3e#6 } }
-  original (packed) { sign := +, ex := 0x1a#5, sig := 0x1e#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0b#6, sig := 0x3f#6 } }
   original (packed) { sign := -, ex := 0x1a#5, sig := 0x1f#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0b#6, sig := 0x3f#6 } }
-  original (packed) { sign := +, ex := 0x1a#5, sig := 0x1f#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0c#6, sig := 0x20#6 } }
-  original (packed) { sign := -, ex := 0x1b#5, sig := 0x00#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
@@ -5442,40 +3839,20 @@ Failed ❌ | original { state := num, num := { sign := false, ex := 0x0c#6, sig 
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0c#6, sig := 0x21#6 } }
-  original (packed) { sign := -, ex := 0x1b#5, sig := 0x01#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0c#6, sig := 0x21#6 } }
   original (packed) { sign := +, ex := 0x1b#5, sig := 0x01#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0c#6, sig := 0x22#6 } }
-  original (packed) { sign := -, ex := 0x1b#5, sig := 0x02#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0c#6, sig := 0x22#6 } }
   original (packed) { sign := +, ex := 0x1b#5, sig := 0x02#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0c#6, sig := 0x23#6 } }
-  original (packed) { sign := -, ex := 0x1b#5, sig := 0x03#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0c#6, sig := 0x23#6 } }
   original (packed) { sign := +, ex := 0x1b#5, sig := 0x03#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0c#6, sig := 0x24#6 } }
-  original (packed) { sign := -, ex := 0x1b#5, sig := 0x04#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0c#6, sig := 0x24#6 } }
   original (packed) { sign := +, ex := 0x1b#5, sig := 0x04#5 }
@@ -5487,33 +3864,13 @@ Failed ❌ | original { state := num, num := { sign := true, ex := 0x0c#6, sig :
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0c#6, sig := 0x25#6 } }
-  original (packed) { sign := +, ex := 0x1b#5, sig := 0x05#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0c#6, sig := 0x26#6 } }
   original (packed) { sign := -, ex := 0x1b#5, sig := 0x06#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0c#6, sig := 0x26#6 } }
-  original (packed) { sign := +, ex := 0x1b#5, sig := 0x06#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0c#6, sig := 0x27#6 } }
   original (packed) { sign := -, ex := 0x1b#5, sig := 0x07#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0c#6, sig := 0x27#6 } }
-  original (packed) { sign := +, ex := 0x1b#5, sig := 0x07#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0c#6, sig := 0x28#6 } }
-  original (packed) { sign := -, ex := 0x1b#5, sig := 0x08#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
@@ -5522,30 +3879,15 @@ Failed ❌ | original { state := num, num := { sign := false, ex := 0x0c#6, sig 
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0c#6, sig := 0x29#6 } }
-  original (packed) { sign := -, ex := 0x1b#5, sig := 0x09#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0c#6, sig := 0x29#6 } }
   original (packed) { sign := +, ex := 0x1b#5, sig := 0x09#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0c#6, sig := 0x2a#6 } }
-  original (packed) { sign := -, ex := 0x1b#5, sig := 0x0a#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0c#6, sig := 0x2a#6 } }
   original (packed) { sign := +, ex := 0x1b#5, sig := 0x0a#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0c#6, sig := 0x2b#6 } }
-  original (packed) { sign := -, ex := 0x1b#5, sig := 0x0b#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0c#6, sig := 0x2b#6 } }
   original (packed) { sign := +, ex := 0x1b#5, sig := 0x0b#5 }
@@ -5557,43 +3899,18 @@ Failed ❌ | original { state := num, num := { sign := true, ex := 0x0c#6, sig :
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0c#6, sig := 0x2c#6 } }
-  original (packed) { sign := +, ex := 0x1b#5, sig := 0x0c#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0c#6, sig := 0x2d#6 } }
   original (packed) { sign := -, ex := 0x1b#5, sig := 0x0d#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0c#6, sig := 0x2d#6 } }
-  original (packed) { sign := +, ex := 0x1b#5, sig := 0x0d#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0c#6, sig := 0x2e#6 } }
   original (packed) { sign := -, ex := 0x1b#5, sig := 0x0e#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0c#6, sig := 0x2e#6 } }
-  original (packed) { sign := +, ex := 0x1b#5, sig := 0x0e#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0c#6, sig := 0x2f#6 } }
   original (packed) { sign := -, ex := 0x1b#5, sig := 0x0f#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0c#6, sig := 0x2f#6 } }
-  original (packed) { sign := +, ex := 0x1b#5, sig := 0x0f#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0c#6, sig := 0x30#6 } }
-  original (packed) { sign := -, ex := 0x1b#5, sig := 0x10#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
@@ -5602,40 +3919,20 @@ Failed ❌ | original { state := num, num := { sign := false, ex := 0x0c#6, sig 
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0c#6, sig := 0x31#6 } }
-  original (packed) { sign := -, ex := 0x1b#5, sig := 0x11#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0c#6, sig := 0x31#6 } }
   original (packed) { sign := +, ex := 0x1b#5, sig := 0x11#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0c#6, sig := 0x32#6 } }
-  original (packed) { sign := -, ex := 0x1b#5, sig := 0x12#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0c#6, sig := 0x32#6 } }
   original (packed) { sign := +, ex := 0x1b#5, sig := 0x12#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0c#6, sig := 0x33#6 } }
-  original (packed) { sign := -, ex := 0x1b#5, sig := 0x13#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0c#6, sig := 0x33#6 } }
   original (packed) { sign := +, ex := 0x1b#5, sig := 0x13#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0c#6, sig := 0x34#6 } }
-  original (packed) { sign := -, ex := 0x1b#5, sig := 0x14#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0c#6, sig := 0x34#6 } }
   original (packed) { sign := +, ex := 0x1b#5, sig := 0x14#5 }
@@ -5647,33 +3944,13 @@ Failed ❌ | original { state := num, num := { sign := true, ex := 0x0c#6, sig :
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0c#6, sig := 0x35#6 } }
-  original (packed) { sign := +, ex := 0x1b#5, sig := 0x15#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0c#6, sig := 0x36#6 } }
   original (packed) { sign := -, ex := 0x1b#5, sig := 0x16#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0c#6, sig := 0x36#6 } }
-  original (packed) { sign := +, ex := 0x1b#5, sig := 0x16#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0c#6, sig := 0x37#6 } }
   original (packed) { sign := -, ex := 0x1b#5, sig := 0x17#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0c#6, sig := 0x37#6 } }
-  original (packed) { sign := +, ex := 0x1b#5, sig := 0x17#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0c#6, sig := 0x38#6 } }
-  original (packed) { sign := -, ex := 0x1b#5, sig := 0x18#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
@@ -5682,30 +3959,15 @@ Failed ❌ | original { state := num, num := { sign := false, ex := 0x0c#6, sig 
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0c#6, sig := 0x39#6 } }
-  original (packed) { sign := -, ex := 0x1b#5, sig := 0x19#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0c#6, sig := 0x39#6 } }
   original (packed) { sign := +, ex := 0x1b#5, sig := 0x19#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0c#6, sig := 0x3a#6 } }
-  original (packed) { sign := -, ex := 0x1b#5, sig := 0x1a#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0c#6, sig := 0x3a#6 } }
   original (packed) { sign := +, ex := 0x1b#5, sig := 0x1a#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0c#6, sig := 0x3b#6 } }
-  original (packed) { sign := -, ex := 0x1b#5, sig := 0x1b#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0c#6, sig := 0x3b#6 } }
   original (packed) { sign := +, ex := 0x1b#5, sig := 0x1b#5 }
@@ -5717,43 +3979,18 @@ Failed ❌ | original { state := num, num := { sign := true, ex := 0x0c#6, sig :
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0c#6, sig := 0x3c#6 } }
-  original (packed) { sign := +, ex := 0x1b#5, sig := 0x1c#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0c#6, sig := 0x3d#6 } }
   original (packed) { sign := -, ex := 0x1b#5, sig := 0x1d#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0c#6, sig := 0x3d#6 } }
-  original (packed) { sign := +, ex := 0x1b#5, sig := 0x1d#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0c#6, sig := 0x3e#6 } }
   original (packed) { sign := -, ex := 0x1b#5, sig := 0x1e#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0c#6, sig := 0x3e#6 } }
-  original (packed) { sign := +, ex := 0x1b#5, sig := 0x1e#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0c#6, sig := 0x3f#6 } }
   original (packed) { sign := -, ex := 0x1b#5, sig := 0x1f#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0c#6, sig := 0x3f#6 } }
-  original (packed) { sign := +, ex := 0x1b#5, sig := 0x1f#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0d#6, sig := 0x20#6 } }
-  original (packed) { sign := -, ex := 0x1c#5, sig := 0x00#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
@@ -5762,40 +3999,20 @@ Failed ❌ | original { state := num, num := { sign := false, ex := 0x0d#6, sig 
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0d#6, sig := 0x21#6 } }
-  original (packed) { sign := -, ex := 0x1c#5, sig := 0x01#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0d#6, sig := 0x21#6 } }
   original (packed) { sign := +, ex := 0x1c#5, sig := 0x01#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0d#6, sig := 0x22#6 } }
-  original (packed) { sign := -, ex := 0x1c#5, sig := 0x02#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0d#6, sig := 0x22#6 } }
   original (packed) { sign := +, ex := 0x1c#5, sig := 0x02#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0d#6, sig := 0x23#6 } }
-  original (packed) { sign := -, ex := 0x1c#5, sig := 0x03#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0d#6, sig := 0x23#6 } }
   original (packed) { sign := +, ex := 0x1c#5, sig := 0x03#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0d#6, sig := 0x24#6 } }
-  original (packed) { sign := -, ex := 0x1c#5, sig := 0x04#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0d#6, sig := 0x24#6 } }
   original (packed) { sign := +, ex := 0x1c#5, sig := 0x04#5 }
@@ -5807,33 +4024,13 @@ Failed ❌ | original { state := num, num := { sign := true, ex := 0x0d#6, sig :
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0d#6, sig := 0x25#6 } }
-  original (packed) { sign := +, ex := 0x1c#5, sig := 0x05#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0d#6, sig := 0x26#6 } }
   original (packed) { sign := -, ex := 0x1c#5, sig := 0x06#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0d#6, sig := 0x26#6 } }
-  original (packed) { sign := +, ex := 0x1c#5, sig := 0x06#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0d#6, sig := 0x27#6 } }
   original (packed) { sign := -, ex := 0x1c#5, sig := 0x07#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0d#6, sig := 0x27#6 } }
-  original (packed) { sign := +, ex := 0x1c#5, sig := 0x07#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0d#6, sig := 0x28#6 } }
-  original (packed) { sign := -, ex := 0x1c#5, sig := 0x08#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
@@ -5842,30 +4039,15 @@ Failed ❌ | original { state := num, num := { sign := false, ex := 0x0d#6, sig 
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0d#6, sig := 0x29#6 } }
-  original (packed) { sign := -, ex := 0x1c#5, sig := 0x09#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0d#6, sig := 0x29#6 } }
   original (packed) { sign := +, ex := 0x1c#5, sig := 0x09#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0d#6, sig := 0x2a#6 } }
-  original (packed) { sign := -, ex := 0x1c#5, sig := 0x0a#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0d#6, sig := 0x2a#6 } }
   original (packed) { sign := +, ex := 0x1c#5, sig := 0x0a#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0d#6, sig := 0x2b#6 } }
-  original (packed) { sign := -, ex := 0x1c#5, sig := 0x0b#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0d#6, sig := 0x2b#6 } }
   original (packed) { sign := +, ex := 0x1c#5, sig := 0x0b#5 }
@@ -5877,43 +4059,18 @@ Failed ❌ | original { state := num, num := { sign := true, ex := 0x0d#6, sig :
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0d#6, sig := 0x2c#6 } }
-  original (packed) { sign := +, ex := 0x1c#5, sig := 0x0c#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0d#6, sig := 0x2d#6 } }
   original (packed) { sign := -, ex := 0x1c#5, sig := 0x0d#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0d#6, sig := 0x2d#6 } }
-  original (packed) { sign := +, ex := 0x1c#5, sig := 0x0d#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0d#6, sig := 0x2e#6 } }
   original (packed) { sign := -, ex := 0x1c#5, sig := 0x0e#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0d#6, sig := 0x2e#6 } }
-  original (packed) { sign := +, ex := 0x1c#5, sig := 0x0e#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0d#6, sig := 0x2f#6 } }
   original (packed) { sign := -, ex := 0x1c#5, sig := 0x0f#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0d#6, sig := 0x2f#6 } }
-  original (packed) { sign := +, ex := 0x1c#5, sig := 0x0f#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0d#6, sig := 0x30#6 } }
-  original (packed) { sign := -, ex := 0x1c#5, sig := 0x10#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
@@ -5922,40 +4079,20 @@ Failed ❌ | original { state := num, num := { sign := false, ex := 0x0d#6, sig 
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0d#6, sig := 0x31#6 } }
-  original (packed) { sign := -, ex := 0x1c#5, sig := 0x11#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0d#6, sig := 0x31#6 } }
   original (packed) { sign := +, ex := 0x1c#5, sig := 0x11#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0d#6, sig := 0x32#6 } }
-  original (packed) { sign := -, ex := 0x1c#5, sig := 0x12#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0d#6, sig := 0x32#6 } }
   original (packed) { sign := +, ex := 0x1c#5, sig := 0x12#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0d#6, sig := 0x33#6 } }
-  original (packed) { sign := -, ex := 0x1c#5, sig := 0x13#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0d#6, sig := 0x33#6 } }
   original (packed) { sign := +, ex := 0x1c#5, sig := 0x13#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0d#6, sig := 0x34#6 } }
-  original (packed) { sign := -, ex := 0x1c#5, sig := 0x14#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0d#6, sig := 0x34#6 } }
   original (packed) { sign := +, ex := 0x1c#5, sig := 0x14#5 }
@@ -5967,33 +4104,13 @@ Failed ❌ | original { state := num, num := { sign := true, ex := 0x0d#6, sig :
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0d#6, sig := 0x35#6 } }
-  original (packed) { sign := +, ex := 0x1c#5, sig := 0x15#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0d#6, sig := 0x36#6 } }
   original (packed) { sign := -, ex := 0x1c#5, sig := 0x16#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0d#6, sig := 0x36#6 } }
-  original (packed) { sign := +, ex := 0x1c#5, sig := 0x16#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0d#6, sig := 0x37#6 } }
   original (packed) { sign := -, ex := 0x1c#5, sig := 0x17#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0d#6, sig := 0x37#6 } }
-  original (packed) { sign := +, ex := 0x1c#5, sig := 0x17#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0d#6, sig := 0x38#6 } }
-  original (packed) { sign := -, ex := 0x1c#5, sig := 0x18#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
@@ -6002,30 +4119,15 @@ Failed ❌ | original { state := num, num := { sign := false, ex := 0x0d#6, sig 
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0d#6, sig := 0x39#6 } }
-  original (packed) { sign := -, ex := 0x1c#5, sig := 0x19#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0d#6, sig := 0x39#6 } }
   original (packed) { sign := +, ex := 0x1c#5, sig := 0x19#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0d#6, sig := 0x3a#6 } }
-  original (packed) { sign := -, ex := 0x1c#5, sig := 0x1a#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0d#6, sig := 0x3a#6 } }
   original (packed) { sign := +, ex := 0x1c#5, sig := 0x1a#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0d#6, sig := 0x3b#6 } }
-  original (packed) { sign := -, ex := 0x1c#5, sig := 0x1b#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0d#6, sig := 0x3b#6 } }
   original (packed) { sign := +, ex := 0x1c#5, sig := 0x1b#5 }
@@ -6037,43 +4139,18 @@ Failed ❌ | original { state := num, num := { sign := true, ex := 0x0d#6, sig :
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0d#6, sig := 0x3c#6 } }
-  original (packed) { sign := +, ex := 0x1c#5, sig := 0x1c#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0d#6, sig := 0x3d#6 } }
   original (packed) { sign := -, ex := 0x1c#5, sig := 0x1d#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0d#6, sig := 0x3d#6 } }
-  original (packed) { sign := +, ex := 0x1c#5, sig := 0x1d#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0d#6, sig := 0x3e#6 } }
   original (packed) { sign := -, ex := 0x1c#5, sig := 0x1e#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0d#6, sig := 0x3e#6 } }
-  original (packed) { sign := +, ex := 0x1c#5, sig := 0x1e#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0d#6, sig := 0x3f#6 } }
   original (packed) { sign := -, ex := 0x1c#5, sig := 0x1f#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0d#6, sig := 0x3f#6 } }
-  original (packed) { sign := +, ex := 0x1c#5, sig := 0x1f#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0e#6, sig := 0x20#6 } }
-  original (packed) { sign := -, ex := 0x1d#5, sig := 0x00#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
@@ -6082,40 +4159,20 @@ Failed ❌ | original { state := num, num := { sign := false, ex := 0x0e#6, sig 
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0e#6, sig := 0x21#6 } }
-  original (packed) { sign := -, ex := 0x1d#5, sig := 0x01#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0e#6, sig := 0x21#6 } }
   original (packed) { sign := +, ex := 0x1d#5, sig := 0x01#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0e#6, sig := 0x22#6 } }
-  original (packed) { sign := -, ex := 0x1d#5, sig := 0x02#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0e#6, sig := 0x22#6 } }
   original (packed) { sign := +, ex := 0x1d#5, sig := 0x02#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0e#6, sig := 0x23#6 } }
-  original (packed) { sign := -, ex := 0x1d#5, sig := 0x03#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0e#6, sig := 0x23#6 } }
   original (packed) { sign := +, ex := 0x1d#5, sig := 0x03#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0e#6, sig := 0x24#6 } }
-  original (packed) { sign := -, ex := 0x1d#5, sig := 0x04#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0e#6, sig := 0x24#6 } }
   original (packed) { sign := +, ex := 0x1d#5, sig := 0x04#5 }
@@ -6127,33 +4184,13 @@ Failed ❌ | original { state := num, num := { sign := true, ex := 0x0e#6, sig :
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0e#6, sig := 0x25#6 } }
-  original (packed) { sign := +, ex := 0x1d#5, sig := 0x05#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0e#6, sig := 0x26#6 } }
   original (packed) { sign := -, ex := 0x1d#5, sig := 0x06#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0e#6, sig := 0x26#6 } }
-  original (packed) { sign := +, ex := 0x1d#5, sig := 0x06#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0e#6, sig := 0x27#6 } }
   original (packed) { sign := -, ex := 0x1d#5, sig := 0x07#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0e#6, sig := 0x27#6 } }
-  original (packed) { sign := +, ex := 0x1d#5, sig := 0x07#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0e#6, sig := 0x28#6 } }
-  original (packed) { sign := -, ex := 0x1d#5, sig := 0x08#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
@@ -6162,30 +4199,15 @@ Failed ❌ | original { state := num, num := { sign := false, ex := 0x0e#6, sig 
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0e#6, sig := 0x29#6 } }
-  original (packed) { sign := -, ex := 0x1d#5, sig := 0x09#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0e#6, sig := 0x29#6 } }
   original (packed) { sign := +, ex := 0x1d#5, sig := 0x09#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0e#6, sig := 0x2a#6 } }
-  original (packed) { sign := -, ex := 0x1d#5, sig := 0x0a#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0e#6, sig := 0x2a#6 } }
   original (packed) { sign := +, ex := 0x1d#5, sig := 0x0a#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0e#6, sig := 0x2b#6 } }
-  original (packed) { sign := -, ex := 0x1d#5, sig := 0x0b#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0e#6, sig := 0x2b#6 } }
   original (packed) { sign := +, ex := 0x1d#5, sig := 0x0b#5 }
@@ -6197,43 +4219,18 @@ Failed ❌ | original { state := num, num := { sign := true, ex := 0x0e#6, sig :
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0e#6, sig := 0x2c#6 } }
-  original (packed) { sign := +, ex := 0x1d#5, sig := 0x0c#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0e#6, sig := 0x2d#6 } }
   original (packed) { sign := -, ex := 0x1d#5, sig := 0x0d#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0e#6, sig := 0x2d#6 } }
-  original (packed) { sign := +, ex := 0x1d#5, sig := 0x0d#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0e#6, sig := 0x2e#6 } }
   original (packed) { sign := -, ex := 0x1d#5, sig := 0x0e#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0e#6, sig := 0x2e#6 } }
-  original (packed) { sign := +, ex := 0x1d#5, sig := 0x0e#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0e#6, sig := 0x2f#6 } }
   original (packed) { sign := -, ex := 0x1d#5, sig := 0x0f#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0e#6, sig := 0x2f#6 } }
-  original (packed) { sign := +, ex := 0x1d#5, sig := 0x0f#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0e#6, sig := 0x30#6 } }
-  original (packed) { sign := -, ex := 0x1d#5, sig := 0x10#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
@@ -6242,40 +4239,20 @@ Failed ❌ | original { state := num, num := { sign := false, ex := 0x0e#6, sig 
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0e#6, sig := 0x31#6 } }
-  original (packed) { sign := -, ex := 0x1d#5, sig := 0x11#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0e#6, sig := 0x31#6 } }
   original (packed) { sign := +, ex := 0x1d#5, sig := 0x11#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0e#6, sig := 0x32#6 } }
-  original (packed) { sign := -, ex := 0x1d#5, sig := 0x12#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0e#6, sig := 0x32#6 } }
   original (packed) { sign := +, ex := 0x1d#5, sig := 0x12#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0e#6, sig := 0x33#6 } }
-  original (packed) { sign := -, ex := 0x1d#5, sig := 0x13#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0e#6, sig := 0x33#6 } }
   original (packed) { sign := +, ex := 0x1d#5, sig := 0x13#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0e#6, sig := 0x34#6 } }
-  original (packed) { sign := -, ex := 0x1d#5, sig := 0x14#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0e#6, sig := 0x34#6 } }
   original (packed) { sign := +, ex := 0x1d#5, sig := 0x14#5 }
@@ -6287,33 +4264,13 @@ Failed ❌ | original { state := num, num := { sign := true, ex := 0x0e#6, sig :
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0e#6, sig := 0x35#6 } }
-  original (packed) { sign := +, ex := 0x1d#5, sig := 0x15#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0e#6, sig := 0x36#6 } }
   original (packed) { sign := -, ex := 0x1d#5, sig := 0x16#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0e#6, sig := 0x36#6 } }
-  original (packed) { sign := +, ex := 0x1d#5, sig := 0x16#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0e#6, sig := 0x37#6 } }
   original (packed) { sign := -, ex := 0x1d#5, sig := 0x17#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0e#6, sig := 0x37#6 } }
-  original (packed) { sign := +, ex := 0x1d#5, sig := 0x17#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0e#6, sig := 0x38#6 } }
-  original (packed) { sign := -, ex := 0x1d#5, sig := 0x18#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
@@ -6322,30 +4279,15 @@ Failed ❌ | original { state := num, num := { sign := false, ex := 0x0e#6, sig 
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0e#6, sig := 0x39#6 } }
-  original (packed) { sign := -, ex := 0x1d#5, sig := 0x19#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0e#6, sig := 0x39#6 } }
   original (packed) { sign := +, ex := 0x1d#5, sig := 0x19#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0e#6, sig := 0x3a#6 } }
-  original (packed) { sign := -, ex := 0x1d#5, sig := 0x1a#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0e#6, sig := 0x3a#6 } }
   original (packed) { sign := +, ex := 0x1d#5, sig := 0x1a#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0e#6, sig := 0x3b#6 } }
-  original (packed) { sign := -, ex := 0x1d#5, sig := 0x1b#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0e#6, sig := 0x3b#6 } }
   original (packed) { sign := +, ex := 0x1d#5, sig := 0x1b#5 }
@@ -6357,43 +4299,18 @@ Failed ❌ | original { state := num, num := { sign := true, ex := 0x0e#6, sig :
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0e#6, sig := 0x3c#6 } }
-  original (packed) { sign := +, ex := 0x1d#5, sig := 0x1c#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0e#6, sig := 0x3d#6 } }
   original (packed) { sign := -, ex := 0x1d#5, sig := 0x1d#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0e#6, sig := 0x3d#6 } }
-  original (packed) { sign := +, ex := 0x1d#5, sig := 0x1d#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0e#6, sig := 0x3e#6 } }
   original (packed) { sign := -, ex := 0x1d#5, sig := 0x1e#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0e#6, sig := 0x3e#6 } }
-  original (packed) { sign := +, ex := 0x1d#5, sig := 0x1e#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0e#6, sig := 0x3f#6 } }
   original (packed) { sign := -, ex := 0x1d#5, sig := 0x1f#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0e#6, sig := 0x3f#6 } }
-  original (packed) { sign := +, ex := 0x1d#5, sig := 0x1f#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0f#6, sig := 0x20#6 } }
-  original (packed) { sign := -, ex := 0x1e#5, sig := 0x00#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
@@ -6402,40 +4319,20 @@ Failed ❌ | original { state := num, num := { sign := false, ex := 0x0f#6, sig 
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0f#6, sig := 0x21#6 } }
-  original (packed) { sign := -, ex := 0x1e#5, sig := 0x01#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x21#6 } }
   original (packed) { sign := +, ex := 0x1e#5, sig := 0x01#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0f#6, sig := 0x22#6 } }
-  original (packed) { sign := -, ex := 0x1e#5, sig := 0x02#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x22#6 } }
   original (packed) { sign := +, ex := 0x1e#5, sig := 0x02#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0f#6, sig := 0x23#6 } }
-  original (packed) { sign := -, ex := 0x1e#5, sig := 0x03#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x23#6 } }
   original (packed) { sign := +, ex := 0x1e#5, sig := 0x03#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0f#6, sig := 0x24#6 } }
-  original (packed) { sign := -, ex := 0x1e#5, sig := 0x04#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x24#6 } }
   original (packed) { sign := +, ex := 0x1e#5, sig := 0x04#5 }
@@ -6447,33 +4344,13 @@ Failed ❌ | original { state := num, num := { sign := true, ex := 0x0f#6, sig :
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x25#6 } }
-  original (packed) { sign := +, ex := 0x1e#5, sig := 0x05#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0f#6, sig := 0x26#6 } }
   original (packed) { sign := -, ex := 0x1e#5, sig := 0x06#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x26#6 } }
-  original (packed) { sign := +, ex := 0x1e#5, sig := 0x06#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0f#6, sig := 0x27#6 } }
   original (packed) { sign := -, ex := 0x1e#5, sig := 0x07#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x27#6 } }
-  original (packed) { sign := +, ex := 0x1e#5, sig := 0x07#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0f#6, sig := 0x28#6 } }
-  original (packed) { sign := -, ex := 0x1e#5, sig := 0x08#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
@@ -6482,30 +4359,15 @@ Failed ❌ | original { state := num, num := { sign := false, ex := 0x0f#6, sig 
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0f#6, sig := 0x29#6 } }
-  original (packed) { sign := -, ex := 0x1e#5, sig := 0x09#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x29#6 } }
   original (packed) { sign := +, ex := 0x1e#5, sig := 0x09#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0f#6, sig := 0x2a#6 } }
-  original (packed) { sign := -, ex := 0x1e#5, sig := 0x0a#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x2a#6 } }
   original (packed) { sign := +, ex := 0x1e#5, sig := 0x0a#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0f#6, sig := 0x2b#6 } }
-  original (packed) { sign := -, ex := 0x1e#5, sig := 0x0b#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x2b#6 } }
   original (packed) { sign := +, ex := 0x1e#5, sig := 0x0b#5 }
@@ -6517,43 +4379,18 @@ Failed ❌ | original { state := num, num := { sign := true, ex := 0x0f#6, sig :
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x2c#6 } }
-  original (packed) { sign := +, ex := 0x1e#5, sig := 0x0c#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0f#6, sig := 0x2d#6 } }
   original (packed) { sign := -, ex := 0x1e#5, sig := 0x0d#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x2d#6 } }
-  original (packed) { sign := +, ex := 0x1e#5, sig := 0x0d#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0f#6, sig := 0x2e#6 } }
   original (packed) { sign := -, ex := 0x1e#5, sig := 0x0e#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x2e#6 } }
-  original (packed) { sign := +, ex := 0x1e#5, sig := 0x0e#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0f#6, sig := 0x2f#6 } }
   original (packed) { sign := -, ex := 0x1e#5, sig := 0x0f#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x2f#6 } }
-  original (packed) { sign := +, ex := 0x1e#5, sig := 0x0f#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0f#6, sig := 0x30#6 } }
-  original (packed) { sign := -, ex := 0x1e#5, sig := 0x10#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
@@ -6562,40 +4399,20 @@ Failed ❌ | original { state := num, num := { sign := false, ex := 0x0f#6, sig 
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0f#6, sig := 0x31#6 } }
-  original (packed) { sign := -, ex := 0x1e#5, sig := 0x11#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x31#6 } }
   original (packed) { sign := +, ex := 0x1e#5, sig := 0x11#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0f#6, sig := 0x32#6 } }
-  original (packed) { sign := -, ex := 0x1e#5, sig := 0x12#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x32#6 } }
   original (packed) { sign := +, ex := 0x1e#5, sig := 0x12#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0f#6, sig := 0x33#6 } }
-  original (packed) { sign := -, ex := 0x1e#5, sig := 0x13#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x33#6 } }
   original (packed) { sign := +, ex := 0x1e#5, sig := 0x13#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0f#6, sig := 0x34#6 } }
-  original (packed) { sign := -, ex := 0x1e#5, sig := 0x14#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x34#6 } }
   original (packed) { sign := +, ex := 0x1e#5, sig := 0x14#5 }
@@ -6607,33 +4424,13 @@ Failed ❌ | original { state := num, num := { sign := true, ex := 0x0f#6, sig :
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x35#6 } }
-  original (packed) { sign := +, ex := 0x1e#5, sig := 0x15#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0f#6, sig := 0x36#6 } }
   original (packed) { sign := -, ex := 0x1e#5, sig := 0x16#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x36#6 } }
-  original (packed) { sign := +, ex := 0x1e#5, sig := 0x16#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0f#6, sig := 0x37#6 } }
   original (packed) { sign := -, ex := 0x1e#5, sig := 0x17#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x37#6 } }
-  original (packed) { sign := +, ex := 0x1e#5, sig := 0x17#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0f#6, sig := 0x38#6 } }
-  original (packed) { sign := -, ex := 0x1e#5, sig := 0x18#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
@@ -6642,30 +4439,15 @@ Failed ❌ | original { state := num, num := { sign := false, ex := 0x0f#6, sig 
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0f#6, sig := 0x39#6 } }
-  original (packed) { sign := -, ex := 0x1e#5, sig := 0x19#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x39#6 } }
   original (packed) { sign := +, ex := 0x1e#5, sig := 0x19#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0f#6, sig := 0x3a#6 } }
-  original (packed) { sign := -, ex := 0x1e#5, sig := 0x1a#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x3a#6 } }
   original (packed) { sign := +, ex := 0x1e#5, sig := 0x1a#5 }
   naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x0f#6, sig := 0x3b#6 } }
-  original (packed) { sign := -, ex := 0x1e#5, sig := 0x1b#5 }
-  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x3b#6 } }
   original (packed) { sign := +, ex := 0x1e#5, sig := 0x1b#5 }
@@ -6677,47 +4459,27 @@ Failed ❌ | original { state := num, num := { sign := true, ex := 0x0f#6, sig :
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x3c#6 } }
-  original (packed) { sign := +, ex := 0x1e#5, sig := 0x1c#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
-
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0f#6, sig := 0x3d#6 } }
   original (packed) { sign := -, ex := 0x1e#5, sig := 0x1d#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x3d#6 } }
-  original (packed) { sign := +, ex := 0x1e#5, sig := 0x1d#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0f#6, sig := 0x3e#6 } }
   original (packed) { sign := -, ex := 0x1e#5, sig := 0x1e#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
 
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x3e#6 } }
-  original (packed) { sign := +, ex := 0x1e#5, sig := 0x1e#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x0f#6, sig := 0x3f#6 } }
+  original (packed) { sign := -, ex := 0x1e#5, sig := 0x1f#5 }
+  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
+  round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
+---
+error: (1184 succeeded / 1984 total) (59.677419% succeeded) (800 failures) ❌
 
 Failed ❌ | original { state := num, num := { sign := true, ex := 0x0f#6, sig := 0x3f#6 } }
   original (packed) { sign := -, ex := 0x1e#5, sig := 0x1f#5 }
   naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
   round result (packed) { sign := -, ex := 0xf#4, sig := 0x0#2 }
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x3f#6 } }
-  original (packed) { sign := +, ex := 0x1e#5, sig := 0x1f#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
----
-error: (737 succeeded / 1984 total) (37.147177% succeeded) (1247 failures) ❌
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x0f#6, sig := 0x3f#6 } }
-  original (packed) { sign := +, ex := 0x1e#5, sig := 0x1f#5 }
-  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
-  round result (packed) { sign := +, ex := 0xf#4, sig := 0x0#2 }
 -/
 #guard_msgs in #eval checkRoundNaiveCorrect 5 5 4 2 .RNE
 -- #guard_msgs in #eval checkRoundNaiveCorrect 4 5 4 2 .RTZ

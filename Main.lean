@@ -275,7 +275,7 @@ def test_roundCircuitAgainstSmtlib (ein sin eout sout : Nat) : IO ExitCode := do
           IO.println s!"    - (Q: {repr roundSmt.unpack.toExtRat}); {repr roundSmt.unpack}"
       else
         nfailure := nfailure + 1
-        if nfailure < 10 then
+        if nfailure < 1000 then
          IO.println s!""
          IO.println s!"  ❌({repr rm} (Q: {repr pf.unpack.toExtRat}); {repr pf.unpack}"
          IO.println s!"    - SMT-LIB  (Q: {repr roundSmt.unpack.toExtRat}); {repr roundSmt.unpack}"
