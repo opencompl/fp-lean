@@ -130,12 +130,9 @@ def UnpackedFloat.incrementMagnitude (targetExponentWidth targetSignificandWidth
 
 -- upper x = - lower(-x)
 @[bv_normalize]
-def computeLowerNonneg (targetExponentWidth targetSignificandWidth : Nat)
+def computeLowerPos (targetExponentWidth targetSignificandWidth : Nat)
     (inUf : UnpackedFloat expWidth sigWidth) :
     EUnpackedFloat  (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
-  if inUf.isZero
-  then EUnpackedFloat.mkNumber (UnpackedFloat.mkZero false)
-  else -- nonzero, see if we are too small
     if inUf.ex.slt (BitVec.ofInt expWidth (minSubnormalExp targetExponentWidth targetSignificandWidth))
     then
       if inUf.sign
@@ -172,13 +169,10 @@ When the value is exact (guard=0, sticky=0), upper = lower.
 When inexact, increments the magnitude by adding `lsbMask` to the cleared sig.
 Handles sig overflow (carry → exp+1) and late overflow (exp exceeds max → ±∞). -/
 @[bv_normalize]
-def computeUpperNonneg (targetExponentWidth targetSignificandWidth : Nat)
+def computeUpperPos (targetExponentWidth targetSignificandWidth : Nat)
   (uf : UnpackedFloat expWidth sigWidth) :
   EUnpackedFloat  (exponentWidth targetExponentWidth (targetSignificandWidth))
   (targetSignificandWidth + 1) :=
-  if uf.isZero
-  then EUnpackedFloat.mkNumber (UnpackedFloat.mkZero true)
-  else -- nonzero, see if we are too small
     if uf.ex.slt (BitVec.ofInt expWidth (minSubnormalExp targetExponentWidth targetSignificandWidth))
     then EUnpackedFloat.mkNumber (UnpackedFloat.mkZero true)
     else
@@ -222,7 +216,7 @@ def computeLowerNeg
     (targetExponentWidth targetSignificandWidth : Nat)
     (uf : UnpackedFloat expWidth sigWidth) :
     EUnpackedFloat  (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
-  let out := computeUpperNonneg targetExponentWidth targetSignificandWidth uf.neg
+  let out := computeUpperPos targetExponentWidth targetSignificandWidth uf.neg
   out.neg
 
 @[bv_normalize]
@@ -230,27 +224,37 @@ def computeUpperNeg
     (targetExponentWidth targetSignificandWidth : Nat)
     (uf : UnpackedFloat expWidth sigWidth) :
     EUnpackedFloat  (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
-  let out := computeLowerNonneg targetExponentWidth targetSignificandWidth uf.neg
+  let out := computeLowerPos targetExponentWidth targetSignificandWidth uf.neg
   out.neg
 
+
+def computeLowerZero (targetExponentWidth targetSignificandWidth : Nat) :
+    EUnpackedFloat  (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
+  EUnpackedFloat.mkNumber (UnpackedFloat.mkZero false)
+
+def computeUpperZero (targetExponentWidth targetSignificandWidth : Nat) :
+    EUnpackedFloat  (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
+  EUnpackedFloat.mkNumber (UnpackedFloat.mkZero true)
 
 @[bv_normalize]
 def computeLower
     (targetExponentWidth targetSignificandWidth : Nat)
     (uf : UnpackedFloat expWidth sigWidth) :
     EUnpackedFloat  (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
-  if uf.sign
+  if uf.isZero then computeLowerZero targetExponentWidth targetSignificandWidth
+  else if uf.sign
   then computeLowerNeg targetExponentWidth targetSignificandWidth uf
-  else computeLowerNonneg targetExponentWidth targetSignificandWidth uf
+  else computeLowerPos targetExponentWidth targetSignificandWidth uf
 
 @[bv_normalize]
 def computeUpper
     (targetExponentWidth targetSignificandWidth : Nat)
     (uf : UnpackedFloat expWidth sigWidth) :
     EUnpackedFloat  (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
-  if uf.sign
+  if uf.isZero then computeUpperZero targetExponentWidth targetSignificandWidth
+  else if uf.sign
   then computeUpperNeg targetExponentWidth targetSignificandWidth uf
-  else computeUpperNonneg targetExponentWidth targetSignificandWidth uf
+  else computeUpperPos targetExponentWidth targetSignificandWidth uf
 
 /-! ### Per-mode Rounding Functions
 
