@@ -584,7 +584,7 @@ theorem PackedFloat.toRatExp_le_toRatExp_of_le (a b : PackedFloat e s)
       grind
     · simp [hb, ha]
 
-
+/-
 theorem PackedFloat.toRatExp_lt_toRatExp_of_lt (a b : PackedFloat e s)
     (he : 0 < e)
     (hanan : ¬ a.isNaN)
@@ -619,18 +619,60 @@ theorem PackedFloat.toRatExp_lt_toRatExp_of_lt (a b : PackedFloat e s)
       have hbexp := b.ex_ne_zero_if_isNorm
       simp at haexp hbexp
       have : 0 < b.ex.toNat := by exact BitVec.toNat_pos_of_ne_zero hbexp
-      have hbias : bias e = 0 ∨ bias e = 1 ∨ 1 < bias e := by grind
-      rcases hbias with (hbias | hbias | hbias)
+      have hbias : bias e = 0 ∨ 0 < bias e  := by grind
+      rcases hbias with (hbias | hbias)
       · simp [hbias]
         grind
-      · simp [hbias]
-        grind
-      · simp [hbias]
+      · rw [show (((bias e - 1) : Nat) : Int) = bias e - 1 by grind]
+        rw [Int.neg_sub]
+        simp
         sorry
     · simp [hb, ha]
       have := b.exp_eq_of_isNonzeroSubnorm
       have := a.exp_eq_of_isNonzeroSubnorm
       grind only
+-/
+
+@[simp]
+theorem PackedFloat.toRatExp_eq_toRatExp_of_ex_eq_ex (a b : PackedFloat e s)
+    (ha : a.isNormOrNonzeroSubnorm)
+    (hb : b.isNormOrNonzeroSubnorm)
+    (heq : a.ex = b.ex)
+    : a.toRatExp = b.toRatExp := by
+  simp [PackedFloat.toRatExp]
+  by_cases ha : a.isNorm
+  · simp [ha]
+    by_cases hb : b.isNorm
+    · simp [hb]
+      grind only
+    · simp [hb]
+      have haexp := a.ex_ne_zero_if_isNorm
+      have hbexp := b.exp_eq_of_isNonzeroSubnorm
+      simp at haexp
+      grind only
+  · simp [ha]
+    intros hb
+    have haexp := a.exp_eq_of_isNonzeroSubnorm
+    have hbexp := b.exp_eq_of_isNonzeroSubnorm
+    rw [hbexp]
+    simp only [BitVec.toNat_ofNat, Nat.zero_mod, Int.cast_ofNat_Int, Int.zero_sub, Int.neg_inj]
+    grind only [ex_ne_zero_if_isNorm, = BitVec.zero_eq]
+
+
+/--
+Amongst normal numbers, the ordering by `toRatExp` agrees with the ordering by exponent.
+-/
+theorem PackedFloat.toRatExp_lt_toRatExp_of_lt_of_isNorm (a b : PackedFloat e s)
+    (hanorm : a.isNorm)
+    (hbnorm : b.isNorm)
+    (hle : a.ex < b.ex)
+    : a.toRatExp < b.toRatExp := by
+  simp [PackedFloat.toRatExp]
+  simp [hanorm]
+  simp [hbnorm]
+  rw [← BitVec.lt_def]
+  apply hle
+
 
 /--
 The packed float '≤' relationship captures ordering by `toRat'`.
@@ -683,7 +725,8 @@ theorem toExtRat'_le_toExtRat'_of_le (he : 0 < e) (hs : 0 < s)
           have := y.toRatSig_lt_two
           have := x.toRatSig_lt_two
           rcases hxy' with (hxy' | hxy')
-          · sorry
+          · -- y.ex.toNat < x.ex.toNat
+            sorry
           · sorry
         · -- x -ve, y +ve
           simp [hysign]
