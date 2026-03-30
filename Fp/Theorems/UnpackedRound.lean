@@ -480,6 +480,11 @@ theorem roundRNA_mkInfinity (eout sout : Nat) (sign : Bool) (heout : 0 < eout) (
   simp [lower_infinity_eq_getInfinity infSign heout hsout]
   simp [lower_infinity_eq_getInfinity infSign heout (show 0 < sout + 1 by grind)]
   simp [heout, hsout]
+  simp [SmtLibSemantics.ExtendedNumber.gtZero, SmtLibSemantics.ExtendedNumber.ltZero]
+  intros ha hb
+  rcases infSign
+  · simp at ha
+  · simp at hb
 
 @[simp]
 theorem roundRNE_mkInfinity (eout sout : Nat) (sign : Bool) (heout : 0 < eout) (hsout : 0 < sout) :

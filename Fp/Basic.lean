@@ -2171,6 +2171,7 @@ theorem getInfinity_le_getInfinity_iff_of_lt (sign1 sign2 : Bool) (hs : 0 < s) :
 
 /--
 x is infinite iff it is equal to the infinity value with the same sign.
+TODO: mark this 'simp'.
 -/
 @[grind .]
 theorem eq_getInfinity_iff_isInfinity (hs : 0 < s)
@@ -2489,16 +2490,6 @@ by_cases hxnorm : x.isNorm
   apply BitVec.eq_of_toNat_eq
   grind
 
-
-
-/-
-@[simp]
-theorem le_iff_toExtRat'_le_toExtRat'_of_not_isZero (he : 0 < e) (hs : 0 < s)
-    (x y : PackedFloat e s)
-    (hxzero : ¬ x.isZero) (hyzero : ¬ y.isZero) (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN) :
-    x ≤ y ↔ x.toExtRat' ≤ y.toExtRat' := by
-  sorry
--/
 
 @[simp]
 theorem le_zero_iff_sign_eq_true {x : PackedFloat e s} (he : 0 < e):

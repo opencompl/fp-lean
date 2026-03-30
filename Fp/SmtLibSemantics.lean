@@ -190,10 +190,10 @@ def RoundMethod.roundRNE : PackedFloat e s :=
 def RoundMethod.roundRNA : PackedFloat e s :=
       if isNaN r then roundMethod.lower r
       else if isZero r then roundMethod.rounderForSign sign r
-      else if ¬ (isZero r) ∧ roundMethod.lowerHalf r then roundMethod.lower r
-      else if ¬ (isZero r) ∧ roundMethod.tieBreak r ∧ gtZero r then roundMethod.upper r
-      else if ¬ (isZero r) ∧ roundMethod.tieBreak r ∧ ltZero r then roundMethod.lower r
-      else if ¬ (isZero r) ∧ !roundMethod.lowerHalf r ∧ !roundMethod.tieBreak r then roundMethod.upper r
+      else if gtZero r ∧ roundMethod.lowerHalf r then roundMethod.lower r
+      else if gtZero r ∧ ¬ roundMethod.lowerHalf r then roundMethod.upper r
+      else if ltZero r ∧ (roundMethod.lowerHalf r ∨ roundMethod.tieBreak r) then roundMethod.upper r
+      else if ltZero r ∧ ¬ roundMethod.lowerHalf r ∧ ¬ roundMethod.tieBreak r then roundMethod.lower r
       else .getNaN e s -- does not occur.
 
 def RoundMethod.roundRTP : PackedFloat e s :=

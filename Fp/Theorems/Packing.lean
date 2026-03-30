@@ -546,4 +546,91 @@ theorem unpackNum_toRat_eq_toRat {pf : PackedFloat e s}
   exact hunpack
 
 
+@[simp]
+private theorem Rat.neg_one_mul_le_neg_one_mul_iff {a b : Rat} : -1 * a ≤ -1 * b ↔ b ≤ a := by
+  grind
+
+/--
+The packed float '≤' relationship captures ordering by `toRat'`.
+-/
+@[simp]
+theorem toExtRat'_le_toExtRat'_of_le (he : 0 < e) (hs : 0 < s)
+    (x y : PackedFloat e s)
+    (hxzero : ¬ x.isZero) (hyzero : ¬ y.isZero) (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN)
+    (hxy : x ≤ y) : x.toExtRat' ≤ y.toExtRat' := by
+  rw [PackedFloat.toExtRat']
+  have hxy' := hxy
+  rw [← PackedFloat.le_def, PackedFloat.le] at hxy'
+  simp [hxnan, hynan] at hxy'
+  simp [hxnan] at ⊢
+  by_cases hxinf : x.isInfinite
+  · simp [hxinf]
+    by_cases hxsign : x.sign
+    · simp [hxsign, hynan]
+    · simp at hxsign
+      simp [hxsign]
+      have := PackedFloat.eq_getInfinity_iff_isInfinity hs |>.mp hxinf
+      simp [hxsign] at this
+      subst this
+      simp [hs] at hxy
+      subst hxy
+      simp [hs]
+  · simp [hxinf]
+    rw [PackedFloat.toExtRat']
+    by_cases hyinf : y.isInfinite
+    · simp [hyinf, hynan]
+      by_cases hysign : y.sign
+      · simp [hysign]
+        have := PackedFloat.eq_getInfinity_iff_isInfinity hs |>.mp hyinf
+        simp [hysign] at this
+        subst this
+        simp [hs] at hxy
+        grind only
+      · simp [hysign]
+    · simp [hyinf, hynan]
+      rw [PackedFloat.toRat, PackedFloat.toRat]
+      by_cases hxsign : x.sign
+      · simp [hxsign]
+        -- x -ve
+        by_cases hysign : y.sign
+        · -- x -ve, y -ve
+          simp [hysign]
+          simp [hxsign, hysign] at hxy'
+          rw [Rat.mul_assoc, Rat.mul_assoc]
+          simp only [Rat.neg_one_mul_le_neg_one_mul_iff]
+          have := y.toRatSig_lt_two
+          have := x.toRatSig_lt_two
+          -- ⊢ y.toRatSig * 2 ^ y.toRatExp ≤ x.toRatSig * 2 ^ x.toRatExp
+          -- hxy' : y.ex.toNat < x.ex.toNat ∨ x.ex = y.ex ∧ y.sig.toNat ≤ x.sig.toNat
+          sorry
+        · -- x -ve, y +ve
+          simp [hysign]
+          simp [hxsign, hysign] at hxy'
+          have := x.zero_le_twoNumberRatSig
+          have := y.zero_le_twoNumberRatSig
+          have := Rat.zpow_nonneg (a := 2) (h := by decide) (n := y.toRatExp)
+          have := Rat.zpow_nonneg (a := 2) (h := by decide) (n := x.toRatExp)
+          simp only [ge_iff_le]
+          apply Rat.le_trans (b := 0)
+          · grind =>
+            instantiate only [Rat.le_of_lt, toRatSig_ne_zero_of_isNormOrNonzeroSubnorm]
+            instantiate only [Fp.Rat.two_pow_pos, → Rat.mul_pos,
+              = isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero]
+          · grind => instantiate only [Rat.mul_nonneg]
+          -- grind?
+      · -- x +ve
+        simp at hxsign
+        simp [hxsign]
+        by_cases hysign : y.sign
+        · -- x+ve, y -ve
+          simp [hxsign, hysign] at hxy'
+        · -- x+ve, y +ve
+          simp at hysign
+          simp [hysign]
+          simp [hxsign, hysign] at hxy'
+          -- hxy' : x.ex.toNat < y.ex.toNat ∨ x.ex = y.ex ∧ x.sig.toNat ≤ y.sig.toNat
+          -- ⊢ x.toRatSig * 2 ^ x.toRatExp ≤ y.toRatSig * 2 ^ y.toRatExp
+          sorry
+
+
 end PackedFloat

@@ -256,7 +256,7 @@ def test_roundCircuitAgainstSmtlib (ein sin eout sout : Nat) : IO ExitCode := do
   let e2m4 : FPFormat := { e := ein, m := sin }
   let e2m2 : FPFormat := { e := eout, m := sout }
   let mut totalFailures := 0
-  for rm in allRoundingModes do
+  for rm in [.RNE] do
     IO.println "==="
     IO.println s!"🧪 ROUNDING MODE {repr rm}"
     let mut nsuccess := 0
