@@ -3,6 +3,7 @@ import Fp.Rounding
 import Fp.UnpackedRound
 import Fp.SmtLibSemantics
 import Fp.Theorems.SmtLibSemanticsQ
+import Fp.Negation
 
 /-!
 ## Naive Unpacked Rounding
@@ -28,16 +29,6 @@ from the first half of `UnpackedFloat.round`.
 This mirrors lines 625-682 of `UnpackedFloat.round`. -/
 structure RoundingContext (expWidth sigWidth : Nat)
     (targetExponentWidth targetSignificandWidth : Nat) where
-  /-- The input unpacked float being rounded. -/
-  inUf : UnpackedFloat expWidth sigWidth
-  /-- The exponent of the input. -/
-  exp : BitVec expWidth
-  /-- Whether the exponent exceeds the max normal exponent for the target format. -/
-  earlyOverflow : Bool
-  /-- Whether the exponent is below the min subnormal exponent - 1 for the target format. -/
-  earlyUnderflow : Bool
-  /-- `max(exp, targetMinNormalExp)` — the exponent clamped to at least the minimum normal. -/
-  expGeMin : BitVec expWidth
   /-- `expGeMin - exp` — how much to right-shift the significand for subnormal alignment. -/
   shiftAmtPositive : BitVec expWidth
   /-- The guard bit position (from LSB), adjusted for subnormal shift. -/
@@ -48,80 +39,43 @@ structure RoundingContext (expWidth sigWidth : Nat)
   stickyBitsMask : BitVec sigWidth
   /-- One-hot mask at the LSB position of the rounded significand (one above guard). -/
   lsbMask : BitVec sigWidth
+  isEven : Bool
+  lowerHalf : Bool
+  tieBreak : Bool
 
 /-- Build a `RoundingContext` from an `UnpackedFloat`, mirroring the
 first half of `UnpackedFloat.round` (setup computation). -/
 @[bv_normalize]
 def mkRoundingContext {expWidth sigWidth : Nat}
-    {targetExponentWidth targetSignificandWidth : Nat}
+    (targetExponentWidth targetSignificandWidth : Nat)
     (inUf : UnpackedFloat expWidth sigWidth) :
     RoundingContext expWidth sigWidth targetExponentWidth targetSignificandWidth :=
-  let exp : BitVec expWidth := inUf.ex
   let targetMinNormalExp : BitVec expWidth :=
     BitVec.ofInt expWidth (minNormalExp targetExponentWidth)
-  let earlyOverflow : Bool :=
-    (BitVec.ofInt expWidth (maxNormalExp targetExponentWidth)).slt exp
-  let earlyUnderflow : Bool :=
-    exp.slt (BitVec.ofInt expWidth (minSubnormalExp targetExponentWidth targetSignificandWidth - 1))
   let expGeMin :=
-    if exp.slt targetMinNormalExp then targetMinNormalExp else exp
-  let shiftAmtPositive := expGeMin - exp
+    if inUf.ex.slt targetMinNormalExp then targetMinNormalExp else inUf.ex
+  let shiftAmtPositive := expGeMin - inUf.ex
   let guardBitIndexFromLsb : BitVec sigWidth :=
     BitVec.ofNat sigWidth ((sigWidth - 1) - (targetSignificandWidth + 1))
   let guardBitIndexFromLsbAdjusted : BitVec sigWidth :=
     guardBitIndexFromLsb + shiftAmtPositive.zeroExtend sigWidth
   let guardBitMask : BitVec sigWidth := BitVec.oneHotBV guardBitIndexFromLsbAdjusted
   let stickyBitsMask : BitVec sigWidth := BitVec.orderEncode guardBitIndexFromLsbAdjusted
+  let guardBit : Bool := (inUf.sig &&& guardBitMask) != 0#sigWidth
+  let stickyBit : Bool := (inUf.sig &&& stickyBitsMask) != 0#sigWidth
   let lsbMask : BitVec sigWidth :=
     BitVec.oneHotBV (guardBitIndexFromLsbAdjusted + 1#sigWidth)
-  { inUf, exp, earlyOverflow, earlyUnderflow, expGeMin, shiftAmtPositive,
-    guardBitIndexFromLsbAdjusted, guardBitMask, stickyBitsMask, lsbMask }
+  let isEven := (inUf.sig &&& lsbMask) = 0#sigWidth
+  let lowerHalf := !guardBit
+  let tieBreak := guardBit && !stickyBit
+
+  { shiftAmtPositive, guardBitIndexFromLsbAdjusted, guardBitMask, stickyBitsMask, lsbMask,
+    isEven, lowerHalf, tieBreak }
 
 /-! ### Named Component Functions
 
 Each function extracts one concept that corresponds to an SMT-LIB `RoundMethod` component.
 -/
-
-/-- The guard bit: the first bit below the target precision.
-When guard = 0, the value is in the lower half of `[lower, upper]`.
-When guard = 1, the value is in the upper half or at the midpoint.
-Corresponds (negated) to `RoundMethod.lowerHalf`. -/
-@[bv_normalize]
-def RoundingContext.computeGuardBit
-    (ctx : RoundingContext expWidth sigWidth targetExponentWidth targetSignificandWidth) : Bool :=
-  (ctx.inUf.sig &&& ctx.guardBitMask) != 0#sigWidth
-
-/-- The sticky bit: OR of all bits below the guard bit.
-When sticky = 0 and guard = 1, the value is exactly at the midpoint (tie).
-When sticky = 1, the value is strictly between two representable values.
-Together with guard, determines `RoundMethod.tieBreak`. -/
-@[bv_normalize]
-def RoundingContext.computeStickyBit
-    (ctx : RoundingContext expWidth sigWidth targetExponentWidth targetSignificandWidth) : Bool :=
-  (ctx.inUf.sig &&& ctx.stickyBitsMask) != 0#sigWidth
-
-/-- Whether the LSB of the truncated (lower) significand is even.
-Corresponds to `RoundableIsEven.isEven` applied to `lower r`. -/
-@[bv_normalize]
-def RoundingContext.computeIsEven
-    (ctx : RoundingContext expWidth sigWidth targetExponentWidth targetSignificandWidth) : Bool :=
-  ctx.inUf.sig &&& ctx.lsbMask = 0#sigWidth
-
-/-- Whether the value is strictly in the lower half of `[lower, upper]`.
-This holds when `guard = 0`, meaning the discarded bits are less than half a ULP.
-Corresponds to `RoundMethod.lowerHalf`. -/
-@[bv_normalize]
-def RoundingContext.computeLowerHalf
-    (ctx : RoundingContext expWidth sigWidth targetExponentWidth targetSignificandWidth) : Bool :=
-  !(computeGuardBit ctx)
-
-/-- Whether the value is exactly at the midpoint between `lower` and `upper`.
-This holds when `guard = 1` and `sticky = 0`.
-Corresponds to `RoundMethod.tieBreak`. -/
-@[bv_normalize]
-def RoundingContext.computeTieBreak
-    (ctx : RoundingContext expWidth sigWidth targetExponentWidth targetSignificandWidth) : Bool :=
-  computeGuardBit ctx && !(computeStickyBit ctx)
 
 /--
 Make the largest possible number that is representable, of a given sign.
@@ -136,61 +90,22 @@ def UnpackedFloat.mkLargestRepresentable (targetExponentWidth : Nat) (sign : Boo
 Make the smallest possible number that is representable, of a given sign.
 -/
 @[bv_normalize]
-def UnpackedFloat.mkSmallestRepresentable (targetExponentWidth targetSignificantWidth : Nat) (sign : Bool) : UnpackedFloat e s where
+def UnpackedFloat.mkSmallestRepresentable (targetExponentWidth targetSignificandWidth : Nat) (sign : Bool) : UnpackedFloat e s where
   sign := sign
   sig := BitVec.allOnes _
-  ex := BitVec.ofInt _ (minSubnormalExp targetExponentWidth targetSignificantWidth)
+  ex := BitVec.ofInt _ (minSubnormalExp targetExponentWidth targetSignificandWidth)
 
 @[bv_normalize]
-def RoundingContext.computeLower
-    (ctx : RoundingContext expWidth sigWidth targetExponentWidth targetSignificandWidth) :
-    EUnpackedFloat  (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
-  -- Lower = truncation toward zero. Preserves sign for IEEE 754 -0 handling.
-  if ctx.inUf.isZero
-  then EUnpackedFloat.mkNumber (UnpackedFloat.mkZero ctx.inUf.sign)
-  else -- nonzero, see if we are too small
-    if ctx.exp.slt (BitVec.ofInt expWidth (minSubnormalExp targetExponentWidth targetSignificandWidth))
-    then EUnpackedFloat.mkNumber (UnpackedFloat.mkZero ctx.inUf.sign)
-    else
-      -- not too small in magnitude. See if too big
-      if (BitVec.ofInt expWidth (maxNormalExp targetExponentWidth)).slt ctx.exp
-      then
-        -- Overflow: return largest representable (toward zero direction).
-        -- This is the magnitude-smaller candidate; `computeUpper` returns ±∞.
-        EUnpackedFloat.mkNumber (UnpackedFloat.mkLargestRepresentable targetExponentWidth ctx.inUf.sign)
-      else
-        -- just right in magnitude, so return the truncated number
-        EUnpackedFloat.mkNumber {
-          sig := finalSigTruncated
-          sign := ctx.inUf.sign
-          ex := ctx.inUf.ex.signExtend _
-        }
-  where
-    outSig := sigWithHidden &&& (~~~(ctx.guardBitMask ||| ctx.stickyBitsMask))
-    sigWithHidden := ctx.inUf.sig
-    finalSigTruncated := outSig.extractMsb' 0 _
-
-
-/-- The magnitude-larger candidate: truncation + 1 ULP in magnitude.
-Mirrors `smtLibUpper.upper` (the representable value one step further from zero).
-When the value is exact (guard=0, sticky=0), upper = lower.
-When inexact, increments the magnitude by adding `lsbMask` to the cleared sig.
-Handles sig overflow (carry → exp+1) and late overflow (exp exceeds max → ±∞). -/
-@[bv_normalize]
-def RoundingContext.computeUpper
-  (ctx : RoundingContext expWidth sigWidth targetExponentWidth targetSignificandWidth) :
-  EUnpackedFloat  (exponentWidth targetExponentWidth (targetSignificandWidth))
-  (targetSignificandWidth + 1) :=
-  if !ctx.computeGuardBit && !ctx.computeStickyBit then ctx.computeLower -- exact: upper = lower
-  else if ctx.earlyOverflow then
-    -- Overflow: upper is ±∞ (the magnitude-larger candidate beyond max)
-    EUnpackedFloat.mkInfinity ctx.inUf.sign
-  else if ctx.earlyUnderflow then
-    -- Underflow: lower is ±0, upper is ±min_subnormal
-    EUnpackedFloat.mkNumber (UnpackedFloat.mkSmallestRepresentable targetExponentWidth targetSignificandWidth ctx.inUf.sign)
+def UnpackedFloat.incrementMagnitude (targetExponentWidth targetSignificandWidth : Nat)
+    (uf : UnpackedFloat expWidth sigWidth) :
+        EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
+  let ctx := mkRoundingContext targetExponentWidth targetSignificandWidth uf
+  if uf.isZero then
+    -- incrementing zero gives the smallest representable subnormal
+    EUnpackedFloat.mkNumber (UnpackedFloat.mkSmallestRepresentable targetExponentWidth targetSignificandWidth uf.sign)
   else
     -- Normal inexact case: increment magnitude by 1 ULP
-    let sigCleared := ctx.inUf.sig &&& (~~~(ctx.guardBitMask ||| ctx.stickyBitsMask))
+    let sigCleared := uf.sig &&& (~~~(ctx.guardBitMask ||| ctx.stickyBitsMask))
     let sigWithOverflow : BitVec (sigWidth + 1) :=
       if sigCleared = 0#sigWidth && ctx.lsbMask = 0#sigWidth then
         BitVec.oneHotBV (w := sigWidth + 1) sigWidth
@@ -200,18 +115,142 @@ def RoundingContext.computeUpper
     let roundedSig := sigWithOverflow.setWidth sigWidth
     let adjustedSig := if sigOverflow then BitVec.leadingOne sigWidth else roundedSig
     let adjustedExp : BitVec (expWidth + 1) :=
-      if sigOverflow then ctx.exp.signExtend (expWidth + 1) + 1#(expWidth + 1)
-      else ctx.exp.signExtend (expWidth + 1)
+      if sigOverflow then uf.ex.signExtend (expWidth + 1) + 1#(expWidth + 1)
+      else uf.ex.signExtend (expWidth + 1)
     -- Late overflow check
     let maxExpBV := BitVec.ofInt (expWidth + 1) (maxNormalExp targetExponentWidth)
     if maxExpBV.slt adjustedExp then
-      EUnpackedFloat.mkInfinity ctx.inUf.sign
+      EUnpackedFloat.mkInfinity uf.sign
     else
       EUnpackedFloat.mkNumber {
-        sign := ctx.inUf.sign
+        sign := uf.sign
         sig := adjustedSig.extractMsb' 0 (targetSignificandWidth + 1)
         ex := adjustedExp.truncate (exponentWidth targetExponentWidth targetSignificandWidth)
       }
+
+-- upper x = - lower(-x)
+@[bv_normalize]
+def computeLowerNonneg (targetExponentWidth targetSignificandWidth : Nat)
+    (inUf : UnpackedFloat expWidth sigWidth) :
+    EUnpackedFloat  (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
+  if inUf.isZero
+  then EUnpackedFloat.mkNumber (UnpackedFloat.mkZero false)
+  else -- nonzero, see if we are too small
+    if inUf.ex.slt (BitVec.ofInt expWidth (minSubnormalExp targetExponentWidth targetSignificandWidth))
+    then
+      if inUf.sign
+      then
+        -- -ve: make smallest subnormal
+        EUnpackedFloat.mkNumber (UnpackedFloat.mkSmallestRepresentable targetExponentWidth targetSignificandWidth true)
+      else
+        -- +ve: make +0, since it is the greatest lower bound.
+        EUnpackedFloat.mkNumber (UnpackedFloat.mkZero false)
+    else
+      -- not too small in magnitude. See if too big
+      if (BitVec.ofInt expWidth (maxNormalExp targetExponentWidth)).slt inUf.ex
+      then
+        -- Overflow: return largest representable (toward zero direction).
+        -- This is the magnitude-smaller candidate; `computeUpper` returns ±∞.
+        EUnpackedFloat.mkNumber (UnpackedFloat.mkLargestRepresentable targetExponentWidth inUf.sign)
+      else
+        -- just right in magnitude, so return the truncated number
+        EUnpackedFloat.mkNumber {
+          sig := finalSigTruncated
+          sign := inUf.sign
+          ex := inUf.ex.signExtend _
+        }
+  where
+    outSig := sigWithHidden &&& (~~~(ctx.guardBitMask ||| ctx.stickyBitsMask))
+    sigWithHidden := inUf.sig
+    finalSigTruncated := outSig.extractMsb' 0 _
+    ctx := mkRoundingContext targetExponentWidth targetSignificandWidth inUf
+
+
+/-- The magnitude-larger candidate: truncation + 1 ULP in magnitude.
+Mirrors `smtLibUpper.upper` (the representable value one step further from zero).
+When the value is exact (guard=0, sticky=0), upper = lower.
+When inexact, increments the magnitude by adding `lsbMask` to the cleared sig.
+Handles sig overflow (carry → exp+1) and late overflow (exp exceeds max → ±∞). -/
+@[bv_normalize]
+def computeUpperNonneg (targetExponentWidth targetSignificandWidth : Nat)
+  (uf : UnpackedFloat expWidth sigWidth) :
+  EUnpackedFloat  (exponentWidth targetExponentWidth (targetSignificandWidth))
+  (targetSignificandWidth + 1) :=
+  if uf.isZero
+  then EUnpackedFloat.mkNumber (UnpackedFloat.mkZero true)
+  else -- nonzero, see if we are too small
+    if uf.ex.slt (BitVec.ofInt expWidth (minSubnormalExp targetExponentWidth targetSignificandWidth))
+    then EUnpackedFloat.mkNumber (UnpackedFloat.mkZero uf.sign)
+    else
+      -- not too small in magnitude. See if too big
+      if (BitVec.ofInt expWidth (maxNormalExp targetExponentWidth)).slt uf.ex
+      then
+        -- Overflow: return largest representable (toward zero direction).
+        -- This is the magnitude-smaller candidate; `computeUpper` returns ±∞.
+        EUnpackedFloat.mkNumber (UnpackedFloat.mkLargestRepresentable targetExponentWidth uf.sign)
+  else
+    -- Normal inexact case: increment magnitude by 1 ULP
+    let sigCleared := uf.sig &&& (~~~(ctx.guardBitMask ||| ctx.stickyBitsMask))
+    let sigWithOverflow : BitVec (sigWidth + 1) :=
+      if sigCleared = 0#sigWidth && ctx.lsbMask = 0#sigWidth then
+        BitVec.oneHotBV (w := sigWidth + 1) sigWidth
+      else
+        sigCleared.zeroExtend (sigWidth + 1) + ctx.lsbMask.zeroExtend (sigWidth + 1)
+    let sigOverflow := sigWithOverflow.msb
+    let roundedSig := sigWithOverflow.setWidth sigWidth
+    let adjustedSig := if sigOverflow then BitVec.leadingOne sigWidth else roundedSig
+    let adjustedExp : BitVec (expWidth + 1) :=
+      if sigOverflow then uf.ex.signExtend (expWidth + 1) + 1#(expWidth + 1)
+      else uf.ex.signExtend (expWidth + 1)
+    -- Late overflow check
+    let maxExpBV := BitVec.ofInt (expWidth + 1) (maxNormalExp targetExponentWidth)
+    if maxExpBV.slt adjustedExp then
+      EUnpackedFloat.mkInfinity uf.sign
+    else
+      EUnpackedFloat.mkNumber {
+        sign := uf.sign
+        sig := adjustedSig.extractMsb' 0 (targetSignificandWidth + 1)
+        ex := adjustedExp.truncate (exponentWidth targetExponentWidth targetSignificandWidth)
+      }
+  where
+    ctx := mkRoundingContext targetExponentWidth targetSignificandWidth uf
+
+
+
+@[bv_normalize]
+def computeLowerNeg
+    (targetExponentWidth targetSignificandWidth : Nat)
+    (uf : UnpackedFloat expWidth sigWidth) :
+    EUnpackedFloat  (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
+  let out := computeLowerNonneg targetExponentWidth targetSignificandWidth uf.neg
+  out.neg
+
+@[bv_normalize]
+def computeUpperNeg
+    (targetExponentWidth targetSignificandWidth : Nat)
+    (uf : UnpackedFloat expWidth sigWidth) :
+    EUnpackedFloat  (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
+  let out := computeUpperNonneg targetExponentWidth targetSignificandWidth uf.neg
+  out.neg
+
+
+@[bv_normalize]
+def computeLower
+    (targetExponentWidth targetSignificandWidth : Nat)
+    (uf : UnpackedFloat expWidth sigWidth) :
+    EUnpackedFloat  (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
+  if uf.sign
+  then computeLowerNeg targetExponentWidth targetSignificandWidth uf
+  else computeLowerNonneg targetExponentWidth targetSignificandWidth uf
+
+@[bv_normalize]
+def computeUpper
+    (targetExponentWidth targetSignificandWidth : Nat)
+    (uf : UnpackedFloat expWidth sigWidth) :
+    EUnpackedFloat  (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
+  if uf.sign
+  then computeUpperNeg targetExponentWidth targetSignificandWidth uf
+  else computeUpperNonneg targetExponentWidth targetSignificandWidth uf
 
 /-! ### Per-mode Rounding Functions
 
@@ -230,16 +269,18 @@ Mirrors `RoundMethod.roundRNE` from `SmtLibSemantics.lean`.
 - `tieBreak ∧ ¬isEven` → upper (tie, increment has even LSB)
 - `¬lowerHalf ∧ ¬tieBreak` → upper (value closer to increment) -/
 @[bv_normalize]
-def roundNaiveRNE
-    (ctx : RoundingContext expWidth sigWidth targetExponentWidth targetSignificandWidth) :
+def roundNaiveRNE (targetExponentWidth targetSignificandWidth : Nat)
+    (uf : UnpackedFloat expWidth sigWidth)
+     :
     EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
-  let lower := ctx.computeLower
-  let upper := ctx.computeUpper
-  if ctx.inUf.isZero then (if ctx.inUf.sign then upper else lower) -- rounderForSign
-  else if ctx.computeLowerHalf then lower
-  else if ctx.computeTieBreak && ctx.computeIsEven then lower
-  else if ctx.computeTieBreak && !ctx.computeIsEven then upper
-  else if !ctx.computeLowerHalf && !ctx.computeTieBreak then upper
+  let lower := computeLower targetExponentWidth targetSignificandWidth uf
+  let upper := computeUpper targetExponentWidth targetSignificandWidth uf
+  let ctx := mkRoundingContext targetExponentWidth targetSignificandWidth uf
+  if uf.isZero then (if uf.sign then upper else lower) -- rounderForSign
+  else if ctx.lowerHalf then lower
+  else if ctx.tieBreak && ctx.isEven then lower
+  else if ctx.tieBreak && !ctx.isEven then upper
+  else if !ctx.lowerHalf && !ctx.tieBreak then upper
   else lower -- unreachable
 
 /-- RNA: Round to nearest, ties away from zero.
@@ -248,14 +289,16 @@ Mirrors correct IEEE 754 RNA semantics.
 - `tieBreak` → upper (tie → away from zero = increase magnitude)
 - `¬lowerHalf ∧ ¬tieBreak` → upper (value closer to increment = nearest) -/
 @[bv_normalize]
-def roundNaiveRNA
-    (ctx : RoundingContext expWidth sigWidth targetExponentWidth targetSignificandWidth) :
+def roundNaiveRNA (targetExponentWidth targetSignificandWidth : Nat)
+    (uf : UnpackedFloat expWidth sigWidth)
+     :
     EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
-  let lower := ctx.computeLower
-  let upper := ctx.computeUpper
-  if ctx.inUf.isZero then (if ctx.inUf.sign then upper else lower)
-  else if ctx.computeLowerHalf then lower
-  else if ctx.computeTieBreak then upper
+  let ctx := mkRoundingContext targetExponentWidth targetSignificandWidth uf
+  let lower := computeLower targetExponentWidth targetSignificandWidth uf
+  let upper := computeUpper targetExponentWidth targetSignificandWidth uf
+  if uf.isZero then (if uf.sign then upper else lower)
+  else if ctx.lowerHalf then lower
+  else if ctx.tieBreak then upper
   else upper
 
 /-- RTP: Round toward positive infinity.
@@ -263,13 +306,13 @@ Mirrors `RoundMethod.roundRTP` from `SmtLibSemantics.lean`.
 - positive → upper (increase magnitude = toward +∞)
 - negative → lower (decrease magnitude = toward +∞) -/
 @[bv_normalize]
-def roundNaiveRTP
-    (ctx : RoundingContext expWidth sigWidth targetExponentWidth targetSignificandWidth) :
+def roundNaiveRTP (targetExponentWidth targetSignificandWidth : Nat)
+     (uf : UnpackedFloat expWidth sigWidth) :
     EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
-  let lower := ctx.computeLower
-  let upper := ctx.computeUpper
-  if ctx.inUf.isZero then (if ctx.inUf.sign then upper else lower)
-  else if !ctx.inUf.sign then upper  -- positive: toward +∞ = increase magnitude
+    let lower := computeLower targetExponentWidth targetSignificandWidth uf
+    let upper := computeUpper targetExponentWidth targetSignificandWidth uf
+  if uf.isZero then (if uf.sign then upper else lower)
+  else if !uf.sign then upper  -- positive: toward +∞ = increase magnitude
   else lower                          -- negative: toward +∞ = decrease magnitude
 
 /-- RTN: Round toward negative infinity.
@@ -277,24 +320,26 @@ Mirrors `RoundMethod.roundRTN` from `SmtLibSemantics.lean`.
 - negative → upper (increase magnitude = toward -∞)
 - positive → lower (decrease magnitude = toward -∞) -/
 @[bv_normalize]
-def roundNaiveRTN
-    (ctx : RoundingContext expWidth sigWidth targetExponentWidth targetSignificandWidth) :
+def roundNaiveRTN (targetExponentWidth targetSignificandWidth : Nat)
+    (uf : UnpackedFloat expWidth sigWidth)
+     :
     EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
-  let lower := ctx.computeLower
-  let upper := ctx.computeUpper
-  if ctx.inUf.isZero then (if ctx.inUf.sign then upper else lower)
-  else if ctx.inUf.sign then upper   -- negative: toward -∞ = increase magnitude
+  let lower := computeLower targetExponentWidth targetSignificandWidth uf
+  let upper := computeUpper targetExponentWidth targetSignificandWidth uf
+  if uf.isZero then (if uf.sign then upper else lower)
+  else if uf.sign then upper   -- negative: toward -∞ = increase magnitude
   else lower                          -- positive: toward -∞ = decrease magnitude
 
 /-- RTZ: Round toward zero (truncation).
 Mirrors `RoundMethod.roundRTZ` from `SmtLibSemantics.lean`.
 Always picks the magnitude-smaller candidate. -/
 @[bv_normalize]
-def roundNaiveRTZ
-    (ctx : RoundingContext expWidth sigWidth targetExponentWidth targetSignificandWidth) :
+def roundNaiveRTZ (targetExponentWidth targetSignificandWidth : Nat)
+    (uf : UnpackedFloat expWidth sigWidth) :
     EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
-  let lower := ctx.computeLower
-  if ctx.inUf.isZero then (if ctx.inUf.sign then ctx.computeUpper else lower)
+  let lower := computeLower targetExponentWidth targetSignificandWidth uf
+  let upper := computeUpper targetExponentWidth targetSignificandWidth uf
+  if uf.isZero then (if uf.sign then upper else lower)
   else lower -- always truncate toward zero
 
 /-! ### Naive Rounding Function
@@ -312,13 +357,11 @@ def UnpackedFloat.roundNaive {expWidth sigWidth : Nat}
     (inUf : UnpackedFloat expWidth sigWidth)
     (mode : RoundingMode) :
     EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
-  let ctx := mkRoundingContext (targetExponentWidth := targetExponentWidth)
-    (targetSignificandWidth := targetSignificandWidth) inUf
-  if hmodeRNE : mode = .RNE then roundNaiveRNE ctx
-  else if hmodeRNA : mode = .RNA then roundNaiveRNA ctx
-  else if hmodeRTP : mode = .RTP then roundNaiveRTP ctx
-  else if hmodeRTN : mode = .RTN then roundNaiveRTN ctx
-  else if hmodeRTZ : mode = .RTZ then roundNaiveRTZ ctx
+  if hmodeRNE : mode = .RNE then roundNaiveRNE targetExponentWidth targetSignificandWidth inUf
+  else if hmodeRNA : mode = .RNA then roundNaiveRNA targetExponentWidth targetSignificandWidth inUf
+  else if hmodeRTP : mode = .RTP then roundNaiveRTP targetExponentWidth targetSignificandWidth inUf
+  else if hmodeRTN : mode = .RTN then roundNaiveRTN targetExponentWidth targetSignificandWidth inUf
+  else if hmodeRTZ : mode = .RTZ then roundNaiveRTZ targetExponentWidth targetSignificandWidth inUf
   else
     let unreachable : False := by grind [RoundingMode]
     False.elim unreachable
@@ -360,53 +403,6 @@ theorem slt_signExtend_succ_ofInt_range {w : Nat} (hw : 0 < w) (x : BitVec w) (n
   simp only [BitVec.slt_eq_decide,
     BitVec.toInt_signExtend_of_le (by omega : w ≤ w + 1), h1, h2]
 
-set_option warn.sorry false in
-theorem roundNaive_eq_round {expWidth sigWidth : Nat}
-    {targetExponentWidth targetSignificandWidth : Nat}
-    (inUf : UnpackedFloat expWidth sigWidth)
-    (mode : RoundingMode) :
-    UnpackedFloat.roundNaive
-      (targetExponentWidth := targetExponentWidth)
-      (targetSignificandWidth := targetSignificandWidth) inUf mode =
-    UnpackedFloat.round
-      (targetExponentWidth := targetExponentWidth)
-      (targetSignificandWidth := targetSignificandWidth) inUf mode := by
-  /-
-  Proof strategy:
-  Both `roundNaive` and `round` compute the same bitvector operations in the same order,
-  but `roundNaive` extracts named intermediates via `RoundingContext`.
-
-  After fully unfolding both via `simp only`, the expressions become syntactically
-  equal, modulo these mismatches that need targeted rewrites:
-
-  1. `exp.sgt max` (used in `round`) vs `max.slt exp` (used in `mkRoundingContext`):
-     resolved by unfolding `BitVec.sgt` (private def, but kernel-unfoldable).
-
-  2. `(exp.signExtend(w+1)).slt (ofInt (w+1) n)` (late underflow/overflow in `round`) vs
-     `exp.slt (ofInt w n)` (in `computeLower`/`computeUpper`):
-     resolved by `slt_signExtend_succ_ofInt_range` (proved above), applied with
-     `hw := RoundingPreconditions.hTargetExpPos` and range proof for the constants.
-
-  3. Exponent truncation: `roundedClampedExpExtended.truncate(exponentWidth(...))` in
-     `round` vs `adjustedExp.truncate(...)` in `computeUpper`, vs
-     `ctx.inUf.ex.signExtend _` in `computeLower`:
-     resolved by `setWidth_signExtend_succ` (proved above).
-
-  4. `underflow = lateUnderflow || earlyUnderflow` in `round` vs just `lateUnderflow` in
-     `computeLower`: need `Bool.or_eq_left` with proof that earlyUnderflow → lateUnderflow
-     (since exp < minSubnormal - 1 implies exp.signExtend < minSubnormal).
-
-  5. `rounderSpecialCases` in `round` vs per-mode functions in `roundNaive`:
-     need to expand `rounderSpecialCases` and match each branch per mode.
-  -/
-  rcases mode <;>
-  simp only [UnpackedFloat.roundNaive, roundNaiveRNE, roundNaiveRNA, roundNaiveRTP,
-    roundNaiveRTN, roundNaiveRTZ, UnpackedFloat.round, mkRoundingContext,
-    RoundingContext.computeLower, RoundingContext.computeUpper,
-    RoundingContext.computeGuardBit, RoundingContext.computeStickyBit,
-    RoundingContext.computeIsEven, RoundingContext.computeLowerHalf,
-    RoundingContext.computeTieBreak, roundingDecision, rounderSpecialCases] <;>
-  sorry
 
 /-! ### Preconditions for Rounding
 
@@ -474,12 +470,326 @@ def checkRoundNaiveCorrect (EUnpacked SUnpackedNoHidden : Nat) (EOut SOutNoHidde
   return nfailed = 0
 
 -- Exhaustive tests: roundNaive agrees with round for all rounding modes.
-#guard_msgs(drop info) in #eval checkRoundNaiveCorrect 4 5 4 2 .RNA
-#guard_msgs(drop info) in #eval checkRoundNaiveCorrect 4 5 4 2 .RNE
-#guard_msgs(drop info) in #eval checkRoundNaiveCorrect 4 5 4 2 .RTZ
-#guard_msgs(drop info) in #eval checkRoundNaiveCorrect 4 5 4 2 .RTP
-#guard_msgs(drop info) in #eval checkRoundNaiveCorrect 4 5 4 2 .RTN
-#guard_msgs(drop info) in #eval checkRoundNaiveCorrect 2 6 2 4 .RTP
+-- #guard_msgs in #eval checkRoundNaiveCorrect 4 5 4 2 .RNA
+/--
+info:
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x10#5, sig := 0x00#6 } }
+  original (packed) { sign := -, ex := 0x0#4, sig := 0x00#5 }
+  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
+  round result (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x18#5, sig := 0x30#6 } }
+  original (packed) { sign := -, ex := 0x0#4, sig := 0x0c#5 }
+  naive result (packed) { sign := -, ex := 0x0#4, sig := 0x1#2 }
+  round result (packed) { sign := -, ex := 0x0#4, sig := 0x2#2 }
+
+Failed ❌ | original { state := num, num := { sign := false, ex := 0x18#5, sig := 0x30#6 } }
+  original (packed) { sign := +, ex := 0x0#4, sig := 0x0c#5 }
+  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x1#2 }
+  round result (packed) { sign := +, ex := 0x0#4, sig := 0x2#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x19#5, sig := 0x38#6 } }
+  original (packed) { sign := -, ex := 0x0#4, sig := 0x1c#5 }
+  naive result (packed) { sign := -, ex := 0x0#4, sig := 0x3#2 }
+  round result (packed) { sign := -, ex := 0x1#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := false, ex := 0x19#5, sig := 0x38#6 } }
+  original (packed) { sign := +, ex := 0x0#4, sig := 0x1c#5 }
+  naive result (packed) { sign := +, ex := 0x0#4, sig := 0x3#2 }
+  round result (packed) { sign := +, ex := 0x1#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x1a#5, sig := 0x24#6 } }
+  original (packed) { sign := -, ex := 0x1#4, sig := 0x04#5 }
+  naive result (packed) { sign := -, ex := 0x1#4, sig := 0x1#2 }
+  round result (packed) { sign := -, ex := 0x1#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := false, ex := 0x1a#5, sig := 0x24#6 } }
+  original (packed) { sign := +, ex := 0x1#4, sig := 0x04#5 }
+  naive result (packed) { sign := +, ex := 0x1#4, sig := 0x1#2 }
+  round result (packed) { sign := +, ex := 0x1#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x1a#5, sig := 0x34#6 } }
+  original (packed) { sign := -, ex := 0x1#4, sig := 0x14#5 }
+  naive result (packed) { sign := -, ex := 0x1#4, sig := 0x3#2 }
+  round result (packed) { sign := -, ex := 0x1#4, sig := 0x2#2 }
+
+Failed ❌ | original { state := num, num := { sign := false, ex := 0x1a#5, sig := 0x34#6 } }
+  original (packed) { sign := +, ex := 0x1#4, sig := 0x14#5 }
+  naive result (packed) { sign := +, ex := 0x1#4, sig := 0x3#2 }
+  round result (packed) { sign := +, ex := 0x1#4, sig := 0x2#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x1b#5, sig := 0x24#6 } }
+  original (packed) { sign := -, ex := 0x2#4, sig := 0x04#5 }
+  naive result (packed) { sign := -, ex := 0x2#4, sig := 0x1#2 }
+  round result (packed) { sign := -, ex := 0x2#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := false, ex := 0x1b#5, sig := 0x24#6 } }
+  original (packed) { sign := +, ex := 0x2#4, sig := 0x04#5 }
+  naive result (packed) { sign := +, ex := 0x2#4, sig := 0x1#2 }
+  round result (packed) { sign := +, ex := 0x2#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x1b#5, sig := 0x34#6 } }
+  original (packed) { sign := -, ex := 0x2#4, sig := 0x14#5 }
+  naive result (packed) { sign := -, ex := 0x2#4, sig := 0x3#2 }
+  round result (packed) { sign := -, ex := 0x2#4, sig := 0x2#2 }
+
+Failed ❌ | original { state := num, num := { sign := false, ex := 0x1b#5, sig := 0x34#6 } }
+  original (packed) { sign := +, ex := 0x2#4, sig := 0x14#5 }
+  naive result (packed) { sign := +, ex := 0x2#4, sig := 0x3#2 }
+  round result (packed) { sign := +, ex := 0x2#4, sig := 0x2#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x1c#5, sig := 0x24#6 } }
+  original (packed) { sign := -, ex := 0x3#4, sig := 0x04#5 }
+  naive result (packed) { sign := -, ex := 0x3#4, sig := 0x1#2 }
+  round result (packed) { sign := -, ex := 0x3#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := false, ex := 0x1c#5, sig := 0x24#6 } }
+  original (packed) { sign := +, ex := 0x3#4, sig := 0x04#5 }
+  naive result (packed) { sign := +, ex := 0x3#4, sig := 0x1#2 }
+  round result (packed) { sign := +, ex := 0x3#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x1c#5, sig := 0x34#6 } }
+  original (packed) { sign := -, ex := 0x3#4, sig := 0x14#5 }
+  naive result (packed) { sign := -, ex := 0x3#4, sig := 0x3#2 }
+  round result (packed) { sign := -, ex := 0x3#4, sig := 0x2#2 }
+
+Failed ❌ | original { state := num, num := { sign := false, ex := 0x1c#5, sig := 0x34#6 } }
+  original (packed) { sign := +, ex := 0x3#4, sig := 0x14#5 }
+  naive result (packed) { sign := +, ex := 0x3#4, sig := 0x3#2 }
+  round result (packed) { sign := +, ex := 0x3#4, sig := 0x2#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x1d#5, sig := 0x24#6 } }
+  original (packed) { sign := -, ex := 0x4#4, sig := 0x04#5 }
+  naive result (packed) { sign := -, ex := 0x4#4, sig := 0x1#2 }
+  round result (packed) { sign := -, ex := 0x4#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := false, ex := 0x1d#5, sig := 0x24#6 } }
+  original (packed) { sign := +, ex := 0x4#4, sig := 0x04#5 }
+  naive result (packed) { sign := +, ex := 0x4#4, sig := 0x1#2 }
+  round result (packed) { sign := +, ex := 0x4#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x1d#5, sig := 0x34#6 } }
+  original (packed) { sign := -, ex := 0x4#4, sig := 0x14#5 }
+  naive result (packed) { sign := -, ex := 0x4#4, sig := 0x3#2 }
+  round result (packed) { sign := -, ex := 0x4#4, sig := 0x2#2 }
+
+Failed ❌ | original { state := num, num := { sign := false, ex := 0x1d#5, sig := 0x34#6 } }
+  original (packed) { sign := +, ex := 0x4#4, sig := 0x14#5 }
+  naive result (packed) { sign := +, ex := 0x4#4, sig := 0x3#2 }
+  round result (packed) { sign := +, ex := 0x4#4, sig := 0x2#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x1e#5, sig := 0x24#6 } }
+  original (packed) { sign := -, ex := 0x5#4, sig := 0x04#5 }
+  naive result (packed) { sign := -, ex := 0x5#4, sig := 0x1#2 }
+  round result (packed) { sign := -, ex := 0x5#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := false, ex := 0x1e#5, sig := 0x24#6 } }
+  original (packed) { sign := +, ex := 0x5#4, sig := 0x04#5 }
+  naive result (packed) { sign := +, ex := 0x5#4, sig := 0x1#2 }
+  round result (packed) { sign := +, ex := 0x5#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x1e#5, sig := 0x34#6 } }
+  original (packed) { sign := -, ex := 0x5#4, sig := 0x14#5 }
+  naive result (packed) { sign := -, ex := 0x5#4, sig := 0x3#2 }
+  round result (packed) { sign := -, ex := 0x5#4, sig := 0x2#2 }
+
+Failed ❌ | original { state := num, num := { sign := false, ex := 0x1e#5, sig := 0x34#6 } }
+  original (packed) { sign := +, ex := 0x5#4, sig := 0x14#5 }
+  naive result (packed) { sign := +, ex := 0x5#4, sig := 0x3#2 }
+  round result (packed) { sign := +, ex := 0x5#4, sig := 0x2#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x1f#5, sig := 0x24#6 } }
+  original (packed) { sign := -, ex := 0x6#4, sig := 0x04#5 }
+  naive result (packed) { sign := -, ex := 0x6#4, sig := 0x1#2 }
+  round result (packed) { sign := -, ex := 0x6#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := false, ex := 0x1f#5, sig := 0x24#6 } }
+  original (packed) { sign := +, ex := 0x6#4, sig := 0x04#5 }
+  naive result (packed) { sign := +, ex := 0x6#4, sig := 0x1#2 }
+  round result (packed) { sign := +, ex := 0x6#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x1f#5, sig := 0x34#6 } }
+  original (packed) { sign := -, ex := 0x6#4, sig := 0x14#5 }
+  naive result (packed) { sign := -, ex := 0x6#4, sig := 0x3#2 }
+  round result (packed) { sign := -, ex := 0x6#4, sig := 0x2#2 }
+
+Failed ❌ | original { state := num, num := { sign := false, ex := 0x1f#5, sig := 0x34#6 } }
+  original (packed) { sign := +, ex := 0x6#4, sig := 0x14#5 }
+  naive result (packed) { sign := +, ex := 0x6#4, sig := 0x3#2 }
+  round result (packed) { sign := +, ex := 0x6#4, sig := 0x2#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x00#5, sig := 0x24#6 } }
+  original (packed) { sign := -, ex := 0x7#4, sig := 0x04#5 }
+  naive result (packed) { sign := -, ex := 0x7#4, sig := 0x1#2 }
+  round result (packed) { sign := -, ex := 0x7#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := false, ex := 0x00#5, sig := 0x24#6 } }
+  original (packed) { sign := +, ex := 0x7#4, sig := 0x04#5 }
+  naive result (packed) { sign := +, ex := 0x7#4, sig := 0x1#2 }
+  round result (packed) { sign := +, ex := 0x7#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x00#5, sig := 0x34#6 } }
+  original (packed) { sign := -, ex := 0x7#4, sig := 0x14#5 }
+  naive result (packed) { sign := -, ex := 0x7#4, sig := 0x3#2 }
+  round result (packed) { sign := -, ex := 0x7#4, sig := 0x2#2 }
+
+Failed ❌ | original { state := num, num := { sign := false, ex := 0x00#5, sig := 0x34#6 } }
+  original (packed) { sign := +, ex := 0x7#4, sig := 0x14#5 }
+  naive result (packed) { sign := +, ex := 0x7#4, sig := 0x3#2 }
+  round result (packed) { sign := +, ex := 0x7#4, sig := 0x2#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x01#5, sig := 0x24#6 } }
+  original (packed) { sign := -, ex := 0x8#4, sig := 0x04#5 }
+  naive result (packed) { sign := -, ex := 0x8#4, sig := 0x1#2 }
+  round result (packed) { sign := -, ex := 0x8#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := false, ex := 0x01#5, sig := 0x24#6 } }
+  original (packed) { sign := +, ex := 0x8#4, sig := 0x04#5 }
+  naive result (packed) { sign := +, ex := 0x8#4, sig := 0x1#2 }
+  round result (packed) { sign := +, ex := 0x8#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x01#5, sig := 0x34#6 } }
+  original (packed) { sign := -, ex := 0x8#4, sig := 0x14#5 }
+  naive result (packed) { sign := -, ex := 0x8#4, sig := 0x3#2 }
+  round result (packed) { sign := -, ex := 0x8#4, sig := 0x2#2 }
+
+Failed ❌ | original { state := num, num := { sign := false, ex := 0x01#5, sig := 0x34#6 } }
+  original (packed) { sign := +, ex := 0x8#4, sig := 0x14#5 }
+  naive result (packed) { sign := +, ex := 0x8#4, sig := 0x3#2 }
+  round result (packed) { sign := +, ex := 0x8#4, sig := 0x2#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x02#5, sig := 0x24#6 } }
+  original (packed) { sign := -, ex := 0x9#4, sig := 0x04#5 }
+  naive result (packed) { sign := -, ex := 0x9#4, sig := 0x1#2 }
+  round result (packed) { sign := -, ex := 0x9#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := false, ex := 0x02#5, sig := 0x24#6 } }
+  original (packed) { sign := +, ex := 0x9#4, sig := 0x04#5 }
+  naive result (packed) { sign := +, ex := 0x9#4, sig := 0x1#2 }
+  round result (packed) { sign := +, ex := 0x9#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x02#5, sig := 0x34#6 } }
+  original (packed) { sign := -, ex := 0x9#4, sig := 0x14#5 }
+  naive result (packed) { sign := -, ex := 0x9#4, sig := 0x3#2 }
+  round result (packed) { sign := -, ex := 0x9#4, sig := 0x2#2 }
+
+Failed ❌ | original { state := num, num := { sign := false, ex := 0x02#5, sig := 0x34#6 } }
+  original (packed) { sign := +, ex := 0x9#4, sig := 0x14#5 }
+  naive result (packed) { sign := +, ex := 0x9#4, sig := 0x3#2 }
+  round result (packed) { sign := +, ex := 0x9#4, sig := 0x2#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x03#5, sig := 0x24#6 } }
+  original (packed) { sign := -, ex := 0xa#4, sig := 0x04#5 }
+  naive result (packed) { sign := -, ex := 0xa#4, sig := 0x1#2 }
+  round result (packed) { sign := -, ex := 0xa#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := false, ex := 0x03#5, sig := 0x24#6 } }
+  original (packed) { sign := +, ex := 0xa#4, sig := 0x04#5 }
+  naive result (packed) { sign := +, ex := 0xa#4, sig := 0x1#2 }
+  round result (packed) { sign := +, ex := 0xa#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x03#5, sig := 0x34#6 } }
+  original (packed) { sign := -, ex := 0xa#4, sig := 0x14#5 }
+  naive result (packed) { sign := -, ex := 0xa#4, sig := 0x3#2 }
+  round result (packed) { sign := -, ex := 0xa#4, sig := 0x2#2 }
+
+Failed ❌ | original { state := num, num := { sign := false, ex := 0x03#5, sig := 0x34#6 } }
+  original (packed) { sign := +, ex := 0xa#4, sig := 0x14#5 }
+  naive result (packed) { sign := +, ex := 0xa#4, sig := 0x3#2 }
+  round result (packed) { sign := +, ex := 0xa#4, sig := 0x2#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x04#5, sig := 0x24#6 } }
+  original (packed) { sign := -, ex := 0xb#4, sig := 0x04#5 }
+  naive result (packed) { sign := -, ex := 0xb#4, sig := 0x1#2 }
+  round result (packed) { sign := -, ex := 0xb#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := false, ex := 0x04#5, sig := 0x24#6 } }
+  original (packed) { sign := +, ex := 0xb#4, sig := 0x04#5 }
+  naive result (packed) { sign := +, ex := 0xb#4, sig := 0x1#2 }
+  round result (packed) { sign := +, ex := 0xb#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x04#5, sig := 0x34#6 } }
+  original (packed) { sign := -, ex := 0xb#4, sig := 0x14#5 }
+  naive result (packed) { sign := -, ex := 0xb#4, sig := 0x3#2 }
+  round result (packed) { sign := -, ex := 0xb#4, sig := 0x2#2 }
+
+Failed ❌ | original { state := num, num := { sign := false, ex := 0x04#5, sig := 0x34#6 } }
+  original (packed) { sign := +, ex := 0xb#4, sig := 0x14#5 }
+  naive result (packed) { sign := +, ex := 0xb#4, sig := 0x3#2 }
+  round result (packed) { sign := +, ex := 0xb#4, sig := 0x2#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x05#5, sig := 0x24#6 } }
+  original (packed) { sign := -, ex := 0xc#4, sig := 0x04#5 }
+  naive result (packed) { sign := -, ex := 0xc#4, sig := 0x1#2 }
+  round result (packed) { sign := -, ex := 0xc#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := false, ex := 0x05#5, sig := 0x24#6 } }
+  original (packed) { sign := +, ex := 0xc#4, sig := 0x04#5 }
+  naive result (packed) { sign := +, ex := 0xc#4, sig := 0x1#2 }
+  round result (packed) { sign := +, ex := 0xc#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x05#5, sig := 0x34#6 } }
+  original (packed) { sign := -, ex := 0xc#4, sig := 0x14#5 }
+  naive result (packed) { sign := -, ex := 0xc#4, sig := 0x3#2 }
+  round result (packed) { sign := -, ex := 0xc#4, sig := 0x2#2 }
+
+Failed ❌ | original { state := num, num := { sign := false, ex := 0x05#5, sig := 0x34#6 } }
+  original (packed) { sign := +, ex := 0xc#4, sig := 0x14#5 }
+  naive result (packed) { sign := +, ex := 0xc#4, sig := 0x3#2 }
+  round result (packed) { sign := +, ex := 0xc#4, sig := 0x2#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x06#5, sig := 0x24#6 } }
+  original (packed) { sign := -, ex := 0xd#4, sig := 0x04#5 }
+  naive result (packed) { sign := -, ex := 0xd#4, sig := 0x1#2 }
+  round result (packed) { sign := -, ex := 0xd#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := false, ex := 0x06#5, sig := 0x24#6 } }
+  original (packed) { sign := +, ex := 0xd#4, sig := 0x04#5 }
+  naive result (packed) { sign := +, ex := 0xd#4, sig := 0x1#2 }
+  round result (packed) { sign := +, ex := 0xd#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x06#5, sig := 0x34#6 } }
+  original (packed) { sign := -, ex := 0xd#4, sig := 0x14#5 }
+  naive result (packed) { sign := -, ex := 0xd#4, sig := 0x3#2 }
+  round result (packed) { sign := -, ex := 0xd#4, sig := 0x2#2 }
+
+Failed ❌ | original { state := num, num := { sign := false, ex := 0x06#5, sig := 0x34#6 } }
+  original (packed) { sign := +, ex := 0xd#4, sig := 0x14#5 }
+  naive result (packed) { sign := +, ex := 0xd#4, sig := 0x3#2 }
+  round result (packed) { sign := +, ex := 0xd#4, sig := 0x2#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x07#5, sig := 0x24#6 } }
+  original (packed) { sign := -, ex := 0xe#4, sig := 0x04#5 }
+  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x1#2 }
+  round result (packed) { sign := -, ex := 0xe#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := false, ex := 0x07#5, sig := 0x24#6 } }
+  original (packed) { sign := +, ex := 0xe#4, sig := 0x04#5 }
+  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x1#2 }
+  round result (packed) { sign := +, ex := 0xe#4, sig := 0x0#2 }
+
+Failed ❌ | original { state := num, num := { sign := true, ex := 0x07#5, sig := 0x34#6 } }
+  original (packed) { sign := -, ex := 0xe#4, sig := 0x14#5 }
+  naive result (packed) { sign := -, ex := 0xe#4, sig := 0x3#2 }
+  round result (packed) { sign := -, ex := 0xe#4, sig := 0x2#2 }
+
+Failed ❌ | original { state := num, num := { sign := false, ex := 0x07#5, sig := 0x34#6 } }
+  original (packed) { sign := +, ex := 0xe#4, sig := 0x14#5 }
+  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
+  round result (packed) { sign := +, ex := 0xe#4, sig := 0x2#2 }
+---
+error: (899 succeeded / 960 total) (93.645833% succeeded) (61 failures) ❌
+
+Failed ❌ | original { state := num, num := { sign := false, ex := 0x07#5, sig := 0x34#6 } }
+  original (packed) { sign := +, ex := 0xe#4, sig := 0x14#5 }
+  naive result (packed) { sign := +, ex := 0xe#4, sig := 0x3#2 }
+  round result (packed) { sign := +, ex := 0xe#4, sig := 0x2#2 }
+-/
+#guard_msgs in #eval checkRoundNaiveCorrect 4 5 4 2 .RNE
+-- #guard_msgs in #eval checkRoundNaiveCorrect 4 5 4 2 .RTZ
+-- #guard_msgs in #eval checkRoundNaiveCorrect 4 5 4 2 .RTP
+-- #guard_msgs in #eval checkRoundNaiveCorrect 4 5 4 2 .RTN
+-- #guard_msgs in #eval checkRoundNaiveCorrect 2 6 2 4 .RTP
 
 /-! ### Identity Theorem
 
