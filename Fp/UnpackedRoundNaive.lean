@@ -95,38 +95,38 @@ def UnpackedFloat.mkSmallestRepresentable (targetExponentWidth targetSignificand
   sig := BitVec.allOnes _
   ex := BitVec.ofInt _ (minSubnormalExp targetExponentWidth targetSignificandWidth)
 
-@[bv_normalize]
-def UnpackedFloat.incrementMagnitude (targetExponentWidth targetSignificandWidth : Nat)
-    (uf : UnpackedFloat expWidth sigWidth) :
-        EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
-  let ctx := mkRoundingContext targetExponentWidth targetSignificandWidth uf
-  if uf.isZero then
-    -- incrementing zero gives the smallest representable subnormal
-    EUnpackedFloat.mkNumber (UnpackedFloat.mkSmallestRepresentable targetExponentWidth targetSignificandWidth uf.sign)
-  else
-    -- Normal inexact case: increment magnitude by 1 ULP
-    let sigCleared := uf.sig &&& (~~~(ctx.guardBitMask ||| ctx.stickyBitsMask))
-    let sigWithOverflow : BitVec (sigWidth + 1) :=
-      if sigCleared = 0#sigWidth && ctx.lsbMask = 0#sigWidth then
-        BitVec.oneHotBV (w := sigWidth + 1) sigWidth
-      else
-        sigCleared.zeroExtend (sigWidth + 1) + ctx.lsbMask.zeroExtend (sigWidth + 1)
-    let sigOverflow := sigWithOverflow.msb
-    let roundedSig := sigWithOverflow.setWidth sigWidth
-    let adjustedSig := if sigOverflow then BitVec.leadingOne sigWidth else roundedSig
-    let adjustedExp : BitVec (expWidth + 1) :=
-      if sigOverflow then uf.ex.signExtend (expWidth + 1) + 1#(expWidth + 1)
-      else uf.ex.signExtend (expWidth + 1)
-    -- Late overflow check
-    let maxExpBV := BitVec.ofInt (expWidth + 1) (maxNormalExp targetExponentWidth)
-    if maxExpBV.slt adjustedExp then
-      EUnpackedFloat.mkInfinity uf.sign
-    else
-      EUnpackedFloat.mkNumber {
-        sign := uf.sign
-        sig := adjustedSig.extractMsb' 0 (targetSignificandWidth + 1)
-        ex := adjustedExp.truncate (exponentWidth targetExponentWidth targetSignificandWidth)
-      }
+-- @[bv_normalize]
+-- def UnpackedFloat.incrementMagnitude (targetExponentWidth targetSignificandWidth : Nat)
+--     (uf : UnpackedFloat expWidth sigWidth) :
+--         EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
+--   let ctx := mkRoundingContext targetExponentWidth targetSignificandWidth uf
+--   if uf.isZero then
+--     -- incrementing zero gives the smallest representable subnormal
+--     EUnpackedFloat.mkNumber (UnpackedFloat.mkSmallestRepresentable targetExponentWidth targetSignificandWidth uf.sign)
+--   else
+--     -- Normal inexact case: increment magnitude by 1 ULP
+--     let sigCleared := uf.sig &&& (~~~(ctx.guardBitMask ||| ctx.stickyBitsMask))
+--     let sigWithOverflow : BitVec (sigWidth + 1) :=
+--       if sigCleared = 0#sigWidth && ctx.lsbMask = 0#sigWidth then
+--         BitVec.oneHotBV (w := sigWidth + 1) sigWidth
+--       else
+--         sigCleared.zeroExtend (sigWidth + 1) + ctx.lsbMask.zeroExtend (sigWidth + 1)
+--     let sigOverflow := sigWithOverflow.msb
+--     let roundedSig := sigWithOverflow.setWidth sigWidth
+--     let adjustedSig := if sigOverflow then BitVec.leadingOne sigWidth else roundedSig
+--     let adjustedExp : BitVec (expWidth + 1) :=
+--       if sigOverflow then uf.ex.signExtend (expWidth + 1) + 1#(expWidth + 1)
+--       else uf.ex.signExtend (expWidth + 1)
+--     -- Late overflow check
+--     let maxExpBV := BitVec.ofInt (expWidth + 1) (maxNormalExp targetExponentWidth)
+--     if maxExpBV.slt adjustedExp then
+--       EUnpackedFloat.mkInfinity uf.sign
+--     else
+--       EUnpackedFloat.mkNumber {
+--         sign := uf.sign
+--         sig := adjustedSig.extractMsb' 0 (targetSignificandWidth + 1)
+--         ex := adjustedExp.truncate (exponentWidth targetExponentWidth targetSignificandWidth)
+--       }
 
 -- upper x = - lower(-x)
 @[bv_normalize]
@@ -196,7 +196,7 @@ def computeUpperPos (targetExponentWidth targetSignificandWidth : Nat)
     -- Late overflow check
     let maxExpBV := BitVec.ofInt (expWidth + 1) (maxNormalExp targetExponentWidth)
     if maxExpBV.slt adjustedExp then
-      EUnpackedFloat.mkInfinity uf.sign
+      EUnpackedFloat.mkInfinity false
     else
       EUnpackedFloat.mkNumber {
         sign := false
@@ -271,8 +271,7 @@ Mirrors `RoundMethod.roundRNE` from `SmtLibSemantics.lean`.
 - `¬lowerHalf ∧ ¬tieBreak` → upper (value closer to increment) -/
 @[bv_normalize]
 def roundNaiveRNE (targetExponentWidth targetSignificandWidth : Nat)
-    (uf : UnpackedFloat expWidth sigWidth)
-     :
+    (uf : UnpackedFloat expWidth sigWidth) :
     EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
   let lower := computeLower targetExponentWidth targetSignificandWidth uf
   let upper := computeUpper targetExponentWidth targetSignificandWidth uf
