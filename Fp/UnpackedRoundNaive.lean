@@ -308,10 +308,10 @@ def roundNaiveRTP (targetExponentWidth targetSignificandWidth : Nat)
      (uf : UnpackedFloat expWidth sigWidth) :
     EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
     let lower := computeLower targetExponentWidth targetSignificandWidth uf
-    let upper := computeUpper targetExponentWidth targetSignificandWidth uf
+    let upper := computeUpperPos targetExponentWidth targetSignificandWidth uf
   if uf.isZero then (if uf.sign then upper else lower)
-  else if !uf.sign then upper
-  else lower
+  else if !uf.sign then computeUpperPos targetExponentWidth targetSignificandWidth uf
+  else (computeUpperPos targetExponentWidth targetSignificandWidth uf.neg).neg
 
 /-- RTN: Round toward negative infinity.
 Mirrors `RoundMethod.roundRTN` from `SmtLibSemantics.lean`.

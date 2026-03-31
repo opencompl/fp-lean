@@ -673,6 +673,83 @@ theorem PackedFloat.toRatExp_lt_toRatExp_of_lt_of_isNorm (a b : PackedFloat e s)
   rw [← BitVec.lt_def]
   apply hle
 
+theorem Rat.mul_le_mul_cancel_right_of_lt {a b c : Rat} (hc : 0 < c) :
+    a * c ≤ b * c ↔ a ≤ b := by
+  constructor
+  · intros h
+    exact Rat.le_of_mul_le_mul_right h hc
+  · intros h
+    apply Rat.mul_le_mul_of_nonneg_right h <;> grind
+
+
+theorem Rat.div_le_div_self {a b c : Rat} (hc : 0 < c) :
+    a / c ≤ b / c ↔ a ≤ b := by
+  rw [Rat.div_def, Rat.div_def]
+  apply Rat.mul_le_mul_cancel_right_of_lt
+  apply Rat.inv_pos .. |>.mpr
+  grind
+
+/--
+the 'toRatSig' is in the same order as that of the 'sig'
+interpreted as a 2s complement unsigned number.
+-/
+theorem PackedFloat.toRatSig_le_toRatSig_of_le_of_isNorm_eq_isNorm
+  (he : 0 < e)
+  (hs : 0 < s)
+  (x y : PackedFloat e s)
+  (hx : x.isNormOrNonzeroSubnorm)
+  (hy : y.isNormOrNonzeroSubnorm)
+  (hxy : x.isNorm = y.isNorm)
+  (hle : x.sig ≤ y.sig) : x.toRatSig ≤ y.toRatSig := by
+  simp [PackedFloat.toRatSig]
+  rw [hxy]
+  by_cases hynorm : y.isNorm
+  · simp [hynorm]
+    sorry
+  · simp [hynorm]
+    have : x.sig.toNat ≤ y.sig.toNat :=  BitVec.le_def.mp hle
+    apply Rat.div_le_div_self .. |>.mpr
+    · norm_cast
+    · grind only [Rat.pow_pos]
+
+/--
+The heart of showing that the ordering by `toRat'`
+agrees with packed float ordering.
+-/
+theorem toExtRat'_le_toExtRat'_of_le_of_number
+    {e s : Nat}
+    (he : 0 < e)
+    (hs : 0 < s)
+    (x y : PackedFloat e s)
+    (hxzero : ¬x.isZero = true)
+    (hyzero : ¬y.isZero = true)
+    (hxnan : ¬x.isNaN = true)
+    (hynan : ¬y.isNaN = true)
+    -- (hxy : x ≤ y)
+    (hxinf : ¬x.isInfinite = true)
+    (hyinf : ¬y.isInfinite = true)
+    -- (hxsign : x.sign = false)
+    -- (hysign : y.sign = false)
+    (hxy' : x.ex.toNat < y.ex.toNat ∨ x.ex = y.ex ∧ x.sig.toNat ≤ y.sig.toNat)
+    : x.toRatSig * 2 ^ x.toRatExp ≤ y.toRatSig * 2 ^ y.toRatExp := by
+  by_cases hxsubnorm : x.isNonzeroSubnorm
+  · have hxexp := x.toRatExp_eq_of_not_isNorm (by grind)
+    have hxex := x.exp_eq_of_isNonzeroSubnorm
+    by_cases hysubnorm : y.isNonzeroSubnorm
+    · have hyexp := y.toRatExp_eq_of_not_isNorm (by grind)
+      have hyex := y.exp_eq_of_isNonzeroSubnorm
+      rw [hxexp, hyexp]
+      rw [Rat.mul_le_mul_cancel_right_of_lt]
+      simp [hxex, hyex] at hxy'
+
+      ·
+        sorry
+      · grind only [Fp.Rat.two_pow_pos]
+
+    · sorry
+
+  · sorry
+
 
 /--
 The packed float '≤' relationship captures ordering by `toRat'`.
@@ -722,12 +799,7 @@ theorem toExtRat'_le_toExtRat'_of_le (he : 0 < e) (hs : 0 < s)
           simp [hxsign, hysign] at hxy'
           rw [Rat.mul_assoc, Rat.mul_assoc]
           simp only [Rat.neg_one_mul_le_neg_one_mul_iff]
-          have := y.toRatSig_lt_two
-          have := x.toRatSig_lt_two
-          rcases hxy' with (hxy' | hxy')
-          · -- y.ex.toNat < x.ex.toNat
-            sorry
-          · sorry
+          apply toExtRat'_le_toExtRat'_of_le_of_number <;> grind only
         · -- x -ve, y +ve
           simp [hysign]
           simp [hxsign, hysign] at hxy'
@@ -753,9 +825,6 @@ theorem toExtRat'_le_toExtRat'_of_le (he : 0 < e) (hs : 0 < s)
           simp at hysign
           simp [hysign]
           simp [hxsign, hysign] at hxy'
-          -- hxy' : x.ex.toNat < y.ex.toNat ∨ x.ex = y.ex ∧ x.sig.toNat ≤ y.sig.toNat
-          -- ⊢ x.toRatSig * 2 ^ x.toRatExp ≤ y.toRatSig * 2 ^ y.toRatExp
-          sorry
-
+          apply toExtRat'_le_toExtRat'_of_le_of_number <;> grind only
 
 end PackedFloat
