@@ -614,6 +614,8 @@ theorem exp_eq_of_isNonzeroSubnorm {pf : PackedFloat e s}
   simp [isNonzeroSubnorm] at h
   simp [h]
 
+
+
 -- | does this also need a 'e != 0' condition?
 @[bv_normalize]
 def isNorm {e s} (pf : PackedFloat e s) : Bool :=
@@ -1902,6 +1904,41 @@ def toRatExp {e s} (pf : PackedFloat e s) : Int :=
     pf.ex.toNat - bias e
   else
     -(bias e - 1 : Nat)
+
+@[grind .]
+theorem zero_lt_ex_of_isNorm {e s} {pf : PackedFloat e s}
+  (hnorm : pf.isNorm) :
+    0#_ < pf.ex := by
+  simp [isNorm] at hnorm
+  rw [BitVec.lt_def]
+  simp
+  have : pf.ex.toNat = 0 ∨ 0 < pf.ex.toNat  := by grind
+  rcases this with (this | hpos)
+  · have : pf.ex.toNat ≠ 0 := by grind only [ex_ne_zero_if_isNorm, BitVec.eq_zero_iff_toNat_eq,
+    = BitVec.zero_eq]
+    grind only
+  · grind only
+
+/--
+If the packed floats have the same exponent bits,
+then the rational exponent they compute is equal.
+-/
+@[simp]
+theorem toRatExp_eq_of_ex_eq (x y : PackedFloat e s) (h : x.ex = y.ex) :
+  x.toRatExp = y.toRatExp := by
+  simp [toRatExp]
+  by_cases hnorm : x.isNorm
+  · simp [hnorm]
+    by_cases hnorm' : y.isNorm
+    · simp [hnorm']
+      simp [h]
+    · simp [hnorm']
+      simp [PackedFloat.isNorm] at hnorm hnorm'
+      grind only
+  · simp [hnorm]
+    intros hynorm
+    simp [PackedFloat.isNorm] at hnorm hynorm
+    grind only
 
 theorem toRatExp_eq_of_not_isNorm {e s} {pf : PackedFloat e s} (hnorm : ¬ pf.isNorm) :
   pf.toRatExp = -(bias e - 1 : Nat) := by

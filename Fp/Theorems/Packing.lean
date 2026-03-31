@@ -689,23 +689,31 @@ theorem Rat.div_le_div_self {a b c : Rat} (hc : 0 < c) :
   apply Rat.inv_pos .. |>.mpr
   grind
 
+@[simp]
+theorem Rat.add_le_iff_le {a b c : Rat} : a + c ≤ b + c ↔ a ≤ b := by
+  grind
+
+  @[simp]
+theorem Rat.add_le_iff_le' {a b c : Rat} : c + a ≤  c + b ↔ a ≤ b := by
+  grind
+
+
 /--
 the 'toRatSig' is in the same order as that of the 'sig'
 interpreted as a 2s complement unsigned number.
 -/
+@[simp]
 theorem PackedFloat.toRatSig_le_toRatSig_of_le_of_isNorm_eq_isNorm
-  (he : 0 < e)
-  (hs : 0 < s)
   (x y : PackedFloat e s)
-  (hx : x.isNormOrNonzeroSubnorm)
-  (hy : y.isNormOrNonzeroSubnorm)
   (hxy : x.isNorm = y.isNorm)
   (hle : x.sig ≤ y.sig) : x.toRatSig ≤ y.toRatSig := by
   simp [PackedFloat.toRatSig]
   rw [hxy]
   by_cases hynorm : y.isNorm
   · simp [hynorm]
-    sorry
+    rw [Rat.div_le_div_self]
+    · exact Rat.natCast_le_natCast.mpr hle
+    · grind only [Rat.pow_pos]
   · simp [hynorm]
     have : x.sig.toNat ≤ y.sig.toNat :=  BitVec.le_def.mp hle
     apply Rat.div_le_div_self .. |>.mpr
@@ -741,18 +749,29 @@ theorem toExtRat'_le_toExtRat'_of_le_of_number
       rw [hxexp, hyexp]
       rw [Rat.mul_le_mul_cancel_right_of_lt]
       simp [hxex, hyex] at hxy'
-
-      ·
-        sorry
+      · apply PackedFloat.toRatSig_le_toRatSig_of_le_of_isNorm_eq_isNorm
+        · grind
+        · exact BitVec.le_def.mpr hxy'
       · grind only [Fp.Rat.two_pow_pos]
-
-    · sorry
-
-  · sorry
+    · rw [hxex] at hxy'
+      simp at hxy'
+      rcases hxy' with (hle | ⟨heq, hle⟩)
+      · -- if the exp is lt, then we don't need to bound anymore?
+        sorry
+      · have : x.toRatExp = y.toRatExp := by sorry
+        rw [this]
+        rw [Rat.mul_le_mul_cancel_right_of_lt]
+        · -- toRatSig is le iff sig is le.
+          sorry
+        · grind
+  · -- x is normal.
+    sorry
 
 
 /--
 The packed float '≤' relationship captures ordering by `toRat'`.
+
+- TODO: peel part about toRat ≤ toRat
 -/
 @[simp]
 theorem toExtRat'_le_toExtRat'_of_le (he : 0 < e) (hs : 0 < s)
@@ -826,5 +845,17 @@ theorem toExtRat'_le_toExtRat'_of_le (he : 0 < e) (hs : 0 < s)
           simp [hysign]
           simp [hxsign, hysign] at hxy'
           apply toExtRat'_le_toExtRat'_of_le_of_number <;> grind only
+
+
+/-
+This shows that the packed floats packed floats are always at least a distance
+of 2^-e. This gives us the discreteness of the ordering
+that lets us define 'lower' and 'upper',
+and show that 'lower' and 'upper' are always some distance apart.
+-/
+theorem toRat_le_plus_toRat_of_toRat_le_toRat (he : 0 < e) (hs : 0 < s)
+    (x y : PackedFloat e s)
+    (hxzero : ¬ x.isZero) (hyzero : ¬ y.isZero) (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN)
+    (hle : x.toRat ≤ y.toRat) : x.toRat ≤ (2 : Rat)^(-(e : Int)) + y.toRat := by sorry
 
 end PackedFloat
