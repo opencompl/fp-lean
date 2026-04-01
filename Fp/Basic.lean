@@ -1917,6 +1917,78 @@ theorem lt_twoRatSig_of_sig_ne_zero (pf : PackedFloat e s)
         = BitVec.getLsbD_eq_getElem, #4929]
     · grind only [Rat.pow_pos]
 
+/-- info: Rat.add_le_add_left {a b c : Rat} : c + a ≤ c + b ↔ a ≤ b -/
+#guard_msgs in #check Rat.add_le_add_left
+
+@[simp]
+theorem Rat.add_lt_add_left {a b c : Rat} : c + a < c + b ↔ a < b := by
+  grind
+
+@[simp]
+theorem Rat.div_add_eq_div_add_div (a b c : Rat) : a / c + b / c = (a + b) / c := by
+  grind
+
+@[simp]
+theorem Rat.div_lt_cancel {a b c : Rat} (hc : 0 < c) : a / c < b / c ↔ a < b := by
+  rw [Rat.div_def, Rat.div_def]
+  constructor
+  · intros hlt
+    rw [Rat.mul_lt_mul_right ] at hlt
+    · grind only
+    · grind only [= Rat.inv_pos]
+  · intros hlt
+    rw [Rat.mul_lt_mul_right]
+    · grind only
+    · grind only [= Rat.inv_pos]
+
+@[simp]
+theorem Rat.div_le_cancel {a b c : Rat} (hc : 0 < c) : a / c ≤ b / c ↔ a ≤ b := by
+  rw [Rat.div_def, Rat.div_def]
+  constructor
+  · intros hle
+    rw [Rat.mul_le_mul_cancel_right_of_lt] at hle
+    · grind only
+    · grind only [= Rat.inv_pos]
+  · intros hle
+    rw [Rat.mul_le_mul_cancel_right_of_lt]
+    · grind only
+    · grind only [= Rat.inv_pos]
+
+
+/--
+If we have two floating point numbers
+whose significands are ordered, and whose normality is the same,
+then their `toRatSig` are ordered in the same way, up to a gap of `1/2^s`.
+This gives us the 'gap' between floating point numbers.
+-/
+theorem toRatSig_add_one_div_two_pow_lt_toRatSig_of_lt_of_eq_isNorm
+    (x y : PackedFloat e s)
+    (hnorm : x.isNorm = y.isNorm)
+    (hsig : x.sig < y.sig) :
+    x.toRatSig + (1 : Rat) / 2^s ≤ y.toRatSig := by
+  rw [PackedFloat.toRatSig, PackedFloat.toRatSig]
+  by_cases hnorm : x.isNorm
+  · by_cases hnorm' : y.isNorm
+    · simp [hnorm, hnorm']
+      rw [Rat.add_assoc]
+      simp only [Rat.div_add_eq_div_add_div, Rat.add_le_iff_le']
+      rw [Rat.div_le_cancel]
+      · suffices x.sig.toNat < y.sig.toNat from by
+          norm_cast
+        rw [← BitVec.lt_def]
+        simp [hsig]
+      · grind only [Rat.pow_pos]
+    · grind only
+  · by_cases hnorm' : y.isNorm
+    · grind only
+    · simp [hnorm, hnorm']
+      rw [Rat.div_le_cancel]
+      · suffices x.sig.toNat < y.sig.toNat from by
+          norm_cast
+        rw [← BitVec.lt_def]
+        simp [hsig]
+      · grind
+
 @[grind .]
 theorem one_le_toRatSig_of_isNorm {e s} (pf : PackedFloat e s) (hnorm : pf.isNorm) :
   1 ≤ pf.toRatSig := by
