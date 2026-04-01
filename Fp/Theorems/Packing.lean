@@ -673,31 +673,6 @@ theorem PackedFloat.toRatExp_lt_toRatExp_of_lt_of_isNorm (a b : PackedFloat e s)
   rw [← BitVec.lt_def]
   apply hle
 
-theorem Rat.mul_le_mul_cancel_right_of_lt {a b c : Rat} (hc : 0 < c) :
-    a * c ≤ b * c ↔ a ≤ b := by
-  constructor
-  · intros h
-    exact Rat.le_of_mul_le_mul_right h hc
-  · intros h
-    apply Rat.mul_le_mul_of_nonneg_right h <;> grind
-
-
-theorem Rat.div_le_div_self {a b c : Rat} (hc : 0 < c) :
-    a / c ≤ b / c ↔ a ≤ b := by
-  rw [Rat.div_def, Rat.div_def]
-  apply Rat.mul_le_mul_cancel_right_of_lt
-  apply Rat.inv_pos .. |>.mpr
-  grind
-
-@[simp]
-theorem Rat.add_le_iff_le {a b c : Rat} : a + c ≤ b + c ↔ a ≤ b := by
-  grind
-
-  @[simp]
-theorem Rat.add_le_iff_le' {a b c : Rat} : c + a ≤  c + b ↔ a ≤ b := by
-  grind
-
-
 /--
 the 'toRatSig' is in the same order as that of the 'sig'
 interpreted as a 2s complement unsigned number.
@@ -757,6 +732,7 @@ theorem toExtRat'_le_toExtRat'_of_le_of_number
       simp at hxy'
       rcases hxy' with (hle | ⟨heq, hle⟩)
       · -- if the exp is lt, then we don't need to bound anymore?
+
         sorry
       · have : x.toRatExp = y.toRatExp := by sorry
         rw [this]

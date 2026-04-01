@@ -616,6 +616,8 @@ theorem exp_eq_of_isNonzeroSubnorm {pf : PackedFloat e s}
 
 
 
+-- See that this means that it is a number.
+-- We need a different one to say that it is nonzero.
 -- | does this also need a 'e != 0' condition?
 @[bv_normalize]
 def isNorm {e s} (pf : PackedFloat e s) : Bool :=
@@ -631,6 +633,26 @@ theorem ex_ne_zero_if_isNorm {pf : PackedFloat e s} (h : pf.isNorm := by solve |
 def isNormOrNonzeroSubnorm (pf : PackedFloat e s) : Bool :=
   pf.ex != .allOnes e && (pf.ex != .zero e || pf.sig != .zero s)
   -- e != 0 && pf.ex != BitVec.allOnes e
+@[simp]
+theorem sig_ne_zero_of_isNormOrNonzeroSubnorm_of_isNorm
+    (pf : PackedFloat e s)
+    (hnorm : pf.isNorm)
+    (hsubnorm : ¬ pf.isNormOrNonzeroSubnorm) :
+    pf.sig ≠ 0#s := by
+  simp [isNorm] at hnorm
+  simp [isNormOrNonzeroSubnorm] at hsubnorm
+  grind
+
+@[simp]
+theorem ex_ne_zero_of_isNormOrNonzeroSubnorm_of_isNorm
+    (pf : PackedFloat e s)
+    (hnorm : pf.isNorm)
+    (hsubnorm : ¬ pf.isNormOrNonzeroSubnorm) :
+    pf.ex ≠ 0#e := by
+  simp [isNorm] at hnorm
+  simp [isNormOrNonzeroSubnorm] at hsubnorm
+  grind
+
 
 @[simp, bv_normalize]
 def isZeroOrSubnorm (pf : PackedFloat e s) : Bool :=
@@ -1834,6 +1856,66 @@ def toRatSig {e s} (pf : PackedFloat e s) : Rat :=
   else
     0 + pf.sig.toNat / 2 ^ s
 
+@[simp]
+theorem Rat.one_lt_two_pow_iff (x : Nat) : 1 < (2 : Rat) ^ x ↔ 1 ≤ x := by
+  constructor
+  · intros hlt
+    have : x = 0 ∨ 1 ≤ x := by grind
+    rcases this with rfl | this
+    · grind
+    · grind
+  · intros hlt
+    norm_cast
+    have : ∃ y, x = y + 1 := by exact Nat.exists_eq_add_one.mpr hlt
+    obtain ⟨y, hy⟩ := this
+    subst hy
+    simp
+
+
+-- theorem Rat.one_lt_two_zpow_iff (x : Int) : 1 < (2 : Rat) ^ x ↔ 1 ≤ x := by
+--   constructor
+--   · intros hlt
+--     simp only [show (1 : Rat) = 2 ^ 0 by sorry] at hlt
+--     have : 0 < x := by
+--       sorry
+--     sorry
+--   · intros hlt
+--     norm_cast
+--     have : ∃ (y : Nat), x = (y : Int) := by
+--       refine Int.eq_ofNat_of_zero_le ?_
+--       grind
+--     obtain ⟨y, hy⟩ := this
+--     subst hy
+--     simp
+--     grind only
+
+
+
+
+/--
+`1/2^s` is a lower bound on 'toRatSig` when it's nonzero.
+-/
+theorem lt_twoRatSig_of_sig_ne_zero (pf : PackedFloat e s)
+    (hsig : pf.sig ≠ 0#_) :
+    (1 : Rat) / 2^s ≤  pf.toRatSig := by
+  rw [PackedFloat.toRatSig]
+  by_cases hnorm : pf.isNorm
+  · simp [hnorm]
+    apply Rat.le_add_of_le_of_nonneg
+    · norm_cast
+      apply Rat.div_le_self_of_nonneg_of_one_le
+      · grind
+      · grind
+    · grind only [Fp.Rat.div_nonneg, Rat.pow_nonneg]
+  · simp [hnorm]
+    rw [Rat.div_le_div_self]
+    · apply Classical.byContradiction
+      intros hcontra
+      simp at hcontra
+      norm_cast at hcontra
+      grind only [= BitVec.ofNat_toNat, = BitVec.getElem_zero, = BitVec.getElem_setWidth,
+        = BitVec.getLsbD_eq_getElem, #4929]
+    · grind only [Rat.pow_pos]
 
 @[grind .]
 theorem one_le_toRatSig_of_isNorm {e s} (pf : PackedFloat e s) (hnorm : pf.isNorm) :
