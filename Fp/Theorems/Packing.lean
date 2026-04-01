@@ -696,6 +696,63 @@ theorem PackedFloat.toRatSig_le_toRatSig_of_le_of_isNorm_eq_isNorm
     · grind only [Rat.pow_pos]
 
 /--
+The exponent of a subnormal number is always less than or equal to the exponent of a normal number.
+-/
+@[simp, grind .]
+theorem PackedFloat.ex_le_ex_of_isNonzeroSubnorm_of_not_isNorm (x y : PackedFloat e s)
+    (hxnorm : x.isNonzeroSubnorm)
+    (hynorm : y.isNorm) : x.ex ≤ y.ex := by
+  have hxexp := x.exp_eq_of_isNonzeroSubnorm
+  have := y.ex_ne_zero_if_isNorm
+  simp at this
+  have : x.ex.toNat = 0 := by grind only [= BitVec.toNat_zero]
+  have : y.ex.toNat ≠ 0 := by grind only [BitVec.toNat_inj]
+  rw [BitVec.le_def]
+  grind
+
+@[grind .]
+theorem PackedFloat.isNorm_of_not_isNaN_of_not_isInfinity_of_not_isZero_isNonzeroSubnorm (x : PackedFloat e s)
+    (hxnan : ¬ x.isNaN)
+    (hxinf : ¬ x.isInfinite)
+    (hxero : ¬ x.isZero)
+    (hxsubnorm : ¬ x.isNonzeroSubnorm) : x.isNorm := by
+  grind only [= isZero_iff_toRat_eq_zero_of_isNormOrNonzeroSubnorm,
+    = isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero,
+    isNormOrSubnorm_eq_isNorm_or_isSubnorm]
+
+/--
+The interpretation of the exponent of a subnormal number is always less than or equal to the exponent of a normal number.
+-/
+@[simp, grind .]
+theorem PackedFloat.toRatExp_le_toRatExp_of_isNonzeroSubnorm_of_not_isNorm (x y : PackedFloat e s)
+    (hxnorm : ¬ x.isNorm)
+    (hynorm : y.isNorm) : x.toRatExp ≤ y.toRatExp := by
+  simp [PackedFloat.toRatExp]
+  have hxexp := x.toRatExp_eq_of_not_isNorm (by grind only)
+  simp [show ¬ x.isNorm by grind]
+  simp [show y.isNorm by grind]
+  have hyexp := y.toRatExp_eq_of_isNorm (by grind only)
+  by_cases hbias : bias e = 0
+  · simp [hbias]
+  · rw [Int.natCast_sub (by grind only)]
+    norm_cast
+    rw [Int.neg_sub]
+    simp only [Int.sub_le_sub_right_iff, ge_iff_le]
+    have := y.ex_ne_zero_if_isNorm -- TODO: rephrase to be in terms of simp-nf
+    simp at this
+    apply Classical.byContradiction
+    intros hcontra
+    simp at hcontra
+    have yzero : y.ex.toNat = 0 := by grind only
+    have yzero' : y.ex = 0 := by
+      rw [← BitVec.toNat_inj]
+      simp [yzero]
+    grind only
+
+
+
+
+/--
 The heart of showing that the ordering by `toRat'`
 agrees with packed float ordering.
 -/
@@ -716,10 +773,12 @@ theorem toExtRat'_le_toExtRat'_of_le_of_number
     (hxy' : x.ex.toNat < y.ex.toNat ∨ x.ex = y.ex ∧ x.sig.toNat ≤ y.sig.toNat)
     : x.toRatSig * 2 ^ x.toRatExp ≤ y.toRatSig * 2 ^ y.toRatExp := by
   by_cases hxsubnorm : x.isNonzeroSubnorm
-  · have hxexp := x.toRatExp_eq_of_not_isNorm (by grind)
+  · -- x subnorm
+    have hxexp := x.toRatExp_eq_of_not_isNorm (by grind)
     have hxex := x.exp_eq_of_isNonzeroSubnorm
     by_cases hysubnorm : y.isNonzeroSubnorm
-    · have hyexp := y.toRatExp_eq_of_not_isNorm (by grind)
+    · -- x subnorm, y subnorm.
+      have hyexp := y.toRatExp_eq_of_not_isNorm (by grind)
       have hyex := y.exp_eq_of_isNonzeroSubnorm
       rw [hxexp, hyexp]
       rw [Rat.mul_le_mul_cancel_right_of_lt]
@@ -728,19 +787,24 @@ theorem toExtRat'_le_toExtRat'_of_le_of_number
         · grind
         · exact BitVec.le_def.mpr hxy'
       · grind only [Fp.Rat.two_pow_pos]
-    · rw [hxex] at hxy'
-      simp at hxy'
-      rcases hxy' with (hle | ⟨heq, hle⟩)
-      · -- if the exp is lt, then we don't need to bound anymore?
-
-        sorry
-      · have : x.toRatExp = y.toRatExp := by sorry
-        rw [this]
-        rw [Rat.mul_le_mul_cancel_right_of_lt]
-        · -- toRatSig is le iff sig is le.
-          sorry
-        · grind
-  · -- x is normal.
+    · -- x subnorm, y norm.
+      -- compare exponents and show that one is dominated by the other.
+      have hexpLe : x.toRatExp ≤ y.toRatExp := by
+        apply PackedFloat.toRatExp_le_toRatExp_of_isNonzeroSubnorm_of_not_isNorm
+        · grind only [→ not_isNorm_of_isSubnorm]
+        · grind only [PackedFloat.isNorm_of_not_isNaN_of_not_isInfinity_of_not_isZero_isNonzeroSubnorm]
+      have : (2 : Rat) ^ x.toRatExp ≤ 2 ^ y.toRatExp := by
+        grind only [Rat.two_pow_le_two_pow_of_le]
+      apply Rat.mul_le_mul_of_le_of_le_of_nonneg_of_nonneg
+      · apply Rat.le_trans (b := 1)
+        · grind only [Rat.le_of_lt, → not_isNorm_of_isSubnorm, toRatSig_lt_one_of_not_isNorm]
+        · grind only [= isZero_iff_toRat_eq_zero_of_isNormOrNonzeroSubnorm,
+          one_le_toRatSig_of_isNorm, = isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero,
+          isNormOrSubnorm_eq_isNorm_or_isSubnorm]
+      · grind only
+      · grind only [zero_le_twoNumberRatSig]
+      · grind only [Rat.le_of_lt, Fp.Rat.two_pow_pos]
+  · -- x norml.
     sorry
 
 
@@ -829,8 +893,10 @@ of 2^-e. This gives us the discreteness of the ordering
 that lets us define 'lower' and 'upper',
 and show that 'lower' and 'upper' are always some distance apart.
 -/
-theorem toRat_le_plus_toRat_of_toRat_le_toRat (he : 0 < e) (hs : 0 < s)
+theorem toRat_le_plus_toRat_of_toRat_le_toRat_of_sign_eq_false (he : 0 < e) (hs : 0 < s)
     (x y : PackedFloat e s)
+    (hxsign : x.sign = false)
+    (hysign : y.sign = false)
     (hxzero : ¬ x.isZero)
     (hyzero : ¬ y.isZero)
     (hxnan : ¬ x.isNaN)
@@ -841,10 +907,16 @@ theorem toRat_le_plus_toRat_of_toRat_le_toRat (he : 0 < e) (hs : 0 < s)
     x.toRat ≤ (2 : Rat)^(-(s : Int)) + y.toRat := by
   by_cases hx : x.isNorm
   · -- x norm
-    sorry
+    by_cases hy : y.isNorm
+    · sorry
+    · -- x norm, y subnorm, x ≤ y:  This is impossible when restricted to nonnegative numbers.
+      sorry
   · -- x subnormal
     have : x.isNonzeroSubnorm := by grind
-
-    sorry
+    by_cases hy : y.isNorm
+    · -- x subnorm, y norm, x ≤ y: This is impossible when restricted to nonnegative numbers.
+      sorry
+    · -- x subnorm, y subnorm, x ≤ y: This will be possible by the analysis.
+     sorry
 
 end PackedFloat

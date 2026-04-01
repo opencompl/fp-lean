@@ -2045,6 +2045,7 @@ theorem toRatSig_eq_of_not_isNorm {e s} {pf : PackedFloat e s} (hnorm : ¬ pf.is
   pf.toRatSig = pf.sig.toNat / 2 ^ s := by
   simp [toRatSig, hnorm]
 
+@[grind ., simp]
 theorem toRatSig_lt_one_of_not_isNorm {e s} (pf : PackedFloat e s) (hnorm : ¬ pf.isNorm) :
   pf.toRatSig < 1 := by
   simp [toRatSig, hnorm]
@@ -2055,6 +2056,7 @@ theorem toRatSig_lt_one_of_not_isNorm {e s} (pf : PackedFloat e s) (hnorm : ¬ p
     norm_cast
   · grind => instantiate only [Rat.pow_pos]
 
+@[simp]
 theorem toRatSig_lt_two_of_not_isNorm {e s} (pf : PackedFloat e s) (hnorm : pf.isNorm):
   pf.toRatSig < 2 := by
   simp [toRatSig, hnorm]
@@ -2072,7 +2074,7 @@ theorem toRatSig_lt_ite {e s} (pf : PackedFloat e s) :
   pf.toRatSig < 1 + pf.isNorm.toNat := by
   by_cases hnorm : pf.isNorm
   · simp [hnorm]; grind [toRatSig_lt_two_of_not_isNorm pf hnorm]
-  · simp [hnorm]; grind [toRatSig_lt_one_of_not_isNorm pf hnorm]
+  · simp [hnorm];
 
 @[grind .]
 theorem toRatSig_lt_two {e s} (pf : PackedFloat e s) :

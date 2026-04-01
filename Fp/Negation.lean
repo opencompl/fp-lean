@@ -21,8 +21,16 @@ def EUnpackedFloat.abs (x : EUnpackedFloat (exponentWidth e s) (s + 1))
 
 namespace PackedFloat
 
-@[bv_normalize]
+/--
+Raw negation directly on the packedFloat representation.
+This is not intended for general use,
+but it is useful for proving theorems about negation and for defining the `Neg` instance.
+-/
 def neg (x : PackedFloat e s) : PackedFloat e s :=
+  { x with sign := !x.sign }
+
+@[bv_normalize]
+def negByUnpacking (x : PackedFloat e s) : PackedFloat e s :=
   -- At first glance, unpacking a float just to modify its sign might look like
   -- unnecessary work; after all, you *can* toggle the sign bit directly on the
   -- packed representation. And if this operation lived in isolation, that would
@@ -40,6 +48,8 @@ def neg (x : PackedFloat e s) : PackedFloat e s :=
   --
   -- TODO: is there a way to hint this optimization strategy to the compiler?
   x.unpack.neg.pack
+
+-- TODO: prove that negByUnpacking.toExtRat = neg.toExtRat.
 
 instance : Neg (PackedFloat e s) where
   neg := .neg

@@ -296,6 +296,8 @@ theorem unpackNum_mul_unpackNum_toRat_eq_mul_toRat
   · grind
   · simp [exponentWidth]
 
+set_option trace.Meta.Tactic.simp.all true
+set_option diagnostics true
 /--
 Example theorem we will prove, using our proof strategy of proving against the SMT-Lib semantics.
 -/
@@ -396,13 +398,13 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
       have : ¬ a.isZero := by grind
       simp [this]
       have : ¬ b.isZero := by grind
-      simp [this]
       apply EquivUptoNaN.of_eq
+      simp [this, -BitVec.toNat, -PackedFloat.eq_getInfinity_of_getInfinity_le, - ExtRat.ExtRat.eq_of_le_of_le]
       rw [SmtLibSemantics_round_eq_pack_UnpackedFloat_round (r := a.toRat * b.toRat)]
       · apply msb_mul_eq_true_of_msb_eq_true
         · exact PackedFloat.msb_unpackNum_eq_true ha
         · exact PackedFloat.msb_unpackNum_eq_true hb
-      · simp
+      · simp [this]
       · apply unpackNum_mul_unpackNum_toRat_eq_mul_toRat
         · grind
         · grind
