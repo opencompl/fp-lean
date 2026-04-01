@@ -1743,6 +1743,65 @@ def bias (e : Nat) : Nat :=
   2 ^ (e - 1) - 1
 
 @[simp]
+theorem bias_zero_eq : bias 0 = 0 := rfl
+@[simp]
+theorem bias_one_eq : bias 1 = 0 := rfl
+@[simp]
+theorem bias_two_eq : bias 2 = 1 := rfl
+
+@[simp]
+theorem bias_pos_of_one_lt (e : Nat) (he : 1 < e) : 0 < bias e := by
+  simp [bias]
+  rcases e with rfl | e
+  · grind only
+  · simp; grind
+
+/-- Bias is weakly monotone with respect to its argument. -/
+@[simp]
+theorem bias_le_of_le {e1 e2 : Nat} (he : e1 ≤ e2) : bias e1 ≤ bias e2 := by
+  simp [bias]
+  have : 0 < 2 ^ (e2 - 1) := by grind only [!Nat.two_pow_pos]
+  suffices 2 ^ (e1 - 1) ≤ 2 ^ (e2 - 1) by grind only
+  apply Nat.pow_le_pow_of_le (by decide)
+  · grind only [#2ce3]
+
+/-- Bias is strictly monotone for exponents over 0. -/
+@[simp]
+theorem bias_lt_of_lt {e1 e2 : Nat} (he' : 0 < e1) (he : e1 < e2) : bias e1 < bias e2 := by
+  simp [bias]
+  have : 0 < 2 ^ (e2 - 1) := by grind only [!Nat.two_pow_pos]
+  have : 0 < 2 ^ (e1 - 1) := by grind only [!Nat.two_pow_pos]
+  suffices 2 ^ (e1 - 1) < 2 ^ (e2 - 1) by grind only
+  apply Nat.pow_lt_pow_of_lt (by decide)
+  grind only
+
+/--
+The biases are equal if either the exponents are equal and at least 2,
+or if both exponents are at most 1, in which case the bias is 0.
+-/
+@[simp]
+theorem bias_eq_bias_iff {e1 e2 : Nat}  :
+    bias e1 = bias e2 ↔ ((e1 = e2 ∧ e1 ≥ 2) ∨ (e1 ≤ 1 ∧ e2 ≤ 1)) := by
+  simp [bias]
+  have : 0 < 2 ^ (e2 - 1) := by grind only [!Nat.two_pow_pos]
+  have : 0 < 2 ^ (e1 - 1) := by grind only [!Nat.two_pow_pos]
+  by_cases he1 : e1 ≤ 1 <;> by_cases he2 : e2 ≤ 1
+  · simp [he1, he2]
+  · simp [he1, he2]
+    grind => instantiate approx
+  · simp [he1, he2]
+    grind =>
+      instantiate approx
+      cases #70e3
+  · simp [he1, he2]
+    constructor
+    · intros heq
+      have : 2 ^ (e1 - 1) = 2 ^ (e2 - 1) := by grind only
+      have : e1 - 1 = e2 - 1 := by grind only [Nat.pow_right_inj]
+      grind only
+    · grind only
+
+@[simp]
 theorem toSign_xor_eq_toSign_mul_toSign (a b : Bool) :
   (a ^^ b).toSign = a.toSign * b.toSign := by grind [Bool.toSign]
 
@@ -2090,6 +2149,56 @@ def toRatExp {e s} (pf : PackedFloat e s) : Int :=
   else
     -(bias e - 1 : Nat)
 
+/--
+Amongst packed floats
+the rational exponent is monotone in the exponent if the numbers are
+both normal or both subnormal.
+-/
+theorem toRatExp_le_toRatExp_of_ex_le_ex_of_isNorm (x y : PackedFloat e s)
+  (hle : x.ex ≤ y.ex) (hnorm : x.isNorm = y.isNorm) :
+  x.toRatExp ≤ y.toRatExp := by
+  rw [toRatExp, toRatExp]
+  by_cases hnorm : x.isNorm
+  · simp [hnorm]
+    have : x.ex.toNat ≤ y.ex.toNat := by grind only [BitVec.le_def]
+    grind only
+  · simp [hnorm, show ¬ y.isNorm by grind only]
+
+/--
+Amongst packed floatswith the same normality, the rational exponent is strictly monotone in the exponent.
+-/
+theorem toRatExp_lt_toRatExp_of_ex_lt_ex_of_isNorm (x y : PackedFloat e s)
+  (hle : x.ex < y.ex) (hnorm : x.isNorm = y.isNorm) (hx : x.isNormOrNonzeroSubnorm) (hy : y.isNormOrNonzeroSubnorm):
+  x.toRatExp < y.toRatExp := by
+  rw [toRatExp, toRatExp]
+  by_cases hnorm : x.isNorm
+  · simp [hnorm]
+    have : x.ex.toNat < y.ex.toNat := by grind only [BitVec.lt_def]
+    grind only
+  · have := x.exp_eq_of_isNonzeroSubnorm
+    simp [this] at hle
+    have := y.exp_eq_of_isNonzeroSubnorm
+    simp [this] at hle
+
+theorem toRatExp_le_toRatExp (x y : PackedFloat e s)
+  (hle : x.ex ≤ y.ex) :
+  x.toRatExp ≤ y.toRatExp := by
+  rw [toRatExp, toRatExp]
+  by_cases hnorm : x.isNorm
+  · simp [hnorm]
+    by_cases hnorm' : y.isNorm
+    · simp [hnorm']
+      have : x.ex.toNat ≤ y.ex.toNat := by grind only [BitVec.le_def]
+      grind only
+    · simp [hnorm']
+      simp [PackedFloat.isNorm] at hnorm hnorm'
+      have := bias_le
+      grind only
+  · simp [hnorm]
+    by_cases hnorm' : y.isNorm
+    · simp [hnorm']
+      simp [PackedFloat.isNorm] at hnorm hnorm'
+
 @[grind .]
 theorem zero_lt_ex_of_isNorm {e s} {pf : PackedFloat e s}
   (hnorm : pf.isNorm) :
@@ -2109,7 +2218,7 @@ If the packed floats have the same exponent bits,
 then the rational exponent they compute is equal.
 -/
 @[simp]
-theorem toRatExp_eq_of_ex_eq {x y : PackedFloat e s} (h : x.ex = y.ex) :
+theorem toRatExp_eq_of_ex_eq (x y : PackedFloat e s) (h : x.ex = y.ex) :
   x.toRatExp = y.toRatExp := by
   simp [toRatExp]
   by_cases hnorm : x.isNorm

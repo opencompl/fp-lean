@@ -836,6 +836,8 @@ theorem toExtRat'_le_toExtRat'_of_le_of_number
           · apply Rat.mul_le_mul_of_le_of_le_of_nonneg_of_nonneg
             · grind only
             · apply Rat.two_pow_le_two_pow_of_le
+              suffices x.toRatExp < y.toRatExp from by grind only
+
               sorry
               -- apply PackedFloat.toRatExp_le_toRatExp_of_le
             · grind only [zero_le_twoNumberRatSig]
