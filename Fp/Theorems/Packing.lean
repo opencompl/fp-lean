@@ -751,6 +751,8 @@ theorem PackedFloat.toRatExp_le_toRatExp_of_isNonzeroSubnorm_of_not_isNorm (x y 
 
 
 
+theorem Rat.zpow_succ {q : Rat} (hq : q ≠ 0) {a : Int} : q ^ (a + 1) = q ^ a * q := by
+  exact Rat.zpow_add_one hq a
 
 /--
 The heart of showing that the ordering by `toRat'`
@@ -805,12 +807,44 @@ theorem toExtRat'_le_toExtRat'_of_le_of_number
       · grind only [zero_le_twoNumberRatSig]
       · grind only [Rat.le_of_lt, Fp.Rat.two_pow_pos]
   · -- x norml.
-    sorry
-
+    by_cases hysubnorm : y.isNonzeroSubnorm
+    · -- x normal, y subnormale, x ≤ y. impossible, since x is normal and x ≤ y.
+      sorry
+    · -- x normal, y normal, x ≤ y
+      rcases hxy' with (hlexp | hleSig)
+      · -- x.exp < y.exp,
+        have := x.toRatSig_lt_two
+        have := x.one_le_toRatSig_of_isNorm (by grind)
+        have := y.toRatSig_lt_two
+        have := y.one_le_toRatSig_of_isNorm (by grind)
+        apply Rat.le_trans (b := 2 * ((2 : Rat) ^ x.toRatExp))
+        · apply Rat.mul_le_mul_of_le_of_le_of_nonneg_of_nonneg
+          · grind only
+          · grind only
+          · grind only
+          · grind only [Fp.Rat.two_pow_pos]
+        · rw [show y.toRatExp = (y.toRatExp - 1) + 1 by grind only]
+          rw [Rat.zpow_succ (by grind only)]
+          apply Rat.le_trans (b := (y.toRatSig * 2)* 2 ^ (y.toRatExp - 1))
+          · apply Rat.mul_le_mul_of_le_of_le_of_nonneg_of_nonneg
+            · grind only
+            · apply Rat.two_pow_le_two_pow_of_le
+              sorry
+              -- apply PackedFloat.toRatExp_le_toRatExp_of_le
+            · grind only [zero_le_twoNumberRatSig]
+            · grind only [Rat.le_of_lt, Fp.Rat.two_pow_pos]
+          · grind only
+      · -- x.exp = y.exp
+        obtain ⟨hexpEq, hsigLe⟩ := hleSig
+        rw [x.toRatExp_eq_of_ex_eq (h := hexpEq)]
+        apply Rat.mul_le_mul_cancel_right_of_lt .. |>.mpr
+        · apply PackedFloat.toRatSig_le_toRatSig_of_le_of_isNorm_eq_isNorm
+          · grind only [PackedFloat.isNorm_of_not_isNaN_of_not_isInfinity_of_not_isZero_isNonzeroSubnorm]
+          · rw [BitVec.le_def]; grind only
+        · grind only [Fp.Rat.two_pow_pos]
 
 /--
 The packed float '≤' relationship captures ordering by `toRat'`.
-
 - TODO: peel part about toRat ≤ toRat
 -/
 @[simp]

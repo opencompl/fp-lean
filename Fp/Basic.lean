@@ -2109,7 +2109,7 @@ If the packed floats have the same exponent bits,
 then the rational exponent they compute is equal.
 -/
 @[simp]
-theorem toRatExp_eq_of_ex_eq (x y : PackedFloat e s) (h : x.ex = y.ex) :
+theorem toRatExp_eq_of_ex_eq {x y : PackedFloat e s} (h : x.ex = y.ex) :
   x.toRatExp = y.toRatExp := by
   simp [toRatExp]
   by_cases hnorm : x.isNorm
