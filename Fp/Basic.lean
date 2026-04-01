@@ -1961,7 +1961,7 @@ whose significands are ordered, and whose normality is the same,
 then their `toRatSig` are ordered in the same way, up to a gap of `1/2^s`.
 This gives us the 'gap' between floating point numbers.
 -/
-theorem toRatSig_add_one_div_two_pow_lt_toRatSig_of_lt_of_eq_isNorm
+theorem toRatSig_add_one_div_two_pow_lt_toRatSig_of_lt_of_isNorm_eq_isNorm
     (x y : PackedFloat e s)
     (hnorm : x.isNorm = y.isNorm)
     (hsig : x.sig < y.sig) :
@@ -1969,7 +1969,7 @@ theorem toRatSig_add_one_div_two_pow_lt_toRatSig_of_lt_of_eq_isNorm
   rw [PackedFloat.toRatSig, PackedFloat.toRatSig]
   by_cases hnorm : x.isNorm
   · by_cases hnorm' : y.isNorm
-    · simp [hnorm, hnorm']
+    · simp only [hnorm, ↓reduceIte, hnorm']
       rw [Rat.add_assoc]
       simp only [Rat.div_add_eq_div_add_div, Rat.add_le_iff_le']
       rw [Rat.div_le_cancel]
@@ -1988,6 +1988,35 @@ theorem toRatSig_add_one_div_two_pow_lt_toRatSig_of_lt_of_eq_isNorm
         rw [← BitVec.lt_def]
         simp [hsig]
       · grind
+
+theorem Rat.add_div_eq_add_div' (a b d : Rat)(hd : d ≠ 0) :
+  a + b / d = (a * d + b) / d := by
+  grind
+
+/--
+A subnormal number's signifiand interpretation is
+smaller than a normal number's, by the same gap of `1/2^s`.
+-/
+theorem toRatSig_add_one_div_two_pow_lt_toRatSig_of_eq_isNorm_of_not_eq_isNorm
+    (x y : PackedFloat e s)
+    (hxnorm : x.isNonzeroSubnorm)
+    (hynorm : y.isNorm)
+    (hsig : x.sig < y.sig) :
+    x.toRatSig + (1 : Rat) / 2^s ≤ y.toRatSig := by
+  rw [PackedFloat.toRatSig, PackedFloat.toRatSig]
+  simp only [show x.isNorm = false by grind, Bool.false_eq_true, ↓reduceIte, Rat.zero_add,
+    Rat.div_add_eq_div_add_div, hynorm]
+  rw [Rat.add_div_eq_add_div']
+  · rw [Rat.div_le_cancel]
+    · norm_cast
+      simp only [Nat.one_mul]
+      have : 1 ≤ 2^s := by grind
+      have : x.sig.toNat < y.sig.toNat := by
+        rw [← BitVec.lt_def]
+        simp [hsig]
+      grind only
+    · grind only [Rat.pow_pos]
+  · grind only [Rat.two_pow_nat_ne_zero]
 
 @[grind .]
 theorem one_le_toRatSig_of_isNorm {e s} (pf : PackedFloat e s) (hnorm : pf.isNorm) :
