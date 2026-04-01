@@ -809,7 +809,14 @@ theorem toExtRat'_le_toExtRat'_of_le_of_number
   · -- x norml.
     by_cases hysubnorm : y.isNonzeroSubnorm
     · -- x normal, y subnormale, x ≤ y. impossible, since x is normal and x ≤ y.
-      sorry
+      have := y.exp_eq_of_isNonzeroSubnorm
+      rw [this] at hxy'
+      simp at hxy'
+      have : x.ex ≠ 0#e := by
+        have := x.ex_ne_zero_if_isNorm
+        simp at this
+        grind only
+      grind only
     · -- x normal, y normal, x ≤ y
       rcases hxy' with (hlexp | hleSig)
       · -- x.exp < y.exp,
