@@ -831,7 +831,20 @@ and show that 'lower' and 'upper' are always some distance apart.
 -/
 theorem toRat_le_plus_toRat_of_toRat_le_toRat (he : 0 < e) (hs : 0 < s)
     (x y : PackedFloat e s)
-    (hxzero : ¬ x.isZero) (hyzero : ¬ y.isZero) (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN)
-    (hle : x.toRat ≤ y.toRat) : x.toRat ≤ (2 : Rat)^(-(e : Int)) + y.toRat := by sorry
+    (hxzero : ¬ x.isZero)
+    (hyzero : ¬ y.isZero)
+    (hxnan : ¬ x.isNaN)
+    (hynan : ¬ y.isNaN)
+    (hxinf : ¬ x.isInfinite)
+    (hyinf : ¬ y.isInfinite)
+    (hle : x ≤ y) :
+    x.toRat ≤ (2 : Rat)^(-(s : Int)) + y.toRat := by
+  by_cases hx : x.isNorm
+  · -- x norm
+    sorry
+  · -- x subnormal
+    have : x.isNonzeroSubnorm := by grind
+
+    sorry
 
 end PackedFloat

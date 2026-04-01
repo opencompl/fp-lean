@@ -2494,6 +2494,39 @@ theorem le_of_sign_eq_true_sign_eq_false {x y : PackedFloat e s}
   rw [← PackedFloat.le_def, PackedFloat.le]
   grind only
 
+@[simp]
+theorem sign_eq_false_of_le_of_sign_eq_false_of_not_isNaN
+    (x y : PackedFloat e s) (hxy : x ≤ y)
+    (hnan : ¬ x.isNaN)
+    (ynan : ¬ y.isNaN)
+    (hySign : x.sign = false) : y.sign = false := by
+  simp only [← PackedFloat.le_def] at hxy
+  simp only [PackedFloat.le, hySign] at hxy
+  grind only
+
+@[simp]
+theorem sign_eq_true_of_le_of_sign_eq_true_of_not_isNaN
+    (x y : PackedFloat e s) (hxy : x ≤ y)
+    (hnan : ¬ x.isNaN)
+    (ynan : ¬ y.isNaN)
+    (hySign : y.sign = true) : x.sign = true := by
+  simp only [← PackedFloat.le_def] at hxy
+  simp only [PackedFloat.le, hySign] at hxy
+  grind only
+
+/--
+positive numbers are not greater than negative numbers, if they are not NaN.
+-/
+@[simp]
+theorem not_le_of_sign_eq_of_sign_eq
+    (x y : PackedFloat e s) (hxy : x ≤ y)
+    (ynan : ¬ y.isNaN)
+    (hySign : y.sign = true) (hxSign : x.sign = false) : ¬ (x ≤ y) := by
+  simp only [← PackedFloat.le_def] at hxy
+  simp only [PackedFloat.le, hySign] at hxy
+  grind only
+
+
 /--
 If the numbers are notNaN, then 'x ≤ y' if the x is negative and y is positive.
 -/
@@ -3215,7 +3248,7 @@ theorem toRatSig_times_toRatExp_lt_two_pow_minNormalExp_of_isNonzeroSubnorm {x :
 
 
 @[simp, grind .]
-theorem toRatSig_times_toRatExp_le_of_isNorm
+theorem two_pow_minNormalExp_le_toRatSig_of_isNorm
     {x : PackedFloat e s}
     (hx : x.isNorm) :
     (2 : Rat) ^ minNormalExp e ≤ x.toRatSig * (2 : Rat) ^ x.toRatExp  := by
@@ -3238,7 +3271,8 @@ theorem toRatSig_times_toRatExp_le_of_isNorm
   · grind only
 
 /--
-write being isNorm in terms of an arithmetic condition.
+write being isNorm in terms of an arithmetic condition in terms of
+the rational values of the significand and exponent.
 -/
 theorem isNorm_iff_toRatSig_times_toRatExp_ge
     {x : PackedFloat e s}
@@ -3246,7 +3280,7 @@ theorem isNorm_iff_toRatSig_times_toRatExp_ge
     x.isNorm ↔ decide ((2 : Rat) ^ minNormalExp e ≤ x.toRatSig * (2 : Rat) ^ x.toRatExp) := by
   simp only [decide_eq_true_eq]
   constructor
-  · apply toRatSig_times_toRatExp_le_of_isNorm
+  · apply two_pow_minNormalExp_le_toRatSig_of_isNorm
   · apply Classical.byContradiction
     intros h
     simp at h
@@ -3278,13 +3312,13 @@ theorem isNorm_eq_of_toRat_eq {x y : PackedFloat e s}
   · simp [hxnorm] at this xval
     rcases hynorm : y.isNorm
     · simp only
-    · simp only [hynorm, toRatSig_times_toRatExp_le_of_isNorm, decide_true,
+    · simp only [hynorm, two_pow_minNormalExp_le_toRatSig_of_isNorm, decide_true,
       Bool.false_eq_true] at this yval ⊢
-      grind only [toRatSig_times_toRatExp_le_of_isNorm]
+      grind only [two_pow_minNormalExp_le_toRatSig_of_isNorm]
   · simp [hxnorm] at this xval
     rcases hynorm : y.isNorm
     · simp [hynorm] at this yval ⊢
-      grind only [toRatSig_times_toRatExp_le_of_isNorm]
+      grind only [two_pow_minNormalExp_le_toRatSig_of_isNorm]
     · simp only
 
 
