@@ -2181,6 +2181,7 @@ theorem toRatExp_lt_toRatExp_of_ex_lt_ex_of_isNorm (x y : PackedFloat e s)
     simp [this] at hle
 
 theorem toRatExp_le_toRatExp (x y : PackedFloat e s)
+  (hx : x.isNormOrNonzeroSubnorm) (hy : y.isNormOrNonzeroSubnorm)
   (hle : x.ex ≤ y.ex) :
   x.toRatExp ≤ y.toRatExp := by
   rw [toRatExp, toRatExp]
@@ -2190,14 +2191,18 @@ theorem toRatExp_le_toRatExp (x y : PackedFloat e s)
     · simp [hnorm']
       have : x.ex.toNat ≤ y.ex.toNat := by grind only [BitVec.le_def]
       grind only
-    · simp [hnorm']
-      simp [PackedFloat.isNorm] at hnorm hnorm'
-      have := bias_le
+    · -- 'x' is normal, 'y' is subnormal.
+      have hxex := x.ex_ne_zero_if_isNorm
+      have hyex := y.exp_eq_of_isNonzeroSubnorm
+      simp [hyex] at hle
+      simp at hxex
       grind only
   · simp [hnorm]
     by_cases hnorm' : y.isNorm
     · simp [hnorm']
       simp [PackedFloat.isNorm] at hnorm hnorm'
+      grind only [ex_ne_zero_if_isNorm, BitVec.eq_zero_iff_toNat_eq, = BitVec.zero_eq, #41d9]
+    · simp [hnorm']
 
 @[grind .]
 theorem zero_lt_ex_of_isNorm {e s} {pf : PackedFloat e s}
