@@ -1930,27 +1930,6 @@ theorem Rat.one_lt_two_pow_iff (x : Nat) : 1 < (2 : Rat) ^ x ↔ 1 ≤ x := by
     subst hy
     simp
 
-
--- theorem Rat.one_lt_two_zpow_iff (x : Int) : 1 < (2 : Rat) ^ x ↔ 1 ≤ x := by
---   constructor
---   · intros hlt
---     simp only [show (1 : Rat) = 2 ^ 0 by sorry] at hlt
---     have : 0 < x := by
---       sorry
---     sorry
---   · intros hlt
---     norm_cast
---     have : ∃ (y : Nat), x = (y : Int) := by
---       refine Int.eq_ofNat_of_zero_le ?_
---       grind
---     obtain ⟨y, hy⟩ := this
---     subst hy
---     simp
---     grind only
-
-
-
-
 /--
 `1/2^s` is a lower bound on 'toRatSig` when it's nonzero.
 -/
@@ -2181,7 +2160,8 @@ theorem toRatExp_lt_toRatExp_of_ex_lt_ex_of_isNorm (x y : PackedFloat e s)
     simp [this] at hle
 
 theorem toRatExp_le_toRatExp (x y : PackedFloat e s)
-  (hx : x.isNormOrNonzeroSubnorm) (hy : y.isNormOrNonzeroSubnorm)
+  -- (hx : x.isNormOrNonzeroSubnorm)
+  (hy : y.isNormOrNonzeroSubnorm)
   (hle : x.ex ≤ y.ex) :
   x.toRatExp ≤ y.toRatExp := by
   rw [toRatExp, toRatExp]
