@@ -45,7 +45,6 @@ theorem Int.two_pow_succ_div_two {n : Nat} :
 -- TODO: @Sid, help!
 axiom BitVec.toNat_clz_cons (b : Bool) (x : BitVec w)
   : (BitVec.cons b x).clz.toNat = if b then 0 else x.clz.toNat + 1 -- := by
-  -- sorry
 
 theorem Nat.log2_eq_exists (n : Nat) (hn : n ≠ 0) :
   ∃ k, n.log2 = k ∧ 2 ^ k ≤ n ∧ n < 2 ^ (k + 1) := by
@@ -756,22 +755,21 @@ theorem Rat.zpow_succ {q : Rat} (hq : q ≠ 0) {a : Int} : q ^ (a + 1) = q ^ a *
 
 /--
 The heart of showing that the ordering by `toRat'`
-agrees with packed float ordering.
+agrees with packed float ordering, where we show that
+if the packed floats are ordered by `(exponent, significand)` (in lex ordering),
+then their `toRat'` are ordered by the usual ordering on rationals.
+See that this reduction only talks about the nonnegative cases.
+Case splitting on signs will handle the general case.
 -/
 theorem toExtRat'_le_toExtRat'_of_le_of_number
     {e s : Nat}
-    (he : 0 < e)
-    (hs : 0 < s)
     (x y : PackedFloat e s)
     (hxzero : ¬x.isZero = true)
     (hyzero : ¬y.isZero = true)
     (hxnan : ¬x.isNaN = true)
     (hynan : ¬y.isNaN = true)
-    -- (hxy : x ≤ y)
     (hxinf : ¬x.isInfinite = true)
     (hyinf : ¬y.isInfinite = true)
-    -- (hxsign : x.sign = false)
-    -- (hysign : y.sign = false)
     (hxy' : x.ex.toNat < y.ex.toNat ∨ x.ex = y.ex ∧ x.sig.toNat ≤ y.sig.toNat)
     : x.toRatSig * 2 ^ x.toRatExp ≤ y.toRatSig * 2 ^ y.toRatExp := by
   by_cases hxsubnorm : x.isNonzeroSubnorm
@@ -837,8 +835,10 @@ theorem toExtRat'_le_toExtRat'_of_le_of_number
             · grind only
             · apply Rat.two_pow_le_two_pow_of_le
               suffices x.toRatExp < y.toRatExp from by grind only
-
-              sorry
+              apply PackedFloat.toRatExp_lt_toRatExp_of_lt_of_isNorm
+              · grind only [PackedFloat.isNorm_of_not_isNaN_of_not_isInfinity_of_not_isZero_isNonzeroSubnorm]
+              · grind only [PackedFloat.isNorm_of_not_isNaN_of_not_isInfinity_of_not_isZero_isNonzeroSubnorm]
+              · grind only [BitVec.lt_def]
               -- apply PackedFloat.toRatExp_le_toRatExp_of_le
             · grind only [zero_le_twoNumberRatSig]
             · grind only [Rat.le_of_lt, Fp.Rat.two_pow_pos]
@@ -851,6 +851,11 @@ theorem toExtRat'_le_toExtRat'_of_le_of_number
           · grind only [PackedFloat.isNorm_of_not_isNaN_of_not_isInfinity_of_not_isZero_isNonzeroSubnorm]
           · rw [BitVec.le_def]; grind only
         · grind only [Fp.Rat.two_pow_pos]
+
+/--
+info: 'PackedFloat.toExtRat'_le_toExtRat'_of_le_of_number' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms toExtRat'_le_toExtRat'_of_le_of_number
 
 /--
 The packed float '≤' relationship captures ordering by `toRat'`.
@@ -928,7 +933,6 @@ theorem toExtRat'_le_toExtRat'_of_le (he : 0 < e) (hs : 0 < s)
           simp [hysign]
           simp [hxsign, hysign] at hxy'
           apply toExtRat'_le_toExtRat'_of_le_of_number <;> grind only
-
 
 /-
 This shows that the packed floats packed floats are always at least a distance
