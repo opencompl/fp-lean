@@ -170,7 +170,7 @@ def test_rem (f : FP8Format) (m : RoundingMode) (a b : BitVec 8) : OpResult :=
   {
     oper := "rem"
     mode := m
-    result := [a, b, f.h.mp (remainderFixed a' b').toBits'].map toDigits
+    result := [a, b, f.h.mp (a' % b').toBits'].map toDigits
   }
 
 def test_binop (f : RoundingMode → BitVec 8 → BitVec 8 → OpResult) : Thunk (List OpResult) :=
