@@ -1003,9 +1003,15 @@ theorem toRat_le_plus_toRat_of_toRat_le_toRat_of_sign_eq_false (he : 0 < e) (hs 
           have := x.toRatSig_lt_two
           have := y.toRatSig_lt_two
           have := y.one_le_toRatSig_of_isNorm (by grind)
-          -- Need a tighter bound, that says *by how much* it is away from two.
-          -- Fuck me, it's crazy just how tight by bounds need to be.
-          sorry
+          apply Rat.le_trans (b := 2)
+          · have := x.toRatSig_le_two_sub_of_isNorm (by grind)
+            grind only
+          · suffices 2 * 1 ≤ 2 * y.toRatSig by
+              simp
+              grind only
+            apply Rat.mul_le_mul_of_nonneg_left
+            · grind only
+            · grind only
         · apply Rat.two_pow_le_two_pow_of_le
           suffices x.toRatExp < y.toRatExp from by grind only
           apply PackedFloat.toRatExp_lt_toRatExp_of_lt_of_isNorm
@@ -1041,7 +1047,7 @@ theorem toRat_le_plus_toRat_of_toRat_le_toRat_of_sign_eq_false (he : 0 < e) (hs 
   · -- x subnormal
     have : x.isNonzeroSubnorm := by grind
     by_cases hy : y.isNorm
-    · -- x subnorm, y norm, x ≤ y: This is impossible when restricted to nonnegative numbers.
+    · -- x subnorm, y norm, x ≤ y: This is trivial when restricted to nonnegative numbers.
       sorry
     · -- x subnorm, y subnorm, x ≤ y: This will be possible by the analysis.
      sorry
