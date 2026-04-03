@@ -760,6 +760,8 @@ if the packed floats are ordered by `(exponent, significand)` (in lex ordering),
 then their `toRat'` are ordered by the usual ordering on rationals.
 See that this reduction only talks about the nonnegative cases.
 Case splitting on signs will handle the general case.
+
+TODO: can we drop `isZero`?
 -/
 theorem toExtRat'_le_toExtRat'_of_le_of_number
     {e s : Nat}
@@ -859,7 +861,6 @@ info: 'PackedFloat.toExtRat'_le_toExtRat'_of_le_of_number' depends on axioms: [p
 
 /--
 The packed float '≤' relationship captures ordering by `toRat'`.
-- TODO: peel part about toRat ≤ toRat
 -/
 @[simp]
 theorem toExtRat'_le_toExtRat'_of_le (he : 0 < e) (hs : 0 < s)
@@ -934,6 +935,35 @@ theorem toExtRat'_le_toExtRat'_of_le (he : 0 < e) (hs : 0 < s)
           simp [hxsign, hysign] at hxy'
           apply toExtRat'_le_toExtRat'_of_le_of_number <;> grind only
 
+/--
+Two packed floats that are ordered by `≤` are ordered by `toRat`, if they are numbers.
+TODO: can we drop `isZero`?
+-/
+@[simp]
+theorem toRat_le_toRat_of_le (he : 0 < e) (hs : 0 < s)
+    (x y : PackedFloat e s)
+    (hxzero : ¬ x.isZero)
+    (hyzero : ¬ y.isZero)
+    (hxnan : ¬ x.isNaN)
+    (hynan : ¬ y.isNaN)
+    (hxinf : ¬ x.isInfinite)
+    (hyinf : ¬ y.isInfinite)
+    (hxy : x ≤ y) : x.toRat ≤ y.toRat := by
+  have := toExtRat'_le_toExtRat'_of_le he hs x y hxzero hyzero hxnan hynan hxy
+  simp [PackedFloat.toExtRat', hxnan, hxinf, hynan, hyinf] at this
+  exact this
+
+
+theorem Rat.inv_eq_div (a : Rat)  : a⁻¹ = 1 / a := by
+  grind only
+
+-- TODO: write a simp lemma
+@[simp]
+theorem Rat.zpow_neg_natCast_eq_one_div_zpow (a : Rat) (n : Nat)
+    : a ^ (-n : Int) = 1 / a ^ n := by
+  rw [Rat.zpow_neg]
+  rw [Rat.inv_eq_div]
+  simp
 /-
 This shows that the packed floats packed floats are always at least a distance
 of 2^-e. This gives us the discreteness of the ordering
@@ -950,12 +980,48 @@ theorem toRat_le_plus_toRat_of_toRat_le_toRat_of_sign_eq_false (he : 0 < e) (hs 
     (hynan : ¬ y.isNaN)
     (hxinf : ¬ x.isInfinite)
     (hyinf : ¬ y.isInfinite)
-    (hle : x ≤ y) :
-    x.toRat ≤ (2 : Rat)^(-(s : Int)) + y.toRat := by
+    (hlt : x < y) :
+    x.toRat + (2 : Rat)^(-(s : Int)) * 2 ^ x.toRatExp ≤ y.toRat := by
+  have hxle := PackedFloat.le_of_lt hlt
   by_cases hx : x.isNorm
   · -- x norm
     by_cases hy : y.isNorm
-    · sorry
+    · -- xnorm, y norm, x ≤ y
+      simp [PackedFloat.toRat, PackedFloat.toRat, hxsign, hysign]
+      have hxyrat := PackedFloat.toRat_le_toRat_of_le he hs x y hxzero hyzero hxnan hynan hxinf hyinf (by grind?)
+      rw [← PackedFloat.lt_def, PackedFloat.lt] at hlt
+      obtain ⟨hle, hne⟩ := hlt
+      rw [← PackedFloat.le_def, PackedFloat.le] at hle
+      simp [hxsign, hysign, hxzero, hyzero, hxnan, hynan, hxinf, hyinf] at hle
+      rcases hle with (hleExp | hleSig)
+      · rw [show y.toRatExp = (y.toRatExp - 1) + 1 by grind only]
+        rw [Rat.zpow_succ (by grind only)]
+        have hxyToRatExp := PackedFloat.toRatExp_le_toRatExp_of_ex_le_ex_of_isNorm x y
+          (by grind only [BitVec.le_def]) (by grind only)
+        have hxyToRatExp' := PackedFloat.toRatExp_lt_toRatExp_of_ex_lt_ex_of_isNorm x y
+          (by grind only [BitVec.lt_def]) (by grind only)
+          (by grind only [→ isNormOrSubnorm_of_isNorm])
+        apply Rat.le_trans (b := 2 * 2 ^ (x.toRatExp - 1))
+        · sorry
+        · sorry
+      · -- exp equal
+        obtain ⟨hexpEq, hleSig'⟩ := hleSig
+        have : x.toRatExp = y.toRatExp := by
+          grind only [x.toRatExp_eq_of_ex_eq]
+        rw [this]
+        have hleSig'' : x.sig ≤ y.sig := by
+            grind only [BitVec.le_def]
+        have hsigNe : x.sig ≠ y.sig := by grind only [=> not_isNaN_iff_ex_ne_or_sig_ne,
+          le_antisymm_of_ne_NaN, le_eq_of_sign_eq_false_of_sign_eq_false]
+        have hsigLt : x.sig < y.sig := by grind only
+        suffices (x.toRatSig + 1 / 2 ^ s) * 2 ^  y.toRatExp ≤ y.toRatSig * 2 ^ y.toRatExp by
+          grind only
+        apply Rat.mul_le_mul_cancel_right_of_lt .. |>.mpr
+        · -- ⊢  x.toRatSig + 2 ^ -s ≤ y.toRatSig
+          apply PackedFloat.toRatSig_add_le_toRatSig_of_lt_of_isNorm_eq_isNorm
+          · grind only
+          · grind only
+        · grind only [Fp.Rat.two_pow_pos]
     · -- x norm, y subnorm, x ≤ y:  This is impossible when restricted to nonnegative numbers.
       sorry
   · -- x subnormal

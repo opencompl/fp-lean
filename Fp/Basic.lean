@@ -1342,6 +1342,16 @@ instance : LT ExtRat where
 @[simp]
 theorem lt_def {a b : ExtRat} : a.lt b = (a < b) := rfl
 
+@[simp, grind .]
+theorem le_of_lt {a b : ExtRat} (h : a < b) : (a ≤ b) := by
+  simp [← lt_def, lt] at h
+  grind only
+
+@[simp, grind .]
+theorem ne_of_lt {a b : ExtRat} (h : a < b) : ¬ (a = b) := by
+  simp [← lt_def, lt] at h
+  grind only
+
 theorem lt_iff {a b : ExtRat} : (a < b) ↔ (a ≤ b ∧ ¬ (a = b)) := by
   simp [← lt_def, lt]
 
@@ -1882,6 +1892,17 @@ theorem lt_def (x y : PackedFloat e s) :
   x.lt y = (x < y) := rfl
 
 @[simp, grind .]
+theorem le_of_lt {a b : PackedFloat e s} (h : a < b) : (a ≤ b) := by
+  rw [← lt_def, lt] at h
+  grind only
+
+@[simp, grind .]
+theorem ne_of_lt {a b : PackedFloat e s} (h : a < b) : ¬ (a = b) := by
+  simp [← lt_def, lt] at h
+  grind only
+
+
+@[simp, grind .]
 theorem minus_zero_le_plus_zero {e s} (he : 0 < e) :
     (PackedFloat.getZero e s true ≤ PackedFloat.getZero e s false) := by
   simp [getZero, ← PackedFloat.le_def, PackedFloat.le, PackedFloat.isNaN]
@@ -1999,7 +2020,7 @@ whose significands are ordered, and whose normality is the same,
 then their `toRatSig` are ordered in the same way, up to a gap of `1/2^s`.
 This gives us the 'gap' between floating point numbers.
 -/
-theorem toRatSig_add_one_div_two_pow_lt_toRatSig_of_lt_of_isNorm_eq_isNorm
+theorem toRatSig_add_le_toRatSig_of_lt_of_isNorm_eq_isNorm
     (x y : PackedFloat e s)
     (hnorm : x.isNorm = y.isNorm)
     (hsig : x.sig < y.sig) :
@@ -2026,6 +2047,7 @@ theorem toRatSig_add_one_div_two_pow_lt_toRatSig_of_lt_of_isNorm_eq_isNorm
         rw [← BitVec.lt_def]
         simp [hsig]
       · grind
+
 
 theorem Rat.add_div_eq_add_div' (a b d : Rat)(hd : d ≠ 0) :
   a + b / d = (a * d + b) / d := by
