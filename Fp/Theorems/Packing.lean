@@ -964,11 +964,72 @@ theorem Rat.zpow_neg_natCast_eq_one_div_zpow (a : Rat) (n : Nat)
   rw [Rat.zpow_neg]
   rw [Rat.inv_eq_div]
   simp
+
+
+
+@[simp]
+theorem PackedFloat.one_le_ex_of_isNorm (x : PackedFloat e s) (hxnorm : x.isNorm) (he : 0 < e) :
+   1#e ≤ x.ex := by
+  have hxexp := x.ex_ne_zero_if_isNorm
+  simp at hxexp
+  have : x.ex.toNat ≠ 0 := by grind only [BitVec.toNat_pos_of_ne_zero hxexp]
+  rw [BitVec.le_def]
+  simp [he]
+  grind only
+
+/--
+exponents of normal numbers are ordered by the packed float ordering, amongst
+nonnegative numbers.
+-/
+theorem Packedfloat.ex_le_ex_of_le_of_nonneg (x y : PackedFloat e s)
+  (hx : x.isNormOrNonzeroSubnorm) (hy : y.isNormOrNonzeroSubnorm)
+  (hxsign : x.sign = false) (hysign : y.sign = false)
+  (hle : x ≤ y) : x.ex ≤ y.ex := by
+  rw [← PackedFloat.le_def, PackedFloat.le] at hle
+  simp at hle
+  simp [show ¬ x.isNaN by grind,
+        show ¬ y.isNaN by grind, hxsign, hysign] at hle
+  have : x.ex.toNat ≤ y.ex.toNat := by grind only [BitVec.le_def]
+  rw [BitVec.le_def]
+  exact this
+
+
+/--
+amongst nonnegative numbers,
+normal numbers are always greater than subnormal numbers,
+-/
+theorem not_le_of_isNorm_of_isNonzeroSubnorm_of_nonneg
+    (x y : PackedFloat e s)
+    (hxsign : x.sign = false)
+    (hysign : y.sign = false)
+    (hxnorm : x.isNorm)
+    (hynonzerosubnorm : y.isNonzeroSubnorm) : ¬ x ≤ y := by
+  intros hcontra
+  have hxexp := x.ex_ne_zero_if_isNorm
+  have hyexp := y.exp_eq_of_isNonzeroSubnorm
+  simp only [BitVec.zero_eq, bne_iff_ne, ne_eq] at hxexp hyexp
+  have hxnonzero : x.ex.toNat ≠ 0 := by grind only [BitVec.toNat_pos_of_ne_zero hxexp]
+  have hyzero : y.ex.toNat = 0 := by grind only [BitVec.toNat_zero]
+  have : x.ex ≥ y.ex := by
+    simp
+    rw [BitVec.le_def]
+    grind only
+  have : x.ex ≤ y.ex := by
+    apply Packedfloat.ex_le_ex_of_le_of_nonneg
+    · grind only [→ isNormOrSubnorm_of_isNorm]
+    · grind only [→ isNormOrSubnorm_of_isSubnorm]
+    · grind only
+    · grind only
+    · grind only
+  have : x.ex = y.ex := by grind only
+  grind only
 /-
 This shows that the packed floats packed floats are always at least a distance
 of 2^-e. This gives us the discreteness of the ordering
 that lets us define 'lower' and 'upper',
 and show that 'lower' and 'upper' are always some distance apart.
+
+-- x < y => x + 1 ≤ y
 -/
 theorem toRat_le_plus_toRat_of_toRat_le_toRat_of_sign_eq_false (he : 0 < e) (hs : 0 < s)
     (x y : PackedFloat e s)
@@ -1043,7 +1104,13 @@ theorem toRat_le_plus_toRat_of_toRat_le_toRat_of_sign_eq_false (he : 0 < e) (hs 
           · grind only
         · grind only [Fp.Rat.two_pow_pos]
     · -- x norm, y subnorm, x ≤ y:  This is impossible when restricted to nonnegative numbers.
-      sorry
+      have : ¬ (x ≤ y) := by
+        apply not_le_of_isNorm_of_isNonzeroSubnorm_of_nonneg
+        · grind only
+        · grind only
+        · grind only
+        · grind only [PackedFloat.isNorm_of_not_isNaN_of_not_isInfinity_of_not_isZero_isNonzeroSubnorm]
+      grind only
   · -- x subnormal
     have : x.isNonzeroSubnorm := by grind
     by_cases hy : y.isNorm

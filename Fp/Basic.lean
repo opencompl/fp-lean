@@ -2262,7 +2262,9 @@ theorem toRatExp_le_toRatExp_of_ex_le_ex_of_isNorm (x y : PackedFloat e s)
 Amongst packed floatswith the same normality, the rational exponent is strictly monotone in the exponent.
 -/
 theorem toRatExp_lt_toRatExp_of_ex_lt_ex_of_isNorm (x y : PackedFloat e s)
-  (hle : x.ex < y.ex) (hnorm : x.isNorm = y.isNorm) (hx : x.isNormOrNonzeroSubnorm) (hy : y.isNormOrNonzeroSubnorm):
+  (hle : x.ex < y.ex) (hnorm : x.isNorm = y.isNorm)
+  (hx : x.isNormOrNonzeroSubnorm)
+  (hy : y.isNormOrNonzeroSubnorm):
   x.toRatExp < y.toRatExp := by
   rw [toRatExp, toRatExp]
   by_cases hnorm : x.isNorm
