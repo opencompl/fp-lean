@@ -1951,6 +1951,84 @@ theorem Rat.one_lt_two_pow_iff (x : Nat) : 1 < (2 : Rat) ^ x ↔ 1 ≤ x := by
     subst hy
     simp
 
+theorem Rat.div_le_of_le_mul (a b c : Rat) (hc : 0 < c) (hle : a ≤ b * c) : a / c ≤ b := by
+  rw [Rat.div_def]
+  apply Rat.mul_le_mul_cancel_right_of_lt (c := c) .. |>.mp
+  · rw [show a * c⁻¹ * c = a by grind only]
+    grind only
+  · grind only
+
+/--
+This gives precise bounds on `toRatSig` as being bounded above by one, when it's a nonzero subnormal.
+-/
+@[simp]
+theorem toRatSig_plus_le_one_of_isNonzeroSubnorm (pf : PackedFloat e s)
+  (hnorm : pf.isNonzeroSubnorm) :
+    pf.toRatSig  + 1 / 2 ^ s ≤ 1 := by
+  simp [toRatSig]
+  simp [show ¬ pf.isNorm by grind only [→ not_isNorm_of_isSubnorm]]
+  have : pf.sig.toNat < 2 ^ s := by
+    grind only [usr BitVec.isLt]
+  suffices ((pf.sig.toNat : Rat) + 1) / 2 ^ s ≤ 1 by
+    grind only    -- grind?
+  apply Rat.div_le_of_le_mul
+  · grind only [Rat.pow_pos]
+  · norm_cast; simp; grind only
+
+/--
+This gives precise bounds on `toRatSig` as being bounded above by one, when it's a nonzero subnormal.
+-/
+@[simp]
+theorem toRatSig_le_one_sub_of_isNonzeroSubnorm (pf : PackedFloat e s)
+  (hnorm : pf.isNonzeroSubnorm) :
+    pf.toRatSig  ≤ 1 - 1 / 2 ^ s := by
+  have := toRatSig_plus_le_one_of_isNonzeroSubnorm pf hnorm
+  grind only
+
+/--
+This gives precise bounds on `toRatSig` as being bounded above by two.
+-/
+@[simp]
+theorem toRatSig_plus_le_two_of_isNorm (pf : PackedFloat e s) (hnorm : pf.isNorm) :
+    pf.toRatSig  + 1 / 2 ^ s ≤ 2 := by
+  simp [toRatSig, hnorm]
+
+  suffices (pf.sig.toNat : Rat) / 2 ^ s + 1 / 2 ^ s ≤ (1 : Rat) by
+    grind only
+  have : pf.sig.toNat < 2 ^ s := by
+    grind only [usr BitVec.isLt]
+  suffices ((pf.sig.toNat : Rat) + 1) / 2 ^ s ≤ 1 by
+    grind only    -- grind?
+  apply Rat.div_le_of_le_mul
+  · grind only [Rat.pow_pos]
+  · norm_cast; simp; grind only
+
+/--
+Gives imprecise  but quantitiatve bounds on `toRatSig` as being bounded above by two,
+when it's nonzero. More precise bounds are given by
+`toRatSig_le_two_sub_of_isNorm` and `lt_twoRatSig_of_sig_ne_zero`.
+-/
+@[simp]
+theorem toRatSig_plus_le_two_of_isNormOrNonzeroSubnorm
+    (pf : PackedFloat e s) (hnorm : pf.isNormOrNonzeroSubnorm) :
+    pf.toRatSig  + 1 / 2 ^ s ≤ 2 := by
+  by_cases hnorm : pf.isNorm
+  · simp [hnorm]
+  · suffices pf.toRatSig + 1 / 2^s ≤ 1 by grind
+    have : pf.isNonzeroSubnorm := by grind only [isNormOrSubnorm_eq_isNorm_or_isSubnorm]
+    simp [this]
+
+
+/--
+This gives precise bounds on `toRatSig` as being bounded above by two
+-/
+@[simp]
+theorem toRatSig_le_two_sub_of_isNorm (pf : PackedFloat e s) (hnorm : pf.isNorm) :
+    pf.toRatSig  ≤ 2 - 1 / 2 ^ s := by
+  have := toRatSig_plus_le_two_of_isNorm pf hnorm
+  grind only
+
+
 /--
 `1/2^s` is a lower bound on 'toRatSig` when it's nonzero.
 -/
