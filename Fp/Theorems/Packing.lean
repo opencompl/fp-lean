@@ -994,16 +994,30 @@ theorem toRat_le_plus_toRat_of_toRat_le_toRat_of_sign_eq_false (he : 0 < e) (hs 
       rw [← PackedFloat.le_def, PackedFloat.le] at hle
       simp [hxsign, hysign, hxzero, hyzero, hxnan, hynan, hxinf, hyinf] at hle
       rcases hle with (hleExp | hleSig)
-      · rw [show y.toRatExp = (y.toRatExp - 1) + 1 by grind only]
+      · rw [← Rat.add_mul]
+        rw [show y.toRatExp = (y.toRatExp - 1) + 1 by grind only]
         rw [Rat.zpow_succ (by grind only)]
-        have hxyToRatExp := PackedFloat.toRatExp_le_toRatExp_of_ex_le_ex_of_isNorm x y
-          (by grind only [BitVec.le_def]) (by grind only)
-        have hxyToRatExp' := PackedFloat.toRatExp_lt_toRatExp_of_ex_lt_ex_of_isNorm x y
-          (by grind only [BitVec.lt_def]) (by grind only)
-          (by grind only [→ isNormOrSubnorm_of_isNorm])
-        apply Rat.le_trans (b := 2 * 2 ^ (x.toRatExp - 1))
-        · sorry
-        · sorry
+        suffices (x.toRatSig + 1 / 2 ^ s) * 2 ^ x.toRatExp ≤ (2 * y.toRatSig) * (2 ^ (y.toRatExp - 1)) by grind only
+        apply Rat.mul_le_mul_of_le_of_le_of_nonneg_of_nonneg
+        · have := x.one_le_toRatSig_of_isNorm (by grind)
+          have := x.toRatSig_lt_two
+          have := y.toRatSig_lt_two
+          have := y.one_le_toRatSig_of_isNorm (by grind)
+          -- Need a tighter bound, that says *by how much* it is away from two.
+          -- Fuck me, it's crazy just how tight by bounds need to be.
+          sorry
+        · apply Rat.two_pow_le_two_pow_of_le
+          suffices x.toRatExp < y.toRatExp from by grind only
+          apply PackedFloat.toRatExp_lt_toRatExp_of_lt_of_isNorm
+          · grind only [PackedFloat.isNorm_of_not_isNaN_of_not_isInfinity_of_not_isZero_isNonzeroSubnorm]
+          · grind only [PackedFloat.isNorm_of_not_isNaN_of_not_isInfinity_of_not_isZero_isNonzeroSubnorm]
+          · grind only [BitVec.lt_def]
+          -- apply PackedFloat.toRatExp_le_toRatExp_of_le
+        · have := x.nonneg_toRatSig
+          have : 0 ≤ (1 : Rat) / 2 ^ s := by
+            grind only [Fp.Rat.inv_nonneg, Rat.pow_nonneg]
+          grind only
+        · grind only [Rat.le_of_lt, Fp.Rat.two_pow_pos]
       · -- exp equal
         obtain ⟨hexpEq, hleSig'⟩ := hleSig
         have : x.toRatExp = y.toRatExp := by

@@ -2086,6 +2086,21 @@ theorem one_le_toRatSig_of_isNorm {e s} (pf : PackedFloat e s) (hnorm : pf.isNor
   have : (1 + pf.sig.toNat / 2^s) ≥ 0 := by grind
   grind
 
+/-- `PackedFloat.toRatSig` is nonnegative. -/
+@[simp, grind .]
+theorem nonneg_toRatSig (pf : PackedFloat e s) : 0 ≤ pf.toRatSig := by
+  have : (pf.sig.toNat : Rat) / (2 : Rat) ^ s ≥ 0 := by grind only [Fp.Rat.div_nonneg,
+    Rat.pow_nonneg]
+  have : (0 + pf.sig.toNat / 2^s) ≥ 0 := by grind only
+  have : pf.sig.toNat / 2^s ≥ 0 := by grind only
+  have : pf.sig.toNat ≥ 0 := by grind only
+  simp only [toRatSig, Rat.zero_add, ge_iff_le]
+  grind only
+
+/-- Alias for `PackedFloat.nonneg_toRatSig` -/
+theorem zero_le_toRatSig (pf : PackedFloat e s) : 0 ≤ pf.toRatSig :=
+  nonneg_toRatSig pf
+
 @[grind .]
 theorem zero_le_twoNumberRatSig {e s} (pf : PackedFloat e s) :
   0 ≤ pf.toRatSig := by
@@ -2263,21 +2278,6 @@ theorem toRatSig_eq_zero_of_isZero {e s} (pf : PackedFloat e s) (hzero : pf.isZe
   have : pf.sig = 0#s := by grind
   simp only [this, BitVec.toNat_ofNat, Nat.zero_mod, Rat.natCast_ofNat]
   grind
-
-@[simp, grind .]
-theorem zero_le_toRatSig {e s} (pf : PackedFloat e s) :
-  0 ≤ pf.toRatSig  := by
-  simp [toRatSig]
-  by_cases hnorm : pf.isNorm
-  · simp [hnorm]
-    have : (pf.sig.toNat : Rat) / (2 : Rat) ^ s ≥ 0 := by grind only [Fp.Rat.div_nonneg,
-      Rat.pow_nonneg]
-    have : (1 + pf.sig.toNat / 2^s) ≥ 0 := by grind
-    grind
-  · simp [hnorm]
-    have : (pf.sig.toNat : Rat) / (2 : Rat) ^ s ≥ 0 := by grind
-    have : (0 + pf.sig.toNat / 2^s) ≥ 0 := by grind
-    grind
 
 @[grind . ]
 theorem sig_ne_zero_of_isNormOrNonzeroSubnorm_of_not_isNorm {pf : PackedFloat e s} (h : pf.isNormOrNonzeroSubnorm) (hnorm : ¬ pf.isNorm) :
