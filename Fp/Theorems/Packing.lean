@@ -1023,6 +1023,41 @@ theorem not_le_of_isNorm_of_isNonzeroSubnorm_of_nonneg
     · grind only
   have : x.ex = y.ex := by grind only
   grind only
+
+
+/--
+We can show that the significands of two packed floats are ordered by the packed float ordering,
+amongst those with the same sign and exponent, and that are not NaN, and not infinite.
+-/
+theorem PackedFloat.sig_lt_sig_of_lt_of_of_exp_eq_exp_of_sign_eq_false
+  (x y : PackedFloat e s)
+  (hxy : x < y)
+  (hxnan : ¬ x.isNaN)
+  (hynan : ¬ y.isNaN)
+  (hexpEq : x.ex = y.ex)
+  (hxsign : x.sign = false)
+  (hysign : y.sign = false) : x.sig < y.sig := by
+  rw [← PackedFloat.lt_def, PackedFloat.lt] at hxy
+  obtain ⟨hle, hne⟩ := hxy
+  rw [← PackedFloat.le_def, PackedFloat.le] at hle
+  simp at hle
+  simp [hxnan, hynan, hxsign, hysign] at hle
+  rcases hle with (hleExp | hleSig)
+  · have : x.ex = y.ex := by grind only [← BitVec.le_def]
+    rw [this] at hexpEq
+    grind only
+  · have : x.sig.toNat ≤ y.sig.toNat := by grind only
+    have : x.sig.toNat ≠ y.sig.toNat := by
+      intros hcontra
+      apply hne
+      ext
+      · grind only
+      · grind only
+      · grind only [BitVec.toNat_inj]
+    apply BitVec.lt_of_le_ne
+    · grind only [BitVec.le_def]
+    · grind only
+
 /-
 This shows that the packed floats packed floats are always at least a distance
 of 2^-e. This gives us the discreteness of the ordering
@@ -1115,8 +1150,59 @@ theorem toRat_le_plus_toRat_of_toRat_le_toRat_of_sign_eq_false (he : 0 < e) (hs 
     have : x.isNonzeroSubnorm := by grind
     by_cases hy : y.isNorm
     · -- x subnorm, y norm, x ≤ y: This is trivial when restricted to nonnegative numbers.
-      sorry
+      simp only [toRat, hxsign, toSign_false, Rat.intCast_ofNat, Rat.one_mul,
+        Rat.zpow_neg_natCast_eq_one_div_zpow, hysign, ge_iff_le]
+      rw [← Rat.add_mul]
+      have : x.toRatExp ≤ y.toRatExp := by
+        exact PackedFloat.toRatExp_le_toRatExp_of_isNonzeroSubnorm_of_not_isNorm x y hx hy
+      have : x.toRatSig + 1 / 2 ^ s ≤  1 := by
+        apply toRatSig_plus_le_one_of_isNonzeroSubnorm x (by grind only)
+      have : 0 ≤ x.toRatSig := by
+        exact zero_le_twoNumberRatSig x
+      have : 0 ≤ (1 : Rat) / 2 ^ s := by
+        grind only [Fp.Rat.inv_nonneg, Rat.pow_nonneg]
+      have : 1 ≤ y.toRatSig := by
+        apply y.one_le_toRatSig_of_isNorm (by grind only)
+      have : x.toRatSig + 1 / 2 ^ s ≤ y.toRatSig := by
+        grind only
+      apply Rat.mul_le_mul_of_le_of_le_of_nonneg_of_nonneg
+      · grind only
+      · apply Rat.two_pow_le_two_pow_of_le
+        · grind only
+      · grind only
+      · grind only [Rat.le_of_lt, Fp.Rat.two_pow_pos]
+
     · -- x subnorm, y subnorm, x ≤ y: This will be possible by the analysis.
-     sorry
+      simp only [toRat, hxsign, toSign_false, Rat.intCast_ofNat, Rat.one_mul,
+        Rat.zpow_neg_natCast_eq_one_div_zpow, hysign, ge_iff_le]
+      rw [← Rat.add_mul]
+      have hxex := x.exp_eq_of_isNonzeroSubnorm
+      have hyex := y.exp_eq_of_isNonzeroSubnorm
+      have hxexp := x.toRatExp_eq_of_not_isNorm (by grind)
+      have hyexp := y.toRatExp_eq_of_not_isNorm (by grind)
+      have hxyexp : x.toRatExp = y.toRatExp := by
+        simp [hxexp, hyexp]
+      simp [hxyexp]
+      suffices (x.toRatSig + 1 / 2 ^ s)  ≤ y.toRatSig by
+        apply Rat.mul_le_mul_cancel_right_of_lt .. |>.mpr
+        · exact this
+        · grind only [Fp.Rat.two_pow_pos]
+      apply toRatSig_add_le_toRatSig_of_lt_of_isNorm_eq_isNorm
+      · grind only
+      · apply PackedFloat.sig_lt_sig_of_lt_of_of_exp_eq_exp_of_sign_eq_false
+        · grind only
+        · grind only
+        · grind only
+        · grind only
+        · grind only
+        · grind only
+
+/--
+info: 'PackedFloat.toRat_le_plus_toRat_of_toRat_le_toRat_of_sign_eq_false' depends on axioms:
+[propext,
+ Classical.choice,
+ Quot.sound]
+-/
+#guard_msgs in #print axioms toRat_le_plus_toRat_of_toRat_le_toRat_of_sign_eq_false
 
 end PackedFloat

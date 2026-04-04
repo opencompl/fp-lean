@@ -3433,7 +3433,7 @@ namespace PackedFloat
 Subnormal numbers are smaller than '2^minNormalExp'.
 -/
 @[simp, grind .]
-theorem toRatSig_times_toRatExp_lt_two_pow_minNormalExp_of_isNonzeroSubnorm {x : PackedFloat e s}
+theorem toRatSig_mul_toRatExp_lt_two_pow_minNormalExp_of_isNonzeroSubnorm {x : PackedFloat e s}
     (hx : x.isNonzeroSubnorm) :
       x.toRatSig * (2 : Rat) ^ x.toRatExp < (2 : Rat) ^ minNormalExp e := by
   rw [toRatExp_eq_of_not_isNorm]
@@ -3446,7 +3446,7 @@ theorem toRatSig_times_toRatExp_lt_two_pow_minNormalExp_of_isNonzeroSubnorm {x :
 
 
 @[simp, grind .]
-theorem two_pow_minNormalExp_le_toRatSig_of_isNorm
+theorem two_pow_minNormalExp_le_toRatSig_mul_two_pow_toRatExp_of_isNorm
     {x : PackedFloat e s}
     (hx : x.isNorm) :
     (2 : Rat) ^ minNormalExp e ≤ x.toRatSig * (2 : Rat) ^ x.toRatExp  := by
@@ -3478,11 +3478,11 @@ theorem isNorm_iff_toRatSig_times_toRatExp_ge
     x.isNorm ↔ decide ((2 : Rat) ^ minNormalExp e ≤ x.toRatSig * (2 : Rat) ^ x.toRatExp) := by
   simp only [decide_eq_true_eq]
   constructor
-  · apply two_pow_minNormalExp_le_toRatSig_of_isNorm
+  · apply two_pow_minNormalExp_le_toRatSig_mul_two_pow_toRatExp_of_isNorm
   · apply Classical.byContradiction
     intros h
     simp at h
-    have := x.toRatSig_times_toRatExp_lt_two_pow_minNormalExp_of_isNonzeroSubnorm (by grind)
+    have := x.toRatSig_mul_toRatExp_lt_two_pow_minNormalExp_of_isNonzeroSubnorm (by grind)
     grind only
 
 /--
@@ -3510,13 +3510,13 @@ theorem isNorm_eq_of_toRat_eq {x y : PackedFloat e s}
   · simp [hxnorm] at this xval
     rcases hynorm : y.isNorm
     · simp only
-    · simp only [hynorm, two_pow_minNormalExp_le_toRatSig_of_isNorm, decide_true,
+    · simp only [hynorm, two_pow_minNormalExp_le_toRatSig_mul_two_pow_toRatExp_of_isNorm, decide_true,
       Bool.false_eq_true] at this yval ⊢
-      grind only [two_pow_minNormalExp_le_toRatSig_of_isNorm]
+      grind only [two_pow_minNormalExp_le_toRatSig_mul_two_pow_toRatExp_of_isNorm]
   · simp [hxnorm] at this xval
     rcases hynorm : y.isNorm
     · simp [hynorm] at this yval ⊢
-      grind only [two_pow_minNormalExp_le_toRatSig_of_isNorm]
+      grind only [two_pow_minNormalExp_le_toRatSig_mul_two_pow_toRatExp_of_isNorm]
     · simp only
 
 
