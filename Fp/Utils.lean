@@ -23,6 +23,58 @@ attribute [simp] Rat.intCast_inj
 
 
 @[simp]
+theorem Rat.mul_le_mul_cancel_right_of_lt {a b c : Rat} (hc : 0 < c) :
+    a * c ≤ b * c ↔ a ≤ b := by
+  constructor
+  · intros h
+    exact Rat.le_of_mul_le_mul_right h hc
+  · intros h
+    apply Rat.mul_le_mul_of_nonneg_right h <;> grind
+
+@[simp]
+theorem Rat.mul_lt_mul_cancel_right_of_lt {a b c : Rat} (hc : 0 < c) :
+    a * c < b * c ↔ a < b := by
+  constructor
+  · intros h
+    exact Rat.lt_of_mul_lt_mul_right h (by grind)
+  · intros h
+    apply Rat.mul_lt_mul_of_pos_right h <;> grind
+
+
+@[simp]
+theorem Rat.div_le_div_self {a b c : Rat} (hc : 0 < c) :
+    a / c ≤ b / c ↔ a ≤ b := by
+  rw [Rat.div_def, Rat.div_def]
+  apply Rat.mul_le_mul_cancel_right_of_lt
+  apply Rat.inv_pos .. |>.mpr
+  grind
+
+@[simp]
+theorem Rat.div_lt_div_self {a b c : Rat} (hc : 0 < c) :
+    a / c < b / c ↔ a < b := by
+  rw [Rat.div_def, Rat.div_def]
+  apply Rat.mul_lt_mul_cancel_right_of_lt
+  apply Rat.inv_pos .. |>.mpr
+  grind
+
+@[simp]
+theorem Rat.add_le_iff_le {a b c : Rat} : a + c ≤ b + c ↔ a ≤ b := by
+  grind
+
+  @[simp]
+theorem Rat.add_le_iff_le' {a b c : Rat} : c + a ≤  c + b ↔ a ≤ b := by
+  grind
+
+
+theorem Rat.lt_add_of_lt_of_nonneg {a b c : Rat} (hab : a < b) (hc : 0 ≤ c) :
+  a < b + c := by grind
+
+theorem Rat.le_add_of_le_of_nonneg {a b c : Rat} (hab : a ≤ b) (hc : 0 ≤ c) :
+  a ≤ b + c := by grind
+
+
+
+@[simp]
 theorem Rat.mul_cancel_left {x y z : Rat} (hx : x ≠ 0) : x * y = x * z ↔ y = z := by
   grind
 
@@ -451,3 +503,97 @@ theorem BitVec.cons_false_eq_zero_iff_eq_zero {x : BitVec w} :
   · intros hzero
     subst hzero
     simp
+
+@[simp]
+theorem Rat.ne_zero_of_one_le {a : Rat} (h : 1 ≤ a) : a ≠ 0 := by
+  apply Classical.byContradiction
+  intros hcontra
+  simp at hcontra
+  subst hcontra
+  grind only
+
+@[simp]
+theorem Rat.ne_zero_of_one_lt {a : Rat} (h : 1 < a) : a ≠ 0 := by
+  apply Classical.byContradiction
+  intros hcontra
+  simp at hcontra
+  subst hcontra
+  grind only
+
+/--
+Show that `n/d ≤ n` when `n` is nonnegative and `d` is at least 1.
+-/
+@[simp]
+theorem Rat.div_le_self_of_nonneg_of_one_le (n d : Rat)
+    (hn : 0 ≤ n) (hd : 1 ≤ d) :
+    n / d ≤ n := by
+  rw [Rat.div_def]
+  suffices n * d⁻¹ ≤ n * 1 from by
+    grind
+  apply Rat.mul_le_mul_of_nonneg_left
+  · suffices d⁻¹ * d ≤ 1 * d from by
+      apply Rat.le_of_mul_le_mul_right (c := d)
+      exact this
+      grind only
+    simp [Rat.inv_mul_cancel, hd]
+  · grind only
+
+theorem Rat.inv_mul_eq_div {a b : Rat}: a * b⁻¹ = a / b := by
+  rw [Rat.div_def]
+
+theorem Rat.mul_inv_eq_div {a b : Rat} : b⁻¹ * a = a / b := by
+  rw [Rat.div_def]
+  simp [Rat.mul_comm]
+
+@[simp]
+theorem Rat.inv_mul_mul_self_cancel {a b : Rat} (hb : b ≠ 0) : b⁻¹ * a * b = a := by
+  grind
+
+@[simp]
+theorem Rat.inv_mul_mul_self_cancel' {a b : Rat} (hb : b ≠ 0) : b⁻¹ * (a * b) = a := by
+  grind
+
+@[simp]
+theorem Rat.self_mul_mul_inv_cancel {a b : Rat} (hb : b ≠ 0) : b * a * b⁻¹ = a := by
+  grind
+
+@[simp]
+theorem Rat.self_mul_mul_inv_cancel' {a b : Rat} (hb : b ≠ 0) : b * (a * b⁻¹) = a := by
+  grind
+
+@[simp]
+theorem Rat.inv_mul_self_mul_cancel {a b : Rat} (hb : b ≠ 0) : b⁻¹ * (b * a) = a := by
+  grind
+@[simp]
+theorem Rat.self_mul_inv_mul_cancel {a b : Rat} (hb : b ≠ 0) : b * (b⁻¹ * a) = a := by
+  grind
+
+/--
+Multiplication is positive when both factors are positive.
+-/
+theorem Rat.mul_positive {a b : Rat} (ha : 0 < a) (hb : 0 < b) : 0 < a * b := by
+  apply Rat.lt_of_le_of_ne
+  · apply Rat.mul_nonneg
+    · grind only
+    · grind only
+  · intros hcontra
+    have : a = 0 ∨ b = 0 := by grind
+    rcases this with rfl | rfl <;> grind
+
+/--
+For positive numbers, the inverse is order-reversing.
+-/
+theorem Rat.inv_le_inv_of_le_of_positive {a b : Rat} (ha : 0 < a)
+    (hab : a ≤ b) : b⁻¹ ≤ a⁻¹ := by
+  by_cases hb : b = 0
+  · simp [hb]
+    exact Fp.Rat.inv_nonneg (by grind)
+  · by_cases ha : a = 0
+    · simp [ha]
+      subst ha
+      grind
+    · apply Rat.le_of_mul_le_mul_right (c := a * b)
+      · simp [ha, hb, hab]
+      · apply Rat.mul_positive
+        · grind only
+        · grind only

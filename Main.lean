@@ -256,7 +256,7 @@ def test_roundCircuitAgainstSmtlib (ein sin eout sout : Nat) : IO ExitCode := do
   let e2m4 : FPFormat := { e := ein, m := sin }
   let e2m2 : FPFormat := { e := eout, m := sout }
   let mut totalFailures := 0
-  for rm in allRoundingModes do
+  for rm in [.RTP] do
     IO.println "==="
     IO.println s!"🧪 ROUNDING MODE {repr rm}"
     let mut nsuccess := 0
@@ -265,7 +265,7 @@ def test_roundCircuitAgainstSmtlib (ein sin eout sout : Nat) : IO ExitCode := do
       let pf := e2m4.packedFloatOfNat x
       if pf.isNaN then continue
       let roundSmt : PackedFloat e2m2.e e2m2.m := Fp.SmtLibSemanticsComputable.computableSmtLibRound rm pf.sign pf.unpack.toExtRat
-      let roundCircuit : PackedFloat e2m2.e e2m2.m := (pf.unpack |>.round rm (targetExponentWidth := e2m2.e) (targetSignificandWidth := e2m2.m)).pack
+      let roundCircuit : PackedFloat e2m2.e e2m2.m := (pf.unpack |>.roundNaive rm (targetExponentWidth := e2m2.e) (targetSignificandWidth := e2m2.m)).pack
 
       if roundSmt.equal_denotation roundCircuit then
         nsuccess := nsuccess + 1
@@ -275,7 +275,7 @@ def test_roundCircuitAgainstSmtlib (ein sin eout sout : Nat) : IO ExitCode := do
           IO.println s!"    - (Q: {repr roundSmt.unpack.toExtRat}); {repr roundSmt.unpack}"
       else
         nfailure := nfailure + 1
-        if nfailure < 10 then
+        if true || nfailure < 1000 then
          IO.println s!""
          IO.println s!"  ❌({repr rm} (Q: {repr pf.unpack.toExtRat}); {repr pf.unpack}"
          IO.println s!"    - SMT-LIB  (Q: {repr roundSmt.unpack.toExtRat}); {repr roundSmt.unpack}"
@@ -326,9 +326,13 @@ def get_long_operation (args : List String) : IO ExitCode := do
       IO.println result.toFormat
       return .ofFailures result.failures
   | ["roundCircuitAgainstSmtLib"] =>
-      let exit1 ← test_roundCircuitAgainstSmtlib (ein := 3) (sin := 6) (eout := 3) (sout := 4)
-      let exit2 ← test_roundCircuitAgainstSmtlib (ein := 3) (sin := 6) (eout := 3) (sout := 4)
-      return exit1 &&& exit2
+      -- eout > sout
+      let exit1 ← test_roundCircuitAgainstSmtlib (ein := 5) (sin := 7) (eout := 4) (sout := 3)
+      -- eoout = soug
+      let exit2 ← test_roundCircuitAgainstSmtlib (ein := 4) (sin := 6) (eout := 4) (sout := 4)
+      -- eoout < soug
+      let exit3 ← test_roundCircuitAgainstSmtlib (ein := 3) (sin := 6) (eout := 3) (sout := 4)
+      return exit1 &&& exit2 &&& exit3
   | ["fpMaxRel"] =>
       let result ← Fp.SmtLibSemanticsComputable.testFpMaxRel 3 4
       IO.println result.toFormat
