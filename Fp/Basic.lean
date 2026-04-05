@@ -1088,7 +1088,7 @@ theorem neg_def {x : UnpackedFloat e s} : -x = UnpackedFloat.neg x := rfl
 
 @[simp]
 theorem neg_neg (x : UnpackedFloat e s) : -(-x) = x := by
-  simp [neg_def, neg, UnpackedFloat.ext_iff]
+  simp [neg_def, neg]
 
 @[simp]
 theorem neg_sign (x : UnpackedFloat e s) : (-x).sign = !x.sign := rfl
