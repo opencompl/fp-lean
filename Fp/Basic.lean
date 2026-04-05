@@ -962,6 +962,55 @@ def toDyadic? (pf : PackedFloat e s) : Option Dyadic :=
 def toRat? (pf : PackedFloat e s) : Option Rat :=
   pf.toEFixed.toRat?
 
+/--
+Raw negation directly on the packedFloat representation.
+-/
+@[bv_normalize]
+def neg (x : PackedFloat e s) : PackedFloat e s :=
+  { x with sign := !x.sign }
+
+instance : Neg (PackedFloat e s) where
+  neg := .neg
+
+@[bv_normalize]
+theorem neg_def {x : PackedFloat e s} : -x = PackedFloat.neg x := rfl
+
+@[simp]
+theorem neg_neg (x : PackedFloat e s) : -(-x) = x := by
+  simp [neg_def, neg, PackedFloat.ext_iff]
+
+@[simp]
+theorem neg_sign (x : PackedFloat e s) : (-x).sign = !x.sign := rfl
+
+@[simp]
+theorem neg_ex (x : PackedFloat e s) : (-x).ex = x.ex := rfl
+
+@[simp]
+theorem neg_sig (x : PackedFloat e s) : (-x).sig = x.sig := rfl
+
+/--
+Raw abs directly on the packedFloat representation.
+-/
+@[bv_normalize]
+def abs (x : PackedFloat e s) : PackedFloat e s :=
+  { x with sign := false }
+
+@[simp]
+theorem abs_sign (x : PackedFloat e s) : x.abs.sign = false := rfl
+
+@[simp]
+theorem abs_ex (x : PackedFloat e s) : x.abs.ex = x.ex := rfl
+
+@[simp]
+theorem abs_sig (x : PackedFloat e s) : x.abs.sig = x.sig := rfl
+
+@[simp]
+theorem abs_abs (x : PackedFloat e s) : x.abs.abs = x.abs := rfl
+
+@[simp]
+theorem abs_neg (x : PackedFloat e s) : (-x).abs = x.abs := by
+  simp [abs, neg_def, neg, PackedFloat.ext_iff]
+
 end PackedFloat
 
 /--
@@ -1021,6 +1070,36 @@ structure UnpackedFloat (e s : Nat) where
 
 attribute [bv_normalize] UnpackedFloat.ext_iff
 
+namespace UnpackedFloat
+
+@[bv_normalize]
+def neg (x : UnpackedFloat e s) : UnpackedFloat e s :=
+  { x with sign := !x.sign }
+
+@[bv_normalize]
+def abs (x : UnpackedFloat e s) : UnpackedFloat e s :=
+  { x with sign := false }
+
+instance : Neg (UnpackedFloat e s) where
+  neg := .neg
+
+@[bv_normalize]
+theorem neg_def {x : UnpackedFloat e s} : -x = UnpackedFloat.neg x := rfl
+
+@[simp]
+theorem neg_neg (x : UnpackedFloat e s) : -(-x) = x := by
+  simp [neg_def, neg, UnpackedFloat.ext_iff]
+
+@[simp]
+theorem neg_sign (x : UnpackedFloat e s) : (-x).sign = !x.sign := rfl
+
+@[simp]
+theorem neg_ex (x : UnpackedFloat e s) : (-x).ex = x.ex := rfl
+
+@[simp]
+theorem neg_sig (x : UnpackedFloat e s) : (-x).sig = x.sig := rfl
+
+end UnpackedFloat
 
 /--
 `EUnpackedFloat e s` extends `UnpackedFloat e s` with explicit floating-point

@@ -2,14 +2,6 @@ import Fp.Basic
 import Fp.Packing
 
 @[bv_normalize]
-def UnpackedFloat.neg (x : UnpackedFloat e s) : UnpackedFloat e s :=
-  { x with sign := !x.sign }
-
-@[bv_normalize]
-def UnpackedFloat.abs (x : UnpackedFloat e s) : UnpackedFloat e s :=
-  { x with sign := false }
-
-@[bv_normalize]
 def EUnpackedFloat.neg (x : EUnpackedFloat (exponentWidth e s) (s + 1))
   : EUnpackedFloat (exponentWidth e s) (s + 1) :=
   { x with num := x.num.neg }
@@ -20,14 +12,6 @@ def EUnpackedFloat.abs (x : EUnpackedFloat (exponentWidth e s) (s + 1))
   { x with num := x.num.abs }
 
 namespace PackedFloat
-
-/--
-Raw negation directly on the packedFloat representation.
-This is not intended for general use,
-but it is useful for proving theorems about negation and for defining the `Neg` instance.
--/
-def neg (x : PackedFloat e s) : PackedFloat e s :=
-  { x with sign := !x.sign }
 
 @[bv_normalize]
 def negByUnpacking (x : PackedFloat e s) : PackedFloat e s :=
@@ -51,14 +35,8 @@ def negByUnpacking (x : PackedFloat e s) : PackedFloat e s :=
 
 -- TODO: prove that negByUnpacking.toExtRat = neg.toExtRat.
 
-instance : Neg (PackedFloat e s) where
-  neg := .neg
-
 @[bv_normalize]
-theorem PackedFloat.neg_def {x : PackedFloat e s} : -x = PackedFloat.neg x := rfl
-
-@[bv_normalize]
-def abs (x : PackedFloat e s) : PackedFloat e s :=
+def absByUnpacking (x : PackedFloat e s) : PackedFloat e s :=
   -- At first glance, unpacking a float just to modify its sign might look like
   -- unnecessary work; after all, you *can* toggle the sign bit directly on the
   -- packed representation. And if this operation lived in isolation, that would
