@@ -2,5 +2,4 @@ import Fp.Theorems.Basic
 import Fp.Theorems.Packing
 import Fp.Theorems.SmtLibSemanticsQ
 import Fp.Theorems.UnpackedRound
-import Fp.Theorems.UnpackedRoundNaive
 import Fp.Theorems.Multiplication
