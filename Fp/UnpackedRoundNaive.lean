@@ -4483,34 +4483,6 @@ Failed ❌ | original { state := num, num := { sign := true, ex := 0x0f#6, sig :
 -- #guard_msgs in #eval checkRoundNaiveCorrect 4 5 4 2 .RTN
 -- #guard_msgs in #eval checkRoundNaiveCorrect 2 6 2 4 .RTP
 
-/-! ### Identity Theorem
-
-When the input value is exactly representable in the target format
-(extra low bits are zero, exponent in range), `roundNaive` preserves the value
-regardless of rounding mode. Uses wider input (`sigWidth=4 > targetSig+2=3`)
-so the guard bit index `(sigWidth-1) - (targetSignificandWidth+1) = 1` doesn't
-underflow in Nat. -/
-
-/-- When the input is exactly representable in the target format,
-`roundNaive` preserves the value regardless of rounding mode. -/
-theorem roundNaive_identity_exact_2_1 :
-    ∀ (inUf : UnpackedFloat 3 4) (mode : RoundingMode),
-      -- Value is exactly representable: guard and sticky bits are zero
-      inUf.sig &&& 3#4 = 0#4 →
-      -- Not overflow
-      ¬(BitVec.ofInt 3 (maxNormalExp 2)).slt inUf.ex →
-      -- Not underflow
-      ¬inUf.ex.slt (BitVec.ofInt 3 (minSubnormalExp 2 1)) →
-      -- Not zero (zero case follows a different code path)
-      ¬inUf.isZero →
-      UnpackedFloat.roundNaive (targetExponentWidth := 2) (targetSignificandWidth := 1) inUf mode =
-        EUnpackedFloat.mkNumber {
-          sign := inUf.sign
-          sig := inUf.sig.extractMsb' 0 2
-          ex := inUf.ex
-        } := by
-  sorry
-
 end UnpackedRoundNaive
 
 end Fp

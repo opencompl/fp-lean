@@ -504,8 +504,6 @@ theorem BitVec.cons_false_eq_zero_iff_eq_zero {x : BitVec w} :
     subst hzero
     simp
 
--- ∀ (a : Rat), a ≠ 0 → a * a⁻¹ = 1
-#check Rat.mul_inv_cancel
 @[simp]
 theorem Rat.ne_zero_of_one_le {a : Rat} (h : 1 ≤ a) : a ≠ 0 := by
   apply Classical.byContradiction
@@ -569,8 +567,6 @@ theorem Rat.inv_mul_self_mul_cancel {a b : Rat} (hb : b ≠ 0) : b⁻¹ * (b * a
 @[simp]
 theorem Rat.self_mul_inv_mul_cancel {a b : Rat} (hb : b ≠ 0) : b * (b⁻¹ * a) = a := by
   grind
-
-#check Rat.mul_nonneg
 
 /--
 Multiplication is positive when both factors are positive.

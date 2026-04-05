@@ -484,7 +484,7 @@ theorem toExtRat_unpack_eq_toExtRat {pf : PackedFloat e s}
             Nat.add_one_sub_one, @Int.sub_eq_add_neg _ s, @Rat.zpow_add 2 (by decide)]
           rw [Rat.mul_comm _ (2 ^ (-s : Int)), ← Rat.mul_assoc, Rat.add_mul, ← Rat.zpow_natCast, ← Rat.zpow_add (by decide) s (-s), Int.add_neg_eq_sub, Int.sub_self, Rat.zpow_zero, Rat.zpow_neg, ← Rat.div_def]
       · simp only [EUnpackedFloat.toExtRat, cond_true, cond_false, EUnpackedFloat.mkZero_not_isNaN,
-        EUnpackedFloat.mkZero_not_isInfinite, toExtRat', hNaN, hInf, hZero]
+        EUnpackedFloat.mkZero_not_isInfinite, toExtRat', hNaN, hInf]
         simp [EUnpackedFloat.mkZero]
         simp [hZero]
     · simp only [EUnpackedFloat.toExtRat, cond_true, cond_false,
@@ -863,7 +863,7 @@ info: 'PackedFloat.toExtRat'_le_toExtRat'_of_le_of_number' depends on axioms: [p
 The packed float '≤' relationship captures ordering by `toRat'`.
 -/
 @[simp]
-theorem toExtRat'_le_toExtRat'_of_le (he : 0 < e) (hs : 0 < s)
+theorem toExtRat'_le_toExtRat'_of_le (_he : 0 < e) (hs : 0 < s)
     (x y : PackedFloat e s)
     (hxzero : ¬ x.isZero) (hyzero : ¬ y.isZero) (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN)
     (hxy : x ≤ y) : x.toExtRat' ≤ y.toExtRat' := by
@@ -982,7 +982,7 @@ exponents of normal numbers are ordered by the packed float ordering, amongst
 nonnegative numbers.
 -/
 theorem Packedfloat.ex_le_ex_of_le_of_nonneg (x y : PackedFloat e s)
-  (hx : x.isNormOrNonzeroSubnorm) (hy : y.isNormOrNonzeroSubnorm)
+  (_hx : x.isNormOrNonzeroSubnorm) (hy : y.isNormOrNonzeroSubnorm)
   (hxsign : x.sign = false) (hysign : y.sign = false)
   (hle : x ≤ y) : x.ex ≤ y.ex := by
   rw [← PackedFloat.le_def, PackedFloat.le] at hle
@@ -1084,11 +1084,11 @@ theorem toRat_le_plus_toRat_of_toRat_le_toRat_of_sign_eq_false (he : 0 < e) (hs 
     by_cases hy : y.isNorm
     · -- xnorm, y norm, x ≤ y
       simp [PackedFloat.toRat, PackedFloat.toRat, hxsign, hysign]
-      have hxyrat := PackedFloat.toRat_le_toRat_of_le he hs x y hxzero hyzero hxnan hynan hxinf hyinf (by grind?)
+      have hxyrat := PackedFloat.toRat_le_toRat_of_le he hs x y hxzero hyzero hxnan hynan hxinf hyinf (by grind only)
       rw [← PackedFloat.lt_def, PackedFloat.lt] at hlt
       obtain ⟨hle, hne⟩ := hlt
       rw [← PackedFloat.le_def, PackedFloat.le] at hle
-      simp [hxsign, hysign, hxzero, hyzero, hxnan, hynan, hxinf, hyinf] at hle
+      simp [hxsign, hysign, hxnan, hynan] at hle
       rcases hle with (hleExp | hleSig)
       · rw [← Rat.add_mul]
         rw [show y.toRatExp = (y.toRatExp - 1) + 1 by grind only]

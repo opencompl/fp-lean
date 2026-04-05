@@ -383,7 +383,7 @@ theorem BitVec.allOnes_ne_zero {e : Nat} :
   | e + 1 =>
     right
     simp only [BitVec.allOnes, BitVec.zero, ne_eq, ← BitVec.toNat_inj, BitVec.toNat_ofNatLT]
-    grind [Nat.two_pow_pos]
+    grind only [!Nat.two_pow_pos]
 
 namespace PackedFloat
 

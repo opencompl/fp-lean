@@ -395,26 +395,39 @@ theorem IsLawfulUpper_Infinity_iff (x : PackedFloat e s)
     obtain ⟨h1, h2⟩ := h
     induction x using PackedFloat.kindCasesNaNInfZeroNum
     case nanCase n hnan =>
-      simp [hnan] at h1
+      simp only [hnan, PackedFloat.toExtRat'_eq_NaN_of_isNaN, ExtRat.ExtRat.NaN_le_iff,
+        decide_eq_true_eq, ExtRat.ExtRat.le_refl, ExtRat.ExtRat.eq_of_le_of_le,
+        ExtRat.ExtRat.le_NaN_iff, reduceCtorEq, decide_false, Bool.false_eq_true] at h1
     case infCase signx =>
-      simp [hs] at h1
+      simp only [hs, PackedFloat.isInfinite_getInfinity, decide_true,
+        PackedFloat.toExtRat'_eq_Infinity_of_isInfinite, PackedFloat.sign_getInfinity,
+        ExtRat.ExtRat.infinity_le_infinity_iff, decide_implies, Bool.decide_eq_false, dite_eq_ite,
+        Bool.if_true_right, Bool.not_not, Bool.or_eq_true, Bool.not_eq_eq_eq_not,
+        Bool.not_true] at h1
       specialize h2 (PackedFloat.getInfinity e s sign)
-      simp [hs] at h2
+      simp only [hs, PackedFloat.isInfinite_getInfinity, decide_true,
+        PackedFloat.toExtRat'_eq_Infinity_of_isInfinite, PackedFloat.sign_getInfinity,
+        ExtRat.ExtRat.le_refl, PackedFloat.getInfinity_le_getInfinity_iff_of_lt,
+        forall_const] at h2
       grind only [Bool]
     case zeroCase signx =>
-      simp [he, hs] at h1
+      simp only [PackedFloat.isZero_getZero, he, decide_true,
+        PackedFloat.toExtRat'_eq_zero_of_isZero, ExtRat.infinity_le_number_iff] at h1
       subst h1
       simp at h2
       specialize (h2 (PackedFloat.getInfinity e s true))
-      simp [hs] at h2
+      simp only [hs, PackedFloat.isNaN_getInfinity_eq_false, decide_true, Bool.not_true,
+        PackedFloat.le_getInfinity_true_iff_eq, forall_const] at h2
       exact h2
     case numCase n hn =>
       specialize h2 (PackedFloat.getInfinity e s sign)
-      simp [hs] at h2
+      simp only [hs, PackedFloat.isInfinite_getInfinity, decide_true,
+        PackedFloat.toExtRat'_eq_Infinity_of_isInfinite, PackedFloat.sign_getInfinity,
+        ExtRat.ExtRat.le_refl, forall_const] at h2
       rw [n.toExtRat'_eq_toRat_of] at h1
       simp at h1
       subst h1
-      simp [he, hs] at h2
+      simp [hs] at h2
       exact h2
   · intros h
     subst h
@@ -422,10 +435,14 @@ theorem IsLawfulUpper_Infinity_iff (x : PackedFloat e s)
     intros upper hupper
     rcases sign
     case false =>
-      simp [hs] at hupper ⊢
+      simp only [ExtRat.ExtRat.inf_false_le_iff, decide_eq_true_eq, hs,
+        PackedFloat.eq_getInfinity_iff_toExtRat'_eq_Infinity,
+        PackedFloat.PackedFloat.getInfinity_false_le_iff_eq] at hupper ⊢
       grind only [=> PackedFloat.le_getInfinity_false_of_not_isNaN]
     case true =>
-      simp? [he, hs] at hupper ⊢
+      simp only [hs, ExtRat.ExtRat.inf_true_le_iff,  ne_eq, PackedFloat.toExtRat'_eq_NaN_iff_isNaN, Bool.not_eq_true,
+        Bool.decide_eq_false, Bool.not_eq_eq_eq_not, Bool.not_true,
+        PackedFloat.PackedFloat.getInfinity_true_le_of_not_isNaN] at hupper ⊢
       exact hupper
 
 @[simp]
@@ -464,7 +481,9 @@ theorem upper_infinity_eq_getInfinity {e s} (sign : Bool) (he : 0 < e) (hs : 0 <
       simp [hs] at hupper ⊢
       grind only [=> PackedFloat.le_getInfinity_false_of_not_isNaN]
     case true =>
-      simp? [he, hs] at hupper ⊢
+      simp only [hs, ExtRat.ExtRat.inf_true_le_iff, ne_eq, PackedFloat.toExtRat'_eq_NaN_iff_isNaN, Bool.not_eq_true,
+        Bool.decide_eq_false, Bool.not_eq_eq_eq_not, Bool.not_true,
+        PackedFloat.PackedFloat.getInfinity_true_le_of_not_isNaN] at hupper ⊢
       exact hupper
   · intros x hx
     grind only [IsLawfulUpper_Infinity_iff]
