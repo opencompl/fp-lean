@@ -563,6 +563,24 @@ theorem EquivUptoNaN.of_mkNaN_iff (x : PackedFloat e s) : EquivUptoNaN x (Packed
 
 #check SmtLibSemantics.RoundMethod.round
 
+/--
+isEven alternates between numbers.
+-/
+theorem isEven_lower_eq_not_isEven_upper (eout sout : Nat) (r : Rat) :
+  (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).isEven
+          (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r)) =
+  ! (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).isEven
+          (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r)) := by
+  sorry
+
+theorem isEven_upper_eq_not_isEven_lower (eout sout : Nat) (r : Rat) :
+  (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).isEven
+          (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r)) =
+  ! (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).isEven
+          (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r)) := by
+  have := isEven_lower_eq_not_isEven_upper eout sout r
+  grind only [#9ad2]
+
 -- /--
 -- The abstract version of 'shouldRoundUp' that only depends on the rounding mode and the bits,
 -- which matches the definition of `roundingDecision`.
@@ -570,9 +588,19 @@ theorem EquivUptoNaN.of_mkNaN_iff (x : PackedFloat e s) : EquivUptoNaN x (Packed
 -- #check roundingDecision
 -- def shouldRoundUp (rm : RoundingMode) (sign : Bool) (isEven : Bool) (guard : Bool) (sticky : Bool) : Bool :=
 
-theorem round_eq_ite_roundingDecision_of_Number {eout sout : Nat} (rm : RoundingMode) (sign : Bool) (isEven : Bool) (guard : Bool) (sticky : Bool)
-    (_exact : Bool) (r : Rat)
+theorem round_eq_ite_roundingDecision_of_Number {eout sout : Nat} (rm : RoundingMode)
+    (sign : Bool)
+    (isEven : Bool)
+    (guard : Bool)
+    (sticky : Bool)
+    (_exact : Bool)
+    (r : Rat)
+    (hguard : (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number r) = (guard = false))
+    (htiebreak : (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).tieBreak (ExtRat.Number r) = (guard = true ∧ sticky = false))
+    (heven : (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).isEven
+          (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r)) = isEven)
     (hz : r ≠ 0)
+    (hsign : sign = (r < 0))
     :
     ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round rm sign
     (ExtRat.Number r) : PackedFloat eout sout) =
@@ -584,8 +612,45 @@ theorem round_eq_ite_roundingDecision_of_Number {eout sout : Nat} (rm : Rounding
   case RNE =>
     simp only [SmtLibSemantics.RoundMethod.roundRNE]
     simp [hz]
-    sorry
-  case RNA => sorry
+    simp [hguard]
+    rcases guard with rfl | rfl
+    · -- guard = false
+      simp only [↓reduceIte, Bool.false_eq_true, false_and]
+    · -- guard = true
+      simp only [Bool.true_eq_false, ↓reduceIte, true_and, ite_not]
+      rcases sticky with rfl | rfl
+      · -- tiebreak = false
+        simp [htiebreak]
+        simp [heven]
+        rcases isEven with rfl | rfl
+        · simp
+          -- I need a theorem that says that if lower is not even then upper is.
+          intros hupper
+          -- isEven cannot be both true and false.
+          have hcontra := isEven_upper_eq_not_isEven_lower eout sout r
+          grind only
+        · simp
+      · -- tiebreak = true
+        simp [htiebreak]
+  case RNA =>
+    -- This rounding mode is broken, I seem to have confused lower and upper!
+    simp only [SmtLibSemantics.RoundMethod.roundRNA]
+    simp [hz]
+    simp [hguard]
+    rcases guard with rfl | rfl
+    · -- guard = false
+      simp
+      intros hr
+      have hrlt : r < 0 := by grind only
+      simp [hrlt]
+      sorry
+    · -- guard = true
+      simp
+      intros hrle hrlt'
+      have hrlt : r < 0 := by grind
+      specialize (hrlt' hrlt)
+      simp [hrlt, hrlt']
+      sorry
   case RTP => sorry
   case RTN => sorry
   case RTZ => sorry
