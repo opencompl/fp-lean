@@ -159,6 +159,9 @@ def roundingDecision (mode : RoundingMode) (sign : Bool) (significandEven : Bool
   | RoundingMode.RTZ =>
       false
 
+/--
+TODO: refactor to just take a 'sign' argument for 'roundedResult.sign'.
+-/
 @[bv_normalize]
 def rounderSpecialCases
   (roundingMode : RoundingMode)

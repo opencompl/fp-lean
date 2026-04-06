@@ -682,4 +682,57 @@ theorem round_eq_ite_roundingDecision_of_Number {eout sout : Nat} (rm : Rounding
     · simp only [eq_iff_iff, true_iff] at hsign
       simp [hsign]
       sorry
+
+
+/-
+@[bv_normalize]
+def rounderSpecialCases
+  (roundingMode : RoundingMode)
+  (roundedResult : UnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1))
+  (overflow : Bool)
+  (underflow : Bool)
+  (isZero : Bool) : EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
+
+-/
+
+/--
+This proves that the `round` function is correctly implemented by `rounderSpecialCases`
+in the cases when we get a special case.
+
+TODO: how to phrase the correctness of this?
+Do we just say that in the cases where the rounded result is a special case, then the `round` function returns the same result as `rounderSpecialCases`?
+-/
+theorem round_eq_rounderSpecialCases_of_isZero
+  (rm : RoundingMode)
+  (roundedResult : UnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1))
+  (overflow : Bool)
+  (underflow : Bool)
+  (isZero : Bool)
+  (r : Rat)
+  (rounded : PackedFloat eout sout)
+  (hrounded : rounded =  ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round rm sign (ExtRat.Number r)))
+  (hIsZero : isZero = decide (r = 0))
+  (hOverflow : overflow = decide (r > (PackedFloat.getMax eout sout (decide (r < 0))).toRat))
+  (hUnderflow : underflow = decide (r < (PackedFloat.getMin eout sout (decide (r < 0))).toRat))
+  (hrounded' : rounded.isInfinite ∨ rounded.isNaN ∨ rounded.isZero) :
+  (rounded).toExtRat = (rounderSpecialCases rm roundedResult overflow underflow isZero).toExtRat := by
+  rcases hrounded' with hinf | hnan | hzero
+  · simp [hinf]
+    simp [rounderSpecialCases]
+    rcases isZero with rfl | rfl
+    · simp
+
+    · simp
+      -- contradiction, cannot have 'r' be the rounded version being infinite,
+      -- as well as having 'r = 0'.
+      sorry
+
+
+
+
+  · sorry
+  · sorry
+
+
+
 end Fp
