@@ -651,8 +651,35 @@ theorem round_eq_ite_roundingDecision_of_Number {eout sout : Nat} (rm : Rounding
       specialize (hrlt' hrlt)
       simp [hrlt, hrlt']
       sorry
-  case RTP => sorry
-  case RTN => sorry
-  case RTZ => sorry
-
+  case RTP =>
+    simp only [SmtLibSemantics.RoundMethod.roundRTP]
+    simp [hz]
+    rcases sign with rfl | rfl
+    · simp at hsign
+      have hltr : 0 < r := by grind only
+      simp [hltr]
+      intros hguard hsticky
+      sorry
+    · simp at hsign
+      have hrlt : r < 0 := by grind only
+      simp [hrlt]
+      sorry
+  case RTN =>
+    simp only [SmtLibSemantics.RoundMethod.roundRTN]
+    simp [hz]
+    intros hsign hguard
+    subst hsign
+    simp at hsign
+    sorry
+  case RTZ =>
+    simp only [SmtLibSemantics.RoundMethod.roundRTZ]
+    simp [hz]
+    intros hrlezero
+    rcases sign with rfl | rfl
+    · simp at hsign
+      have hcontra : r = 0 := by grind only
+      grind only
+    · simp only [eq_iff_iff, true_iff] at hsign
+      simp [hsign]
+      sorry
 end Fp
