@@ -1407,7 +1407,6 @@ def eq (x y : ExtRat) : Bool :=
   | .Number r1, .Number r2 => r1 == r2
 
 
-
 @[simp]
 theorem eq_iff (x y : ExtRat) : x.eq y = decide (x = y) := by
   grind [ExtRat, eq]

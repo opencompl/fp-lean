@@ -112,7 +112,6 @@ theorem roundRNA_mkNaN (eout sout : Nat) (sign : Bool) :
   ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRNA sign
     (ExtRat.NaN)).isNaN := by
   simp [SmtLibSemantics.RoundMethod.roundRNA]
-  simp [SmtLibSemantics.ExtendedNumber.isNaN]
 
 @[simp]
 theorem roundRNE_mkNaN (eout sout : Nat) (sign : Bool) :
@@ -125,7 +124,6 @@ theorem roundRTP_mkNaN (eout sout : Nat) (sign : Bool) :
    ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRTP sign
     (ExtRat.NaN)).isNaN := by
   simp [SmtLibSemantics.RoundMethod.roundRTP]
-  simp [SmtLibSemantics.ExtendedNumber.isNaN]
 
 
 
@@ -134,7 +132,6 @@ theorem roundRTN_mkNaN (eout sout : Nat) (sign : Bool) :
   ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRTN sign
     (ExtRat.NaN)).isNaN := by
   simp [SmtLibSemantics.RoundMethod.roundRTN]
-  simp [SmtLibSemantics.ExtendedNumber.isZero, SmtLibSemantics.ExtendedNumber.smtLibEq]
 
 
 @[simp]
@@ -259,8 +256,6 @@ theorem roundRTZ_zero {eout sout : Nat} {zeroSign : Bool} (heout : 0 < eout) :
   ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRTZ zeroSign
     (ExtRat.Number 0)) = PackedFloat.getZero eout sout zeroSign := by
   simp [SmtLibSemantics.RoundMethod.roundRTZ]
-  simp [SmtLibSemantics.ExtendedNumber.isZero]
-  simp [SmtLibSemantics.ExtendedNumber.smtLibEq]
   rcases zeroSign
   case false =>
     simp [lower_zero_eq, heout]
@@ -272,9 +267,6 @@ theorem roundRNA_zero {eout sout : Nat} {zeroSign : Bool} (heout : 0 < eout) :
   ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRNA zeroSign
     (ExtRat.Number 0)) = PackedFloat.getZero eout sout zeroSign := by
   simp [SmtLibSemantics.RoundMethod.roundRNA]
-  simp [SmtLibSemantics.ExtendedNumber.isNaN]
-  simp [SmtLibSemantics.ExtendedNumber.isZero]
-  simp [SmtLibSemantics.ExtendedNumber.smtLibEq]
   rcases zeroSign
   case false =>
     simp [lower_zero_eq, heout]
@@ -286,9 +278,6 @@ theorem roundRNE_zero {eout sout : Nat} {zeroSign : Bool} (heout : 0 < eout) :
   ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRNE zeroSign
     (ExtRat.Number 0)) = PackedFloat.getZero eout sout zeroSign := by
   simp [SmtLibSemantics.RoundMethod.roundRNE]
-  simp [SmtLibSemantics.ExtendedNumber.isNaN]
-  simp [SmtLibSemantics.ExtendedNumber.isZero]
-  simp [SmtLibSemantics.ExtendedNumber.smtLibEq]
   rcases zeroSign
   case false =>
     simp [lower_zero_eq, heout]
@@ -300,7 +289,6 @@ theorem roundRTN_zero {eout sout : Nat} {zeroSign : Bool} (heout : 0 < eout) :
   ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRTN zeroSign
     (ExtRat.Number 0)) = PackedFloat.getZero eout sout zeroSign := by
   simp [SmtLibSemantics.RoundMethod.roundRTN]
-  simp [SmtLibSemantics.ExtendedNumber.isZero, SmtLibSemantics.ExtendedNumber.smtLibEq]
   rcases zeroSign
   case false =>
     simp [lower_zero_eq, heout]
@@ -312,8 +300,6 @@ theorem roundRTP_zero {eout sout : Nat} {zeroSign : Bool} (heout : 0 < eout) :
   ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRTP zeroSign
     (ExtRat.Number 0)) = PackedFloat.getZero eout sout zeroSign := by
   simp [SmtLibSemantics.RoundMethod.roundRTP]
-  simp [SmtLibSemantics.ExtendedNumber.isNaN]
-  simp [SmtLibSemantics.ExtendedNumber.isZero, SmtLibSemantics.ExtendedNumber.smtLibEq]
   rcases zeroSign
   case false =>
     simp [lower_zero_eq, heout]
@@ -493,13 +479,10 @@ theorem roundRNA_mkInfinity (eout sout : Nat) (sign : Bool) (heout : 0 < eout) (
   ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRNA sign
     (ExtRat.Infinity infSign)) = (PackedFloat.getInfinity eout sout infSign) := by
   simp [SmtLibSemantics.RoundMethod.roundRNA]
-  simp [SmtLibSemantics.ExtendedNumber.isNaN]
-  simp [SmtLibSemantics.ExtendedNumber.isZero]
-  simp [SmtLibSemantics.ExtendedNumber.smtLibEq]
   simp [lower_infinity_eq_getInfinity infSign heout hsout]
+  simp [SmtLibSemantics.smtLibRoundMethod.lowerHalf_eq]
   simp [lower_infinity_eq_getInfinity infSign heout (show 0 < sout + 1 by grind)]
   simp [heout, hsout]
-  simp [SmtLibSemantics.ExtendedNumber.gtZero, SmtLibSemantics.ExtendedNumber.ltZero]
   intros ha hb
   rcases infSign
   · simp at ha
@@ -510,10 +493,8 @@ theorem roundRNE_mkInfinity (eout sout : Nat) (sign : Bool) (heout : 0 < eout) (
    ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRNE sign
     (ExtRat.Infinity infSign)) = (PackedFloat.getInfinity eout sout infSign) := by
   simp [SmtLibSemantics.RoundMethod.roundRNE]
-  simp [SmtLibSemantics.ExtendedNumber.isNaN]
-  simp [SmtLibSemantics.ExtendedNumber.isZero]
-  simp [SmtLibSemantics.ExtendedNumber.smtLibEq]
   simp [lower_infinity_eq_getInfinity infSign heout hsout]
+  simp [SmtLibSemantics.smtLibRoundMethod.lowerHalf_eq]
   simp [lower_infinity_eq_getInfinity infSign heout (show 0 < sout + 1 by grind)]
   simp [heout, hsout]
 
@@ -522,28 +503,18 @@ theorem roundRTP_mkInfinity (eout sout : Nat) (sign : Bool) (heout : 0 < eout) (
    ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRTP sign
     (ExtRat.Infinity infSign)) = (PackedFloat.getInfinity eout sout infSign) := by
   simp [SmtLibSemantics.RoundMethod.roundRTP]
-  simp [SmtLibSemantics.ExtendedNumber.isNaN]
-  simp [SmtLibSemantics.ExtendedNumber.isZero]
-  simp [SmtLibSemantics.ExtendedNumber.smtLibEq]
-  simp [SmtLibSemantics.ExtendedNumber.gtZero, SmtLibSemantics.ExtendedNumber.ltZero]
+  simp [heout, hsout]
   rcases infSign
   case false =>
-    simp [upper_infinity_eq_getInfinity _ heout hsout]
+    simp
   case true =>
     simp
-    rcases sign
-    case false =>
-      simp [lower_infinity_eq_getInfinity _ heout hsout]
-    case true =>
-      simp [upper_infinity_eq_getInfinity _ heout hsout]
 
 @[simp]
 theorem roundRTN_mkInfinity (eout sout : Nat) (sign : Bool) (heout : 0 < eout) (hsout : 0 < sout) :
    ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRTN sign
     (ExtRat.Infinity infSign)) = (PackedFloat.getInfinity eout sout infSign) := by
   simp [SmtLibSemantics.RoundMethod.roundRTN]
-  simp [SmtLibSemantics.ExtendedNumber.isZero]
-  simp [SmtLibSemantics.ExtendedNumber.smtLibEq]
   simp [lower_infinity_eq_getInfinity infSign heout hsout]
 
 @[simp]
@@ -551,10 +522,6 @@ theorem roundRTZ_mkInfinity (eout sout : Nat) (sign : Bool) (heout : 0 < eout) (
    ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRTZ sign
     (ExtRat.Infinity infSign)) = (PackedFloat.getInfinity eout sout infSign) := by
   simp [SmtLibSemantics.RoundMethod.roundRTZ]
-  simp [SmtLibSemantics.ExtendedNumber.isZero]
-  simp [SmtLibSemantics.ExtendedNumber.smtLibEq]
-  simp [SmtLibSemantics.ExtendedNumber.gtZero]
-  simp [SmtLibSemantics.ExtendedNumber.ltZero]
   rcases infSign
   case false =>
     simp [lower_infinity_eq_getInfinity _ heout hsout]
@@ -594,5 +561,33 @@ theorem EquivUptoNaN.of_mkNaN_iff (x : PackedFloat e s) : EquivUptoNaN x (Packed
   simp [EquivUptoNaN]
   grind only [!PackedFloat.isNaN_mkNaN]
 
+#check SmtLibSemantics.RoundMethod.round
+
+-- /--
+-- The abstract version of 'shouldRoundUp' that only depends on the rounding mode and the bits,
+-- which matches the definition of `roundingDecision`.
+-- -/
+-- #check roundingDecision
+-- def shouldRoundUp (rm : RoundingMode) (sign : Bool) (isEven : Bool) (guard : Bool) (sticky : Bool) : Bool :=
+
+theorem round_eq_ite_roundingDecision_of_Number {eout sout : Nat} (rm : RoundingMode) (sign : Bool) (isEven : Bool) (guard : Bool) (sticky : Bool)
+    (_exact : Bool) (r : Rat)
+    (hz : r ≠ 0)
+    :
+    ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round rm sign
+    (ExtRat.Number r) : PackedFloat eout sout) =
+    if roundingDecision rm sign isEven guard sticky _exact then
+      (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).upper (ExtRat.Number r)
+    else
+      (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lower  (ExtRat.Number r) := by
+  cases rm <;> simp [roundingDecision]
+  case RNE =>
+    simp only [SmtLibSemantics.RoundMethod.roundRNE]
+    simp [hz]
+    sorry
+  case RNA => sorry
+  case RTP => sorry
+  case RTN => sorry
+  case RTZ => sorry
 
 end Fp
