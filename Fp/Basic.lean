@@ -3314,6 +3314,7 @@ theorem toRat_eq_toRat' (uf : UnpackedFloat e s) : uf.toRat = uf.toRat' := by
   simp [toExpInt]
   norm_cast
 
+@[bv_normalize]
 def maxNormal (eout sout : Nat) (e _s : Nat) (sign : Bool) :
     UnpackedFloat eout sout :=
   {
@@ -3322,6 +3323,7 @@ def maxNormal (eout sout : Nat) (e _s : Nat) (sign : Bool) :
     sig := (BitVec.allOnes sout).zeroExtend sout
   }
 
+@[bv_normalize]
 def minSubnormal (eout sout : Nat) (e s : Nat) (sign : Bool) :
     UnpackedFloat eout sout :=
   {
@@ -3903,8 +3905,9 @@ theorem BitVec.ofInt_eq_zero_iff_of_width_1 :
     simp
     grind only [#8803]
 
+
 @[simp]
-theorem isNonzeroSubnorm_minSubnormalNumber_eq_decide
+theorem isNonzeroSubnorm_minSubnormalNumber_eq_of_lt
     (exWidth sigWidth : Nat) (sign : Bool)
     (he : 1 < exWidth) (hs : 0 < sigWidth) :
     (PackedFloat.minSubnormalNumber exWidth sigWidth sign).isNonzeroSubnorm =
