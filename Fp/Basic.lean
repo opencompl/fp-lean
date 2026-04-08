@@ -605,7 +605,7 @@ the smallest nonzero subnormal number.
 def minSubnormalNumber (exWidth sigWidth : Nat) (sign : Bool)
   : PackedFloat exWidth sigWidth where
   sign
-  ex := BitVec.ofInt exWidth (minSubnormalExp exWidth sigWidth)
+  ex := BitVec.ofInt exWidth 0
   sig := 1#sigWidth
 
 @[simp]
@@ -619,7 +619,7 @@ theorem sig_minSubnormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
 @[simp]
 theorem ex_minSubnormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
     (PackedFloat.minSubnormalNumber exWidth sigWidth sign).ex =
-    BitVec.ofInt exWidth (minSubnormalExp exWidth sigWidth) := rfl
+    BitVec.ofInt exWidth 0 := rfl
 
 -- TODO: write toRat_minSubnormalNumber
 
@@ -3322,14 +3322,6 @@ def maxNormal (eout sout : Nat) (e _s : Nat) (sign : Bool) :
     sig := (BitVec.allOnes sout).zeroExtend sout
   }
 
-theorem toRat_maxNormal_eq (eout sout : Nat) (e s : Nat)
-      (he : e ≤ eout) (hs : s ≤ sout)
-      (sign : Bool) :
-      (PackedFloat.maxNormalNumber e s sign).toRat =
-      (maxNormal eout sout e s sign).toRat := by
-  rw [PackedFloat.toRat]
-  sorry
-
 def minSubnormal (eout sout : Nat) (e s : Nat) (sign : Bool) :
     UnpackedFloat eout sout :=
   {
@@ -3896,44 +3888,30 @@ theorem isNorm_maxNormalNumber_eq_decide
         grind only
       · grind only
 
+
+@[simp]
+theorem BitVec.ofInt_eq_zero_iff_of_width_1 :
+    BitVec.ofInt 1 i = 0#1 ↔ i % 2 = 0 := by
+  constructor
+  · intros h
+    have := BitVec.toInt_inj.mpr h
+    simp only [BitVec.toInt_ofInt, BitVec.toInt_zero] at this
+    simp at this
+    grind only [#8803]
+  · intros h
+    apply BitVec.eq_of_toInt_eq
+    simp
+    grind only [#8803]
+
 @[simp]
 theorem isNonzeroSubnorm_minSubnormalNumber_eq_decide
-    (exWidth sigWidth : Nat) (sign : Bool) :
+    (exWidth sigWidth : Nat) (sign : Bool)
+    (he : 1 < exWidth) (hs : 0 < sigWidth) :
     (PackedFloat.minSubnormalNumber exWidth sigWidth sign).isNonzeroSubnorm =
-    decide (2 < exWidth) := by
+    true := by
   simp [PackedFloat.minSubnormalNumber, isNonzeroSubnorm]
-  rcases exWidth with rfl | rfl | rfl | exWidth
-  · simp
-  · simp
-  · simp [BitVec.intMax, BitVec.twoPow]
-  · simp only [Nat.lt_add_left_iff_pos, Nat.zero_lt_succ, decide_true, Bool.and_eq_true,
-    bne_iff_ne, ne_eq]
-    constructor
-    · constructor
-      · intros hcontra
-        have := BitVec.toInt_inj.mpr hcontra
-        simp only [BitVec.toInt_sub, BitVec.toInt_intMax, Nat.add_one_sub_one,
-          Nat.lt_add_left_iff_pos, Nat.zero_lt_succ, BitVec.toInt_one_of_lt, BitVec.toInt_allOnes,
-          ↓reduceIte, Int.reduceNeg] at this
-        rw [Int.bmod_eq_of_le] at this
-        · have : 4 ≤ 2 ^ (exWidth + 2) := by grind only
-          grind only
-        · have : 4 ≤ 2 ^ (exWidth + 2) := by grind only
-          grind only
-        · grind only
-      · simp
-        sorry
-    · intros hcontra
-      have := BitVec.toInt_inj.mpr hcontra
-      simp only [BitVec.toInt_sub, BitVec.toInt_intMax, Nat.add_one_sub_one,
-        Nat.lt_add_left_iff_pos, Nat.zero_lt_succ, BitVec.toInt_one_of_lt,
-        BitVec.toInt_zero] at this
-      rw [Int.bmod_eq_of_le] at this
-      · have : 4 ≤ 2 ^ (exWidth + 2) := by grind only
-        grind only
-      · have : 4 ≤ 2 ^ (exWidth + 2) := by grind only
-        grind only
-      · grind only
+  simp [show ¬ sigWidth = 0 by grind only]
+  simp [show ¬ exWidth = 0 by grind only]
 
 end PackedFloat
 
