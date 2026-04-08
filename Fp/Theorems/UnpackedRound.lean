@@ -692,10 +692,14 @@ theorem round_eq_ite_roundingDecision_of_Number_of_neg {eout sout : Nat} (rm : R
     (hguardsticky : guard = false → sticky = false →
       (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat eout sout) = SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r)
     )
-    (hguard : (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number r) = (guard = false))
+    -- | in the negative case, we are in the lower half when guard is true,
+    -- since we are closer to lower than upp.er
+    (hguard :
+      (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number r) =
+      (guard = true))
     (htiebreak : (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).tieBreak (ExtRat.Number r) = (guard = true ∧ sticky = false))
     (heven : (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).isEven
-          (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r)) = isEven)
+          (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r)) = isEven)
     (hz : r ≠ 0)
     (hsign : sign = (r < 0))
     (hr : r < 0)
@@ -713,7 +717,27 @@ theorem round_eq_ite_roundingDecision_of_Number_of_neg {eout sout : Nat} (rm : R
     simp only [SmtLibSemantics.RoundMethod.roundRNE]
     simp [hz]
     simp [hguard]
-    sorry
+    rcases guard with rfl | rfl
+    · simp
+      intros htiebreak'
+      simp at htiebreak
+      grind only
+    · simp
+      rcases sticky with rfl | rfl
+      · -- tiebreak = false
+        simp [htiebreak]
+        simp at htiebreak
+        simp at hguard
+        simp at hguardsticky
+        rcases isEven with rfl | rfl
+        · simp
+          intros isEven
+          grind only
+        · simp
+          intros hevenUpper
+          grind only
+      · -- tiebreak = true
+        simp [htiebreak]
   case RNA =>
     -- This rounding mode is broken, I seem to have confused lower and upper!
     simp only [SmtLibSemantics.RoundMethod.roundRNA]
@@ -722,16 +746,12 @@ theorem round_eq_ite_roundingDecision_of_Number_of_neg {eout sout : Nat} (rm : R
     rcases guard with rfl | rfl
     · simp [show ¬ 0 < r by grind only]
       simp [hr]
-      sorry
+      intros htiebreak
+      simp [htiebreak]
+      grind only
     · simp [show ¬ 0 < r by grind only]
-      simp [hr]
-      simp at htiebreak
-      rcases sticky with rfl | rfl
-      · simp at htiebreak
-        simp [htiebreak]
-      · simp at htiebreak
-        simp [htiebreak]
-        sorry
+      intros hr
+      grind only
   case RTP =>
     simp only [SmtLibSemantics.RoundMethod.roundRTP]
     simp [hz]
@@ -747,6 +767,7 @@ theorem round_eq_ite_roundingDecision_of_Number_of_neg {eout sout : Nat} (rm : R
     simp [hr]
     intros hr
     grind only
+
 
 /-
 @[bv_normalize]
