@@ -169,7 +169,7 @@ def EFixedPoint.round {width exOffset}
       -- Unless we're rounding RTN/RTP to the opposite sign, or RTZ
       -- in which case we overflow to MAX
       if (mode = .RTN ∧ ¬x.num.sign) ∨ (mode = .RTP ∧ x.num.sign) ∨ mode = .RTZ then
-        PackedFloat.getMax _ _ x.num.sign
+        PackedFloat.maxNormalNumber _ _ x.num.sign
       else
         PackedFloat.getInfinity _ _ x.num.sign
     else

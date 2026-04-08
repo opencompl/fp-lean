@@ -306,6 +306,11 @@ theorem roundRTP_zero {eout sout : Nat} {zeroSign : Bool} (heout : 0 < eout) :
   case true =>
     simp [upper_zero_eq, heout]
 
+theorem isZero_round_zero {eout sout : Nat} {zeroSign : Bool} {rm : RoundingMode} (heout : 0 < eout) :
+  ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round
+    rm zeroSign (ExtRat.Number 0)).isZero = true := by
+  rcases rm <;> simp [heout]
+
 @[simp]
 theorem round_eq_mkZero_of_mkZero {zeroSign : Bool} {eout sout : Nat} {rm : RoundingMode}
    (heout : 0 < eout) :
@@ -703,6 +708,7 @@ TODO: how to phrase the correctness of this?
 Do we just say that in the cases where the rounded result is a special case, then the `round` function returns the same result as `rounderSpecialCases`?
 -/
 theorem round_eq_rounderSpecialCases_of_isZero
+  (heout : 0 < eout)
   (rm : RoundingMode)
   (roundedResult : UnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1))
   (overflow : Bool)
@@ -712,8 +718,8 @@ theorem round_eq_rounderSpecialCases_of_isZero
   (rounded : PackedFloat eout sout)
   (hrounded : rounded =  ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round rm sign (ExtRat.Number r)))
   (hIsZero : isZero = decide (r = 0))
-  (hOverflow : overflow = decide (r > (PackedFloat.getMax eout sout (decide (r < 0))).toRat))
-  (hUnderflow : underflow = decide (r < (PackedFloat.getMin eout sout (decide (r < 0))).toRat))
+  (hOverflow : overflow = decide (r > (PackedFloat.maxNormalNumber eout sout (decide (r < 0))).toRat))
+  (hUnderflow : underflow = decide (r < (PackedFloat.minSubnormalNumber eout sout (decide (r < 0))).toRat))
   (hrounded' : rounded.isInfinite ∨ rounded.isNaN ∨ rounded.isZero) :
   (rounded).toExtRat = (rounderSpecialCases rm roundedResult overflow underflow isZero).toExtRat := by
   rcases hrounded' with hinf | hnan | hzero
@@ -721,15 +727,15 @@ theorem round_eq_rounderSpecialCases_of_isZero
     simp [rounderSpecialCases]
     rcases isZero with rfl | rfl
     · simp
-
+      sorry
     · simp
       -- contradiction, cannot have 'r' be the rounded version being infinite,
       -- as well as having 'r = 0'.
-      sorry
-
-
-
-
+      simp at hIsZero
+      subst hIsZero
+      have : rounded.isZero = true := by
+        grind only [isZero_round_zero]
+      grind only [→ PackedFloat.not_isZero_of_isInfinite]
   · sorry
   · sorry
 

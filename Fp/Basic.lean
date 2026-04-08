@@ -458,23 +458,23 @@ theorem ex_getZero (exWidth sigWidth : Nat) (sign : Bool) :
 Returns the maximum (magnitude) value for the given sign.
 -/
 @[bv_normalize]
-def getMax (exWidth sigWidth : Nat) (sign : Bool)
+def maxNormalNumber (exWidth sigWidth : Nat) (sign : Bool)
   : PackedFloat exWidth sigWidth where
   sign
   ex := BitVec.intMax exWidth - 1
   sig := BitVec.allOnes sigWidth
 
 @[simp]
-theorem sign_getMax (exWidth sigWidth : Nat) (sign : Bool) :
-    (PackedFloat.getMax exWidth sigWidth sign).sign = sign := rfl
+theorem sign_maxNormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.maxNormalNumber exWidth sigWidth sign).sign = sign := rfl
 
 @[simp]
-theorem sig_getMax (exWidth sigWidth : Nat) (sign : Bool) :
-    (PackedFloat.getMax exWidth sigWidth sign).sig = BitVec.allOnes sigWidth := rfl
+theorem sig_maxNormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.maxNormalNumber exWidth sigWidth sign).sig = BitVec.allOnes sigWidth := rfl
 
 @[simp]
-theorem ex_getMax (exWidth sigWidth : Nat) (sign : Bool) :
-    (PackedFloat.getMax exWidth sigWidth sign).ex = BitVec.intMax exWidth - 1 := rfl
+theorem ex_maxNormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.maxNormalNumber exWidth sigWidth sign).ex = BitVec.intMax exWidth - 1 := rfl
 
 -- TODO: write toRat_getMax
 
@@ -482,25 +482,25 @@ theorem ex_getMax (exWidth sigWidth : Nat) (sign : Bool) :
 the smallest nonzero subnormal number.
 -/
 @[bv_normalize]
-def getMinSubnormalNumber (exWidth sigWidth : Nat) (sign : Bool)
+def minSubnormalNumber (exWidth sigWidth : Nat) (sign : Bool)
   : PackedFloat exWidth sigWidth where
   sign
   ex := BitVec.intMin exWidth
   sig := 1#sigWidth
 
 @[simp]
-theorem sign_getMinSubnormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
-    (PackedFloat.getMinSubnormalNumber exWidth sigWidth sign).sign = sign := rfl
+theorem sign_minSubnormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.minSubnormalNumber exWidth sigWidth sign).sign = sign := rfl
 
 @[simp]
-theorem sig_getMinSubnormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
-    (PackedFloat.getMinSubnormalNumber exWidth sigWidth sign).sig = 1#sigWidth := rfl
+theorem sig_minSubnormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.minSubnormalNumber exWidth sigWidth sign).sig = 1#sigWidth := rfl
 
 @[simp]
-theorem ex_getMinSubnormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
-    (PackedFloat.getMinSubnormalNumber exWidth sigWidth sign).ex = BitVec.intMin exWidth := rfl
+theorem ex_minSubnormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.minSubnormalNumber exWidth sigWidth sign).ex = BitVec.intMin exWidth := rfl
 
--- TODO: write toRat_getMinSubnormalNumber
+-- TODO: write toRat_minSubnormalNumber
 
 @[bv_normalize]
 theorem injEq (a b : PackedFloat e s)
