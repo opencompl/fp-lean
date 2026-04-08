@@ -222,11 +222,8 @@ def RoundMethod.roundRNA : PackedFloat e s :=
       else .getNaN e s -- does not occur.
 
 def RoundMethod.roundRTP : PackedFloat e s :=
-      if isNaN r then roundMethod.lower r
-      else if isZero r then roundMethod.rounderForSign sign r
-      else if ¬ (isZero r) ∧ (gtZero r) then roundMethod.upper r
-      else if ¬ (isZero r) ∧ (ltZero r) then roundMethod.rounderForSign sign r
-      else .getNaN e s -- does not occur.
+  if isZero r then roundMethod.rounderForSign sign r
+  else  roundMethod.upper r
 
 
 def RoundMethod.roundRTN : PackedFloat e s :=

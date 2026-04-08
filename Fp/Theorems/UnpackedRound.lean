@@ -515,11 +515,6 @@ theorem roundRTP_mkInfinity (eout sout : Nat) (sign : Bool) (heout : 0 < eout) (
     (ExtRat.Infinity infSign)) = (PackedFloat.getInfinity eout sout infSign) := by
   simp [SmtLibSemantics.RoundMethod.roundRTP]
   simp [heout, hsout]
-  rcases infSign
-  case false =>
-    simp
-  case true =>
-    simp
 
 @[simp]
 theorem roundRTN_mkInfinity (eout sout : Nat) (sign : Bool) (heout : 0 < eout) (hsout : 0 < sout) :
@@ -599,19 +594,24 @@ theorem isEven_upper_eq_not_isEven_lower (eout sout : Nat) (r : Rat) :
 -- #check roundingDecision
 -- def shouldRoundUp (rm : RoundingMode) (sign : Bool) (isEven : Bool) (guard : Bool) (sticky : Bool) : Bool :=
 
-theorem round_eq_ite_roundingDecision_of_Number {eout sout : Nat} (rm : RoundingMode)
+
+theorem round_eq_ite_roundingDecision_of_Number_of_nonneg {eout sout : Nat} (rm : RoundingMode)
     (sign : Bool)
     (isEven : Bool)
     (guard : Bool)
     (sticky : Bool)
     (_exact : Bool)
     (r : Rat)
+    (hguardsticky : guard = false → sticky = false →
+      (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat eout sout) = SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r)
+    )
     (hguard : (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number r) = (guard = false))
     (htiebreak : (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).tieBreak (ExtRat.Number r) = (guard = true ∧ sticky = false))
     (heven : (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).isEven
           (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r)) = isEven)
     (hz : r ≠ 0)
     (hsign : sign = (r < 0))
+    (hr : 0 ≤ r)
     :
     ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round rm sign
     (ExtRat.Number r) : PackedFloat eout sout) =
@@ -619,6 +619,8 @@ theorem round_eq_ite_roundingDecision_of_Number {eout sout : Nat} (rm : Rounding
       (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).upper (ExtRat.Number r)
     else
       (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lower  (ExtRat.Number r) := by
+  simp [show ¬ r < 0 by grind only] at hsign
+  subst hsign
   cases rm <;> simp [roundingDecision]
   case RNE =>
     simp only [SmtLibSemantics.RoundMethod.roundRNE]
@@ -653,47 +655,28 @@ theorem round_eq_ite_roundingDecision_of_Number {eout sout : Nat} (rm : Rounding
       simp
       intros hr
       have hrlt : r < 0 := by grind only
-      simp [hrlt]
-      sorry
+      grind only
     · -- guard = true
       simp
       intros hrle hrlt'
       have hrlt : r < 0 := by grind
-      specialize (hrlt' hrlt)
-      simp [hrlt, hrlt']
-      sorry
+      grind only
   case RTP =>
     simp only [SmtLibSemantics.RoundMethod.roundRTP]
     simp [hz]
-    rcases sign with rfl | rfl
-    · simp at hsign
-      have hltr : 0 < r := by grind only
-      simp [hltr]
-      intros hguard hsticky
-      sorry
-    · simp at hsign
-      have hrlt : r < 0 := by grind only
-      simp [hrlt]
-      sorry
+    intros hguard hsticky
+    rw [hguardsticky]
+    · grind only
+    · grind only
   case RTN =>
     simp only [SmtLibSemantics.RoundMethod.roundRTN]
     simp [hz]
-    intros hsign hguard
-    subst hsign
-    simp at hsign
-    sorry
   case RTZ =>
     simp only [SmtLibSemantics.RoundMethod.roundRTZ]
     simp [hz]
     intros hrlezero
-    rcases sign with rfl | rfl
-    · simp at hsign
-      have hcontra : r = 0 := by grind only
-      grind only
-    · simp only [eq_iff_iff, true_iff] at hsign
-      simp [hsign]
-      sorry
-
+    have hcontra : r = 0 := by grind only
+    grind only
 
 /-
 @[bv_normalize]
