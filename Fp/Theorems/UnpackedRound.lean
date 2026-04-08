@@ -311,6 +311,12 @@ theorem isZero_round_zero {eout sout : Nat} {zeroSign : Bool} {rm : RoundingMode
     rm zeroSign (ExtRat.Number 0)).isZero = true := by
   rcases rm <;> simp [heout]
 
+/-- rounding a number never produces NaN. -/
+theorem isNaN_round_number_eq_false {eout sout : Nat} {zeroSign : Bool} {rm : RoundingMode} {r : Rat} (heout : 0 < eout) :
+  ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round
+    rm zeroSign (ExtRat.Number r)).isNaN = false := by
+  sorry
+
 @[simp]
 theorem round_eq_mkZero_of_mkZero {zeroSign : Bool} {eout sout : Nat} {rm : RoundingMode}
    (heout : 0 < eout) :
@@ -710,6 +716,8 @@ Do we just say that in the cases where the rounded result is a special case, the
 theorem round_eq_rounderSpecialCases_of_isZero
   (heout : 0 < eout)
   (rm : RoundingMode)
+  -- | We need a precondition that says that outside
+  -- of the special cases, this is correctly rounded.
   (roundedResult : UnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1))
   (overflow : Bool)
   (underflow : Bool)
@@ -723,22 +731,70 @@ theorem round_eq_rounderSpecialCases_of_isZero
   (hrounded' : rounded.isInfinite ∨ rounded.isNaN ∨ rounded.isZero) :
   (rounded).toExtRat = (rounderSpecialCases rm roundedResult overflow underflow isZero).toExtRat := by
   rcases hrounded' with hinf | hnan | hzero
-  · simp [hinf]
-    simp [rounderSpecialCases]
+  · simp only [PackedFloat.toExtRat_eq_toExtRat', hinf,
+    PackedFloat.toExtRat'_eq_Infinity_of_isInfinite]
+    simp only [rounderSpecialCases]
     rcases isZero with rfl | rfl
-    · simp
+    · simp only [Bool.false_eq_true, ↓reduceIte]
+      simp at hIsZero
       sorry
-    · simp
+    · simp only [↓reduceIte, EUnpackedFloat.toExtRat_mkZero, reduceCtorEq]
       -- contradiction, cannot have 'r' be the rounded version being infinite,
       -- as well as having 'r = 0'.
-      simp at hIsZero
+      simp only [true_eq_decide_iff] at hIsZero
       subst hIsZero
       have : rounded.isZero = true := by
         grind only [isZero_round_zero]
       grind only [→ PackedFloat.not_isZero_of_isInfinite]
-  · sorry
-  · sorry
-
-
-
+  · simp only [PackedFloat.toExtRat_eq_toExtRat', hnan, PackedFloat.toExtRat'_eq_NaN_of_isNaN,
+    ExtRat.ExtRat.NaN_le_iff, decide_eq_true_eq, ExtRat.ExtRat.le_refl,
+    ExtRat.ExtRat.eq_of_le_of_le]
+    have : rounded.isNaN = false := by
+      grind only [isNaN_round_number_eq_false]
+    grind only
+  · simp only [PackedFloat.toExtRat_eq_toExtRat', hzero, PackedFloat.toExtRat'_eq_zero_of_isZero]
+    rcases isZero with rfl | rfl
+    · simp only [false_eq_decide_iff] at hIsZero
+      simp only [rounderSpecialCases, Bool.false_eq_true, ↓reduceIte]
+      -- this is possible upon underflow.
+      rcases underflow with rfl | rfl
+      · simp only [Bool.false_eq_true, ↓reduceIte]
+        rcases overflow with rfl | rfl
+        · simp only [Bool.false_eq_true, ↓reduceIte, EUnpackedFloat.toExtRat_mkNumber,
+          ExtRat.Number.injEq]
+          simp at hOverflow
+          simp at hUnderflow
+          by_cases hr : r < 0
+          · simp [hr] at hOverflow hUnderflow
+            sorry
+          · simp [hr] at hOverflow hUnderflow
+            sorry
+        · simp at hOverflow
+          simp at hUnderflow
+          -- needs relationships between maxNormalNumber and minSubnormalNumber.
+          by_cases hr : r < 0
+          · simp [hr] at hOverflow hUnderflow
+            --   hOverflow : (PackedFloat.maxNormalNumber eout sout false).toRat < r
+            --     -minSubnormalNumber ≤ r < 0
+            sorry
+          · simp [hr] at hOverflow hUnderflow
+            simp at hr
+            -- if maxNormalNumber < r,
+            -- then the rounded result must be infinity?
+            -- or at the very least, the rounded result cannot be zero.
+            --   hOverflow : (PackedFloat.maxNormalNumber eout sout false).toRat < r
+            --   hzero : rounded.isZero = true
+            sorry
+      · simp only [↓reduceIte]
+        rcases rm with rfl | rfl | rfl | rfl | rfl
+        · simp
+        · simp
+        · simp
+          sorry
+        · simp
+          sorry
+        · simp
+    · simp only [true_eq_decide_iff] at hIsZero
+      subst hIsZero
+      simp [rounderSpecialCases]
 end Fp
