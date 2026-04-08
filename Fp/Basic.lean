@@ -3324,12 +3324,13 @@ def maxNormal (eout sout : Nat) (e _s : Nat) (sign : Bool) :
   }
 
 @[bv_normalize]
-def minSubnormal (eout sout : Nat) (e s : Nat) (sign : Bool) :
+def minSubnormal (eout sout : Nat)
+  (etarget starget : Nat) (sign : Bool) :
     UnpackedFloat eout sout :=
   {
     sign := sign
-    ex := BitVec.ofInt eout (minSubnormalExp e s)
-    sig := (BitVec.allOnes sout).zeroExtend sout
+    ex := BitVec.ofInt eout (minSubnormalExp etarget starget)
+    sig := (BitVec.leadingOne starget).zeroExtend sout
   }
 
 end UnpackedFloat
@@ -3905,7 +3906,6 @@ theorem BitVec.ofInt_eq_zero_iff_of_width_1 :
     simp
     grind only [#8803]
 
-
 @[simp]
 theorem isNonzeroSubnorm_minSubnormalNumber_eq_of_lt
     (exWidth sigWidth : Nat) (sign : Bool)
@@ -3916,6 +3916,12 @@ theorem isNonzeroSubnorm_minSubnormalNumber_eq_of_lt
   simp [show ¬ sigWidth = 0 by grind only]
   simp [show ¬ exWidth = 0 by grind only]
 
+-- TODO: show that
+--    PackedFloat.minSubnormalNumber.toRat =
+--    UnpackedFloat.minSubnormalNumber.toRat
+-- TODO: show that
+--    PackedFloat.maxNormalNumber.toRat =
+--    UnpackedFloat.maxNormalNumber.toRat
 end PackedFloat
 
 namespace UnpackedFloat

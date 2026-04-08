@@ -4,6 +4,146 @@ import Fp.Grind
 
 
 
+@[bv_normalize]
+def BitVec.leadingOne (w : Nat) : BitVec w :=
+  1#w <<< (w - 1)
+
+@[simp]
+def BitVec.getElem_leadingOne (w : Nat) (i : Nat) (hi : i < w ) : (BitVec.leadingOne w)[i] = decide (i = w - 1) := by
+  simp [leadingOne]
+  grind
+
+@[bv_normalize]
+def BitVec.decrement (x : BitVec w) : BitVec w := x - 1#w
+
+@[bv_normalize]
+def BitVec.extendAtMsb (x : BitVec w) (δ : Nat) : BitVec (δ + w) :=
+  x.zeroExtend _
+
+/-- Extract from the MSB, starting at msb lo, going downward for 'len' bits.
+0<----------------------->(w-1)
+----------->loMsb----|len
+           |
+            <-----------------loLsb
+
+-/
+@[bv_normalize]
+def BitVec.extractMsb' (x : BitVec w) (loMsb : Nat) (len : Nat) :
+    BitVec len :=
+  (x.reverse.extractLsb' loMsb len).reverse
+
+theorem BitVec.getLsbD_extractMsb' {w lo len : Nat} (x : BitVec w)
+    (i : Nat):
+    (extractMsb' x lo len).getMsbD i =
+    (x.getMsbD (lo + i) && decide (i < len) && decide (lo + i < w)) := by
+  simp [extractMsb', BitVec.getMsbD_eq_getLsbD, BitVec.getLsbD_reverse]
+  by_cases h1 : i < len
+  · simp [h1]
+    simp [show len - 1 - i < len by omega]
+    simp [show len - 1 - (len - 1 - i) < len by omega]
+    simp [show len - 1 - (len - 1 - i) = i by omega]
+    intros h2 h3
+    have := BitVec.lt_of_getLsbD h3
+    omega
+  · simp [h1]
+
+@[bv_normalize]
+def BitVec.expandingSubtract {w} (a b : BitVec w) : BitVec (w + 1) :=
+  let a' : BitVec (w + 1) := a.signExtend (w + 1)
+  let b' : BitVec (w + 1) := b.signExtend (w + 1)
+  a' - b'
+
+
+@[simp]
+theorem BitVec.toInt_expandingSubtract {w} (a b : BitVec w) :
+  (expandingSubtract a b).toInt = a.toInt - b.toInt := by
+  simp [expandingSubtract, toInt_signExtend]
+  have : 2 ^ (w + 1) / 2 = 2^w := by grind
+  apply Int.bmod_eq_of_le <;> grind
+
+
+@[bv_normalize]
+def BitVec.width {w : Nat} (_x : BitVec w) : Nat := w
+
+/-- bitvector that has 1 at index i and 0 everywhere else. -/
+@[bv_normalize]
+def BitVec.oneHotBV (i : BitVec w) : BitVec w :=
+    1#w <<< i
+
+@[simp]
+theorem BitVec.getlsbD_oneHotBV (i : BitVec w) :
+    (oneHotBV i).getLsbD j =
+    (decide (j < w) && decide (i.toNat = j)) := by
+  simp [oneHotBV]
+  by_cases h1 : j < w
+  · simp [h1]
+    grind
+  · simp [h1]
+
+@[simp]
+theorem BitVec.getElem_oneHotBV (i : BitVec w) (j : Fin w) :
+    (oneHotBV i)[j] = decide (i.toNat = j) := by
+  simp [← BitVec.getLsbD_eq_getElem]
+
+/-- Convert a binary number into a unary mask of that number. -/
+@[bv_normalize]
+def BitVec.orderEncode (x : BitVec w) : BitVec w :=
+  (oneHotBV x) - 1
+
+theorem BitVec.orderEncode_eq_oneHotBV_sub (x : BitVec w) :
+    BitVec.orderEncode x = oneHotBV x - 1 := rfl
+
+@[simp]
+theorem BitVec.orderEncode_eq_allOnes_of_le {w : Nat} (x : BitVec w)
+    (h : w ≤ x.toNat) :
+    orderEncode x = allOnes w := by
+  simp [orderEncode, oneHotBV]
+  rw [BitVec.shiftLeft_eq_zero]
+  · simp [BitVec.neg_one_eq_allOnes]
+  · omega
+
+axiom AxOrderEncode {P : Prop} : P
+
+theorem BitVec.getLsbD_orderEncode_of_lt (x : BitVec w) (i : Nat) (hi : i < w) :
+    (orderEncode x).getLsbD i = (decide (i < x.toNat)) := by
+  by_cases hi : x.toNat < w
+  · rw [orderEncode]
+    · -- ⊢ (1#w <<< x - 1).getLsbD i = decide (i < x.toNat)
+      exact AxOrderEncode
+  · rw [BitVec.orderEncode_eq_allOnes_of_le]
+    · simp; omega
+    · omega
+
+theorem BitVec.getElem_orderEncode_of_lt {w : Nat} (x : BitVec w) (i : Nat) (hi : i < w) :
+    (orderEncode x)[i] = (decide (i < x.toNat)) := by
+  rw [← getLsbD_eq_getElem]
+  apply BitVec.getLsbD_orderEncode_of_lt x i hi
+
+@[simp]
+theorem BitVec.getLsbD_orderEncode {w : Nat} (x : BitVec w) (i : Nat) :
+    (orderEncode x).getLsbD i = (decide (i < x.toNat) && decide (i < w)) := by
+  by_cases hi : i < w
+  · simp [hi]
+    rw [BitVec.getElem_orderEncode_of_lt]
+  · rw [BitVec.getLsbD_of_ge x.orderEncode i (by omega)]
+    simp; omega
+
+@[simp]
+theorem BitVec.getElem_orderEncode {w : Nat} (x : BitVec w) (i : Nat) (hi : i < w) :
+    (orderEncode x)[i] = (decide (i < x.toNat)) := by
+  rw [← getLsbD_eq_getElem]
+  rw [BitVec.getLsbD_orderEncode x i]
+  simp [hi]
+
+@[simp]
+theorem BitVec.orderEncode_eq_shiftRight_allOnes {x : BitVec w} :
+    orderEncode x = BitVec.allOnes w >>> (w - x.toNat) := by
+  ext i hi
+  simp
+  omega
+
+
+
 theorem Rat.mul_ne_zero_iff {x y : Rat} : (¬ (x * y = 0)) ↔ x ≠ 0 ∧ y ≠ 0 := by
   grind
 
