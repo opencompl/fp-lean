@@ -682,6 +682,11 @@ theorem round_eq_ite_roundingDecision_of_Number_of_nonneg {eout sout : Nat} (rm 
     have hcontra : r = 0 := by grind only
     grind only
 
+/--
+When negative, the guard, stick, and isEven interpretations change.
+- isEven tells us when the upper is even.
+- guard bit tells us when we are in the lower half, since it is 'more negative'.
+-/
 theorem round_eq_ite_roundingDecision_of_Number_of_neg {eout sout : Nat} (rm : RoundingMode)
     (sign : Bool)
     (isEven : Bool)
@@ -769,16 +774,6 @@ theorem round_eq_ite_roundingDecision_of_Number_of_neg {eout sout : Nat} (rm : R
     grind only
 
 
-/-
-@[bv_normalize]
-def rounderSpecialCases
-  (roundingMode : RoundingMode)
-  (roundedResult : UnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1))
-  (overflow : Bool)
-  (underflow : Bool)
-  (isZero : Bool) : EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
-
--/
 
 /--
 This proves that the `round` function is correctly implemented by `rounderSpecialCases`
