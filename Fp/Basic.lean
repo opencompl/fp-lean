@@ -3,6 +3,126 @@ import Fp.ForLean.Dyadic
 import Fp.Grind
 import Fp.ForLean.Rat
 
+@[bv_normalize]
+def bias (e : Nat) : Nat :=
+  2 ^ (e - 1) - 1
+
+@[simp]
+theorem bias_zero_eq : bias 0 = 0 := rfl
+@[simp]
+theorem bias_one_eq : bias 1 = 0 := rfl
+@[simp]
+theorem bias_two_eq : bias 2 = 1 := rfl
+
+@[simp]
+theorem bias_pos_of_one_lt (e : Nat) (he : 1 < e) : 0 < bias e := by
+  simp [bias]
+  rcases e with rfl | e
+  · grind only
+  · simp; grind
+
+/-- Bias is weakly monotone with respect to its argument. -/
+@[simp]
+theorem bias_le_of_le {e1 e2 : Nat} (he : e1 ≤ e2) : bias e1 ≤ bias e2 := by
+  simp [bias]
+  have : 0 < 2 ^ (e2 - 1) := by grind only [!Nat.two_pow_pos]
+  suffices 2 ^ (e1 - 1) ≤ 2 ^ (e2 - 1) by grind only
+  apply Nat.pow_le_pow_of_le (by decide)
+  · grind only [#2ce3]
+
+/-- Bias is strictly monotone for exponents over 0. -/
+@[simp]
+theorem bias_lt_of_lt {e1 e2 : Nat} (he' : 0 < e1) (he : e1 < e2) : bias e1 < bias e2 := by
+  simp [bias]
+  have : 0 < 2 ^ (e2 - 1) := by grind only [!Nat.two_pow_pos]
+  have : 0 < 2 ^ (e1 - 1) := by grind only [!Nat.two_pow_pos]
+  suffices 2 ^ (e1 - 1) < 2 ^ (e2 - 1) by grind only
+  apply Nat.pow_lt_pow_of_lt (by decide)
+  grind only
+
+/--
+The biases are equal if either the exponents are equal and at least 2,
+or if both exponents are at most 1, in which case the bias is 0.
+-/
+@[simp]
+theorem bias_eq_bias_iff {e1 e2 : Nat}  :
+    bias e1 = bias e2 ↔ ((e1 = e2 ∧ e1 ≥ 2) ∨ (e1 ≤ 1 ∧ e2 ≤ 1)) := by
+  simp [bias]
+  have : 0 < 2 ^ (e2 - 1) := by grind only [!Nat.two_pow_pos]
+  have : 0 < 2 ^ (e1 - 1) := by grind only [!Nat.two_pow_pos]
+  by_cases he1 : e1 ≤ 1 <;> by_cases he2 : e2 ≤ 1
+  · simp [he1, he2]
+  · simp [he1, he2]
+    grind => instantiate approx
+  · simp [he1, he2]
+    grind =>
+      instantiate approx
+      cases #70e3
+  · simp [he1, he2]
+    constructor
+    · intros heq
+      have : 2 ^ (e1 - 1) = 2 ^ (e2 - 1) := by grind only
+      have : e1 - 1 = e2 - 1 := by grind only [Nat.pow_right_inj]
+      grind only
+    · grind only
+
+@[bv_normalize]
+def Nat.ceilLog2 (n : Nat) : Nat :=
+  if n.log2 * 2 = n then n.log2 else n.log2 + 1
+
+@[bv_normalize]
+def minNormalExp (e : Nat) : Int :=
+  -(bias e - 1 : Nat)
+
+/-- The max value the exponent can take when unbiased. -/
+@[bv_normalize]
+def maxNormalExp (e : Nat) : Int := (bias e)
+
+
+/-- The value the subnormal exponent can take. -/
+@[bv_normalize]
+def subnormalExp (e : Nat) : Int :=
+  minNormalExp e - 1
+
+/-- For unpacked floats, the *minimum* the subnormal exponent can take,
+which can "steal" bits from the significand to be smaller than minNormalExp. -/
+@[bv_normalize]
+def minSubnormalExp (e : Nat) (s : Nat) : Int :=
+  (subnormalExp e) - (s : Int)
+
+/--
+This is a simpler (but less tight) bound than `exponentWidth`.
+It's logarithmically larger.
+-/
+@[bv_normalize, simp]
+def exponentWidth' (e s : Nat) : Nat :=
+  e + s.ceilLog2
+
+/--
+The required exponent width to represent all exponents of an `e`-bit
+floating-point number with `s`-bit significand, including normalized
+subnormals. Note that this slightly differs from symfpu's definition,
+which uses `s - 2` instead of `s - 1`. The reason is that symfpu assumes
+`e ≥ 2` while we want to support the degenerate case of `e = 1`,
+mainly to minimize our proof assumptions. The correctness
+proof of `unpack` relies on this difference which ensures that `uf.sig.clz`
+does not overflow when its width is set to `exponentWidth 1 s` (where
+`s = 2 ^ n` for some `n`).
+-/
+@[bv_normalize]
+def exponentWidth (e s : Nat) : Nat :=
+  (2 ^ (e - 1) + s - 1).log2 + 2
+
+
+@[simp]
+theorem zero_lt_exponentWidth : 0 < exponentWidth e s  := by
+  simp [exponentWidth]
+
+@[simp]
+theorem one_lt_exponentWidth : 1 < exponentWidth e s  := by
+  simp [exponentWidth]
+
+
 /-!
 ## Packed Floating Point Numbers
 
@@ -485,7 +605,7 @@ the smallest nonzero subnormal number.
 def minSubnormalNumber (exWidth sigWidth : Nat) (sign : Bool)
   : PackedFloat exWidth sigWidth where
   sign
-  ex := BitVec.intMin exWidth
+  ex := BitVec.ofInt exWidth (minSubnormalExp exWidth sigWidth)
   sig := 1#sigWidth
 
 @[simp]
@@ -498,7 +618,8 @@ theorem sig_minSubnormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
 
 @[simp]
 theorem ex_minSubnormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
-    (PackedFloat.minSubnormalNumber exWidth sigWidth sign).ex = BitVec.intMin exWidth := rfl
+    (PackedFloat.minSubnormalNumber exWidth sigWidth sign).ex =
+    BitVec.ofInt exWidth (minSubnormalExp exWidth sigWidth) := rfl
 
 -- TODO: write toRat_minSubnormalNumber
 
@@ -648,6 +769,7 @@ theorem exp_eq_of_isNonzeroSubnorm {pf : PackedFloat e s}
 @[bv_normalize]
 def isNorm {e s} (pf : PackedFloat e s) : Bool :=
   pf.ex != .allOnes e && pf.ex != .zero e
+
 
 @[grind .]
 theorem ex_ne_zero_if_isNorm {pf : PackedFloat e s} (h : pf.isNorm := by solve | simp | grind) :
@@ -1851,69 +1973,6 @@ theorem Bool.toSign_ne_zero (b : Bool) : b.toSign ≠ 0 := by
 
 theorem Bool.toSign_lt_zero_iff (b : Bool) : b.toSign < 0 ↔ b = true := by
   cases b <;> simp [Bool.toSign]
-
-@[bv_normalize]
-def bias (e : Nat) : Nat :=
-  2 ^ (e - 1) - 1
-
-@[simp]
-theorem bias_zero_eq : bias 0 = 0 := rfl
-@[simp]
-theorem bias_one_eq : bias 1 = 0 := rfl
-@[simp]
-theorem bias_two_eq : bias 2 = 1 := rfl
-
-@[simp]
-theorem bias_pos_of_one_lt (e : Nat) (he : 1 < e) : 0 < bias e := by
-  simp [bias]
-  rcases e with rfl | e
-  · grind only
-  · simp; grind
-
-/-- Bias is weakly monotone with respect to its argument. -/
-@[simp]
-theorem bias_le_of_le {e1 e2 : Nat} (he : e1 ≤ e2) : bias e1 ≤ bias e2 := by
-  simp [bias]
-  have : 0 < 2 ^ (e2 - 1) := by grind only [!Nat.two_pow_pos]
-  suffices 2 ^ (e1 - 1) ≤ 2 ^ (e2 - 1) by grind only
-  apply Nat.pow_le_pow_of_le (by decide)
-  · grind only [#2ce3]
-
-/-- Bias is strictly monotone for exponents over 0. -/
-@[simp]
-theorem bias_lt_of_lt {e1 e2 : Nat} (he' : 0 < e1) (he : e1 < e2) : bias e1 < bias e2 := by
-  simp [bias]
-  have : 0 < 2 ^ (e2 - 1) := by grind only [!Nat.two_pow_pos]
-  have : 0 < 2 ^ (e1 - 1) := by grind only [!Nat.two_pow_pos]
-  suffices 2 ^ (e1 - 1) < 2 ^ (e2 - 1) by grind only
-  apply Nat.pow_lt_pow_of_lt (by decide)
-  grind only
-
-/--
-The biases are equal if either the exponents are equal and at least 2,
-or if both exponents are at most 1, in which case the bias is 0.
--/
-@[simp]
-theorem bias_eq_bias_iff {e1 e2 : Nat}  :
-    bias e1 = bias e2 ↔ ((e1 = e2 ∧ e1 ≥ 2) ∨ (e1 ≤ 1 ∧ e2 ≤ 1)) := by
-  simp [bias]
-  have : 0 < 2 ^ (e2 - 1) := by grind only [!Nat.two_pow_pos]
-  have : 0 < 2 ^ (e1 - 1) := by grind only [!Nat.two_pow_pos]
-  by_cases he1 : e1 ≤ 1 <;> by_cases he2 : e2 ≤ 1
-  · simp [he1, he2]
-  · simp [he1, he2]
-    grind => instantiate approx
-  · simp [he1, he2]
-    grind =>
-      instantiate approx
-      cases #70e3
-  · simp [he1, he2]
-    constructor
-    · intros heq
-      have : 2 ^ (e1 - 1) = 2 ^ (e2 - 1) := by grind only
-      have : e1 - 1 = e2 - 1 := by grind only [Nat.pow_right_inj]
-      grind only
-    · grind only
 
 @[simp]
 theorem toSign_xor_eq_toSign_mul_toSign (a b : Bool) :
@@ -3255,7 +3314,30 @@ theorem toRat_eq_toRat' (uf : UnpackedFloat e s) : uf.toRat = uf.toRat' := by
   simp [toExpInt]
   norm_cast
 
--- TODO: add a toRat', and show that these are equivalent.
+def maxNormal (eout sout : Nat) (e _s : Nat) (sign : Bool) :
+    UnpackedFloat eout sout :=
+  {
+    sign := sign
+    ex := BitVec.ofInt eout (maxNormalExp e)
+    sig := (BitVec.allOnes sout).zeroExtend sout
+  }
+
+theorem toRat_maxNormal_eq (eout sout : Nat) (e s : Nat)
+      (he : e ≤ eout) (hs : s ≤ sout)
+      (sign : Bool) :
+      (PackedFloat.maxNormalNumber e s sign).toRat =
+      (maxNormal eout sout e s sign).toRat := by
+  rw [PackedFloat.toRat]
+  sorry
+
+def minSubnormal (eout sout : Nat) (e s : Nat) (sign : Bool) :
+    UnpackedFloat eout sout :=
+  {
+    sign := sign
+    ex := BitVec.ofInt eout (minSubnormalExp e s)
+    sig := (BitVec.allOnes sout).zeroExtend sout
+  }
+
 end UnpackedFloat
 
 namespace EUnpackedFloat
@@ -3465,62 +3547,6 @@ theorem toExtRat_mkZero (sign : Bool) : toExtRat (mkZero sign : EUnpackedFloat e
 theorem toExtRat_mkNumber (num : UnpackedFloat e s) : toExtRat (mkNumber num : EUnpackedFloat e s) = .Number num.toRat := by
   simp [toExtRat]
 end EUnpackedFloat
-
-@[bv_normalize]
-def Nat.ceilLog2 (n : Nat) : Nat :=
-  if n.log2 * 2 = n then n.log2 else n.log2 + 1
-
-@[bv_normalize]
-def minNormalExp (e : Nat) : Int :=
-  -(bias e - 1 : Nat)
-
-/-- The max value the exponent can take when unbiased. -/
-@[bv_normalize]
-def maxNormalExp (e : Nat) : Int := (bias e)
-
-
-/-- The value the subnormal exponent can take. -/
-@[bv_normalize]
-def subnormalExp (e : Nat) : Int :=
-  minNormalExp e - 1
-
-/-- For unpacked floats, the *minimum* the subnormal exponent can take,
-which can "steal" bits from the significand to be smaller than minNormalExp. -/
-@[bv_normalize]
-def minSubnormalExp (e : Nat) (s : Nat) : Int :=
-  (subnormalExp e) - (s : Int)
-
-/--
-This is a simpler (but less tight) bound than `exponentWidth`.
-It's logarithmically larger.
--/
-@[bv_normalize, simp]
-def exponentWidth' (e s : Nat) : Nat :=
-  e + s.ceilLog2
-
-/--
-The required exponent width to represent all exponents of an `e`-bit
-floating-point number with `s`-bit significand, including normalized
-subnormals. Note that this slightly differs from symfpu's definition,
-which uses `s - 2` instead of `s - 1`. The reason is that symfpu assumes
-`e ≥ 2` while we want to support the degenerate case of `e = 1`,
-mainly to minimize our proof assumptions. The correctness
-proof of `unpack` relies on this difference which ensures that `uf.sig.clz`
-does not overflow when its width is set to `exponentWidth 1 s` (where
-`s = 2 ^ n` for some `n`).
--/
-@[bv_normalize]
-def exponentWidth (e s : Nat) : Nat :=
-  (2 ^ (e - 1) + s - 1).log2 + 2
-
-
-@[simp]
-theorem zero_lt_exponentWidth : 0 < exponentWidth e s  := by
-  simp [exponentWidth]
-
-@[simp]
-theorem one_lt_exponentWidth : 1 < exponentWidth e s  := by
-  simp [exponentWidth]
 
 theorem Rat.lt_mul_self_of_lt_one {y} {x : Rat} (hx0 : 0 ≤ x ∧ x < 1) (hy : 0 < y)
     : x * y < y := by
@@ -3834,6 +3860,80 @@ theorem eq_getInfinity_iff_toExtRat'_eq_Infinity (x : PackedFloat e s)
     !toExtRat'_getInfinity, !isInfinite_getInfinity, eq_getInfinity_iff_isInfinity,
     = isNaN_iff_toExtRat'_eq_NaN, = isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero, #8ef6]
 
+@[simp]
+theorem isNorm_maxNormalNumber_eq_decide
+    (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.maxNormalNumber exWidth sigWidth sign).isNorm =
+    decide (2 < exWidth) := by
+  simp [PackedFloat.maxNormalNumber, isNorm]
+  rcases exWidth with rfl | rfl | rfl | exWidth
+  · simp; grind only
+  · simp; grind only
+  · simp [BitVec.intMax, BitVec.twoPow]
+  · simp only [Nat.lt_add_left_iff_pos, Nat.zero_lt_succ, decide_true, Bool.and_eq_true,
+    bne_iff_ne, ne_eq]
+    constructor
+    · intros hcontra
+      have := BitVec.toInt_inj.mpr hcontra
+      simp only [BitVec.toInt_sub, BitVec.toInt_intMax, Nat.add_one_sub_one,
+        Nat.lt_add_left_iff_pos, Nat.zero_lt_succ, BitVec.toInt_one_of_lt, BitVec.toInt_allOnes,
+        ↓reduceIte, Int.reduceNeg] at this
+      rw [Int.bmod_eq_of_le] at this
+      · have : 4 ≤ 2 ^ (exWidth + 2) := by grind only
+        grind only
+      · have : 4 ≤ 2 ^ (exWidth + 2) := by grind only
+        grind only
+      · grind only
+    · intros hcontra
+      have := BitVec.toInt_inj.mpr hcontra
+      simp only [BitVec.toInt_sub, BitVec.toInt_intMax, Nat.add_one_sub_one,
+        Nat.lt_add_left_iff_pos, Nat.zero_lt_succ, BitVec.toInt_one_of_lt,
+        BitVec.toInt_zero] at this
+      rw [Int.bmod_eq_of_le] at this
+      · have : 4 ≤ 2 ^ (exWidth + 2) := by grind only
+        grind only
+      · have : 4 ≤ 2 ^ (exWidth + 2) := by grind only
+        grind only
+      · grind only
+
+@[simp]
+theorem isNonzeroSubnorm_minSubnormalNumber_eq_decide
+    (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.minSubnormalNumber exWidth sigWidth sign).isNonzeroSubnorm =
+    decide (2 < exWidth) := by
+  simp [PackedFloat.minSubnormalNumber, isNonzeroSubnorm]
+  rcases exWidth with rfl | rfl | rfl | exWidth
+  · simp
+  · simp
+  · simp [BitVec.intMax, BitVec.twoPow]
+  · simp only [Nat.lt_add_left_iff_pos, Nat.zero_lt_succ, decide_true, Bool.and_eq_true,
+    bne_iff_ne, ne_eq]
+    constructor
+    · constructor
+      · intros hcontra
+        have := BitVec.toInt_inj.mpr hcontra
+        simp only [BitVec.toInt_sub, BitVec.toInt_intMax, Nat.add_one_sub_one,
+          Nat.lt_add_left_iff_pos, Nat.zero_lt_succ, BitVec.toInt_one_of_lt, BitVec.toInt_allOnes,
+          ↓reduceIte, Int.reduceNeg] at this
+        rw [Int.bmod_eq_of_le] at this
+        · have : 4 ≤ 2 ^ (exWidth + 2) := by grind only
+          grind only
+        · have : 4 ≤ 2 ^ (exWidth + 2) := by grind only
+          grind only
+        · grind only
+      · simp
+        sorry
+    · intros hcontra
+      have := BitVec.toInt_inj.mpr hcontra
+      simp only [BitVec.toInt_sub, BitVec.toInt_intMax, Nat.add_one_sub_one,
+        Nat.lt_add_left_iff_pos, Nat.zero_lt_succ, BitVec.toInt_one_of_lt,
+        BitVec.toInt_zero] at this
+      rw [Int.bmod_eq_of_le] at this
+      · have : 4 ≤ 2 ^ (exWidth + 2) := by grind only
+        grind only
+      · have : 4 ≤ 2 ^ (exWidth + 2) := by grind only
+        grind only
+      · grind only
 
 end PackedFloat
 

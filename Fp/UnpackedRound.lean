@@ -191,15 +191,22 @@ def rounderSpecialCases
   let inf : EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
     EUnpackedFloat.mkInfinity roundedResult.sign
   let max : EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
+    EUnpackedFloat.mkNumber <| UnpackedFloat.maxNormal roundedResult.sign
+
+    /-
     EUnpackedFloat.mkNumber <|
     { sign := roundedResult.sign,
       ex := BitVec.ofInt (exponentWidth targetExponentWidth targetSignificandWidth) (maxNormalExp targetExponentWidth),
       sig := BitVec.allOnes (targetSignificandWidth + 1) }
+  -/
   let min : EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
-    EUnpackedFloat.mkNumber <|
-    { sign := roundedResult.sign,
-      ex := BitVec.ofInt (exponentWidth targetExponentWidth targetSignificandWidth) (minSubnormalExp targetExponentWidth targetSignificandWidth),
-      sig := BitVec.leadingOne (targetSignificandWidth + 1) }
+    EUnpackedFloat.mkNumber <| UnpackedFloat.minSubnormal roundedResult.sign
+     /-
+    -- EUnpackedFloat.mkNumber <|
+    -- { sign := roundedResult.sign,
+    --   ex := BitVec.ofInt (exponentWidth targetExponentWidth targetSignificandWidth) (minSubnormalExp targetExponentWidth targetSignificandWidth),
+    --   sig := BitVec.leadingOne (targetSignificandWidth + 1) }
+  -/
   let zero : EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
     EUnpackedFloat.mkZero roundedResult.sign
 

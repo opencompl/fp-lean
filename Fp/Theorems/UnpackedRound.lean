@@ -790,7 +790,10 @@ theorem round_eq_rounderSpecialCases_of_isZero
         · simp
         · simp
         · simp
-          sorry
+          by_cases hsign : roundedResult.sign
+          · simp [hsign]
+            sorry
+          · simp [hsign]
         · simp
           sorry
         · simp
