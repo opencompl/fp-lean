@@ -736,7 +736,7 @@ Failed ❌ | original { state := num, num := { sign := false, ex := 0xa#4, sig :
   original (Q) some (1 : Rat)/64
   --
   output rounded (packed) { sign := +, ex := 0x0#2, sig := 0x0#4 }
-  output rounded (eunpacked) { state := num, num := { sign := false, ex := 0xb#4, sig := 0x10#5 } }
+  output rounded (eunpacked) { state := num, num := { sign := false, ex := 0xc#4, sig := 0x08#5 } }
   output rounded (Q) ExtRat.Number (1 : Rat)/32
   --
   expected (packed) { sign := +, ex := 0x0#2, sig := 0x1#4 }
@@ -750,8 +750,8 @@ exp: 0b1010 = int:-6
 targetMinNormalExp: 0b0000 = int:0
 maxNormalExp: 1
 earlyOverflow: false
-minSubnormalExp: -5
-earlyUnderflow: false
+minSubnormalExp: -4
+earlyUnderflow: true
 expGeMin: 0b0000 = int:0
 shiftAmtPositive: 0b0110 = int:6 = nat:6
 sigWithHidden: 0b1000000 = nat:64
@@ -773,14 +773,14 @@ sigDidOverflow: true
 roundedTargetSigWithHiddenOverflowAdjusted: 0b1000000 = nat:64
 roundedExpExtended: 0b11011 = int:-5
 late overflow: false = roundedExpExtended(0b11011=int:-5) > maxNormalExpBV(0b00001=int:1)
-lateUnderflow: false = roundedExpExtended(0b11011=int:-5) < minSubnormalExpBV: 0b11011 = int:-5
-underflow: false = lateUnderflow(false) || earlyUnderflow(false)
+lateUnderflow: true = roundedExpExtended(0b11011=int:-5) < minSubnormalExpBV: 0b11100 = int:-4
+underflow: true = lateUnderflow(true) || earlyUnderflow(true)
 overflow: false = lateOverflow(false) || earlyOverflow(false)
-roundedClampedExpExtended: 0b11011 = int:-5
-finalExp: 0b1011 = int:-5
+roundedClampedExpExtended: 0b11100 = int:-4
+finalExp: 0b1100 = int:-4
 finalSigTruncated: 0b10000 = nat:16
-finalNumber: { sign := false, ex := 0xb#4, sig := 0x10#5 } | (Q): 1/32
-result: { state := num, num := { sign := false, ex := 0xb#4, sig := 0x10#5 } } | (Q): ExtRat.Number (1 : Rat)/32
+finalNumber: { sign := false, ex := 0xc#4, sig := 0x10#5 } | (Q): 1/16
+result: { state := num, num := { sign := false, ex := 0xc#4, sig := 0x08#5 } } | (Q): ExtRat.Number (1 : Rat)/32
 -/
 #guard_msgs(check error, drop info) in #eval checkRoundCorrect 2 6 2 4 .RTP
 /--
@@ -791,7 +791,7 @@ Failed ❌ | original { state := num, num := { sign := false, ex := 0x16#5, sig 
   original (Q) some (3 : Rat)/2048
   --
   output rounded (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  output rounded (eunpacked) { state := num, num := { sign := false, ex := 0x17#5, sig := 0x4#3 } }
+  output rounded (eunpacked) { state := num, num := { sign := false, ex := 0x18#5, sig := 0x2#3 } }
   output rounded (Q) ExtRat.Number (1 : Rat)/512
   --
   expected (packed) { sign := +, ex := 0x0#4, sig := 0x1#2 }
@@ -805,8 +805,8 @@ exp: 0b10110 = int:-10
 targetMinNormalExp: 0b11010 = int:-6
 maxNormalExp: 7
 earlyOverflow: false
-minSubnormalExp: -9
-earlyUnderflow: false
+minSubnormalExp: -8
+earlyUnderflow: true
 expGeMin: 0b11010 = int:-6
 shiftAmtPositive: 0b00100 = int:4 = nat:4
 sigWithHidden: 0b110000 = nat:48
@@ -828,14 +828,14 @@ sigDidOverflow: true
 roundedTargetSigWithHiddenOverflowAdjusted: 0b100000 = nat:32
 roundedExpExtended: 0b110111 = int:-9
 late overflow: false = roundedExpExtended(0b110111=int:-9) > maxNormalExpBV(0b000111=int:7)
-lateUnderflow: false = roundedExpExtended(0b110111=int:-9) < minSubnormalExpBV: 0b110111 = int:-9
-underflow: false = lateUnderflow(false) || earlyUnderflow(false)
+lateUnderflow: true = roundedExpExtended(0b110111=int:-9) < minSubnormalExpBV: 0b111000 = int:-8
+underflow: true = lateUnderflow(true) || earlyUnderflow(true)
 overflow: false = lateOverflow(false) || earlyOverflow(false)
-roundedClampedExpExtended: 0b110111 = int:-9
-finalExp: 0b10111 = int:-9
+roundedClampedExpExtended: 0b111000 = int:-8
+finalExp: 0b11000 = int:-8
 finalSigTruncated: 0b100 = nat:4
-finalNumber: { sign := false, ex := 0x17#5, sig := 0x4#3 } | (Q): 1/512
-result: { state := num, num := { sign := false, ex := 0x17#5, sig := 0x4#3 } } | (Q): ExtRat.Number (1 : Rat)/512
+finalNumber: { sign := false, ex := 0x18#5, sig := 0x4#3 } | (Q): 1/256
+result: { state := num, num := { sign := false, ex := 0x18#5, sig := 0x2#3 } } | (Q): ExtRat.Number (1 : Rat)/512
 -/
 #guard_msgs(check error, drop info) in #eval checkRoundCorrect 4 5 4 2 .RTP
 /--
@@ -846,7 +846,7 @@ Failed ❌ | original { state := num, num := { sign := true, ex := 0x16#5, sig :
   original (Q) some (-3 : Rat)/2048
   --
   output rounded (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-  output rounded (eunpacked) { state := num, num := { sign := true, ex := 0x17#5, sig := 0x4#3 } }
+  output rounded (eunpacked) { state := num, num := { sign := true, ex := 0x18#5, sig := 0x2#3 } }
   output rounded (Q) ExtRat.Number (-1 : Rat)/512
   --
   expected (packed) { sign := -, ex := 0x0#4, sig := 0x1#2 }
@@ -860,8 +860,8 @@ exp: 0b10110 = int:-10
 targetMinNormalExp: 0b11010 = int:-6
 maxNormalExp: 7
 earlyOverflow: false
-minSubnormalExp: -9
-earlyUnderflow: false
+minSubnormalExp: -8
+earlyUnderflow: true
 expGeMin: 0b11010 = int:-6
 shiftAmtPositive: 0b00100 = int:4 = nat:4
 sigWithHidden: 0b110000 = nat:48
@@ -883,13 +883,13 @@ sigDidOverflow: true
 roundedTargetSigWithHiddenOverflowAdjusted: 0b100000 = nat:32
 roundedExpExtended: 0b110111 = int:-9
 late overflow: false = roundedExpExtended(0b110111=int:-9) > maxNormalExpBV(0b000111=int:7)
-lateUnderflow: false = roundedExpExtended(0b110111=int:-9) < minSubnormalExpBV: 0b110111 = int:-9
-underflow: false = lateUnderflow(false) || earlyUnderflow(false)
+lateUnderflow: true = roundedExpExtended(0b110111=int:-9) < minSubnormalExpBV: 0b111000 = int:-8
+underflow: true = lateUnderflow(true) || earlyUnderflow(true)
 overflow: false = lateOverflow(false) || earlyOverflow(false)
-roundedClampedExpExtended: 0b110111 = int:-9
-finalExp: 0b10111 = int:-9
+roundedClampedExpExtended: 0b111000 = int:-8
+finalExp: 0b11000 = int:-8
 finalSigTruncated: 0b100 = nat:4
-finalNumber: { sign := true, ex := 0x17#5, sig := 0x4#3 } | (Q): -1/512
-result: { state := num, num := { sign := true, ex := 0x17#5, sig := 0x4#3 } } | (Q): ExtRat.Number (-1 : Rat)/512
+finalNumber: { sign := true, ex := 0x18#5, sig := 0x4#3 } | (Q): -1/256
+result: { state := num, num := { sign := true, ex := 0x18#5, sig := 0x2#3 } } | (Q): ExtRat.Number (-1 : Rat)/512
 -/
 #guard_msgs(check error, drop info) in #eval checkRoundCorrect 4 5 4 2 .RTN
