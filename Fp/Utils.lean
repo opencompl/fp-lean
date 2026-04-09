@@ -737,3 +737,41 @@ theorem Rat.inv_le_inv_of_le_of_positive {a b : Rat} (ha : 0 < a)
       · apply Rat.mul_positive
         · grind only
         · grind only
+
+theorem Rat.inv_eq_div (a : Rat)  : a⁻¹ = 1 / a := by
+  grind only
+
+-- TODO: write a simp lemma
+theorem Rat.zpow_neg_natCast_eq_one_div_zpow (a : Rat) (n : Nat)
+    : a ^ (-n : Int) = 1 / a ^ n := by
+  rw [Rat.zpow_neg]
+  rw [Rat.inv_eq_div]
+  rw [Rat.zpow_natCast]
+
+theorem Rat.one_div_zpow_natCast_eq_zpow_neg (a : Rat) (n : Nat) : 1 / a ^ n = a ^ (- (n : Int)) := by
+  rw [Rat.zpow_neg]
+  rw [← inv_eq_div]
+  simp
+
+theorem Rat.one_div_zpow_eq_zpow_neg (a : Rat) (n : Int) : 1 / a ^ n = a ^ (-n) := by
+  rw [Rat.zpow_neg]
+  rw [← inv_eq_div]
+
+
+@[simp]
+theorem Rat.inv_zpow_eq_zpow_neg (a : Rat) (n : Int) : (a ^ n)⁻¹ = a ^ (-n) := by
+  rw [Rat.inv_eq_div]
+  rw [one_div_zpow_eq_zpow_neg]
+
+@[simp]
+theorem Rat.inv_zpow_natCast_eq_zpow_neg (a : Rat) (n : Nat) : (a ^ n)⁻¹ = a ^ (- (n : Int)) := by
+  rw [Rat.inv_eq_div]
+  rw [one_div_zpow_natCast_eq_zpow_neg]
+
+theorem Rat.zpow_mul_zpow {a : Rat} (ha : a ≠ 0) (x y : Int) : a ^ x * a ^ y = a ^ (x + y) := by
+  rw [Rat.zpow_add ha]
+
+theorem Rat.zpow_div_zpow {a : Rat} (ha : a ≠ 0) (x y : Int) : a ^ x / a ^ y = a ^ (x - y) := by
+  rw [zpow_sub_eq_zpow_mul_zpow ha x y]
+  rw [Rat.div_def]
+  rw [Rat.inv_zpow_eq_zpow_neg]

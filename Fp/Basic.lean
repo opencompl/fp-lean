@@ -4100,8 +4100,8 @@ that these are multiplicative inverses.
 theorem two_pow_mul_two_pow_neg_intCast_eq_one (z : Nat) :
   (2 : Rat) ^ z * (2 : Rat) ^ (-( z : Int)) = 1 := by
   have := two_zpow_mul_two_zpow_neg_eq_one (z := z)
-  simp at this
-  grind
+  simp at this ⊢
+  grind only
 
 -- TODO: find a more natural phrasing that
 -- this does not overflow.

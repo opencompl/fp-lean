@@ -3,6 +3,7 @@ import Fp.SmtLibSemantics
 import Fp.Theorems.SmtLibSemanticsQ
 import Fp.Theorems.Packing
 import Fp.Theorems.Negation
+import Fp.Theorems.Ordering
 
 namespace Fp
 
@@ -768,6 +769,66 @@ theorem upper_neg_eq_neg_lower {e s : Nat} (r : ExtRat) (hr : r ≠ .NaN) :
     apply ExtRat.le_iff_neg_le_neg.mpr
     simp
     grind only
+
+/--
+This tells us that `PackedFloat`s are perfectly approximated,
+and that calling `lower` on a rational that represents a `PackedFloat`
+gives us the same `PackedFloat` back, as long as it's not NaN.
+-/
+theorem lower_eq_self_of_eq_toExtRat_of_not_isNaN
+  (x : PackedFloat e s) (r : ExtRat)
+  (hnum : ¬ x.isNaN)
+  (h : x.toExtRat = r) :
+  (SmtLibSemantics.smtLibLower.lower r : PackedFloat e s) = x := by
+  have hlower := isLawfulLower_lower e s r
+  have hlower1 := hlower.1
+  simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
+    ExtRat.ge_eq_le_symm] at hlower1
+
+  have hlower2 := hlower.2
+  subst h
+  specialize (hlower2 x)
+  simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
+    ExtRat.ExtRat.le_refl, forall_const] at hlower2
+  simp only [PackedFloat.toExtRat_eq_toExtRat']
+  have : SmtLibSemantics.smtLibLower.lower x.toExtRat' ≤ x := by
+    apply PackedFloat.le_of_toExtRat'_le_toExtRat'
+    · simp
+      grind only [PackedFloat.le_iff_eq_of_isNaN']
+    · simp
+      grind only
+    · simp only [PackedFloat.toExtRat_eq_toExtRat'] at hlower1
+      grind only
+  grind only [PackedFloat.le_antisymm_of_ne_NaN, PackedFloat.le_iff_eq_of_isNaN']
+
+/--
+upper perfectly approximates PackedFloats, and calling `upper` on a rational that represents a `PackedFloat`
+gives us the same `PackedFloat` back, as long as it's not NaN.
+-/
+theorem upper_eq_self_of_eq_toExtRat_of_not_isNaN
+  (x : PackedFloat e s) (r : ExtRat)
+  (hnum : ¬ x.isNaN)
+  (h : x.toExtRat = r) :
+  (SmtLibSemantics.smtLibUpper.upper r : PackedFloat e s) = x := by
+  have hupper := isLawfulUpper_upper e s r
+  have hupper1 := hupper.1
+  simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
+    ExtRat.ge_eq_le_symm] at hupper1
+  have hupper2 := hupper.2
+  subst h
+  specialize (hupper2 x)
+  simp only [PackedFloat.toExtRat_eq_toExtRat', SmtLibSemantics.smtLibV_embed_eq,
+    ExtRat.ExtRat.le_refl, forall_const] at hupper2
+  have : x ≤ SmtLibSemantics.smtLibUpper.upper x.toExtRat' := by
+    apply PackedFloat.le_of_toExtRat'_le_toExtRat'
+    · simp
+      grind only [PackedFloat.le_iff_eq_of_isNaN']
+    · simp
+      grind only [PackedFloat.le_iff_eq_of_isNaN]
+    · simp only [PackedFloat.toExtRat_eq_toExtRat'] at hupper1
+      grind only
+  simp only [PackedFloat.toExtRat_eq_toExtRat']
+  grind only [PackedFloat.le_antisymm_of_ne_NaN, PackedFloat.le_iff_eq_of_isNaN']
 
 -- /--
 -- The abstract version of 'shouldRoundUp' that only depends on the rounding mode and the bits,

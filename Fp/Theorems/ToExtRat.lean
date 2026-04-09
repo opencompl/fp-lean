@@ -58,4 +58,29 @@ theorem toExtRat_eq_toExtRat' {pf : PackedFloat e s}
   · grind only [→ not_isNorm_of_isZero]
   · grind only [→ not_isNorm_of_isZero]
 
+theorem toExtRat_minSubnormal_eq (e s : Nat) (he : 1 < e) (hs : 0 < s):
+    (PackedFloat.minSubnormalNumber e s false).toRat =
+    (2 : Rat) ^ (minSubnormalExp e s + 1)  := by -- I should NOT need a + 1?
+  rw [toRat]
+  simp [sign_minSubnormalNumber]
+  simp [toRatExp]
+  simp [toRatSig]
+  have := isNonzeroSubnorm_minSubnormalNumber_eq_of_lt e s false he hs
+  have : (minSubnormalNumber e s false).isNorm = false := by grind only [→ not_isNorm_of_isSubnorm]
+  simp [this]
+  rw [show 1 % (2 ^ s) = 1 by grind only [= Nat.mod_eq_of_lt, !Nat.two_pow_pos,
+    usr Nat.div_pow_of_pos]]
+  simp only [Rat.natCast_ofNat]
+  rw[Rat.one_div_zpow_natCast_eq_zpow_neg]
+  rw [Rat.zpow_mul_zpow]
+  · congr 1
+    simp [subnormalExp, minSubnormalExp, minNormalExp]
+    norm_cast
+    generalize hb : - (((bias e - 1 ) : Nat) : Int) = b
+    rw [Int.sub_eq_add_neg]
+    grind only
+  · decide
+
+
+
 end PackedFloat

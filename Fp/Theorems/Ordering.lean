@@ -1,4 +1,5 @@
 import Fp.Theorems.Packing
+import Fp.Utils
 
 namespace PackedFloat
 
@@ -411,18 +412,6 @@ theorem toRat_le_toRat_of_le (he : 0 < e) (hs : 0 < s)
   exact this
 
 
-theorem Rat.inv_eq_div (a : Rat)  : a⁻¹ = 1 / a := by
-  grind only
-
--- TODO: write a simp lemma
-@[simp]
-theorem Rat.zpow_neg_natCast_eq_one_div_zpow (a : Rat) (n : Nat)
-    : a ^ (-n : Int) = 1 / a ^ n := by
-  rw [Rat.zpow_neg]
-  rw [Rat.inv_eq_div]
-  simp
-
-
 
 @[simp]
 theorem PackedFloat.one_le_ex_of_isNorm (x : PackedFloat e s) (hxnorm : x.isNorm) (he : 0 < e) :
@@ -515,6 +504,14 @@ theorem PackedFloat.sig_lt_sig_of_lt_of_of_exp_eq_exp_of_sign_eq_false
     · grind only [BitVec.le_def]
     · grind only
 
+
+/--
+for non-NaN packed floats, the ordering by `toRat'` agrees with the packed float ordering.
+-/
+theorem le_of_toExtRat'_le_toExtRat' (x y : PackedFloat e s) (hx : ¬ x.isNaN) (hy : ¬ y.isNaN)
+    (hxy : x.toExtRat' ≤ y.toExtRat') : x ≤ y :=
+  sorry
+
 /-
 This shows that the packed floats packed floats are always at least a distance
 of 2^-e. This gives us the discreteness of the ordering
@@ -548,6 +545,8 @@ theorem toRat_le_plus_toRat_of_toRat_le_toRat_of_sign_eq_false (he : 0 < e) (hs 
       simp [hxsign, hysign, hxnan, hynan] at hle
       rcases hle with (hleExp | hleSig)
       · rw [← Rat.add_mul]
+        rw [← Rat.one_div_zpow_eq_zpow_neg]
+        simp only [Rat.zpow_natCast, ge_iff_le]
         rw [show y.toRatExp = (y.toRatExp - 1) + 1 by grind only]
         rw [Rat.zpow_succ (by grind only)]
         suffices (x.toRatSig + 1 / 2 ^ s) * 2 ^ x.toRatExp ≤ (2 * y.toRatSig) * (2 ^ (y.toRatExp - 1)) by grind only
@@ -588,6 +587,7 @@ theorem toRat_le_plus_toRat_of_toRat_le_toRat_of_sign_eq_false (he : 0 < e) (hs 
           le_antisymm_of_ne_NaN, le_eq_of_sign_eq_false_of_sign_eq_false]
         have hsigLt : x.sig < y.sig := by grind only
         suffices (x.toRatSig + 1 / 2 ^ s) * 2 ^  y.toRatExp ≤ y.toRatSig * 2 ^ y.toRatExp by
+          rw [Rat.zpow_neg_natCast_eq_one_div_zpow]
           grind only
         apply Rat.mul_le_mul_cancel_right_of_lt .. |>.mpr
         · -- ⊢  x.toRatSig + 2 ^ -s ≤ y.toRatSig
@@ -661,5 +661,9 @@ info: 'PackedFloat.toRat_le_plus_toRat_of_toRat_le_toRat_of_sign_eq_false' depen
  Quot.sound]
 -/
 #guard_msgs in #print axioms toRat_le_plus_toRat_of_toRat_le_toRat_of_sign_eq_false
+
+
+
+
 
 end PackedFloat
