@@ -105,6 +105,15 @@ theorem toExtRat'_neg (x : PackedFloat e s) : (-x).toExtRat' = -(x.toExtRat') :=
     · simp [hinf]
     · simp [hinf]
 
+@[simp]
+theorem toExtRat'_neg_eq_neg_toExtRat' (x : PackedFloat e s) :
+    (-x).toExtRat' = -(x.toExtRat') := toExtRat'_neg x
+
+/-! ## Double negation -/
+
+@[grind =]
+theorem neg_neg' (x : PackedFloat e s) : -(-x) = x := neg_neg x
+
 /-! ## Order reversal under negation -/
 
 /--
@@ -200,5 +209,23 @@ Negation is antitone: if `x < y` then `-y < -x`.
 @[simp]
 theorem neg_lt_neg {x y : PackedFloat e s} (h : x < y) : -y < -x :=
   lt_iff_neg_lt_neg.mp h
+
+/--
+`x ≤ -y ↔ y ≤ -x`: move negation across `≤` from right to left.
+-/
+@[grind =]
+theorem le_neg_iff_le_neg {x y : PackedFloat e s} :
+    x ≤ -y ↔ y ≤ -x := by
+  rw [le_iff_neg_le_neg (x := x) (y := -y)]
+  simp [neg_neg]
+
+/--
+`-x ≤ y ↔ -y ≤ x`: move negation across `≤` from left to right.
+-/
+@[grind =]
+theorem neg_le_iff_neg_le {x y : PackedFloat e s} :
+    -x ≤ y ↔ -y ≤ x := by
+  rw [le_iff_neg_le_neg (x := -x) (y := y)]
+  simp [neg_neg]
 
 end PackedFloat

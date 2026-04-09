@@ -2,7 +2,7 @@ import Fp.UnpackedRound
 import Fp.SmtLibSemantics
 import Fp.Theorems.SmtLibSemanticsQ
 import Fp.Theorems.Packing
-
+import Fp.Theorems.Negation
 
 namespace Fp
 
@@ -657,13 +657,29 @@ theorem eq_of_IsLawfulLower_of_IsLawfulLower
   have rley' := hlowery.2 x rlex
   grind only [PackedFloat.le_antisymm_of_ne_NaN]
 
+@[simp]
+theorem embed_neg_eq_neg_embed {e s : Nat} (x : PackedFloat e s) :
+    (SmtLibSemantics.RoundableEmbed.embed (-x) = - (SmtLibSemantics.RoundableEmbed.embed x : ExtRat)) := by
+  simp [SmtLibSemantics.RoundableEmbed.embed]
+
 -- lower(-x) = - upper x
 theorem lower_neg_eq_neg_upper {e s : Nat} (r : ExtRat) (hr : r ≠ .NaN) :
     (SmtLibSemantics.smtLibLower.lower (-r) : PackedFloat e s) = - (SmtLibSemantics.smtLibUpper.upper r) := by
   have hlower := isLawfulLower_lower e s (-r)
+  have hlower1 := hlower.1
+  simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
+    ExtRat.ge_eq_le_symm] at hlower1
+  have hlower2 := hlower.2
+  simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
+    ExtRat.ge_eq_le_symm] at hlower2
+
   have hupper := isLawfulUpper_upper e s r
   have hupper1 := hupper.1
+  simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
+    ExtRat.ge_eq_le_symm] at hupper1
   have hupper2 := hupper.2
+  simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
+    ExtRat.ge_eq_le_symm] at hupper2
   suffices SmtLibSemantics.IsLawfulLower (-r) (- (SmtLibSemantics.smtLibUpper.upper r : PackedFloat e s)) by
     apply eq_of_IsLawfulLower_of_IsLawfulLower
     · sorry
@@ -671,13 +687,17 @@ theorem lower_neg_eq_neg_upper {e s : Nat} (r : ExtRat) (hr : r ≠ .NaN) :
     · apply hlower
     · apply this
   constructor
-  · -- TODO: need a theorem that says that 'embed_ng_eq_neg_embed'
-    sorry
-  · intros lower hlower
-    specialize hupper2 (- lower)
-
-    sorry
-
+  · -- TODO: need a theorem that says that 'embed_neg_eq_neg_embed'
+    simp only [embed_neg_eq_neg_embed, SmtLibSemantics.smtLibV_embed_eq,
+      PackedFloat.toExtRat_eq_toExtRat', ExtRat.ge_eq_le_symm]
+    grind only [= ExtRat.le_neg_iff_le_neg, = ExtRat.neg_neg]
+  · intros low' hlow'
+    refine PackedFloat.le_neg_iff_le_neg.mp ?_
+    apply hupper2
+    simp at hlow'
+    apply ExtRat.le_iff_neg_le_neg.mpr
+    simp
+    grind only
 
 
 -- /--

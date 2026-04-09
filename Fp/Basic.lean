@@ -1923,6 +1923,46 @@ instance : Std.IsPartialOrder ExtRat where
   le_trans := by grind [le_trans]
   le_antisymm := by grind [le_antisymm]
 
+/-! ## ExtRat negation theory -/
+
+@[simp, grind =]
+theorem neg_neg (x : ExtRat) : -(-x) = x := by
+  rw [← ExtRat.neg_def, ← ExtRat.neg_def]
+  unfold ExtRat.neg
+  grind
+
+/--
+Negation reverses the ordering on `ExtRat`: `x ≤ y ↔ -y ≤ -x`.
+-/
+theorem le_iff_neg_le_neg {x y : ExtRat} :
+    x ≤ y ↔ -y ≤ -x := by
+  cases x <;> cases y <;> simp [← ExtRat.le_def, ← ExtRat.neg_def, ExtRat.neg, ExtRat.le] <;> grind
+
+/--
+`x ≤ -y ↔ y ≤ -x`: move negation across `≤` from right to left.
+-/
+@[grind =]
+theorem le_neg_iff_le_neg {x y : ExtRat} :
+    x ≤ -y ↔ y ≤ -x := by
+  rw [le_iff_neg_le_neg (x := x) (y := -y)]
+  simp [neg_neg]
+
+/--
+`-x ≤ y ↔ -y ≤ x`: move negation across `≤` from left to right.
+-/
+@[grind =]
+theorem neg_le_iff_neg_le {x y : ExtRat} :
+    -x ≤ y ↔ -y ≤ x := by
+  rw [le_iff_neg_le_neg (x := -x) (y := y)]
+  simp [neg_neg]
+
+/--
+Negation is antitone: if `x ≤ y` then `-y ≤ -x`.
+-/
+@[simp]
+theorem neg_le_neg {x y : ExtRat} (h : x ≤ y) : -y ≤ -x :=
+  le_iff_neg_le_neg.mp h
+
 def isNaN (r : ExtRat) : Bool :=
   r = .NaN
 
