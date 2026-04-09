@@ -60,7 +60,7 @@ theorem toExtRat_eq_toExtRat' {pf : PackedFloat e s}
 
 theorem toExtRat_minSubnormal_eq (e s : Nat) (he : 1 < e) (hs : 0 < s):
     (PackedFloat.minSubnormalNumber e s false).toRat =
-    (2 : Rat) ^ (minSubnormalExp e s + 1)  := by -- I should NOT need a + 1?
+    (2 : Rat) ^ (minSubnormalExp e s)  := by -- I should NOT need a + 1?
   rw [toRat]
   simp [sign_minSubnormalNumber]
   simp [toRatExp]
