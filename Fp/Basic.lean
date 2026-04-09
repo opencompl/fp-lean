@@ -231,6 +231,32 @@ inductive State : Type
 | Number : State
 deriving DecidableEq
 
+instance {P : State → Prop} [∀ (s : State), Decidable (P s)] :
+    Decidable (∀ (s : State), P s) :=
+  if hnan : P .NaN then
+    if hinf : P .Infinity then
+      if hnum : P .Number then
+        isTrue (by grind only [#0000])
+      else
+        isFalse (by grind only [#b4e6])
+    else
+      isFalse (by grind only [#b4e6])
+  else
+    isFalse (by grind only [#b4e6])
+
+instance {P : State → Prop} [∀ (s : State), Decidable (P s)] :
+    Decidable (∃ (s : State), P s) :=
+  if hnan : P .NaN then
+    isTrue (by grind only [#5c30])
+  else
+    if hinf : P .Infinity then
+      isTrue (by grind only [#5c30])
+    else
+      if hnum : P .Number then
+        isTrue (by grind only [#5c30])
+      else
+        isFalse (by grind only [#0000])
+
 attribute [bv_normalize] State.eq_iff_enumToBitVec_eq
 
 @[bv_normalize]
@@ -3188,6 +3214,41 @@ theorem zero_le_iff_sign_eq_false {x : PackedFloat e s} (he : 0 < e) :
       simp at this
       grind
 
+
+
+/-- Universal quantifiers over packed floats are decidable. -/
+instance {P : PackedFloat e s → Prop} [∀ (pf : PackedFloat e s), Decidable (P pf)] : Decidable (∀ (x : PackedFloat e s), P x) := by
+  rcases decideProp (fun sign e s => P (PackedFloat.mk sign e s))
+  case isFalse h => exact isFalse (by
+    grind only [#42c0]
+  )
+  case isTrue h => exact isTrue (by
+    intro x
+    rcases x with ⟨sign, e, s⟩
+    have := h sign e s
+    exact this)
+  where
+  decideProp (P : Bool → BitVec e → BitVec s → Prop) [∀ (b : Bool) (e : BitVec e) (s : BitVec s), Decidable (P b e s)] : Decidable (∀ (sign : Bool) (ex : BitVec e) (sig : BitVec s), P sign ex sig) := by
+    infer_instance
+
+/-- Existential quantifiers over packed floats are decidable, for a pointwise decidable packed float. -/
+instance {P : PackedFloat e s → Prop} [∀ (pf : PackedFloat e s), Decidable (P pf)] : Decidable (∃ (x : PackedFloat e s), P x) := by
+  rcases decideProp (fun sign e s => P (PackedFloat.mk sign e s))
+  case isFalse h => exact isFalse (by
+    simp at h ⊢
+    intros x
+    rcases x with ⟨rfl | rfl, e, s⟩
+    · grind only [#7a8e]
+    · grind only [#7e49]
+  )
+  case isTrue h => exact isTrue (by
+    obtain ⟨sign, e, s, h⟩ := h
+    exists (PackedFloat.mk sign e s)
+  )
+  where
+  decideProp (P : Bool → BitVec e → BitVec s → Prop) [∀ (b : Bool) (e : BitVec e) (s : BitVec s), Decidable (P b e s)] : Decidable (∃ (sign : Bool) (ex : BitVec e) (sig : BitVec s), P sign ex sig) := by
+    infer_instance
+
 end PackedFloat
 
 namespace UnpackedFloat
@@ -3377,9 +3438,62 @@ def minSubnormal (eout sout : Nat)
     sig := (BitVec.leadingOne starget).zeroExtend sout
   }
 
+instance {P : UnpackedFloat e s → Prop}
+    [∀ (uf : UnpackedFloat e s), Decidable (P uf)] : Decidable (∀ (x : UnpackedFloat e s), P x) := by
+  cases hp : decideProp (fun sign ex sig => P (UnpackedFloat.mk sign ex sig))
+  case isFalse h => exact isFalse (by
+    simp at h ⊢
+    grind only [#f34e]
+  )
+  case isTrue h => exact isTrue (by
+    intro x
+    rcases x with ⟨sign, ex, sig⟩
+    have := h sign ex sig
+    exact this)
+  where
+  decideProp (P : Bool → BitVec e → BitVec s → Prop)
+      [∀ (b : Bool) (e : BitVec e) (s : BitVec s), Decidable (P b e s)] : Decidable (∀ (sign : Bool) (ex : BitVec e) (sig : BitVec s), P sign ex sig) := by
+    infer_instance
+
+
+instance {P : UnpackedFloat e s → Prop}
+    [∀ (uf : UnpackedFloat e s), Decidable (P uf)] : Decidable (∃ (x : UnpackedFloat e s), P x) := by
+  cases hp : decideProp (fun sign ex sig => P (UnpackedFloat.mk sign ex sig))
+  case isFalse h => exact isFalse (by
+    simp at h ⊢
+    intros x
+    rcases x with ⟨rfl | rfl, ex, sig⟩
+    · grind only [#b5c5]
+    · grind only [#b5c5]
+  )
+  case isTrue h => exact isTrue (by
+    obtain ⟨sign, ex, sig, h⟩ := h
+    exists (UnpackedFloat.mk sign ex sig)
+  )
+  where
+  decideProp (P : Bool → BitVec e → BitVec s → Prop)
+      [∀ (b : Bool) (e : BitVec e) (s : BitVec s), Decidable (P b e s)] : Decidable (∃ (sign : Bool) (ex : BitVec e) (sig : BitVec s), P sign ex sig) := by
+    infer_instance
 end UnpackedFloat
 
 namespace EUnpackedFloat
+
+instance {P : EUnpackedFloat e s → Prop}
+    [∀ (uf : EUnpackedFloat e s), Decidable (P uf)] : Decidable (∀ (x : EUnpackedFloat e s), P x) := by
+  cases hp : decideProp (fun state num => P { state := state, num := num })
+  case isFalse h => exact isFalse (by
+    simp at h ⊢
+    grind only [#a55c]
+  )
+  case isTrue h => exact isTrue (by
+    intro x
+    rcases x with ⟨state, num⟩
+    have := h state num
+    exact this)
+  where
+  decideProp (P : State → UnpackedFloat e s → Prop)
+      [∀ (state : State) (num : UnpackedFloat e s), Decidable (P state num)] : Decidable (∀ (state : State) (num : UnpackedFloat e s), P state num) := by
+    infer_instance
 
 @[bv_normalize]
 theorem eq_state_ex {e s b} {x y : EUnpackedFloat e s} :
