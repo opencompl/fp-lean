@@ -1925,6 +1925,10 @@ instance : Std.IsPartialOrder ExtRat where
 
 /-! ## ExtRat negation theory -/
 
+@[simp]
+theorem neg_eq_NaN_iff (r : ExtRat) : -r = .NaN ↔ r = .NaN := by
+  cases r <;> simp [← ExtRat.neg_def, ExtRat.neg]
+
 @[simp, grind =]
 theorem neg_neg (x : ExtRat) : -(-x) = x := by
   rw [← ExtRat.neg_def, ← ExtRat.neg_def]

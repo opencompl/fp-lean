@@ -608,6 +608,25 @@ theorem isLawfulLower_lower (e s : Nat) (r : ExtRat) :
     apply le_lower_of_embed_le <;> grind only
 
 
+@[simp]
+theorem not_isNaN_lower_of_ne_NaN (e s : Nat) (r : ExtRat) (hr : r ≠ .NaN) :
+    (SmtLibSemantics.smtLibLower.lower r : PackedFloat e s).isNaN = false := by
+  by_cases hnan : (SmtLibSemantics.smtLibLower.lower r : PackedFloat e s).isNaN
+  · exfalso
+    have hembed := embed_lower_le_self (e := e) (s := s) r
+    simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat'] at hembed
+    rw [PackedFloat.toExtRat'_eq_NaN_of_isNaN _ hnan] at hembed
+    have := (ExtRat.le_NaN _).mp hembed
+    exact hr this
+  · simp [hnan]
+
+
+@[simp]
+theorem not_isNaN_lower_neg_of_ne_NaN (e s : Nat) (r : ExtRat) (hr : r ≠ .NaN) :
+    (SmtLibSemantics.smtLibLower.lower (-r) : PackedFloat e s).isNaN = false := by
+  apply not_isNaN_lower_of_ne_NaN
+  simp [ExtRat.neg_eq_NaN_iff, hr]
+
 axiom self_le_embed_upper {e s : Nat} (r : ExtRat) :
     r ≤ SmtLibSemantics.RoundableEmbed.embed
       (SmtLibSemantics.smtLibUpper.upper r : PackedFloat e s) -- := by
@@ -618,6 +637,19 @@ axiom le_upper_of_self_le_embed
     (hupper' : r ≤ SmtLibSemantics.RoundableEmbed.embed upper') :
     SmtLibSemantics.smtLibUpper.upper r ≤ upper' -- := by
   -- sorry
+
+
+@[simp]
+theorem not_isNaN_upper_of_ne_NaN (e s : Nat) (r : ExtRat) (hr : r ≠ .NaN) :
+    (SmtLibSemantics.smtLibUpper.upper r : PackedFloat e s).isNaN = false := by
+  by_cases hnan : (SmtLibSemantics.smtLibUpper.upper r : PackedFloat e s).isNaN
+  · exfalso
+    have hembed := self_le_embed_upper (e := e) (s := s) r
+    simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat'] at hembed
+    rw [PackedFloat.toExtRat'_eq_NaN_of_isNaN _ hnan] at hembed
+    simp at hembed
+    grind only
+  · simp [hnan]
 
 theorem isLawfulUpper_upper (e s : Nat) (r : ExtRat) :
     SmtLibSemantics.IsLawfulUpper r (SmtLibSemantics.smtLibUpper.upper r : PackedFloat e s) := by
@@ -663,6 +695,7 @@ theorem embed_neg_eq_neg_embed {e s : Nat} (x : PackedFloat e s) :
   simp [SmtLibSemantics.RoundableEmbed.embed]
 
 -- lower(-x) = - upper x
+@[simp]
 theorem lower_neg_eq_neg_upper {e s : Nat} (r : ExtRat) (hr : r ≠ .NaN) :
     (SmtLibSemantics.smtLibLower.lower (-r) : PackedFloat e s) = - (SmtLibSemantics.smtLibUpper.upper r) := by
   have hlower := isLawfulLower_lower e s (-r)
@@ -682,8 +715,8 @@ theorem lower_neg_eq_neg_upper {e s : Nat} (r : ExtRat) (hr : r ≠ .NaN) :
     ExtRat.ge_eq_le_symm] at hupper2
   suffices SmtLibSemantics.IsLawfulLower (-r) (- (SmtLibSemantics.smtLibUpper.upper r : PackedFloat e s)) by
     apply eq_of_IsLawfulLower_of_IsLawfulLower
-    · sorry
-    · sorry
+    · simp [hr]
+    · simp [hr]
     · apply hlower
     · apply this
   constructor
@@ -699,6 +732,42 @@ theorem lower_neg_eq_neg_upper {e s : Nat} (r : ExtRat) (hr : r ≠ .NaN) :
     simp
     grind only
 
+-- upper(-x) = - lower x
+@[simp]
+theorem upper_neg_eq_neg_lower {e s : Nat} (r : ExtRat) (hr : r ≠ .NaN) :
+    (SmtLibSemantics.smtLibUpper.upper (-r) : PackedFloat e s) = - (SmtLibSemantics.smtLibLower.lower r) := by
+  have hupper := isLawfulUpper_upper e s (-r)
+  have hupper1 := hupper.1
+  simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
+    ExtRat.ge_eq_le_symm] at hupper1
+  have hupper2 := hupper.2
+  simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
+    ExtRat.ge_eq_le_symm] at hupper2
+
+  have hlower := isLawfulLower_lower e s r
+  have hlower1 := hlower.1
+  simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
+    ExtRat.ge_eq_le_symm] at hlower1
+  have hlower2 := hlower.2
+  simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
+    ExtRat.ge_eq_le_symm] at hlower2
+  suffices SmtLibSemantics.IsLawfulUpper (-r) (- (SmtLibSemantics.smtLibLower.lower r : PackedFloat e s)) by
+    apply eq_of_IsLawfulUpper_of_IsLawfulUpper
+    · simp [ExtRat.neg_eq_NaN_iff, hr]
+    · simp [hr]
+    · apply hupper
+    · apply this
+  constructor
+  · simp only [embed_neg_eq_neg_embed, SmtLibSemantics.smtLibV_embed_eq,
+      PackedFloat.toExtRat_eq_toExtRat', ExtRat.ge_eq_le_symm]
+    grind only [= ExtRat.neg_le_iff_neg_le, = ExtRat.neg_neg]
+  · intros up' hup'
+    refine PackedFloat.neg_le_iff_neg_le.mp ?_
+    apply hlower2
+    simp at hup'
+    apply ExtRat.le_iff_neg_le_neg.mpr
+    simp
+    grind only
 
 -- /--
 -- The abstract version of 'shouldRoundUp' that only depends on the rounding mode and the bits,
