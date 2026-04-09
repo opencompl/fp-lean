@@ -3188,6 +3188,41 @@ theorem zero_le_iff_sign_eq_false {x : PackedFloat e s} (he : 0 < e) :
       simp at this
       grind
 
+
+
+/-- Universal quantifiers over packed floats are decidable. -/
+instance {P : PackedFloat e s → Prop} [∀ (pf : PackedFloat e s), Decidable (P pf)] : Decidable (∀ (x : PackedFloat e s), P x) := by
+  rcases decideProp (fun sign e s => P (PackedFloat.mk sign e s))
+  case isFalse h => exact isFalse (by
+    grind only [#42c0]
+  )
+  case isTrue h => exact isTrue (by
+    intro x
+    rcases x with ⟨sign, e, s⟩
+    have := h sign e s
+    exact this)
+  where
+  decideProp (P : Bool → BitVec e → BitVec s → Prop) [∀ (b : Bool) (e : BitVec e) (s : BitVec s), Decidable (P b e s)] : Decidable (∀ (sign : Bool) (ex : BitVec e) (sig : BitVec s), P sign ex sig) := by
+    infer_instance
+
+/-- Existential quantifiers over packed floats are decidable, for a pointwise decidable packed float. -/
+instance {P : PackedFloat e s → Prop} [∀ (pf : PackedFloat e s), Decidable (P pf)] : Decidable (∃ (x : PackedFloat e s), P x) := by
+  rcases decideProp (fun sign e s => P (PackedFloat.mk sign e s))
+  case isFalse h => exact isFalse (by
+    simp at h ⊢
+    intros x
+    rcases x with ⟨rfl | rfl, e, s⟩
+    · grind only [#7a8e]
+    · grind only [#7e49]
+  )
+  case isTrue h => exact isTrue (by
+    obtain ⟨sign, e, s, h⟩ := h
+    exists (PackedFloat.mk sign e s)
+  )
+  where
+  decideProp (P : Bool → BitVec e → BitVec s → Prop) [∀ (b : Bool) (e : BitVec e) (s : BitVec s), Decidable (P b e s)] : Decidable (∃ (sign : Bool) (ex : BitVec e) (sig : BitVec s), P sign ex sig) := by
+    infer_instance
+
 end PackedFloat
 
 namespace UnpackedFloat
