@@ -775,3 +775,22 @@ theorem Rat.zpow_div_zpow {a : Rat} (ha : a ≠ 0) (x y : Int) : a ^ x / a ^ y =
   rw [zpow_sub_eq_zpow_mul_zpow ha x y]
   rw [Rat.div_def]
   rw [Rat.inv_zpow_eq_zpow_neg]
+
+theorem Rat.div_zpow_eq_zpow_neg {n a : Rat} (i : Int) : n / a ^ i = n * a ^ (-i) := by
+  rw [Rat.div_def]
+  rw [Rat.inv_zpow_eq_zpow_neg]
+
+theorem Rat.div_zpow_natCast_eq_zpow_neg {n a : Rat} (i : Nat) : n / a ^ i = n * a ^ (- (i : Int)) := by
+  rw [Rat.div_def]
+  rw [Rat.inv_zpow_natCast_eq_zpow_neg]
+
+@[simp]
+theorem Rat.natCast_sub_of_le {m n : Nat} (h : m ≤ n) :
+  ((n - m : Nat) : Rat) = n - m := by
+  have : ∃ k : Nat, n = m + k := by
+    apply Nat.exists_eq_add_of_le
+    exact h
+  obtain ⟨k, hk⟩ := this
+  subst hk
+  simp
+  grind only

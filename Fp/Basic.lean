@@ -600,6 +600,26 @@ theorem sig_getZero (exWidth sigWidth : Nat) (sign : Bool) :
 theorem ex_getZero (exWidth sigWidth : Nat) (sign : Bool) :
     (PackedFloat.getZero exWidth sigWidth sign).ex = 0 := rfl
 
+
+@[bv_normalize]
+def minNormalNumber (exWidth sigWidth : Nat) (sign : Bool)
+  : PackedFloat exWidth sigWidth where
+  sign
+  ex := 1
+  sig := 0
+
+@[simp]
+theorem sign_minNormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.minNormalNumber exWidth sigWidth sign).sign = sign := rfl
+
+@[simp]
+theorem sig_minNormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.minNormalNumber exWidth sigWidth sign).sig = 0 := rfl
+
+@[simp]
+theorem ex_minNormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.minNormalNumber exWidth sigWidth sign).ex = 1 := rfl
+
 /--
 Returns the maximum (magnitude) value for the given sign.
 -/
@@ -647,7 +667,25 @@ theorem ex_minSubnormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
     (PackedFloat.minSubnormalNumber exWidth sigWidth sign).ex =
     BitVec.ofInt exWidth 0 := rfl
 
--- TODO: write toRat_minSubnormalNumber
+@[bv_normalize]
+def maxSubnormalNumber (exWidth sigWidth : Nat) (sign : Bool)
+  : PackedFloat exWidth sigWidth where
+  sign
+  ex := BitVec.ofInt exWidth 0
+  sig := BitVec.allOnes sigWidth
+
+@[simp]
+theorem sign_maxSubnormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.maxSubnormalNumber exWidth sigWidth sign).sign = sign := rfl
+
+@[simp]
+theorem sig_maxSubnormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.maxSubnormalNumber exWidth sigWidth sign).sig = BitVec.allOnes sigWidth := rfl
+
+@[simp]
+theorem ex_maxSubnormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.maxSubnormalNumber exWidth sigWidth sign).ex =
+    BitVec.ofInt exWidth 0 := rfl
 
 @[bv_normalize]
 theorem injEq (a b : PackedFloat e s)
@@ -4073,6 +4111,16 @@ theorem isNonzeroSubnorm_minSubnormalNumber_eq_of_lt
   simp [PackedFloat.minSubnormalNumber, isNonzeroSubnorm]
   simp [show ¬ sigWidth = 0 by grind only]
   simp [show ¬ exWidth = 0 by grind only]
+
+theorem isNonzeroSubnorm_maxSubnormalNumber_eq_of_lt
+    (exWidth sigWidth : Nat) (sign : Bool)
+    (he : 1 < exWidth) (hs : 0 < sigWidth) :
+    (PackedFloat.maxSubnormalNumber exWidth sigWidth sign).isNonzeroSubnorm =
+    true := by
+  simp [PackedFloat.maxSubnormalNumber, isNonzeroSubnorm]
+  simp [show ¬ sigWidth = 0 by grind only]
+  simp [show ¬ exWidth = 0 by grind only]
+
 
 -- TODO: show that
 --    PackedFloat.minSubnormalNumber.toRat =

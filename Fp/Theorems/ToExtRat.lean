@@ -74,12 +74,40 @@ theorem toExtRat_minSubnormal_eq (e s : Nat) (he : 1 < e) (hs : 0 < s):
   rw[Rat.one_div_zpow_natCast_eq_zpow_neg]
   rw [Rat.zpow_mul_zpow]
   · congr 1
-    simp [subnormalExp, minSubnormalExp, minNormalExp]
+    simp [minNormalExp]
     norm_cast
     generalize hb : - (((bias e - 1 ) : Nat) : Int) = b
     rw [Int.sub_eq_add_neg]
     grind only
   · decide
+
+theorem toExtRat_maxSubnormal_eq (e s : Nat) (he : 1 < e) (hs : 0 < s):
+    (PackedFloat.maxSubnormalNumber e s false).toRat =
+    (2 : Rat) ^ (minNormalExp e - s) * ((2 : Rat) ^ s - 1) := by
+  rw [toRat]
+  simp [sign_maxSubnormalNumber]
+  simp [toRatExp]
+  simp [toRatSig]
+  have := isNonzeroSubnorm_maxSubnormalNumber_eq_of_lt e s false he hs
+  have : (maxSubnormalNumber e s false).isNorm = false := by grind only [→ not_isNorm_of_isSubnorm]
+  simp only [this]
+  simp only [Bool.false_eq_true, ↓reduceIte]
+  rw [Rat.div_def]
+  simp only [Rat.inv_zpow_natCast_eq_zpow_neg]
+  rw [Rat.mul_assoc]
+  have h1 : (((2 ^ s - 1) : Nat) : Rat) = (2 : Rat) ^ s - 1 := by
+    have : 0 < 2 ^ s := by grind only [!Nat.two_pow_pos]
+    rw [Rat.natCast_sub_of_le (by grind only)]
+    grind only
+  -- ⊢ ↑(2 ^ s - 1) * (2 ^ (-↑s) * 2 ^ (-↑(bias e - 1))) = 2 ^ (minNormalExp e - ↑s) * (2 ^ s - 1)
+  have h2 : (2 : Rat) ^ (- (s : Int)) * (2 : Rat) ^ (- (((bias e - 1) : Nat) : Int)) =
+    (2 : Rat) ^ (minNormalExp e - s) := by
+    rw [Rat.zpow_mul_zpow]
+    · apply congrArg
+      simp [minNormalExp]
+      grind only
+    · grind only
+  grind only
 
 
 
