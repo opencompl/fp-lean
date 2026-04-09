@@ -587,6 +587,99 @@ theorem isEven_upper_eq_not_isEven_lower (eout sout : Nat) (r : Rat) :
   have := isEven_lower_eq_not_isEven_upper eout sout r
   grind only [#9ad2]
 
+axiom embed_lower_le_self {e s : Nat} (r : ExtRat) :
+    SmtLibSemantics.RoundableEmbed.embed
+      (SmtLibSemantics.smtLibLower.lower r : PackedFloat e s) ≤ r -- := by
+--  sorry
+
+axiom le_lower_of_embed_le
+    {e s : Nat} (r : ExtRat) (lower' : PackedFloat e s)
+    (hlower' : SmtLibSemantics.RoundableEmbed.embed lower' ≤ r) :
+    lower' ≤ SmtLibSemantics.smtLibLower.lower r
+
+-- := by
+--  sorry
+
+theorem isLawfulLower_lower (e s : Nat) (r : ExtRat) :
+    SmtLibSemantics.IsLawfulLower r (SmtLibSemantics.smtLibLower.lower r : PackedFloat e s) := by
+  constructor
+  · apply embed_lower_le_self <;> grind only
+  · intros lower' hlower'
+    apply le_lower_of_embed_le <;> grind only
+
+
+axiom self_le_embed_upper {e s : Nat} (r : ExtRat) :
+    r ≤ SmtLibSemantics.RoundableEmbed.embed
+      (SmtLibSemantics.smtLibUpper.upper r : PackedFloat e s) -- := by
+  -- sorry
+
+axiom le_upper_of_self_le_embed
+    {e s : Nat} (r : ExtRat) (upper' : PackedFloat e s)
+    (hupper' : r ≤ SmtLibSemantics.RoundableEmbed.embed upper') :
+    SmtLibSemantics.smtLibUpper.upper r ≤ upper' -- := by
+  -- sorry
+
+theorem isLawfulUpper_upper (e s : Nat) (r : ExtRat) :
+    SmtLibSemantics.IsLawfulUpper r (SmtLibSemantics.smtLibUpper.upper r : PackedFloat e s) := by
+  constructor
+  · apply self_le_embed_upper <;> grind only
+  · intros upper' hupper'
+    apply le_upper_of_self_le_embed <;> grind only
+
+/--
+two lawful uppers are equal to each other.
+-/
+theorem eq_of_IsLawfulUpper_of_IsLawfulUpper
+    (e s : Nat) (r : ExtRat) (x y : PackedFloat e s)
+    (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN)
+    (hupperx : SmtLibSemantics.IsLawfulUpper r x)
+    (huppery : SmtLibSemantics.IsLawfulUpper r y) :
+    x = y := by
+  have rlex := hupperx.1
+  have rley := huppery.1
+  have rlex' := hupperx.2 y rley
+  have rley' := huppery.2 x rlex
+  grind only [PackedFloat.le_antisymm_of_ne_NaN]
+
+
+/--
+two lawful lowers are equal to each other.
+-/
+theorem eq_of_IsLawfulLower_of_IsLawfulLower
+    (e s : Nat) (r : ExtRat) (x y : PackedFloat e s)
+    (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN)
+    (hlowerx : SmtLibSemantics.IsLawfulLower r x)
+    (hlowery : SmtLibSemantics.IsLawfulLower r y) :
+    x = y := by
+  have rlex := hlowerx.1
+  have rley := hlowery.1
+  have rlex' := hlowerx.2 y rley
+  have rley' := hlowery.2 x rlex
+  grind only [PackedFloat.le_antisymm_of_ne_NaN]
+
+-- lower(-x) = - upper x
+theorem lower_neg_eq_neg_upper {e s : Nat} (r : ExtRat) (hr : r ≠ .NaN) :
+    (SmtLibSemantics.smtLibLower.lower (-r) : PackedFloat e s) = - (SmtLibSemantics.smtLibUpper.upper r) := by
+  have hlower := isLawfulLower_lower e s (-r)
+  have hupper := isLawfulUpper_upper e s r
+  have hupper1 := hupper.1
+  have hupper2 := hupper.2
+  suffices SmtLibSemantics.IsLawfulLower (-r) (- (SmtLibSemantics.smtLibUpper.upper r : PackedFloat e s)) by
+    apply eq_of_IsLawfulLower_of_IsLawfulLower
+    · sorry
+    · sorry
+    · apply hlower
+    · apply this
+  constructor
+  · -- TODO: need a theorem that says that 'embed_ng_eq_neg_embed'
+    sorry
+  · intros lower hlower
+    specialize hupper2 (- lower)
+
+    sorry
+
+
+
 -- /--
 -- The abstract version of 'shouldRoundUp' that only depends on the rounding mode and the bits,
 -- which matches the definition of `roundingDecision`.
