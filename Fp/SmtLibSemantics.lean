@@ -82,6 +82,31 @@ instance [hEx : ExtendedNumber R] [DecidablePred hEx.isNaN] [DecidableRel hEx.sm
   unfold ExtendedNumber.ieeeEq
   infer_instance
 
+
+@[simp]
+theorem instExtendedRat.isNaN_eq (r1 : ExtRat) :
+  instExtendedRat.isNaN r1 = ExtRat.isNaN r1 := rfl
+
+@[simp]
+theorem instExtendedRat.smtLibEq (r s : ExtRat) :
+    instExtendedRat.smtLibEq r s = (r = s) := by
+  simp [ExtendedNumber.smtLibEq]
+
+@[simp]
+theorem instExtendedRat.isZero (r : ExtRat) :
+    instExtendedRat.isZero r = (r = 0) := by
+  simp [ExtendedNumber.isZero]
+
+@[simp]
+theorem instExtendedRat.ltZero (r : ExtRat) :
+    instExtendedRat.ltZero r = (r < 0) := by
+  simp [ExtendedNumber.ltZero]
+
+@[simp]
+theorem instExtendedRat.gtZero (r : ExtRat) :
+    instExtendedRat.gtZero r = (0 < r) := by
+  simp [ExtendedNumber.gtZero]
+
 /-- Embed the type `X` into the extended rationals. -/
 class RoundableEmbed (X : Type) (R : Type) where
   embed : X → R
@@ -180,28 +205,25 @@ open ExtendedNumber
 
 def RoundMethod.roundRNE : PackedFloat e s :=
       if isNaN r then roundMethod.lower r
-      else if isZero r then roundMethod.rounderForSign sign r
-      else if ¬ (isZero r) ∧ roundMethod.lowerHalf r then roundMethod.lower r
-      else if ¬ (isZero r) ∧ roundMethod.tieBreak r ∧ roundMethod.isEven (roundMethod.lower r) then roundMethod.lower r
-      else if ¬ (isZero r) ∧ roundMethod.tieBreak r ∧ roundMethod.isEven (roundMethod.upper r) then roundMethod.upper r
       else if ¬ (isZero r) ∧ !roundMethod.lowerHalf r ∧ !roundMethod.tieBreak r then roundMethod.upper r
+      else if ¬ (isZero r) ∧ roundMethod.tieBreak r ∧ roundMethod.isEven (roundMethod.upper r) then roundMethod.upper r
+      else if ¬ (isZero r) ∧ roundMethod.tieBreak r ∧ roundMethod.isEven (roundMethod.lower r) then roundMethod.lower r
+      else if ¬ (isZero r) ∧ roundMethod.lowerHalf r then roundMethod.lower r
+      else if isZero r then roundMethod.rounderForSign sign r
       else .getNaN e s -- does not occur.
 
 def RoundMethod.roundRNA : PackedFloat e s :=
       if isNaN r then roundMethod.lower r
-      else if isZero r then roundMethod.rounderForSign sign r
-      else if gtZero r ∧ roundMethod.lowerHalf r then roundMethod.lower r
       else if gtZero r ∧ ¬ roundMethod.lowerHalf r then roundMethod.upper r
-      else if ltZero r ∧ (roundMethod.lowerHalf r ∨ roundMethod.tieBreak r) then roundMethod.upper r
-      else if ltZero r ∧ ¬ roundMethod.lowerHalf r ∧ ¬ roundMethod.tieBreak r then roundMethod.lower r
+      else if gtZero r ∧ roundMethod.lowerHalf r then roundMethod.lower r
+      else if isZero r then roundMethod.rounderForSign sign r
+      else if ltZero r ∧ ¬ roundMethod.lowerHalf r ∧ ¬ roundMethod.tieBreak r then roundMethod.upper r
+      else if ltZero r ∧ (roundMethod.lowerHalf r ∨ roundMethod.tieBreak r) then roundMethod.lower r
       else .getNaN e s -- does not occur.
 
 def RoundMethod.roundRTP : PackedFloat e s :=
-      if isNaN r then roundMethod.lower r
-      else if isZero r then roundMethod.rounderForSign sign r
-      else if ¬ (isZero r) ∧ (gtZero r) then roundMethod.upper r
-      else if ¬ (isZero r) ∧ (ltZero r) then roundMethod.rounderForSign sign r
-      else .getNaN e s -- does not occur.
+  if isZero r then roundMethod.rounderForSign sign r
+  else  roundMethod.upper r
 
 
 def RoundMethod.roundRTN : PackedFloat e s :=
@@ -351,14 +373,14 @@ theorem smtLibRoundMethod.embed_eq {R : Type} (e s : Nat)
     [ExtendedNumber R] :
   (smtLibRoundMethod e s v ves).embed = v.embed := rfl
 
-@[simp]
+-- @[simp]
 theorem smtLibRoundMethod.lowerHalf_eq {R : Type} (e s : Nat)
     (v : RoundableAdjunction (PackedFloat e s) R)
     (ves : RoundableAdjunction (PackedFloat e (s + 1)) R)
     [ExtendedNumber R] :
   (smtLibRoundMethod e s v ves).lowerHalf = (fun r => ExtendedNumber.smtLibEq (v.embed (v.lower r))  (ves.embed (ves.lower r))) := rfl
 
-@[simp]
+-- @[simp]
 theorem smtLibRoundMethod.tieBreak_eq {R : Type} (e s : Nat)
     (v : RoundableAdjunction (PackedFloat e s) R)
     (ves : RoundableAdjunction (PackedFloat e (s + 1)) R)
