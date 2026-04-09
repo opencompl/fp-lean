@@ -794,3 +794,13 @@ theorem Rat.natCast_sub_of_le {m n : Nat} (h : m ≤ n) :
   subst hk
   simp
   grind only
+
+theorem Rat.sub_div_eq_div_sub_div {a b c : Rat} :
+  (a - b) / c = a / c - b / c := by
+  grind only
+
+theorem Rat.div_self_eq_one_of_ne_zero {a : Rat} (ha : a ≠ 0) : a / a = 1 := by
+  grind
+
+theorem Rat.div_self_eq_ite {a : Rat} : a / a = (if a = 0 then 0 else 1) := by
+  grind
