@@ -88,7 +88,7 @@ def subnormalExp (e : Nat) : Int :=
 which can "steal" bits from the significand to be smaller than minNormalExp. -/
 @[bv_normalize]
 def minSubnormalExp (e : Nat) (s : Nat) : Int :=
-  (subnormalExp e) - (s : Int) + 1
+  (subnormalExp e) - (s : Int)
 
 /--
 This is a simpler (but less tight) bound than `exponentWidth`.
