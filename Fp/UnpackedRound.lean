@@ -493,7 +493,7 @@ Takes the preprocessed intermediate values from the shared prefix of `round`.
 -/
 @[bv_normalize]
 def UnpackedFloat.roundTowardZero {expWidth sigWidth : Nat} {targetExponentWidth targetSignificandWidth : Nat}
-  (_sigwithHiddenCleared : BitVec sigWidth)
+  (sigWithHiddenCleared : BitVec sigWidth)
   (_lsbMask : BitVec sigWidth)
   (exp : BitVec expWidth)
   (_earlyOverflow _earlyUnderflow : Bool)
@@ -502,7 +502,7 @@ def UnpackedFloat.roundTowardZero {expWidth sigWidth : Nat} {targetExponentWidth
   EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
 
   let roundedTargetSigWithHiddenOverflowAdjusted : BitVec sigWidth :=
-      BitVec.leadingOne sigWidth
+      sigWithHiddenCleared
 
   let roundedExpExtended : BitVec (expWidth + 1) := exp.signExtend (expWidth + 1)
   let maxNormalExpBV : BitVec (expWidth + 1) :=
