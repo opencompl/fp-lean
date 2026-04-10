@@ -1025,7 +1025,6 @@ theorem toExtRat_ufCleared_eq_lower_of_nonneg (x : UnpackedFloat e s)
       := by
   sorry
 
-theorem toExtRat_
 
 
 end Fp
