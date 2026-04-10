@@ -1099,16 +1099,16 @@ theorem round_eq_rounderSpecialCases_of_isZero
             sorry
       · simp only [↓reduceIte]
         rcases rm with rfl | rfl | rfl | rfl | rfl
-        · simp
-        · simp
-        · simp
+        · simp [rounderSpecialCaseUnderflow]
+        · simp [rounderSpecialCaseUnderflow]
+        · simp [rounderSpecialCaseUnderflow]
           by_cases hsign : roundedResult.sign
           · simp [hsign]
             sorry
           · simp [hsign]
-        · simp
+        · simp [rounderSpecialCaseUnderflow]
           sorry
-        · simp
+        · simp [rounderSpecialCaseUnderflow]
     · simp only [true_eq_decide_iff] at hIsZero
       subst hIsZero
       simp [rounderSpecialCases]
