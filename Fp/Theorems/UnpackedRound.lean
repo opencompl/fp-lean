@@ -1015,6 +1015,53 @@ theorem round_eq_ite_roundingDecision_of_Number_of_neg {eout sout : Nat} (rm : R
     intros hr
     grind only
 
+/-! ### clearSignificand theorems -/
+
+@[simp]
+theorem clearSignificand_sign (uf : UnpackedFloat e s)
+    (targetExponentWidth targetSignificandWidth : Nat) :
+    (uf.clearSignificand targetExponentWidth targetSignificandWidth).sign = uf.sign := by
+  simp [UnpackedFloat.clearSignificand]
+
+@[simp]
+theorem clearSignificand_ex (uf : UnpackedFloat e s)
+    (targetExponentWidth targetSignificandWidth : Nat) :
+    (uf.clearSignificand targetExponentWidth targetSignificandWidth).ex = uf.ex := by
+  simp [UnpackedFloat.clearSignificand]
+
+/-- Clearing guard/sticky bits can only decrease the significand value. -/
+theorem clearSignificand_sig_toNat_le (uf : UnpackedFloat e s)
+    (targetExponentWidth targetSignificandWidth : Nat) :
+    (uf.clearSignificand targetExponentWidth targetSignificandWidth).sig.toNat ≤ uf.sig.toNat := by
+  sorry
+
+/-- For a nonnegative unpacked float, clearing guard/sticky bits yields a nonnegative result. -/
+theorem clearSignificand_toRat_nonneg_of_nonneg (uf : UnpackedFloat e s)
+    (targetExponentWidth targetSignificandWidth : Nat)
+    (h : 0 ≤ uf.toRat) :
+    0 ≤ (uf.clearSignificand targetExponentWidth targetSignificandWidth).toRat := by
+  sorry
+
+/-- For a nonnegative unpacked float, clearing guard/sticky bits rounds toward zero:
+    the cleared value is at most the original value. -/
+theorem clearSignificand_toRat_le_of_nonneg (uf : UnpackedFloat e s)
+    (targetExponentWidth targetSignificandWidth : Nat)
+    (h : 0 ≤ uf.toRat) :
+    (uf.clearSignificand targetExponentWidth targetSignificandWidth).toRat ≤ uf.toRat := by
+  sorry
+
+/-- For a nonnegative unpacked float, the error from clearing guard/sticky bits is bounded by
+    2^(guardBitIdx + 1) ULPs at the significand level, i.e.,
+    `x.toRat - cleared.toRat < 2^(guardBitIdx + 1) * 2^(x.toExpInt)`.
+    This is the ULP of the target precision. -/
+theorem clearSignificand_toRat_sub_lt (uf : UnpackedFloat e s)
+    (targetExponentWidth targetSignificandWidth : Nat)
+    (h : 0 ≤ uf.toRat) :
+    uf.toRat - (uf.clearSignificand targetExponentWidth targetSignificandWidth).toRat <
+      (2 : Rat) ^ ((uf.guardBitIndex targetExponentWidth targetSignificandWidth).toNat + 1) *
+      (2 : Rat) ^ uf.toExpInt := by
+  sorry
+
 theorem toExtRat_ufCleared_eq_lower_of_nonneg (x : UnpackedFloat e s)
     (hx : 0 ≤ x.toRat) :
     (ExtRat.Number (x.roundTowardZero targetExponentWidth targetSignificandWidth).toRat) =

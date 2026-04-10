@@ -544,13 +544,16 @@ def UnpackedFloat.debugRound {expWidth sigWidth : Nat} {targetExponentWidth targ
 /--
 Clear guard and sticky bits from the significand of an unpacked float,
 zeroing out all bits at and below the guard bit position.
+The guard bit index is computed from the target exponent and significand widths.
 -/
 @[bv_normalize]
 def UnpackedFloat.clearSignificand {expWidth sigWidth : Nat}
   (uf : UnpackedFloat expWidth sigWidth)
-  (guardBitMask : BitVec sigWidth)
-  (stickyBitsMask : BitVec sigWidth) :
+  (targetExponentWidth targetSignificandWidth : Nat) :
   UnpackedFloat expWidth sigWidth :=
+  let guardBitIdx := uf.guardBitIndex targetExponentWidth targetSignificandWidth
+  let guardBitMask : BitVec sigWidth := BitVec.oneHotBV guardBitIdx
+  let stickyBitsMask : BitVec sigWidth := BitVec.orderEncode guardBitIdx
   { sign := uf.sign,
     ex := uf.ex,
     sig := uf.sig &&& (~~~(guardBitMask ||| stickyBitsMask)) }
@@ -569,10 +572,7 @@ def UnpackedFloat.roundTowardZero {expWidth sigWidth : Nat}
   (uf : UnpackedFloat expWidth sigWidth)
   (targetExponentWidth targetSignificandWidth : Nat) :
   UnpackedFloat (expWidth + 1) (targetSignificandWidth + 1) :=
-  let guardBitIdx := uf.guardBitIndex targetExponentWidth targetSignificandWidth
-  let guardBitMask : BitVec sigWidth := BitVec.oneHotBV guardBitIdx
-  let stickyBitsMask : BitVec sigWidth := BitVec.orderEncode guardBitIdx
-  let ufCleared := uf.clearSignificand guardBitMask stickyBitsMask
+  let ufCleared := uf.clearSignificand targetExponentWidth targetSignificandWidth
   { sign := ufCleared.sign,
     ex := ufCleared.ex.signExtend (expWidth + 1),
     sig := ufCleared.sig.extractMsb' 0 (targetSignificandWidth + 1) }
@@ -593,8 +593,7 @@ def UnpackedFloat.successorAwayFromZero {expWidth sigWidth : Nat}
   UnpackedFloat (expWidth + 1) (targetSignificandWidth + 1) :=
   let guardBitIdx := uf.guardBitIndex targetExponentWidth targetSignificandWidth
   let guardBitMask : BitVec sigWidth := BitVec.oneHotBV guardBitIdx
-  let stickyBitsMask : BitVec sigWidth := BitVec.orderEncode guardBitIdx
-  let ufCleared := uf.clearSignificand guardBitMask stickyBitsMask
+  let ufCleared := uf.clearSignificand targetExponentWidth targetSignificandWidth
   let lsbMask : BitVec (sigWidth + 1) := guardBitMask.zeroExtend (sigWidth + 1) <<< 1
 
   let sigDidOverflow_RoundedTargetSigWithHidden : BitVec (sigWidth + 1) :=
