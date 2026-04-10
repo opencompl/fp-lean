@@ -1016,14 +1016,27 @@ theorem round_eq_ite_roundingDecision_of_Number_of_neg {eout sout : Nat} (rm : R
     grind only
 
 theorem toExtRat_ufCleared_eq_lower_of_nonneg (x : UnpackedFloat e s)
-    (hx : 0 ≤ x.toRat)
-    (hguardbitidx : guardBitIdx = x.guardBitIndex targetExponentWidth targetSignificandWidth)
-    (hguardbitmask : guardBitMask = BitVec.oneHotBV guardBitIdx)
-    (hstickybitsmask : stickyBitsMask = BitVec.orderEncode guardBitIdx) :
-    ExtRat.Number (x.clearSignificand guardBitMask stickyBitsMask).toRat =
+    (hx : 0 ≤ x.toRat) :
+    (ExtRat.Number (x.roundTowardZero targetExponentWidth targetSignificandWidth).toRat) =
     SmtLibSemantics.RoundableEmbed.embed (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat) : PackedFloat targetExponentWidth targetSignificandWidth)
       := by
   sorry
+
+theorem toExtRat_ufCleared_eq_upper_of_neg (x : UnpackedFloat e s)
+    (hx : x.toRat < 0 ) :
+    (ExtRat.Number (x.roundTowardZero targetExponentWidth targetSignificandWidth).toRat) =
+    SmtLibSemantics.RoundableEmbed.embed (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat) : PackedFloat targetExponentWidth targetSignificandWidth)
+      := by
+  sorry
+
+
+theorem toExtRat_successorAwayFromZero_eq_lower_of_neg (x : UnpackedFloat e s)
+    (hx : x.toRat < 0) :
+    (ExtRat.Number (x.successorAwayFromZero targetExponentWidth targetSignificandWidth).toRat) =
+    SmtLibSemantics.RoundableEmbed.embed (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat) : PackedFloat targetExponentWidth targetSignificandWidth)
+      := by
+  sorry
+
 
 
 
