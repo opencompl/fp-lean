@@ -66,7 +66,7 @@ theorem toExtRat_minSubnormal_eq (e s : Nat) (he : 1 < e) (hs : 0 < s):
   simp [sign_minSubnormalNumber]
   simp [toRatExp]
   simp [toRatSig]
-  have := isNonzeroSubnorm_minSubnormalNumber_eq_of_lt e s false he hs
+  have := isNonzeroSubnorm_minSubnormalNumber_eq_decide e s false
   have : (minSubnormalNumber e s false).isNorm = false := by grind only [→ not_isNorm_of_isSubnorm]
   simp [this]
   rw [show 1 % (2 ^ s) = 1 by grind only [= Nat.mod_eq_of_lt, !Nat.two_pow_pos,
@@ -82,7 +82,7 @@ theorem toExtRat_minSubnormal_eq (e s : Nat) (he : 1 < e) (hs : 0 < s):
     grind only
   · decide
 
-
+@[simp]
 theorem toExtRat_maxSubnormal_eq (e s : Nat) (he : 1 < e) (hs : 0 < s):
     (PackedFloat.maxSubnormalNumber e s false).toRat =
     (2 : Rat) ^ (minNormalExp e - s) * ((2 : Rat) ^ s - 1) := by
@@ -90,7 +90,7 @@ theorem toExtRat_maxSubnormal_eq (e s : Nat) (he : 1 < e) (hs : 0 < s):
   simp [sign_maxSubnormalNumber]
   simp [toRatExp]
   simp [toRatSig]
-  have := isNonzeroSubnorm_maxSubnormalNumber_eq_of_lt e s false he hs
+  have := isNonzeroSubnorm_maxSubnormalNumber_eq_decide e s false
   have : (maxSubnormalNumber e s false).isNorm = false := by grind only [→ not_isNorm_of_isSubnorm]
   simp only [this]
   simp only [Bool.false_eq_true, ↓reduceIte]

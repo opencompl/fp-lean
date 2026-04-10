@@ -514,8 +514,8 @@ theorem le_of_toExtRat'_le_toExtRat' (x y : PackedFloat e s) (hx : ¬ x.isNaN) (
 
 
 /--
-Packed floats are less than each other if either the exonents are ordered, or the exponents are equal and the significands are ordered
-amongst nonnegative numbers.
+Packed floats are less than each other if the tuple (exponent, significand)
+is lex ordered.
 -/
 theorem PackedFloat.le_of_ex_le_ex_or_sig_le_sig_of_nonneg_of_nonneg (a b : PackedFloat e s)
   (hasign : a.sign = false) (hbsign : b.sign = false) (hanan : ¬ a.isNaN) (hbnan : ¬ b.isNaN) :
@@ -524,6 +524,10 @@ theorem PackedFloat.le_of_ex_le_ex_or_sig_le_sig_of_nonneg_of_nonneg (a b : Pack
   simp [PackedFloat.le, hasign, hbsign, hanan, hbnan]
   grind only [BitVec.toNat_inj, #c695bb6e572d0f9f]
 
+/--
+Packed floats are less than each other if the tuple (exponent, significand)
+is lex ordered, amongst negative numbers.
+-/
 theorem PackedFloat.le_of_ex_le_ex_or_sig_le_sig_of_neg_of_neg (a b : PackedFloat e s)
   (hasign : a.sign = true) (hbsign : b.sign = true) (hanan : ¬ a.isNaN) (hbnan : ¬ b.isNaN) :
   a ≤ b ↔ b.ex.toNat < a.ex.toNat ∨ (b.ex.toNat = a.ex.toNat ∧ b.sig.toNat ≤ a.sig.toNat) := by
@@ -544,6 +548,74 @@ theorem PackedFloat.not_le_of_neg_of_nonneg (a b : PackedFloat e s)
   ¬ a ≤ b := by
   rw [← PackedFloat.le_def]
   simp [PackedFloat.le, hasign, hbsign, hanan, hbnan]
+
+theorem PackedFloat.lt_of_ex_lt_ex_or_sig_lt_sig_of_nonneg_of_nonneg (a b : PackedFloat e s)
+  (hasign : a.sign = false) (hbsign : b.sign = false) (hanan : ¬ a.isNaN) (hbnan : ¬ b.isNaN) :
+  a < b ↔ a.ex.toNat < b.ex.toNat ∨ (a.ex.toNat = b.ex.toNat ∧ a.sig.toNat < b.sig.toNat) := by
+  rw [← PackedFloat.lt_def]
+  simp [PackedFloat.lt, hasign, hbsign, hanan, hbnan]
+  by_cases hex : a.ex.toNat < b.ex.toNat
+  · simp [hex]
+    intros hcontra
+    subst hcontra
+    grind only
+  · simp [hex]
+    by_cases hex' : a.ex = b.ex
+    · simp [hex']
+      by_cases hsig : a.sig.toNat < b.sig.toNat
+      · simp [hsig]
+        grind only
+      · simp [hsig]
+        by_cases hsig' : a.sig = b.sig
+        · simp [hsig']
+          ext <;> grind only
+        · intros hsig
+          grind only [BitVec.toNat_inj]
+    · simp [show a.ex.toNat ≠ b.ex.toNat by grind only [BitVec.toNat_inj]]
+
+theorem PackedFloat.lt_of_ex_lt_ex_or_sig_lt_sig_of_neg_of_neg (a b : PackedFloat e s)
+  (hasign : a.sign = true) (hbsign : b.sign = true) (hanan : ¬ a.isNaN) (hbnan : ¬ b.isNaN) :
+  a < b ↔ b.ex.toNat < a.ex.toNat ∨ (b.ex.toNat = a.ex.toNat ∧ b.sig.toNat < a.sig.toNat) := by
+  rw [← PackedFloat.lt_def]
+  simp [PackedFloat.lt, hasign, hbsign, hanan, hbnan]
+  by_cases hex : b.ex.toNat < a.ex.toNat
+  · simp [hex]
+    intros hcontra
+    subst hcontra
+    grind only
+  · simp only [hex, false_or]
+    by_cases hex' : a.ex = b.ex
+    · simp only [hex', true_and]
+      by_cases hsig : b.sig.toNat < a.sig.toNat
+      · simp only [hsig, iff_true]
+        grind only
+      · simp only [hsig, iff_false]
+        by_cases hsig' : a.sig = b.sig
+        · simp only [hsig', Nat.le_refl, true_and, Decidable.not_not]
+          ext <;> grind only
+        · intros hsig
+          grind only [BitVec.toNat_inj]
+    · simp only [show a.ex.toNat ≠ b.ex.toNat by grind only [BitVec.toNat_inj], false_and,
+      false_iff, not_and, Nat.not_lt]
+      intros hex
+      have : a.ex = b.ex := by grind only [BitVec.toNat_inj]
+      grind only
+
+@[simp, grind . ]
+theorem PackedFloat.lt_of_neg_of_nonneg (a b : PackedFloat e s)
+  (hasign : a.sign = true)
+  (hbsign : b.sign = false) (hanan : ¬ a.isNaN) (hbnan : ¬ b.isNaN) :
+  a < b ↔ (a ≠ b) := by
+  rw [← PackedFloat.lt_def]
+  simp [PackedFloat.lt, hasign, hbsign, hanan, hbnan]
+
+@[simp, grind .]
+theorem PackedFloat.not_lt_of_nonneg_of_neg (a b : PackedFloat e s)
+  (hasign : a.sign = false)
+  (hbsign : b.sign = true) (hanan : ¬ a.isNaN) :
+  ¬ a < b := by
+  rw [← PackedFloat.lt_def]
+  simp [PackedFloat.lt, hasign, hbsign, hanan]
 
 /-
 This shows that the packed floats packed floats are always at least a distance
@@ -697,6 +769,52 @@ info: 'PackedFloat.toRat_le_plus_toRat_of_toRat_le_toRat_of_sign_eq_false' depen
 
 
 
+/--
+All nonnegative subnormals are less than the max subnormal number.
+-/
+theorem PackedFloat.le_maxSubnormalNumber_of_isSubnormal_of_nonneg (x : PackedFloat e s)
+    (hxsubnorm : x.isNonzeroSubnorm ∨ x.isZero) (hxsign : x.sign = false) :
+    x ≤ PackedFloat.maxSubnormalNumber e s false := by
+  rw [PackedFloat.le_of_ex_le_ex_or_sig_le_sig_of_nonneg_of_nonneg]
+  · simp
+    constructor
+    · rcases hxsubnorm
+      · have := x.exp_eq_of_isNonzeroSubnorm
+        grind only [= BitVec.toNat_zero]
+      · have := x.ex_eq_of_isZero
+        grind only [= BitVec.toNat_zero]
+    · grind only [!Nat.two_pow_pos, usr BitVec.isLt]
+  · grind only
 
+/--
+The max subnormal number is less than or equal to the min normal number
+-/
+theorem PackedFloat.maxSubnormalNumber_le_minNormalNumber_of_nonneg (he : 1 < e) (hs : 0 < s):
+  (PackedFloat.maxSubnormalNumber e s false ≤ PackedFloat.minNormalNumber e s false) := by
+  rw [PackedFloat.le_of_ex_le_ex_or_sig_le_sig_of_nonneg_of_nonneg]
+  · simp
+    grind only [= Nat.mod_eq_of_lt, !Nat.two_pow_pos, usr Nat.div_pow_of_pos, #56f6]
+  · simp
+  · simp
+  · have := isNonzeroSubnorm_maxSubnormalNumber_eq_decide e s false
+    grind only [→ not_isNaN_of_isSubnorm]
+  · have := isNorm_minNormalNumber_eq_decide e s false
+    grind only [→ not_isNaN_of_isNorm]
+
+/--
+all numbers that are nonnegative and normal are less than or equal to the max normal number.
+-/
+theorem PackedFloat.le_maxNormalNumber_of_isNormOrNonzeroSubnorm_of_nonneg (x : PackedFloat e s)
+    (hxnorm : x.isNormOrNonzeroSubnorm) (hxsign : x.sign = false) :
+    x ≤ PackedFloat.maxNormalNumber e s false := by
+  rw [PackedFloat.le_of_ex_le_ex_or_sig_le_sig_of_nonneg_of_nonneg]
+  · simp
+    constructor
+    · have := x.ex_ne_zero_if_isNorm
+      simp at this
+      have : x.ex.toNat ≠ 0 := by grind only [BitVec.toNat_pos_of_ne_zero this]
+      grind only [BitVec.toNat_inj, BitVec.toNat_zero_eq_zero]
+    · sorry
+  · grind only
 
 end PackedFloat

@@ -759,6 +759,12 @@ def isZero (pf : PackedFloat e s) : Bool :=
   -- Prioritize `0` over `Subnormals`.
   e != 0 && pf.ex == .zero e && pf.sig == .zero s
 
+@[simp, grind .]
+theorem ex_eq_of_isZero {pf : PackedFloat e s} (h : pf.isZero) :
+    pf.ex = 0#e := by
+  simp [isZero] at h
+  simp [h]
+
 @[simp, grind →]
 theorem eq_mkZero_of_isZero {pf : PackedFloat e s} :
     pf.isZero → ∃ (sign : Bool), pf = PackedFloat.getZero e s sign := by
@@ -818,13 +824,19 @@ theorem isZero_getInfinity {exWidth sigWidth : Nat} (sign : Bool) :
 def isNonzeroSubnorm (pf : PackedFloat e s) : Bool :=
   e != 0 && pf.ex == .zero e && pf.sig != .zero s
 
-@[simp]
+@[simp, grind .]
 theorem exp_eq_of_isNonzeroSubnorm {pf : PackedFloat e s}
     (h : pf.isNonzeroSubnorm := by solve | simp | grind) :
     pf.ex = 0#e := by
   simp [isNonzeroSubnorm] at h
   simp [h]
 
+@[simp, grind .]
+theorem toNat_ex_eq_of_isNonzeroSubnorm {pf : PackedFloat e s}
+    (h : pf.isNonzeroSubnorm := by solve | simp | grind) :
+    pf.ex.toNat = 0 := by
+  simp [isNonzeroSubnorm] at h
+  simp [h]
 
 
 -- See that this means that it is a number.
@@ -4142,32 +4154,54 @@ theorem BitVec.ofInt_eq_zero_iff_of_width_1 :
     simp
     grind only [#8803]
 
-@[simp]
-theorem isNonzeroSubnorm_minSubnormalNumber_eq_of_lt
-    (exWidth sigWidth : Nat) (sign : Bool)
-    (he : 1 < exWidth) (hs : 0 < sigWidth) :
+@[simp, grind .]
+theorem isNonzeroSubnorm_minSubnormalNumber_eq_decide
+    (exWidth sigWidth : Nat) (sign : Bool) :
     (PackedFloat.minSubnormalNumber exWidth sigWidth sign).isNonzeroSubnorm =
-    true := by
+    (decide (0 < exWidth) && decide (0 < sigWidth)) := by
   simp [PackedFloat.minSubnormalNumber, isNonzeroSubnorm]
-  simp [show ¬ sigWidth = 0 by grind only]
-  simp [show ¬ exWidth = 0 by grind only]
+  rcases exWidth with rfl | rfl | exWidth
+  · simp
+  · simp
+    rcases sigWidth with rfl | sigWidth
+    · simp
+    · simp
+  · simp
+    rcases sigWidth with rfl | sigWidth
+    · simp
+    · simp
 
-theorem isNonzeroSubnorm_maxSubnormalNumber_eq_of_lt
-    (exWidth sigWidth : Nat) (sign : Bool)
-    (he : 1 < exWidth) (hs : 0 < sigWidth) :
+@[simp, grind .]
+theorem isNonzeroSubnorm_maxSubnormalNumber_eq_decide
+    (exWidth sigWidth : Nat) (sign : Bool) :
     (PackedFloat.maxSubnormalNumber exWidth sigWidth sign).isNonzeroSubnorm =
-    true := by
+    (decide (0 < exWidth) && decide (0 < sigWidth)) := by
   simp [PackedFloat.maxSubnormalNumber, isNonzeroSubnorm]
-  simp [show ¬ sigWidth = 0 by grind only]
-  simp [show ¬ exWidth = 0 by grind only]
+  rcases exWidth with rfl | rfl | exWidth
+  · simp
+  · simp
+    rcases sigWidth with rfl | sigWidth
+    · simp
+    · simp
+  · simp
+    rcases sigWidth with rfl | sigWidth
+    · simp
+    · simp
 
+@[simp, grind .]
+theorem isNorm_minNormalNumber_eq_decide
+  (exWidth sigWidth : Nat) (sign : Bool) :
+  (PackedFloat.minNormalNumber exWidth sigWidth sign).isNorm =
+  decide (1 < exWidth) := by
+  simp [PackedFloat.minNormalNumber, isNorm]
+  rcases exWidth with rfl | rfl | exWidth
+  · simp
+  · simp
+  · simp
+    intros hcontra
+    have := BitVec.toInt_inj.mpr hcontra
+    simp at this
 
--- TODO: show that
---    PackedFloat.minSubnormalNumber.toRat =
---    UnpackedFloat.minSubnormalNumber.toRat
--- TODO: show that
---    PackedFloat.maxNormalNumber.toRat =
---    UnpackedFloat.maxNormalNumber.toRat
 end PackedFloat
 
 namespace UnpackedFloat
