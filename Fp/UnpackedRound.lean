@@ -542,31 +542,45 @@ def UnpackedFloat.debugRound {expWidth sigWidth : Nat} {targetExponentWidth targ
   (result, out)
 
 /--
-Round an unpacked float toward zero: clear guard and sticky bits from the
-significand, sign-extend the exponent, and extract the top
+Clear guard and sticky bits from the significand of an unpacked float,
+zeroing out all bits at and below the guard bit position.
+-/
+@[bv_normalize]
+def UnpackedFloat.clearSignificand {expWidth sigWidth : Nat}
+  (uf : UnpackedFloat expWidth sigWidth)
+  (guardBitMask : BitVec sigWidth)
+  (stickyBitsMask : BitVec sigWidth) :
+  UnpackedFloat expWidth sigWidth :=
+  { sign := uf.sign,
+    ex := uf.ex,
+    sig := uf.sig &&& (~~~(guardBitMask ||| stickyBitsMask)) }
+
+/--
+Round an unpacked float toward zero: sign-extend the exponent and extract the top
 `targetSignificandWidth + 1` bits of the significand.
 This corresponds to `lower` for nonnegative values and `upper` for negative values
 in the rounding theory.
+
+Precondition: the significand has already been cleared via `clearSignificand`.
 
 Returns an `UnpackedFloat` with exponent width `expWidth + 1` (sign-extended, no overflow
 possible since no increment occurs) and significand width `targetSignificandWidth + 1`.
 -/
 @[bv_normalize]
 def UnpackedFloat.roundTowardZero {expWidth sigWidth : Nat} {targetSignificandWidth : Nat}
-  (uf : UnpackedFloat expWidth sigWidth)
-  (guardBitMask : BitVec sigWidth)
-  (stickyBitsMask : BitVec sigWidth) :
+  (uf : UnpackedFloat expWidth sigWidth) :
   UnpackedFloat (expWidth + 1) (targetSignificandWidth + 1) :=
-  let sigCleared := uf.sig &&& (~~~(guardBitMask ||| stickyBitsMask))
   { sign := uf.sign,
     ex := uf.ex.signExtend (expWidth + 1),
-    sig := sigCleared.extractMsb' 0 (targetSignificandWidth + 1) }
+    sig := uf.sig.extractMsb' 0 (targetSignificandWidth + 1) }
 
 /--
 Increment an unpacked float by the least significant bit of the target precision
-(successor away from zero): clear guard and sticky bits, then add the lsb mask.
+(successor away from zero): add the lsb mask to the significand.
 This corresponds to `upper` for nonnegative values and `lower` for negative values
 in the rounding theory.
+
+Precondition: the significand has already been cleared via `clearSignificand`.
 
 Returns an `UnpackedFloat` with exponent width `expWidth + 1` (to accommodate potential
 carry from significand overflow) and significand width `targetSignificandWidth + 1`.
@@ -574,18 +588,15 @@ carry from significand overflow) and significand width `targetSignificandWidth +
 @[bv_normalize]
 def UnpackedFloat.successorAwayFromZero {expWidth sigWidth : Nat} {targetSignificandWidth : Nat}
   (uf : UnpackedFloat expWidth sigWidth)
-  (guardBitMask : BitVec sigWidth)
-  (stickyBitsMask : BitVec sigWidth) :
+  (guardBitMask : BitVec sigWidth) :
   UnpackedFloat (expWidth + 1) (targetSignificandWidth + 1) :=
-  let sigwithHiddenCleared : BitVec sigWidth :=
-    uf.sig &&& (~~~(guardBitMask ||| stickyBitsMask))
   let lsbMask : BitVec sigWidth := guardBitMask <<< 1
 
   let sigDidOverflow_RoundedTargetSigWithHidden : BitVec (sigWidth + 1) :=
-    if sigwithHiddenCleared = 0#sigWidth && lsbMask = 0#sigWidth then
+    if uf.sig = 0#sigWidth && lsbMask = 0#sigWidth then
       BitVec.oneHotBV (w := sigWidth + 1) (sigWidth)
     else
-      sigwithHiddenCleared.zeroExtend (sigWidth + 1) + lsbMask.zeroExtend (sigWidth + 1)
+      uf.sig.zeroExtend (sigWidth + 1) + lsbMask.zeroExtend (sigWidth + 1)
 
   let sigDidOverflow : Bool :=
     sigDidOverflow_RoundedTargetSigWithHidden.msb
@@ -664,6 +675,7 @@ def UnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSig
   let guardBitIdx := inUf.guardBitIndex targetExponentWidth targetSignificandWidth
   let guardBitMask : BitVec sigWidth := BitVec.oneHotBV guardBitIdx
   let stickyBitsMask : BitVec sigWidth := (BitVec.orderEncode guardBitIdx)
+  let ufCleared := inUf.clearSignificand guardBitMask stickyBitsMask
 
   let shouldRoundUp := roundingDecision
     (mode := mode)
@@ -673,9 +685,9 @@ def UnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSig
     (stickyBit := inUf.extractStickyBit targetExponentWidth targetSignificandWidth)
     (_exact := false)
   let roundedUf := if shouldRoundUp then
-    inUf.successorAwayFromZero guardBitMask stickyBitsMask
+    ufCleared.successorAwayFromZero guardBitMask
   else
-    inUf.roundTowardZero guardBitMask stickyBitsMask
+    ufCleared.roundTowardZero
   rounderHandleOverAndUnderflow roundedUf mode
 
 /-- Round an EUnpacked float, by ignoring NaN and infinity. -/
