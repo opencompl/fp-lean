@@ -512,6 +512,39 @@ theorem le_of_toExtRat'_le_toExtRat' (x y : PackedFloat e s) (hx : ¬ x.isNaN) (
     (hxy : x.toExtRat' ≤ y.toExtRat') : x ≤ y :=
   sorry
 
+
+/--
+Packed floats are less than each other if either the exonents are ordered, or the exponents are equal and the significands are ordered
+amongst nonnegative numbers.
+-/
+theorem PackedFloat.le_of_ex_le_ex_or_sig_le_sig_of_nonneg_of_nonneg (a b : PackedFloat e s)
+  (hasign : a.sign = false) (hbsign : b.sign = false) (hanan : ¬ a.isNaN) (hbnan : ¬ b.isNaN) :
+  a ≤ b ↔ a.ex.toNat < b.ex.toNat ∨ (a.ex.toNat = b.ex.toNat ∧ a.sig.toNat ≤ b.sig.toNat) := by
+  rw [← PackedFloat.le_def]
+  simp [PackedFloat.le, hasign, hbsign, hanan, hbnan]
+  grind only [BitVec.toNat_inj, #c695bb6e572d0f9f]
+
+theorem PackedFloat.le_of_ex_le_ex_or_sig_le_sig_of_neg_of_neg (a b : PackedFloat e s)
+  (hasign : a.sign = true) (hbsign : b.sign = true) (hanan : ¬ a.isNaN) (hbnan : ¬ b.isNaN) :
+  a ≤ b ↔ b.ex.toNat < a.ex.toNat ∨ (b.ex.toNat = a.ex.toNat ∧ b.sig.toNat ≤ a.sig.toNat) := by
+  rw [← PackedFloat.le_def]
+  simp [PackedFloat.le, hasign, hbsign, hanan, hbnan]
+  grind only [BitVec.toNat_inj, #8f52c9ba759470ab]
+
+@[simp, grind .]
+theorem PackedFloat.le_of_nonneg_of_neg (a b : PackedFloat e s)
+  (hasign : a.sign = true) (hbsign : b.sign = false) (hanan : ¬ a.isNaN) (hbnan : ¬ b.isNaN) :
+  a ≤ b := by
+  rw [← PackedFloat.le_def]
+  simp [PackedFloat.le, hasign, hbsign, hanan, hbnan]
+
+@[simp, grind .]
+theorem PackedFloat.not_le_of_neg_of_nonneg (a b : PackedFloat e s)
+  (hasign : a.sign = false) (hbsign : b.sign = true) (hanan : ¬ a.isNaN) (hbnan : ¬ b.isNaN) :
+  ¬ a ≤ b := by
+  rw [← PackedFloat.le_def]
+  simp [PackedFloat.le, hasign, hbsign, hanan, hbnan]
+
 /-
 This shows that the packed floats packed floats are always at least a distance
 of 2^-e. This gives us the discreteness of the ordering

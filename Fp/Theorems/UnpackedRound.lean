@@ -568,8 +568,6 @@ theorem EquivUptoNaN.of_mkNaN_iff (x : PackedFloat e s) : EquivUptoNaN x (Packed
   simp [EquivUptoNaN]
   grind only [!PackedFloat.isNaN_mkNaN]
 
-#check SmtLibSemantics.RoundMethod.round
-
 /--
 isEven alternates between numbers.
 -/

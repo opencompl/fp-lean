@@ -627,7 +627,7 @@ Returns the maximum (magnitude) value for the given sign.
 def maxNormalNumber (exWidth sigWidth : Nat) (sign : Bool)
   : PackedFloat exWidth sigWidth where
   sign
-  ex := BitVec.intMax exWidth - 1
+  ex := BitVec.allOnes exWidth - 1
   sig := BitVec.allOnes sigWidth
 
 @[simp]
@@ -640,7 +640,7 @@ theorem sig_maxNormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
 
 @[simp]
 theorem ex_maxNormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
-    (PackedFloat.maxNormalNumber exWidth sigWidth sign).ex = BitVec.intMax exWidth - 1 := rfl
+    (PackedFloat.maxNormalNumber exWidth sigWidth sign).ex = BitVec.allOnes exWidth - 1 := rfl
 
 -- TODO: write toRat_getMax
 
@@ -4055,20 +4055,17 @@ theorem eq_getInfinity_iff_toExtRat'_eq_Infinity (x : PackedFloat e s)
 theorem isNorm_maxNormalNumber_eq_decide
     (exWidth sigWidth : Nat) (sign : Bool) :
     (PackedFloat.maxNormalNumber exWidth sigWidth sign).isNorm =
-    decide (2 < exWidth) := by
+    decide (1 < exWidth) := by
   simp [PackedFloat.maxNormalNumber, isNorm]
-  rcases exWidth with rfl | rfl | rfl | exWidth
-  · simp; grind only
-  · simp; grind only
-  · simp [BitVec.intMax, BitVec.twoPow]
-  · simp only [Nat.lt_add_left_iff_pos, Nat.zero_lt_succ, decide_true, Bool.and_eq_true,
-    bne_iff_ne, ne_eq]
+  rcases exWidth with rfl | rfl  | exWidth
+  · simp
+  · simp
+  · simp
     constructor
     · intros hcontra
       have := BitVec.toInt_inj.mpr hcontra
-      simp only [BitVec.toInt_sub, BitVec.toInt_intMax, Nat.add_one_sub_one,
-        Nat.lt_add_left_iff_pos, Nat.zero_lt_succ, BitVec.toInt_one_of_lt, BitVec.toInt_allOnes,
-        ↓reduceIte, Int.reduceNeg] at this
+      simp only [BitVec.toInt_sub, BitVec.toInt_allOnes, Nat.lt_add_left_iff_pos, Nat.zero_lt_succ,
+        ↓reduceIte, Int.reduceNeg, BitVec.toInt_one_of_lt, Int.reduceSub] at this
       rw [Int.bmod_eq_of_le] at this
       · have : 4 ≤ 2 ^ (exWidth + 2) := by grind only
         grind only
@@ -4077,9 +4074,8 @@ theorem isNorm_maxNormalNumber_eq_decide
       · grind only
     · intros hcontra
       have := BitVec.toInt_inj.mpr hcontra
-      simp only [BitVec.toInt_sub, BitVec.toInt_intMax, Nat.add_one_sub_one,
-        Nat.lt_add_left_iff_pos, Nat.zero_lt_succ, BitVec.toInt_one_of_lt,
-        BitVec.toInt_zero] at this
+      simp only [BitVec.toInt_sub, BitVec.toInt_allOnes, Nat.lt_add_left_iff_pos, Nat.zero_lt_succ,
+        ↓reduceIte, Int.reduceNeg, BitVec.toInt_one_of_lt, Int.reduceSub, BitVec.toInt_zero] at this
       rw [Int.bmod_eq_of_le] at this
       · have : 4 ≤ 2 ^ (exWidth + 2) := by grind only
         grind only
