@@ -768,11 +768,11 @@ info: 'PackedFloat.toRat_le_plus_toRat_of_toRat_le_toRat_of_sign_eq_false' depen
 #guard_msgs in #print axioms toRat_le_plus_toRat_of_toRat_le_toRat_of_sign_eq_false
 
 
-
 /--
 All nonnegative subnormals are less than the max subnormal number.
 -/
 theorem PackedFloat.le_maxSubnormalNumber_of_isSubnormal_of_nonneg (x : PackedFloat e s)
+    (he : 0 < e) (hs : 0 < s)
     (hxsubnorm : x.isNonzeroSubnorm ∨ x.isZero) (hxsign : x.sign = false) :
     x ≤ PackedFloat.maxSubnormalNumber e s false := by
   rw [PackedFloat.le_of_ex_le_ex_or_sig_le_sig_of_nonneg_of_nonneg]
@@ -785,6 +785,10 @@ theorem PackedFloat.le_maxSubnormalNumber_of_isSubnormal_of_nonneg (x : PackedFl
         grind only [= BitVec.toNat_zero]
     · grind only [!Nat.two_pow_pos, usr BitVec.isLt]
   · grind only
+  · simp
+  · grind only [→ not_isNaN_of_isSubnorm, → not_isNaN_of_isZero]
+  · simp
+    grind only [→ not_isSubnorm_of_isNaN, isNonzeroSubnorm_maxSubnormalNumber_eq_decide]
 
 /--
 The max subnormal number is less than or equal to the min normal number
@@ -802,19 +806,74 @@ theorem PackedFloat.maxSubnormalNumber_le_minNormalNumber_of_nonneg (he : 1 < e)
     grind only [→ not_isNaN_of_isNorm]
 
 /--
+The exponent of a nonzero number is not all ones,
+which is reserved for infinity/NaN.
+-/
+@[simp]
+theorem ex_ne_of_isNormOrNonzeroSubnorm (x : PackedFloat e s)
+    (hxnorm : x.isNormOrNonzeroSubnorm) :
+    x.ex ≠ BitVec.allOnes e := by
+  simp [PackedFloat.isNormOrNonzeroSubnorm] at hxnorm
+  grind only
+
+/--
+The exponent of a nonzero number is ≤ 2^e-2.
+Recall that the full exponent is reserved for infinity/NaN.
+-/
+@[simp, grind .]
+theorem toNat_ex_le_of_isNormOrNonzeroSubnorm (x : PackedFloat e s)
+    (hxnorm : x.isNormOrNonzeroSubnorm) :
+    x.ex.toNat ≤ 2^e - 2 := by
+  have := x.ex_ne_of_isNormOrNonzeroSubnorm hxnorm
+  have : x.ex.toNat ≠ 2^e - 1 := by
+    intros hcontra
+    apply this
+    apply BitVec.eq_of_toNat_eq
+    simp; grind
+  have : x.ex.toNat ≤ 2 ^ e - 1 := by grind only [!Nat.two_pow_pos, usr BitVec.isLt]
+  grind only [!Nat.two_pow_pos, usr BitVec.isLt, #11341de38214aa15]
+
+/--
+The exponent of a nonzero number is ≤ the exponent of the max normal number.
+-/
+theorem PackedFloat.ex_le_ex_maxNormalNumber_of_isNormOrNonzeroSubnorm
+    (x : PackedFloat e s) (he : 1 < e)
+    (hxnorm : x.isNormOrNonzeroSubnorm) :
+    x.ex ≤ (PackedFloat.maxNormalNumber e s false).ex := by
+  simp only [ex_maxNormalNumber, BitVec.ofNat_eq_ofNat]
+  rw [BitVec.le_def]
+  rw [BitVec.toNat_sub_of_le]
+  · simp
+    rw [Nat.mod_eq_of_lt]
+    · apply toNat_ex_le_of_isNormOrNonzeroSubnorm x hxnorm
+    · grind => instantiate approx
+  · rw [BitVec.le_def]
+    simp
+    grind only [!Nat.two_pow_pos, = Nat.mod_eq_of_lt, one_lt_two_pow_iff]
+
+/--
 all numbers that are nonnegative and normal are less than or equal to the max normal number.
 -/
 theorem PackedFloat.le_maxNormalNumber_of_isNormOrNonzeroSubnorm_of_nonneg (x : PackedFloat e s)
+    (he : 1 < e)
+    (hs : 0 < s)
     (hxnorm : x.isNormOrNonzeroSubnorm) (hxsign : x.sign = false) :
     x ≤ PackedFloat.maxNormalNumber e s false := by
   rw [PackedFloat.le_of_ex_le_ex_or_sig_le_sig_of_nonneg_of_nonneg]
-  · simp
-    constructor
-    · have := x.ex_ne_zero_if_isNorm
-      simp at this
-      have : x.ex.toNat ≠ 0 := by grind only [BitVec.toNat_pos_of_ne_zero this]
-      grind only [BitVec.toNat_inj, BitVec.toNat_zero_eq_zero]
-    · sorry
+  · have : x.ex.toNat ≤ (maxNormalNumber e s false).ex.toNat := by
+      apply PackedFloat.ex_le_ex_maxNormalNumber_of_isNormOrNonzeroSubnorm
+      · grind only
+      · grind only
+    by_cases hex : x.ex.toNat = (maxNormalNumber e s false).ex.toNat
+    · simp [hex]
+      grind only [usr BitVec.isLt, !Nat.two_pow_pos]
+    · left
+      grind only
   · grind only
+  · simp
+  · simp; grind only [→ not_isNaN_of_isNormOrSubnorm]
+  · simp
+    have := isNorm_maxNormalNumber_eq_decide e s false
+    grind only [→ not_isNaN_of_isNorm]
 
 end PackedFloat

@@ -4063,7 +4063,7 @@ theorem eq_getInfinity_iff_toExtRat'_eq_Infinity (x : PackedFloat e s)
     !toExtRat'_getInfinity, !isInfinite_getInfinity, eq_getInfinity_iff_isInfinity,
     = isNaN_iff_toExtRat'_eq_NaN, = isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero, #8ef6]
 
-@[simp]
+@[simp, grind .]
 theorem isNorm_maxNormalNumber_eq_decide
     (exWidth sigWidth : Nat) (sign : Bool) :
     (PackedFloat.maxNormalNumber exWidth sigWidth sign).isNorm =

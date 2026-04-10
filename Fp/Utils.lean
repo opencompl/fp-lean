@@ -819,3 +819,10 @@ theorem Int.add_monus_eq_self_of_le {a b : Int} (h : a ≤ b) : a + a.monus b = 
 
 theorem natCast_monus_natCast_eq_natCast_sub {m n : Nat} : Int.monus m n = ((m - n : Nat) : Int) := by
   grind
+
+
+@[simp, grind .]
+theorem one_lt_two_pow_iff (x : Nat) : 1 < 2 ^ x ↔ 0 < x := by
+  rw [show 1 = 2 ^ 0 by simp]
+  rw [Nat.pow_lt_pow_iff_right]
+  · grind only
