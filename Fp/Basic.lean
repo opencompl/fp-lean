@@ -4132,21 +4132,6 @@ theorem toRatSig_maxNormalNumber (e s : Nat) (he : 2 < e) (sign : Bool) :
   rw [Rat.one_div_zpow_natCast_eq_zpow_neg]
   grind only
 
-theorem toRatExp_maxNormalNumber (e s : Nat) (he : 2 < e) (sign : Bool) :
-    (PackedFloat.maxNormalNumber e s sign).toRatExp =  maxNormalExp e := by
-  rw [toRatExp]
-  simp only [isNorm_maxNormalNumber_eq_decide, he, decide_true, ↓reduceIte]
-  norm_cast
-  have : 0 < 2 ^ e := by grind only [!Nat.two_pow_pos]
-  have : 2 ^ 2 ≤ 2 ^ e := by
-    exact Fp.Nat.two_pow_le_two_pow_of_le (by grind only)
-  simp at this
-  rw [show 1 % 2 ^ e = 1 by grind only [= Nat.mod_eq_of_lt]]
-
-  rw [Nat.mod_eq_of_lt]
-  · sorry
-  · sorry
-
 @[simp]
 theorem BitVec.ofInt_eq_zero_iff_of_width_1 :
     BitVec.ofInt 1 i = 0#1 ↔ i % 2 = 0 := by

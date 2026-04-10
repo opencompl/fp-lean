@@ -484,7 +484,6 @@ def UnpackedFloat.debugRound {expWidth sigWidth : Nat} {targetExponentWidth targ
   let out := out ++ s!"\nresult: {repr result} | (Q): {repr result.toExtRat}"
   (result, out)
 
-
 /--
 The core rounding function, that rounds an `UnpackedFloat` to the target exponent and significand widths,
 -/
