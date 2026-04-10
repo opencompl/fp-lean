@@ -573,11 +573,14 @@ carry from significand overflow) and significand width `targetSignificandWidth +
 -/
 @[bv_normalize]
 def UnpackedFloat.successorAwayFromZero {expWidth sigWidth : Nat} {targetSignificandWidth : Nat}
-  (sigwithHiddenCleared : BitVec sigWidth)
-  (lsbMask : BitVec sigWidth)
-  (exp : BitVec expWidth)
-  (sign : Bool) :
+  (uf : UnpackedFloat expWidth sigWidth)
+  (guardBitMask : BitVec sigWidth)
+  (stickyBitsMask : BitVec sigWidth) :
   UnpackedFloat (expWidth + 1) (targetSignificandWidth + 1) :=
+  let sigwithHiddenCleared : BitVec sigWidth :=
+    uf.sig &&& (~~~(guardBitMask ||| stickyBitsMask))
+  let lsbMask : BitVec sigWidth := guardBitMask <<< 1
+
   let sigDidOverflow_RoundedTargetSigWithHidden : BitVec (sigWidth + 1) :=
     if sigwithHiddenCleared = 0#sigWidth && lsbMask = 0#sigWidth then
       BitVec.oneHotBV (w := sigWidth + 1) (sigWidth)
@@ -598,11 +601,11 @@ def UnpackedFloat.successorAwayFromZero {expWidth sigWidth : Nat} {targetSignifi
 
   let roundedExpExtended : BitVec (expWidth + 1) :=
     if sigDidOverflow then
-      exp.signExtend (expWidth + 1) + 1#(expWidth + 1)
+      uf.ex.signExtend (expWidth + 1) + 1#(expWidth + 1)
     else
-      exp.signExtend (expWidth + 1)
+      uf.ex.signExtend (expWidth + 1)
 
-  { sign := sign,
+  { sign := uf.sign,
     ex := roundedExpExtended,
     sig := roundedTargetSigWithHiddenOverflowAdjusted.extractMsb' 0 (targetSignificandWidth + 1) }
 
@@ -647,29 +650,20 @@ def UnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSig
     EUnpackedFloat.mkZero inUf.sign
   else
   -- round a normalized, normal float.
-  let exp : BitVec expWidth := inUf.ex
-
-  let earlyOverflow : Bool := exp.sgt (BitVec.ofInt expWidth (maxNormalExp targetExponentWidth))
+  let earlyOverflow : Bool := inUf.ex.sgt (BitVec.ofInt expWidth (maxNormalExp targetExponentWidth))
   if earlyOverflow then
     rounderSpecialCaseOverflow mode inUf.sign
   else
 
   -- early underflow:
-  let earlyUnderflow : Bool := exp.slt (BitVec.ofInt expWidth (minSubnormalExp targetExponentWidth targetSignificandWidth - 1))
+  let earlyUnderflow : Bool := inUf.ex.slt (BitVec.ofInt expWidth (minSubnormalExp targetExponentWidth targetSignificandWidth - 1))
   if earlyUnderflow then
     rounderSpecialCaseUnderflow mode inUf.sign
   else
 
   let guardBitIdx := inUf.guardBitIndex targetExponentWidth targetSignificandWidth
-
   let guardBitMask : BitVec sigWidth := BitVec.oneHotBV guardBitIdx
   let stickyBitsMask : BitVec sigWidth := (BitVec.orderEncode guardBitIdx)
-
-  let sigwithHiddenCleared : BitVec sigWidth :=
-    inUf.sig &&& (~~~(guardBitMask ||| stickyBitsMask))
-
-  let lsbMask : BitVec sigWidth :=
-     BitVec.oneHotBV (guardBitIdx + 1#sigWidth)
 
   let shouldRoundUp := roundingDecision
     (mode := mode)
@@ -679,7 +673,7 @@ def UnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSig
     (stickyBit := inUf.extractStickyBit targetExponentWidth targetSignificandWidth)
     (_exact := false)
   let roundedUf := if shouldRoundUp then
-    successorAwayFromZero sigwithHiddenCleared lsbMask exp inUf.sign
+    inUf.successorAwayFromZero guardBitMask stickyBitsMask
   else
     inUf.roundTowardZero guardBitMask stickyBitsMask
   rounderHandleOverAndUnderflow roundedUf mode
