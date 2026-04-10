@@ -22,62 +22,69 @@ def roundingDecision (mode : RoundingMode) (sign : Bool) (significandEven : Bool
       false
 
 /--
-TODO: refactor to just take a 'sign' argument for 'roundedResult.sign'.
+Handle the overflow special case: depending on the rounding mode and sign,
+return either infinity or the maximum normal number.
+- RNE/RNA: always return infinity.
+- RTP: return infinity for positive, max normal for negative.
+- RTN: return infinity for negative, max normal for positive.
+- RTZ: always return max normal.
+-/
+@[bv_normalize]
+def rounderSpecialCaseOverflow
+  {targetExponentWidth targetSignificandWidth : Nat}
+  (roundingMode : RoundingMode)
+  (sign : Bool) :
+  EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
+  let returnInf : Bool :=
+    match roundingMode with
+    | RoundingMode.RNE => true
+    | RoundingMode.RNA => true
+    | RoundingMode.RTP => !sign
+    | RoundingMode.RTN => sign
+    | _ => false
+  if returnInf then
+    EUnpackedFloat.mkInfinity sign
+  else
+    EUnpackedFloat.mkNumber <| UnpackedFloat.maxNormal _ _ targetExponentWidth targetSignificandWidth sign
+
+/--
+Handle the underflow special case: depending on the rounding mode and sign,
+return either zero or the minimum subnormal number.
+- RNE/RNA/RTZ: always return zero.
+- RTP: return zero for negative, min subnormal for positive.
+- RTN: return zero for positive, min subnormal for negative.
+-/
+@[bv_normalize]
+def rounderSpecialCaseUnderflow
+  {targetExponentWidth targetSignificandWidth : Nat}
+  (roundingMode : RoundingMode)
+  (sign : Bool) :
+  EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
+  let returnZero : Bool :=
+    match roundingMode with
+    | RoundingMode.RNE => true
+    | RoundingMode.RNA => true
+    | RoundingMode.RTZ => true
+    | RoundingMode.RTP => sign
+    | RoundingMode.RTN => !sign
+  if returnZero then
+    EUnpackedFloat.mkZero sign
+  else
+    EUnpackedFloat.mkNumber <| UnpackedFloat.minSubnormal _ _ targetExponentWidth targetSignificandWidth sign
+
+/--
+Dispatch to the appropriate special case handler based on isZero, underflow, and overflow flags.
 -/
 @[bv_normalize]
 def rounderSpecialCases
   (roundingMode : RoundingMode)
   (roundedResult : UnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1))
   (overflow : Bool)
-  (underflow : Bool)
-  (isZero : Bool) : EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
-  let returnInf : Bool :=
-    match roundingMode with
-    | RoundingMode.RNE => true
-    | RoundingMode.RNA => true
-    | RoundingMode.RTP => !roundedResult.sign
-    | RoundingMode.RTN => roundedResult.sign
-    | _ => false
-  let returnZero : Bool :=
-    match roundingMode with
-    | RoundingMode.RNE => true
-    | RoundingMode.RNA => true
-    | RoundingMode.RTZ => true
-    | RoundingMode.RTP =>
-      -- if the rounded result is negative,
-      -- then return 0 instead.
-      roundedResult.sign
-    | RoundingMode.RTN =>
-      !roundedResult.sign
-
-  let inf : EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
-    EUnpackedFloat.mkInfinity roundedResult.sign
-  let max : EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
-    EUnpackedFloat.mkNumber <| UnpackedFloat.maxNormal _ _ targetExponentWidth targetSignificandWidth roundedResult.sign
-
-    /-
-    EUnpackedFloat.mkNumber <|
-    { sign := roundedResult.sign,
-      ex := BitVec.ofInt (exponentWidth targetExponentWidth targetSignificandWidth) (maxNormalExp targetExponentWidth),
-      sig := BitVec.allOnes (targetSignificandWidth + 1) }
-  -/
-  let min : EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
-    EUnpackedFloat.mkNumber <| UnpackedFloat.minSubnormal _ _ targetExponentWidth targetSignificandWidth roundedResult.sign
-     /-
-    -- EUnpackedFloat.mkNumber <|
-    -- { sign := roundedResult.sign,
-    --   ex := BitVec.ofInt (exponentWidth targetExponentWidth targetSignificandWidth) (minSubnormalExp targetExponentWidth targetSignificandWidth),
-    --   sig := BitVec.leadingOne (targetSignificandWidth + 1) }
-  -/
-  let zero : EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
-    EUnpackedFloat.mkZero roundedResult.sign
-
-  if isZero then
-    zero
-  else if underflow then
-    if returnZero then zero else min
+  (underflow : Bool) : EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
+  if underflow then
+    rounderSpecialCaseUnderflow roundingMode roundedResult.sign
   else if overflow then
-    if returnInf then inf else max
+    rounderSpecialCaseOverflow roundingMode roundedResult.sign
   else
     EUnpackedFloat.mkNumber <| roundedResult
 
@@ -475,12 +482,15 @@ def UnpackedFloat.debugRound {expWidth sigWidth : Nat} {targetExponentWidth targ
     }
   let out := out ++ s!"\nfinalNumber: {repr finalNumber} | (Q): {finalNumber.toRat}"
   -- | TODO: I don't fully understand the special cases
-  let result := rounderSpecialCases
-    (roundingMode := mode)
-    (roundedResult := finalNumber)
-    (overflow := overflow)
-    (underflow := underflow)
-    (isZero := inUf.isZero)
+  let result :=
+    if inUf.isZero then
+      EUnpackedFloat.mkZero inUf.sign
+    else
+      rounderSpecialCases
+        (roundingMode := mode)
+        (roundedResult := finalNumber)
+        (overflow := overflow)
+        (underflow := underflow)
   let out := out ++ s!"\nresult: {repr result} | (Q): {repr result.toExtRat}"
   (result, out)
 
@@ -556,7 +566,6 @@ to `rounderSpecialCases` for special-case handling (infinity, zero, max, min).
 def rounderHandleOverAndUnderflow {expWidth : Nat} {targetExponentWidth targetSignificandWidth : Nat}
   (roundedResult : UnpackedFloat expWidth (targetSignificandWidth + 1))
   (earlyOverflow earlyUnderflow : Bool)
-  (isZero : Bool)
   (mode : RoundingMode) :
   EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
   let maxNormalExpBV : BitVec expWidth :=
@@ -587,7 +596,6 @@ def rounderHandleOverAndUnderflow {expWidth : Nat} {targetExponentWidth targetSi
     (roundedResult := finalNumber)
     (overflow := overflow)
     (underflow := underflow)
-    (isZero := isZero)
 
 /--
 The core rounding function, that rounds an `UnpackedFloat` to the target exponent and significand widths.
@@ -600,6 +608,9 @@ def UnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSig
   (inUf : UnpackedFloat expWidth sigWidth)
   (mode : RoundingMode) :
   EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
+  if inUf.isZero then
+    EUnpackedFloat.mkZero inUf.sign
+  else
   -- round a normalized, normal float.
   let exp : BitVec expWidth := inUf.ex
 
@@ -669,7 +680,7 @@ def UnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSig
     successorAwayFromZero sigwithHiddenCleared lsbMask exp inUf.sign
   else
     roundTowardZero sigwithHiddenCleared exp inUf.sign
-  rounderHandleOverAndUnderflow roundedUf earlyOverflow earlyUnderflow inUf.isZero mode
+  rounderHandleOverAndUnderflow roundedUf earlyOverflow earlyUnderflow mode
 
 /-- Round an EUnpacked float, by ignoring NaN and infinity. -/
 def EUnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSignificandWidth : Nat}
