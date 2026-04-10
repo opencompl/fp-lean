@@ -22,6 +22,48 @@ def roundingDecision (mode : RoundingMode) (sign : Bool) (significandEven : Bool
       false
 
 /--
+Compute the guard bit index (from LSB) adjusted for subnormal shifting.
+This is the position in the significand where the guard bit falls when
+rounding to `targetSignificandWidth` precision with the given target exponent format.
+-/
+@[bv_normalize]
+def UnpackedFloat.guardBitIndex {expWidth sigWidth : Nat}
+  (uf : UnpackedFloat expWidth sigWidth)
+  (targetExponentWidth targetSignificandWidth : Nat) : BitVec sigWidth :=
+  let guardBitIndexFromLsb : BitVec sigWidth :=
+    BitVec.ofNat sigWidth ((sigWidth - 1) - (targetSignificandWidth + 1))
+  let targetMinNormalExp : BitVec expWidth :=
+    BitVec.ofInt expWidth (minNormalExp targetExponentWidth)
+  let expGeMin :=
+    if uf.ex.slt targetMinNormalExp then targetMinNormalExp else uf.ex
+  let shiftAmtPositive := expGeMin - uf.ex
+  guardBitIndexFromLsb + shiftAmtPositive.zeroExtend sigWidth
+
+/-- Extract the guard bit from an unpacked float at the target precision. -/
+@[bv_normalize]
+def UnpackedFloat.extractGuardBit {expWidth sigWidth : Nat}
+  (uf : UnpackedFloat expWidth sigWidth)
+  (targetExponentWidth targetSignificandWidth : Nat) : Bool :=
+  let idx := uf.guardBitIndex targetExponentWidth targetSignificandWidth
+  (uf.sig &&& BitVec.oneHotBV idx) ≠ 0#sigWidth
+
+/-- Extract the sticky bit from an unpacked float: whether any bit below the guard bit is set. -/
+@[bv_normalize]
+def UnpackedFloat.extractStickyBit {expWidth sigWidth : Nat}
+  (uf : UnpackedFloat expWidth sigWidth)
+  (targetExponentWidth targetSignificandWidth : Nat) : Bool :=
+  let idx := uf.guardBitIndex targetExponentWidth targetSignificandWidth
+  (uf.sig &&& BitVec.orderEncode idx) ≠ 0#sigWidth
+
+/-- Check whether the unpacked float's significand LSB (relative to the target precision) is even. -/
+@[bv_normalize]
+def UnpackedFloat.extractIsEven {expWidth sigWidth : Nat}
+  (uf : UnpackedFloat expWidth sigWidth)
+  (targetExponentWidth targetSignificandWidth : Nat) : Bool :=
+  let idx := uf.guardBitIndex targetExponentWidth targetSignificandWidth
+  uf.sig &&& BitVec.oneHotBV (idx + 1#sigWidth) = 0#sigWidth
+
+/--
 Handle the overflow special case: depending on the rounding mode and sign,
 return either infinity or the maximum normal number.
 - RNE/RNA: always return infinity.
@@ -500,7 +542,9 @@ def UnpackedFloat.debugRound {expWidth sigWidth : Nat} {targetExponentWidth targ
   (result, out)
 
 /--
-Truncate an unpacked float toward zero: clear guard and sticky bits without incrementing.
+Round an unpacked float toward zero: clear guard and sticky bits from the
+significand, sign-extend the exponent, and extract the top
+`targetSignificandWidth + 1` bits of the significand.
 This corresponds to `lower` for nonnegative values and `upper` for negative values
 in the rounding theory.
 
@@ -509,13 +553,14 @@ possible since no increment occurs) and significand width `targetSignificandWidt
 -/
 @[bv_normalize]
 def UnpackedFloat.roundTowardZero {expWidth sigWidth : Nat} {targetSignificandWidth : Nat}
-  (sigWithHiddenCleared : BitVec sigWidth)
-  (exp : BitVec expWidth)
-  (sign : Bool) :
+  (uf : UnpackedFloat expWidth sigWidth)
+  (guardBitMask : BitVec sigWidth)
+  (stickyBitsMask : BitVec sigWidth) :
   UnpackedFloat (expWidth + 1) (targetSignificandWidth + 1) :=
-  { sign := sign,
-    ex := exp.signExtend (expWidth + 1),
-    sig := sigWithHiddenCleared.extractMsb' 0 (targetSignificandWidth + 1) }
+  let sigCleared := uf.sig &&& (~~~(guardBitMask ||| stickyBitsMask))
+  { sign := uf.sign,
+    ex := uf.ex.signExtend (expWidth + 1),
+    sig := sigCleared.extractMsb' 0 (targetSignificandWidth + 1) }
 
 /--
 Increment an unpacked float by the least significant bit of the target precision
@@ -609,74 +654,34 @@ def UnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSig
     rounderSpecialCaseOverflow mode inUf.sign
   else
 
-  let targetMinNormalExp : BitVec expWidth :=
-    BitVec.ofInt expWidth (minNormalExp targetExponentWidth)
-
   -- early underflow:
   let earlyUnderflow : Bool := exp.slt (BitVec.ofInt expWidth (minSubnormalExp targetExponentWidth targetSignificandWidth - 1))
   if earlyUnderflow then
     rounderSpecialCaseUnderflow mode inUf.sign
   else
 
-  -- force exponent to be at least min normal exponent.
-  let expGeMin :=
-    if exp.slt targetMinNormalExp then
-      targetMinNormalExp
-    else
-      exp
+  let guardBitIdx := inUf.guardBitIndex targetExponentWidth targetSignificandWidth
 
-  -- how much to shift 'sig' by.
-  let shiftAmtPositive := expGeMin - exp
-
-  let sigWithHidden : BitVec sigWidth := inUf.sig
-
-  -- in inf precision, we want to take:
-  --                ↓ guard
-  --  1 . a b c d e f g h ... * 2^exp
-  --  ============↑ (6 bits of precision)
-  -- suppose we exceed by 3 bits, so shiftAmt = 3.
-
-  -- and convert to target precision:
-  --                  ↓ guard
-  --  0 . 0 0 0 1 a b c d e f g h * 2^exp + 2^shiftAmt | to make 'exp + shiftAmt >= minNormalExp'.
-  --  ==============↑ (6 bits of precision)
-  -- (sigWidth - 1) - (targetSignificandWidth - 1) -
-  -- let targetSigWithHidden : BitVec (targetSignificandWidth + 1) :=
-  --   sigWithHidden.extractMsb' 0 (targetSignificandWidth + 1)
-  -- to grab the bit *after* w bits, it's the bit x[w].
-  -- we want the bit *after* targetSignificandWidth + 1, i.e., bit at index targetSignificandWidth + 1.
-  let guardBitIndexFromLsb : BitVec sigWidth :=
-    BitVec.ofNat sigWidth ((sigWidth - 1) - (targetSignificandWidth + 1))
-  -- | See that when we call 'shiftAmtPositive.zeroExtend sigWidth', there is
-  -- a potential that shiftAmtPositive is wider than sigWidth.
-  -- However, when we compute early underflow,
-  let guardBitIndexFromLsbAdjusted : BitVec sigWidth :=
-    guardBitIndexFromLsb + shiftAmtPositive.zeroExtend sigWidth
-
-  let guardBitMask : BitVec sigWidth := BitVec.oneHotBV guardBitIndexFromLsbAdjusted
-  let guardBit : Bool := (sigWithHidden &&& guardBitMask) ≠ 0#sigWidth
-  let stickyBitsMask : BitVec sigWidth := (BitVec.orderEncode guardBitIndexFromLsbAdjusted)
-  let stickyBits : BitVec sigWidth := (sigWithHidden &&& stickyBitsMask)
-  let stickyBit : Bool := stickyBits ≠ 0#sigWidth
+  let guardBitMask : BitVec sigWidth := BitVec.oneHotBV guardBitIdx
+  let stickyBitsMask : BitVec sigWidth := (BitVec.orderEncode guardBitIdx)
 
   let sigwithHiddenCleared : BitVec sigWidth :=
-    sigWithHidden &&& (~~~(guardBitMask ||| stickyBitsMask))
+    inUf.sig &&& (~~~(guardBitMask ||| stickyBitsMask))
 
   let lsbMask : BitVec sigWidth :=
-     BitVec.oneHotBV (guardBitIndexFromLsbAdjusted + 1#sigWidth)
+     BitVec.oneHotBV (guardBitIdx + 1#sigWidth)
 
-  let isEven : Bool := sigWithHidden &&& lsbMask = 0#sigWidth
   let shouldRoundUp := roundingDecision
     (mode := mode)
     (sign := inUf.sign)
-    (significandEven := isEven)
-    (guardBit := guardBit)
-    (stickyBit := stickyBit)
+    (significandEven := inUf.extractIsEven targetExponentWidth targetSignificandWidth)
+    (guardBit := inUf.extractGuardBit targetExponentWidth targetSignificandWidth)
+    (stickyBit := inUf.extractStickyBit targetExponentWidth targetSignificandWidth)
     (_exact := false)
   let roundedUf := if shouldRoundUp then
     successorAwayFromZero sigwithHiddenCleared lsbMask exp inUf.sign
   else
-    roundTowardZero sigwithHiddenCleared exp inUf.sign
+    inUf.roundTowardZero guardBitMask stickyBitsMask
   rounderHandleOverAndUnderflow roundedUf mode
 
 /-- Round an EUnpacked float, by ignoring NaN and infinity. -/
