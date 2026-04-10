@@ -1015,4 +1015,25 @@ theorem round_eq_ite_roundingDecision_of_Number_of_neg {eout sout : Nat} (rm : R
     intros hr
     grind only
 
+theorem toExtRat_ufCleared_eq_lower_of_nonneg (x : UnpackedFloat e s) (hx : 0 ≤ x.toRat) :
+  x.toRat = SmtLibSemantics.RoundableEmbed.embed (SmtLibSemantics.smtLibLower.lower x.toRat) := by
+  have hlower := isLawfulLower_lower e s x.toExtRat
+  have hlower1 := hlower.1
+  simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
+    ExtRat.ge_eq_le_symm] at hlower1
+  have hlower2 := hlower.2
+  specialize (hlower2 x)
+  simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
+    ExtRat.ExtRat.le_refl, forall_const] at hlower2
+  simp only [PackedFloat.toExtRat_eq_toExtRat']
+  have : SmtLibSemantics.smtLibLower.lower x.toExtRat' ≤ x := by
+    apply PackedFloat.le_of_toExtRat'_le_toExtRat'
+    · simp
+      grind only [PackedFloat.le_iff_eq_of_isNaN']
+    · simp
+      grind only
+    · simp only [PackedFloat.toExtRat_eq_toExtRat'] at hlower1
+      grind only
+  grind only [PackedFloat.le_antisymm_of_ne_NaN, PackedFloat.le_iff_eq_of_isNaN']
+
 end Fp

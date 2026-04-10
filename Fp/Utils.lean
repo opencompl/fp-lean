@@ -804,3 +804,18 @@ theorem Rat.div_self_eq_one_of_ne_zero {a : Rat} (ha : a ≠ 0) : a / a = 1 := b
 
 theorem Rat.div_self_eq_ite {a : Rat} : a / a = (if a = 0 then 0 else 1) := by
   grind
+
+@[grind]
+def Int.monus (a b : Int) : Int :=
+  if a < b then 0 else a - b
+
+@[simp]
+theorem Int.zero_le_monus (a b : Int) : 0 ≤ a.monus b := by
+  grind
+
+@[simp]
+theorem Int.add_monus_eq_self_of_le {a b : Int} (h : a ≤ b) : a + a.monus b = a := by
+  grind
+
+theorem natCast_monus_natCast_eq_natCast_sub {m n : Nat} : Int.monus m n = ((m - n : Nat) : Int) := by
+  grind
