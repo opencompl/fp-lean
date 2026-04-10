@@ -493,44 +493,27 @@ Takes the preprocessed intermediate values from the shared prefix of `round`.
 -/
 @[bv_normalize]
 def UnpackedFloat.roundTowardZero {expWidth sigWidth : Nat} {targetExponentWidth targetSignificandWidth : Nat}
-  (sigwithHiddenCleared : BitVec sigWidth)
+  (_sigwithHiddenCleared : BitVec sigWidth)
   (_lsbMask : BitVec sigWidth)
   (exp : BitVec expWidth)
-  (earlyOverflow earlyUnderflow : Bool)
+  (_earlyOverflow _earlyUnderflow : Bool)
   (sign : Bool) (isZero : Bool)
   (mode : RoundingMode) :
   EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
-  let sigDidOverflow_RoundedTargetSigWithHidden : BitVec (sigWidth + 1) :=
-    sigwithHiddenCleared.zeroExtend (sigWidth + 1)
-
-  let sigDidOverflow : Bool :=
-    sigDidOverflow_RoundedTargetSigWithHidden.msb
-
-  let roundedTargetSigWithHidden : BitVec sigWidth :=
-    sigDidOverflow_RoundedTargetSigWithHidden.setWidth sigWidth
 
   let roundedTargetSigWithHiddenOverflowAdjusted : BitVec sigWidth :=
-    if sigDidOverflow then
       BitVec.leadingOne sigWidth
-    else
-      roundedTargetSigWithHidden
 
-  let roundedExpExtended : BitVec (expWidth + 1) :=
-    if sigDidOverflow then
-      exp.signExtend (expWidth + 1) + 1#(expWidth + 1)
-    else
-      exp.signExtend (expWidth + 1)
-
+  let roundedExpExtended : BitVec (expWidth + 1) := exp.signExtend (expWidth + 1)
   let maxNormalExpBV : BitVec (expWidth + 1) :=
     BitVec.ofInt (expWidth + 1) (maxNormalExp targetExponentWidth)
-  let lateOverflow : Bool :=
-    maxNormalExpBV.slt roundedExpExtended
+  let lateOverflow : Bool := maxNormalExpBV.slt roundedExpExtended
   let minSubnormalExpBV : BitVec (expWidth + 1) :=
     BitVec.ofInt (expWidth + 1) (minSubnormalExp targetExponentWidth targetSignificandWidth)
   let lateUnderflow : Bool :=
     roundedExpExtended.slt minSubnormalExpBV
-  let underflow : Bool := lateUnderflow || earlyUnderflow
-  let overflow : Bool := lateOverflow || earlyOverflow
+  let underflow : Bool := lateUnderflow
+  let overflow : Bool := lateOverflow
 
   let roundedClampedExpExtended : BitVec (expWidth + 1) :=
     if lateOverflow then
@@ -593,7 +576,7 @@ def UnpackedFloat.successorAwayFromZero {expWidth sigWidth : Nat} {targetExponen
       exp.signExtend (expWidth + 1) + 1#(expWidth + 1)
     else
       exp.signExtend (expWidth + 1)
-
+  -- vvv common code vvv
   let maxNormalExpBV : BitVec (expWidth + 1) :=
     BitVec.ofInt (expWidth + 1) (maxNormalExp targetExponentWidth)
   let lateOverflow : Bool :=
