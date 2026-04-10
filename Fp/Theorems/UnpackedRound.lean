@@ -1019,11 +1019,11 @@ theorem round_eq_ite_roundingDecision_of_Number_of_neg {eout sout : Nat} (rm : R
 
 
 /--
-This proves that the `round` function is correctly implemented by `rounderSpecialCases`
-in the cases when we get a special case.
+This proves that the `round` function correctly handles special cases
+(isZero, underflow, overflow).
 
 TODO: how to phrase the correctness of this?
-Do we just say that in the cases where the rounded result is a special case, then the `round` function returns the same result as `rounderSpecialCases`?
+Do we just say that in the cases where the rounded result is a special case, then the `round` function returns the same result?
 -/
 theorem round_eq_rounderSpecialCases_of_isZero
   (heout : 0 < eout)
@@ -1041,14 +1041,17 @@ theorem round_eq_rounderSpecialCases_of_isZero
   (hOverflow : overflow = decide (r > (PackedFloat.maxNormalNumber eout sout (decide (r < 0))).toRat))
   (hUnderflow : underflow = decide (r < (PackedFloat.minSubnormalNumber eout sout (decide (r < 0))).toRat))
   (hrounded' : rounded.isInfinite ∨ rounded.isNaN ∨ rounded.isZero) :
-  (rounded).toExtRat = (if isZero then EUnpackedFloat.mkZero roundedResult.sign else rounderSpecialCases rm roundedResult overflow underflow).toExtRat := by
+  (rounded).toExtRat =
+    (if isZero then EUnpackedFloat.mkZero roundedResult.sign
+     else if underflow then rounderSpecialCaseUnderflow rm roundedResult.sign
+     else if overflow then rounderSpecialCaseOverflow rm roundedResult.sign
+     else EUnpackedFloat.mkNumber roundedResult).toExtRat := by
   rcases isZero with rfl | rfl
   · -- isZero = false
     simp only [Bool.false_eq_true, ↓reduceIte]
     rcases hrounded' with hinf | hnan | hzero
     · simp only [PackedFloat.toExtRat_eq_toExtRat', hinf,
         PackedFloat.toExtRat'_eq_Infinity_of_isInfinite]
-      simp only [rounderSpecialCases]
       simp at hIsZero
       sorry
     · simp only [PackedFloat.toExtRat_eq_toExtRat', hnan, PackedFloat.toExtRat'_eq_NaN_of_isNaN,
@@ -1059,7 +1062,6 @@ theorem round_eq_rounderSpecialCases_of_isZero
       grind only
     · simp only [PackedFloat.toExtRat_eq_toExtRat', hzero, PackedFloat.toExtRat'_eq_zero_of_isZero]
       simp only [false_eq_decide_iff] at hIsZero
-      simp only [rounderSpecialCases]
       -- this is possible upon underflow.
       rcases underflow with rfl | rfl
       · simp only [Bool.false_eq_true, ↓reduceIte]
