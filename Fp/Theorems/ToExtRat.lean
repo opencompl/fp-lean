@@ -82,23 +82,6 @@ theorem toExtRat_minSubnormal_eq (e s : Nat) (he : 1 < e) (hs : 0 < s):
     grind only
   · decide
 
-theorem toRat_minSubnormal_le_toRat_of_isNonzeroSubnorm (x : PackedFloat e s)
-    (hxsign : x.sign = false)
-    (hxsubnorm : x.isNonzeroSubnorm)
-    (he : 1 < e)
-    (hs : 0 < s) :
-    (PackedFloat.minSubnormalNumber e s false).toRat ≤ x.toRat := by
-  simp [he, hs]
-  rw [toRat]
-  simp [hxsign]
-  have := x.lt_twoRatSig_of_sig_ne_zero (by grind only [→ not_isNorm_of_isSubnorm,
-    → isNormOrSubnorm_of_isSubnorm, sig_ne_zero_of_isNormOrNonzeroSubnorm_of_not_isNorm])
-  have := x.toRatExp_eq_of_not_isNorm (by grind only [→ not_isNorm_of_isSubnorm])
-  rw [this]
-  apply Rat.le_trans (b := (1 / (2 : Rat) ^ s) * (2 : Rat) ^ (minNormalExp e - 1))
-  · sorry
-  · sorry
-
 
 theorem toExtRat_maxSubnormal_eq (e s : Nat) (he : 1 < e) (hs : 0 < s):
     (PackedFloat.maxSubnormalNumber e s false).toRat =
@@ -128,38 +111,6 @@ theorem toExtRat_maxSubnormal_eq (e s : Nat) (he : 1 < e) (hs : 0 < s):
     · grind only
   grind only
 
-theorem toRat_le_toRat_maxSubnormal_of_isNonzeroSubnorm (x : PackedFloat e s)
-    (hxsign : x.sign = false)
-    (hxsubnorm : x.isNonzeroSubnorm)
-    (he : 1 < e)
-    (hs : 0 < s) :
-    x.toRat ≤ (PackedFloat.maxSubnormalNumber e s false).toRat := by
-  sorry
 
-
-theorem toRat_maxNormalNumber_eq :
-  (PackedFloat.maxNormalNumber e s false).toRat = (2 : Rat) ^ (maxNormalExp e - 1) * ((2 : Rat) ^ s - 1) := by
-  rw [toRat]
-  rw [sign_maxNormalNumber]
-  simp
-  sorry
-
-/--
-Numbers that are strictly larger than the max normal number is positive infinity.
--/
-theorem toExtRat_maxNormal_lt_toExtRat_iff_eq_getinfinity (x : PackedFloat e s)
-    (hxnan : ¬ x.isNaN)
-    (he : 1 < e) (hs : 0 < s) :
-    (PackedFloat.maxNormalNumber e s false).toExtRat < x.toExtRat ↔ x = PackedFloat.getInfinity e s false := by
-  sorry
-
-/--
-Numbers that are strictly smaller than the negative max normal number is negative infinity.
--/
-theorem toExtRat_lt_toExtRat_maxNormal_iff_eq_getInfinity (x : PackedFloat e s)
-    (hxnan : ¬ x.isNaN)
-    (he : 1 < e) (hs : 0 < s) :
-    x.toExtRat < (PackedFloat.maxNormalNumber e s true).toExtRat ↔ x = PackedFloat.getInfinity e s true := by
-  sorry
 
 end PackedFloat

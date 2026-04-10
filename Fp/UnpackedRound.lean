@@ -73,20 +73,21 @@ def rounderSpecialCaseUnderflow
     EUnpackedFloat.mkNumber <| UnpackedFloat.minSubnormal _ _ targetExponentWidth targetSignificandWidth sign
 
 /--
-Dispatch to the appropriate special case handler based on isZero, underflow, and overflow flags.
+Truncate the exponent of an `UnpackedFloat` to the target format width,
+producing an `EUnpackedFloat`.
+
+Precondition: the exponent value must fit in the target width, i.e.,
+`minSubnormalExp targetExponentWidth targetSignificandWidth ≤ uf.ex.toInt`
+and `uf.ex.toInt ≤ maxNormalExp targetExponentWidth`.
+This is guaranteed when the caller has already ruled out overflow and underflow.
 -/
 @[bv_normalize]
-def rounderSpecialCases
-  (roundingMode : RoundingMode)
-  (roundedResult : UnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1))
-  (overflow : Bool)
-  (underflow : Bool) : EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
-  if underflow then
-    rounderSpecialCaseUnderflow roundingMode roundedResult.sign
-  else if overflow then
-    rounderSpecialCaseOverflow roundingMode roundedResult.sign
-  else
-    EUnpackedFloat.mkNumber <| roundedResult
+def UnpackedFloat.truncateFittingExponent {expWidth sigWidth : Nat} (targetExponentWidth targetSignificandWidth : Nat)
+  (uf : UnpackedFloat expWidth sigWidth) :
+  UnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) sigWidth :=
+  { sign := uf.sign,
+    ex := uf.ex.truncate (exponentWidth targetExponentWidth targetSignificandWidth),
+    sig := uf.sig }
 
 axiom AxRoundPreconditions {P : Prop} : P
 
@@ -471,28 +472,30 @@ def UnpackedFloat.debugRound {expWidth sigWidth : Nat} {targetExponentWidth targ
     else
       roundedExpExtended
   let out := out ++ s!"\nroundedClampedExpExtended: {roundedClampedExpExtended.toBitsStr} = int:{roundedClampedExpExtended.toInt}"
-  let finalExp := roundedClampedExpExtended.truncate (exponentWidth targetExponentWidth targetSignificandWidth)
-  let out := out ++ s!"\nfinalExp: {finalExp.toBitsStr} = int:{finalExp.toInt}"
   let finalSigTruncated := roundedTargetSigWithHiddenOverflowAdjusted.extractMsb' 0 (targetSignificandWidth + 1)
-  let out := out ++ s!"\nfinalSigTruncated: {finalSigTruncated.toBitsStr} = nat:{finalSigTruncated.toNat}"
-  let finalNumber : UnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
+  let finalNumber : UnpackedFloat (expWidth + 1) (targetSignificandWidth + 1) :=
     { sign := inUf.sign,
-      ex := finalExp,
+      ex := roundedClampedExpExtended,
       sig := finalSigTruncated
     }
-  let out := out ++ s!"\nfinalNumber: {repr finalNumber} | (Q): {finalNumber.toRat}"
+  let finalTruncated := finalNumber.truncateFittingExponent targetExponentWidth targetSignificandWidth
+  let out := out ++ s!"\nfinalExp: {finalTruncated.ex.toBitsStr} = int:{finalTruncated.ex.toInt}"
+  let out := out ++ s!"\nfinalSigTruncated: {finalSigTruncated.toBitsStr} = nat:{finalSigTruncated.toNat}"
+  let out := out ++ s!"\nfinalNumber: {repr finalTruncated} | (Q): {finalTruncated.toRat}"
   -- | TODO: I don't fully understand the special cases
   let result :=
     if inUf.isZero then
       EUnpackedFloat.mkZero inUf.sign
     else if earlyOverflow then
       rounderSpecialCaseOverflow mode inUf.sign
+    else if earlyUnderflow then
+      rounderSpecialCaseUnderflow mode inUf.sign
+    else if lateUnderflow then
+      rounderSpecialCaseUnderflow mode inUf.sign
+    else if lateOverflow then
+      rounderSpecialCaseOverflow mode inUf.sign
     else
-      rounderSpecialCases
-        (roundingMode := mode)
-        (roundedResult := finalNumber)
-        (overflow := overflow)
-        (underflow := underflow)
+      EUnpackedFloat.mkNumber finalTruncated
   let out := out ++ s!"\nresult: {repr result} | (Q): {repr result.toExtRat}"
   (result, out)
 
@@ -561,13 +564,12 @@ def UnpackedFloat.successorAwayFromZero {expWidth sigWidth : Nat} {targetSignifi
 /--
 Handle overflow and underflow for a rounded result, producing the final `EUnpackedFloat`.
 Checks whether the rounded exponent exceeds target bounds (late overflow/underflow),
-combines with early overflow/underflow flags, clamps the exponent, and dispatches
-to `rounderSpecialCases` for special-case handling (infinity, zero, max, min).
+clamps the exponent, and returns the appropriate special case (underflow, overflow)
+or the normal rounded number.
 -/
 @[bv_normalize]
 def rounderHandleOverAndUnderflow {expWidth : Nat} {targetExponentWidth targetSignificandWidth : Nat}
   (roundedResult : UnpackedFloat expWidth (targetSignificandWidth + 1))
-  (earlyUnderflow : Bool)
   (mode : RoundingMode) :
   EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
   let maxNormalExpBV : BitVec expWidth :=
@@ -577,27 +579,13 @@ def rounderHandleOverAndUnderflow {expWidth : Nat} {targetExponentWidth targetSi
     BitVec.ofInt expWidth (minSubnormalExp targetExponentWidth targetSignificandWidth)
   let lateUnderflow : Bool :=
     roundedResult.ex.slt minSubnormalExpBV
-  let underflow : Bool := lateUnderflow || earlyUnderflow
-  let overflow : Bool := lateOverflow
 
-  let roundedClampedExp : BitVec expWidth :=
-    if lateOverflow then
-      maxNormalExpBV
-    else if lateUnderflow then
-      minSubnormalExpBV
-    else
-      roundedResult.ex
-  let finalExp := roundedClampedExp.truncate (exponentWidth targetExponentWidth targetSignificandWidth)
-  let finalNumber : UnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
-    { sign := roundedResult.sign,
-      ex := finalExp,
-      sig := roundedResult.sig
-    }
-  rounderSpecialCases
-    (roundingMode := mode)
-    (roundedResult := finalNumber)
-    (overflow := overflow)
-    (underflow := underflow)
+  if lateUnderflow then
+    rounderSpecialCaseUnderflow mode roundedResult.sign
+  else if lateOverflow then
+    rounderSpecialCaseOverflow mode roundedResult.sign
+  else
+    EUnpackedFloat.mkNumber <| roundedResult.truncateFittingExponent targetExponentWidth targetSignificandWidth
 
 /--
 The core rounding function, that rounds an `UnpackedFloat` to the target exponent and significand widths.
@@ -626,6 +614,9 @@ def UnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSig
 
   -- early underflow:
   let earlyUnderflow : Bool := exp.slt (BitVec.ofInt expWidth (minSubnormalExp targetExponentWidth targetSignificandWidth - 1))
+  if earlyUnderflow then
+    rounderSpecialCaseUnderflow mode inUf.sign
+  else
 
   -- force exponent to be at least min normal exponent.
   let expGeMin :=
@@ -686,7 +677,7 @@ def UnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSig
     successorAwayFromZero sigwithHiddenCleared lsbMask exp inUf.sign
   else
     roundTowardZero sigwithHiddenCleared exp inUf.sign
-  rounderHandleOverAndUnderflow roundedUf earlyUnderflow mode
+  rounderHandleOverAndUnderflow roundedUf mode
 
 /-- Round an EUnpacked float, by ignoring NaN and infinity. -/
 def EUnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSignificandWidth : Nat}
