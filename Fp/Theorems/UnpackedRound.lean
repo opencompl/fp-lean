@@ -1029,7 +1029,6 @@ theorem toExtRat_ufCleared_eq_upper_of_neg (x : UnpackedFloat e s)
       := by
   sorry
 
-
 theorem toExtRat_successorAwayFromZero_eq_lower_of_neg (x : UnpackedFloat e s)
     (hx : x.toRat < 0) :
     (ExtRat.Number (x.successorAwayFromZero targetExponentWidth targetSignificandWidth).toRat) =
