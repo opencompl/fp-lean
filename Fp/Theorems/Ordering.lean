@@ -856,7 +856,6 @@ all numbers that are nonnegative and normal are less than or equal to the max no
 -/
 theorem PackedFloat.le_maxNormalNumber_of_isNormOrNonzeroSubnorm_of_nonneg (x : PackedFloat e s)
     (he : 1 < e)
-    (hs : 0 < s)
     (hxnorm : x.isNormOrNonzeroSubnorm) (hxsign : x.sign = false) :
     x ≤ PackedFloat.maxNormalNumber e s false := by
   rw [PackedFloat.le_of_ex_le_ex_or_sig_le_sig_of_nonneg_of_nonneg]
@@ -875,5 +874,17 @@ theorem PackedFloat.le_maxNormalNumber_of_isNormOrNonzeroSubnorm_of_nonneg (x : 
   · simp
     have := isNorm_maxNormalNumber_eq_decide e s false
     grind only [→ not_isNaN_of_isNorm]
+
+theorem PackedFloat.eq_infinity_of_lt_maxNormalNumber_of_isNaN_of_nonneg (x : PackedFloat e s)
+  (he : 1 < e) (hs : 0 < s)
+  (hx : ¬ x.isNaN)
+  (hxsign : x.sign = false) :
+  PackedFloat.maxNormalNumber e s false < x ↔ x =
+  PackedFloat.getInfinity e s false := by
+  constructor
+  · sorry
+  · intros hx
+    subst hx
+    sorry
 
 end PackedFloat

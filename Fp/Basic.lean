@@ -2184,6 +2184,14 @@ theorem ne_of_lt {a b : PackedFloat e s} (h : a < b) : ¬ (a = b) := by
   simp [← lt_def, lt] at h
   grind only
 
+@[grind .]
+theorem lt_of_le_of_ne (a b : PackedFloat e s) (hle : a ≤ b) (hne : a ≠ b) :
+    a < b := by
+  simp [← lt_def, lt]
+  grind only
+
+theorem lt_iff_le_and_ne (a b : PackedFloat e s) : a < b ↔ (a ≤ b ∧ a ≠ b) := by
+  simp [← lt_def, lt]
 
 @[simp, grind .]
 theorem minus_zero_le_plus_zero {e s} (he : 0 < e) :
@@ -2963,6 +2971,107 @@ theorem le_trans
           #ca7289c2a156499b, #8f9092e537ef6258, #ef1611d882ec5869, #e781b8f11c51b17b,
           #2d6d3bcdb3a3b35c, #31dd348e5c4aee2a, #a7908cd812b01724, #f811994cd6c34475,
           #7d54ade5a8b64ca3, #b35f21abfee2096d]
+
+/--
+If `x = y = NaN`, then we can have `NaN₁ < NaN₂ `, since we have that `NaN₁ ≤ NaN₂`,
+but also that `NaN₁ ≠ NaN₂`
+-/
+theorem lt_trans (x y z : PackedFloat e s)
+  (hnan : x.isNaN = false ∨ y.isNaN = false)
+  (hxy : x < y)
+  (hyz : y < z) :
+  x < z := by
+  simp only [← PackedFloat.lt_def, PackedFloat.lt] at hxy hyz ⊢
+  have : x ≤ z := by grind only [le_trans]
+  simp [this]
+  intros hcontra
+  subst hcontra
+  rcases hnan with hnan | hnan
+  · grind only [le_iff_eq_of_isNaN, le_antisymm_of_ne_NaN]
+  · grind only [le_iff_eq_of_isNaN, le_antisymm_of_ne_NaN]
+
+/--
+If `x = NaN₁` `y = NaN₂`, the we have that `x ≤ y` and `y ≤ x` since all NaNs
+are comparable, but this does not imply that `x = y`.
+-/
+@[simp]
+theorem eq_of_le_of_le_of_not_isNaN (x y : PackedFloat e s)
+  (hxy : x ≤ y) (hyx : y ≤ x) (hnan : x.isNaN = false ∨ y.isNaN = false) :
+  x = y := by grind only [le_iff_eq_of_isNaN, le_antisymm_of_ne_NaN, #cc201580b0d91919]
+
+@[simp, grind =]
+theorem lt_iff_ne_of_isNaN_of_isNaN (x y : PackedFloat e s)
+    (hx : x.isNaN) (hy : y.isNaN) : (x < y) ↔ x ≠ y := by
+  rw [lt_iff_le_and_ne]
+  simp [hx, hy]
+
+@[simp, grind =]
+theorem lt_iff_ne_and_isNaN_of_isNaN (x y : PackedFloat e s)
+    (hx : x.isNaN) : (x < y) ↔ (y.isNaN = true ∧ x ≠ y) := by
+  rw [lt_iff_le_and_ne]
+  simp [hx]
+
+@[simp, grind =]
+theorem lt_iff_ne_and_isNaN_of_isNaN' (x y : PackedFloat e s)
+    (hx : y.isNaN) : (x < y) ↔ (x.isNaN = true ∧ x ≠ y) := by
+  rw [lt_iff_le_and_ne]
+  simp [hx]
+
+theorem lt_of_le_of_lt_of_not_isNaN (x y z : PackedFloat e s)
+    (hnan : ¬ x.isNaN ∨ ¬ y.isNaN ∨ ¬ z.isNaN)
+    (hxy : x ≤ y) (hyz : y < z) : x < z := by
+  apply lt_of_le_of_ne
+  · apply le_trans (y := y)
+    · grind only
+    · grind only [le_of_lt]
+  · intros hcontra
+    subst hcontra
+    have : y ≤ x := by grind only [le_of_lt]
+    have : x = y := by grind only [le_iff_eq_of_isNaN, le_antisymm_of_ne_NaN]
+    subst this
+    grind only [ne_of_lt]
+
+theorem lt_of_lt_of_le_of_not_isNaN (x y z : PackedFloat e s)
+    (hnan : ¬ x.isNaN ∨ ¬ y.isNaN ∨ ¬ z.isNaN)
+    (hxy : x < y) (hyz : y ≤ z) : x < z := by
+  apply lt_of_le_of_ne
+  · apply le_trans (y := y)
+    · grind only [le_of_lt]
+    · grind only
+  · intros hcontra
+    subst hcontra
+    have : x ≤ y := by grind only [le_of_lt]
+    have : x = y := by grind only [le_iff_eq_of_isNaN, le_antisymm_of_ne_NaN]
+    subst this
+    grind only [ne_of_lt]
+
+/--
+Both amongst NaNs and amongst regular numbers, the ordering is total,
+but not across these domains.
+-/
+theorem le_total_of_isNaN_eq_isNaN (x y : PackedFloat e s) (hnan : x.isNaN = y.isNaN)
+    : x ≤ y ∨ y ≤ x := by
+  simp [← le_def, le]
+  by_cases hxnan : x.isNaN
+  · simp [hxnan]
+    simp [hxnan] at hnan
+    grind only
+  · simp [hxnan]
+    have : y.isNaN = false := by grind only
+    simp [this]
+    grind only [BitVec.toNat_inj]
+
+/--
+floats are totally ordered amongst NaNs and regular numbers.
+-/
+theorem lt_trichotomy_of_isNaN_eq_isNaN (x y : PackedFloat e s)
+    (hnan : x.isNaN = y.isNaN) :
+    x < y ∨ x = y ∨ y < x := by
+  by_cases heq : x = y
+  · simp [heq]
+  · simp [heq]
+    have hle := le_total_of_isNaN_eq_isNaN x y hnan
+    grind only [lt_of_le_of_ne]
 
 /--
 If the numbers are notNaN, then 'x ≤ y' if the x is negative and y is positive.
