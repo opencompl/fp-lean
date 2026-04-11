@@ -317,93 +317,189 @@ info: 'PackedFloat.toExtRat'_le_toExtRat'_of_le_of_number' depends on axioms: [p
 -/
 #guard_msgs in #print axioms toExtRat'_le_toExtRat'_of_le_of_number
 
-set_option maxHeartbeats 9999999 in
 /--
-TODO: split into separate proofs based on
- - infinity
- - nan
- - signs.
-The packed float '≤' relationship captures ordering by `toRat'`.
+The `x.isInfinite` branch of `toExtRat'_le_toExtRat'_of_le`:
+if `x` is infinite and `x ≤ y`, then `x.toExtRat' ≤ y.toExtRat'`.
 -/
-@[simp]
-theorem toExtRat'_le_toExtRat'_of_le (_he : 0 < e) (hs : 0 < s)
+theorem toExtRat'_le_toExtRat'_of_le_of_isInfinite (_he : 0 < e) (hs : 0 < s)
     (x y : PackedFloat e s)
     (hxzero : ¬ x.isZero) (hyzero : ¬ y.isZero) (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN)
+    (hxinf : x.isInfinite)
     (hxy : x ≤ y) : x.toExtRat' ≤ y.toExtRat' := by
   rw [PackedFloat.toExtRat']
   have hxy' := hxy
   rw [← PackedFloat.le_def, PackedFloat.le] at hxy'
   simp [hxnan, hynan] at hxy'
   simp [hxnan] at ⊢
+  simp [hxinf]
+  by_cases hxsign : x.sign
+  · simp [hxsign, hynan]
+  · simp at hxsign
+    simp [hxsign]
+    have := PackedFloat.eq_getInfinity_iff_isInfinity hs |>.mp hxinf
+    simp [hxsign] at this
+    subst this
+    simp [hs] at hxy
+    subst hxy
+    simp [hs]
+
+/--
+The `y.isInfinite` subcase of `toExtRat'_le_toExtRat'_of_le_of_not_isInfinite`:
+if `x` is not infinite, `y` is infinite, and `x ≤ y`, then `x.toExtRat' ≤ y.toExtRat'`.
+-/
+theorem toExtRat'_le_toExtRat'_of_le_of_not_isInfinite_of_isInfinite
+    (_he : 0 < e) (hs : 0 < s)
+    (x y : PackedFloat e s)
+    (_hxzero : ¬ x.isZero) (hyzero : ¬ y.isZero) (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN)
+    (hxinf : ¬ x.isInfinite) (hyinf : y.isInfinite)
+    (hxy : x ≤ y) : x.toExtRat' ≤ y.toExtRat' := by
+  rw [PackedFloat.toExtRat']
+  have hxy' := hxy
+  rw [← PackedFloat.le_def, PackedFloat.le] at hxy'
+  simp [hxnan, hynan] at hxy'
+  simp [hxnan] at ⊢
+  simp [hxinf]
+  rw [PackedFloat.toExtRat']
+  simp [hyinf, hynan]
+  by_cases hysign : y.sign
+  · simp [hysign]
+    have := PackedFloat.eq_getInfinity_iff_isInfinity hs |>.mp hyinf
+    simp [hysign] at this
+    subst this
+    simp [hs] at hxy
+    grind only
+  · simp [hysign]
+
+set_option maxHeartbeats 9999999 in
+/--
+The `x.sign` subcase of `toExtRat'_le_toExtRat'_of_le_of_not_isInfinite_of_not_isInfinite`:
+neither `x` nor `y` infinite, `x` negative, and `x ≤ y`, then `x.toExtRat' ≤ y.toExtRat'`.
+-/
+theorem toExtRat'_le_toExtRat'_of_le_of_not_isInfinite_of_not_isInfinite_of_sign
+    (_he : 0 < e) (_hs : 0 < s)
+    (x y : PackedFloat e s)
+    (hxzero : ¬ x.isZero) (hyzero : ¬ y.isZero) (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN)
+    (hxinf : ¬ x.isInfinite) (hyinf : ¬ y.isInfinite)
+    (hxsign : x.sign)
+    (hxy : x ≤ y) : x.toExtRat' ≤ y.toExtRat' := by
+  rw [PackedFloat.toExtRat']
+  have hxy' := hxy
+  rw [← PackedFloat.le_def, PackedFloat.le] at hxy'
+  simp [hxnan, hynan] at hxy'
+  simp [hxnan] at ⊢
+  simp [hxinf]
+  rw [PackedFloat.toExtRat']
+  simp [hyinf, hynan]
+  rw [PackedFloat.toRat, PackedFloat.toRat]
+  simp [hxsign]
+  -- x -ve
+  by_cases hysign : y.sign
+  · -- x -ve, y -ve
+    simp [hysign]
+    simp [hxsign, hysign] at hxy'
+    rw [Rat.mul_assoc, Rat.mul_assoc]
+    simp only [Rat.neg_one_mul_le_neg_one_mul_iff]
+    apply toExtRat'_le_toExtRat'_of_le_of_number <;> grind only
+  · -- x -ve, y +ve
+    simp [hysign]
+    simp [hxsign, hysign] at hxy'
+    have := x.zero_le_twoNumberRatSig
+    have := y.zero_le_twoNumberRatSig
+    have := Rat.zpow_nonneg (a := 2) (h := by decide) (n := y.toRatExp)
+    have := Rat.zpow_nonneg (a := 2) (h := by decide) (n := x.toRatExp)
+    simp only [ge_iff_le]
+    apply Rat.le_trans (b := 0)
+    · grind =>
+      instantiate only [Rat.le_of_lt, toRatSig_ne_zero_of_isNormOrNonzeroSubnorm]
+      instantiate only [Fp.Rat.two_pow_pos, → Rat.mul_pos,
+        = isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero]
+    · grind => instantiate only [Rat.mul_nonneg]
+    -- grind?
+
+/--
+The `¬ x.sign` subcase of `toExtRat'_le_toExtRat'_of_le_of_not_isInfinite_of_not_isInfinite`:
+neither `x` nor `y` infinite, `x` non-negative, and `x ≤ y`, then `x.toExtRat' ≤ y.toExtRat'`.
+-/
+theorem toExtRat'_le_toExtRat'_of_le_of_not_isInfinite_of_not_isInfinite_of_not_sign
+    (_he : 0 < e) (_hs : 0 < s)
+    (x y : PackedFloat e s)
+    (hxzero : ¬ x.isZero) (hyzero : ¬ y.isZero) (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN)
+    (hxinf : ¬ x.isInfinite) (hyinf : ¬ y.isInfinite)
+    (hxsign : ¬ x.sign)
+    (hxy : x ≤ y) : x.toExtRat' ≤ y.toExtRat' := by
+  rw [PackedFloat.toExtRat']
+  have hxy' := hxy
+  rw [← PackedFloat.le_def, PackedFloat.le] at hxy'
+  simp [hxnan, hynan] at hxy'
+  simp [hxnan] at ⊢
+  simp [hxinf]
+  rw [PackedFloat.toExtRat']
+  simp [hyinf, hynan]
+  rw [PackedFloat.toRat, PackedFloat.toRat]
+  -- x +ve
+  simp at hxsign
+  simp [hxsign]
+  by_cases hysign : y.sign
+  · -- x+ve, y -ve
+    simp [hxsign, hysign] at hxy'
+  · -- x+ve, y +ve
+    simp at hysign
+    simp [hysign]
+    simp [hxsign, hysign] at hxy'
+    apply toExtRat'_le_toExtRat'_of_le_of_number
+    · grind only
+    · assumption
+    · assumption
+    · assumption
+    · grind only
+    · grind only
+    · grind only
+
+/--
+The `¬ y.isInfinite` subcase of `toExtRat'_le_toExtRat'_of_le_of_not_isInfinite`:
+if neither `x` nor `y` is infinite and `x ≤ y`, then `x.toExtRat' ≤ y.toExtRat'`.
+-/
+theorem toExtRat'_le_toExtRat'_of_le_of_not_isInfinite_of_not_isInfinite
+    (he : 0 < e) (hs : 0 < s)
+    (x y : PackedFloat e s)
+    (hxzero : ¬ x.isZero) (hyzero : ¬ y.isZero) (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN)
+    (hxinf : ¬ x.isInfinite) (hyinf : ¬ y.isInfinite)
+    (hxy : x ≤ y) : x.toExtRat' ≤ y.toExtRat' := by
+  by_cases hxsign : x.sign
+  · exact toExtRat'_le_toExtRat'_of_le_of_not_isInfinite_of_not_isInfinite_of_sign
+      he hs x y hxzero hyzero hxnan hynan hxinf hyinf hxsign hxy
+  · exact toExtRat'_le_toExtRat'_of_le_of_not_isInfinite_of_not_isInfinite_of_not_sign
+      he hs x y hxzero hyzero hxnan hynan hxinf hyinf hxsign hxy
+
+/--
+The `¬ x.isInfinite` branch of `toExtRat'_le_toExtRat'_of_le`:
+if `x` is not infinite and `x ≤ y`, then `x.toExtRat' ≤ y.toExtRat'`.
+-/
+theorem toExtRat'_le_toExtRat'_of_le_of_not_isInfinite (he : 0 < e) (hs : 0 < s)
+    (x y : PackedFloat e s)
+    (hxzero : ¬ x.isZero) (hyzero : ¬ y.isZero) (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN)
+    (hxinf : ¬ x.isInfinite)
+    (hxy : x ≤ y) : x.toExtRat' ≤ y.toExtRat' := by
+  by_cases hyinf : y.isInfinite
+  · exact toExtRat'_le_toExtRat'_of_le_of_not_isInfinite_of_isInfinite
+      he hs x y hxzero hyzero hxnan hynan hxinf hyinf hxy
+  · exact toExtRat'_le_toExtRat'_of_le_of_not_isInfinite_of_not_isInfinite
+      he hs x y hxzero hyzero hxnan hynan hxinf hyinf hxy
+
+/--
+TODO: split into separate proofs based on
+ - nan
+ - signs.
+The packed float '≤' relationship captures ordering by `toRat'`.
+-/
+@[simp]
+theorem toExtRat'_le_toExtRat'_of_le (he : 0 < e) (hs : 0 < s)
+    (x y : PackedFloat e s)
+    (hxzero : ¬ x.isZero) (hyzero : ¬ y.isZero) (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN)
+    (hxy : x ≤ y) : x.toExtRat' ≤ y.toExtRat' := by
   by_cases hxinf : x.isInfinite
-  · simp [hxinf]
-    by_cases hxsign : x.sign
-    · simp [hxsign, hynan]
-    · simp at hxsign
-      simp [hxsign]
-      have := PackedFloat.eq_getInfinity_iff_isInfinity hs |>.mp hxinf
-      simp [hxsign] at this
-      subst this
-      simp [hs] at hxy
-      subst hxy
-      simp [hs]
-  · simp [hxinf]
-    rw [PackedFloat.toExtRat']
-    by_cases hyinf : y.isInfinite
-    · simp [hyinf, hynan]
-      by_cases hysign : y.sign
-      · simp [hysign]
-        have := PackedFloat.eq_getInfinity_iff_isInfinity hs |>.mp hyinf
-        simp [hysign] at this
-        subst this
-        simp [hs] at hxy
-        grind only
-      · simp [hysign]
-    · simp [hyinf, hynan]
-      rw [PackedFloat.toRat, PackedFloat.toRat]
-      by_cases hxsign : x.sign
-      · simp [hxsign]
-        -- x -ve
-        by_cases hysign : y.sign
-        · -- x -ve, y -ve
-          simp [hysign]
-          simp [hxsign, hysign] at hxy'
-          rw [Rat.mul_assoc, Rat.mul_assoc]
-          simp only [Rat.neg_one_mul_le_neg_one_mul_iff]
-          apply toExtRat'_le_toExtRat'_of_le_of_number <;> grind only
-        · -- x -ve, y +ve
-          simp [hysign]
-          simp [hxsign, hysign] at hxy'
-          have := x.zero_le_twoNumberRatSig
-          have := y.zero_le_twoNumberRatSig
-          have := Rat.zpow_nonneg (a := 2) (h := by decide) (n := y.toRatExp)
-          have := Rat.zpow_nonneg (a := 2) (h := by decide) (n := x.toRatExp)
-          simp only [ge_iff_le]
-          apply Rat.le_trans (b := 0)
-          · grind =>
-            instantiate only [Rat.le_of_lt, toRatSig_ne_zero_of_isNormOrNonzeroSubnorm]
-            instantiate only [Fp.Rat.two_pow_pos, → Rat.mul_pos,
-              = isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero]
-          · grind => instantiate only [Rat.mul_nonneg]
-          -- grind?
-      · -- x +ve
-        simp at hxsign
-        simp [hxsign]
-        by_cases hysign : y.sign
-        · -- x+ve, y -ve
-          simp [hxsign, hysign] at hxy'
-        · -- x+ve, y +ve
-          simp at hysign
-          simp [hysign]
-          simp [hxsign, hysign] at hxy'
-          apply toExtRat'_le_toExtRat'_of_le_of_number
-          · grind only
-          · assumption
-          · assumption
-          · assumption
-          · grind only
-          · grind only
-          · grind only
+  · exact toExtRat'_le_toExtRat'_of_le_of_isInfinite he hs x y hxzero hyzero hxnan hynan hxinf hxy
+  · exact toExtRat'_le_toExtRat'_of_le_of_not_isInfinite he hs x y hxzero hyzero hxnan hynan hxinf hxy
 
 /--
 Two packed floats that are ordered by `≤` are ordered by `toRat`, if they are numbers.
