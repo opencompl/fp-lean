@@ -704,28 +704,6 @@ def isNaN (pf : PackedFloat e s) : Bool :=
   -- Prioritize `NaN` over `Infinity`.
   pf.ex == .allOnes e && (s == 0 || pf.sig != .zero s)
 
-@[grind .]
-private theorem BitVec.eq_allOnes_iff_toNat_eq (x : BitVec w) :
-    x = .allOnes w ↔ x.toNat = 2 ^ w - 1 := by
-  constructor
-  · intros h
-    subst h
-    simp
-  · intros h
-    apply BitVec.toNat_inj.mp
-    simp [h]
-
-
-@[grind .]
-private theorem BitVec.eq_zero_iff_toNat_eq (x : BitVec w) :
-    x = .zero w ↔ x.toNat = 0 := by
-  constructor
-  · intros h
-    subst h
-    simp
-  · intros h
-    apply BitVec.toNat_inj.mp
-    simp [h]
 
 @[grind =>]
 theorem isNaN_iff_ex_eq_sig_eq (pf : PackedFloat e s) (hs : 0 < s) :

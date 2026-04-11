@@ -826,3 +826,27 @@ theorem one_lt_two_pow_iff (x : Nat) : 1 < 2 ^ x ↔ 0 < x := by
   rw [show 1 = 2 ^ 0 by simp]
   rw [Nat.pow_lt_pow_iff_right]
   · grind only
+
+
+@[grind .]
+protected theorem BitVec.eq_allOnes_iff_toNat_eq (x : BitVec w) :
+    x = .allOnes w ↔ x.toNat = 2 ^ w - 1 := by
+  constructor
+  · intros h
+    subst h
+    simp
+  · intros h
+    apply BitVec.toNat_inj.mp
+    simp [h]
+
+
+@[grind .]
+protected theorem BitVec.eq_zero_iff_toNat_eq (x : BitVec w) :
+    x = .zero w ↔ x.toNat = 0 := by
+  constructor
+  · intros h
+    subst h
+    simp
+  · intros h
+    apply BitVec.toNat_inj.mp
+    simp [h]

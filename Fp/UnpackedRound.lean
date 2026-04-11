@@ -5,39 +5,6 @@ import Fp.Grind
 import Fp.ForLean.Rat
 import Fp.Rounding
 
-structure A (x : Nat) where
-  y : Nat
-
-def auser (a : A x) : Nat := a.y + x
-
-structure AWF (x : Nat) extends A x where
-  wf : toA.y < x
-
-abbrev AWF' (x : Nat) : Type := { a : A x // a.y < x }
-
-instance {x : Nat} : Coe (AWF x) (A x) where
-  coe awf := awf.toA
-
-def awf : AWF 5 := { toA := { y := 3 }, wf := by simp }
-
-def awf' : AWF' 5 := ⟨{ y := 3 }, by simp⟩
-
--- instance (x : Nat) : CoeDep Type (A x) (AWF x)
-
-#eval auser <| awf'.val
-
-structure B  where
-  y : Nat
-
-def buser (a : B) : Nat := a.y
-
-structure BWF extends B where
-  wf : toB.y < 10
-
-def bwf : BWF := { toB := { y := 3 }, wf := by simp }
-
-#eval buser bwf.toB
-
 
 @[bv_normalize]
 def roundingDecision (mode : RoundingMode) (sign : Bool) (significandEven : Bool)
