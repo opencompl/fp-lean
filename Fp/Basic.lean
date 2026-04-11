@@ -2681,7 +2681,7 @@ theorem sig_ne_zero_of_isNormOrNonzeroSubnorm_of_not_isNorm {pf : PackedFloat e 
 
 attribute [grind .] Rat.natCast_eq_zero_iff
 
-@[simp, grind .]
+@[simp]
 theorem toRatSig_ne_zero_of_isNormOrNonzeroSubnorm {pf : PackedFloat e s} (h : pf.isNormOrNonzeroSubnorm) :
   pf.toRatSig ≠ 0 := by
   simp [toRatSig]
@@ -2697,6 +2697,13 @@ theorem toRatSig_ne_zero_of_isNormOrNonzeroSubnorm {pf : PackedFloat e s} (h : p
     have : (pf.sig.toNat : Rat) ≠ 0 := by
       grind only [Rat.natCast_eq_zero_iff]
     grind only [Fp.Rat.div_pos, Rat.pow_pos]
+
+@[simp, grind .]
+theorem toRatSig_pos_of_isNormOrNonzeroSubnorm {pf : PackedFloat e s} (h : pf.isNormOrNonzeroSubnorm) :
+  0 < pf.toRatSig := by
+  have : pf.toRatSig ≠ 0 := by exact toRatSig_ne_zero_of_isNormOrNonzeroSubnorm h
+  have : pf.toRatSig ≥ 0 := by exact zero_le_toRatSig pf
+  grind
 
 @[simp, grind =]
 theorem toRat_eq_Zero_of_isZero {e s} (pf : PackedFloat e s) (hp : pf.isZero) :

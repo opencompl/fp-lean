@@ -589,15 +589,12 @@ theorem isEven_upper_eq_not_isEven_lower (eout sout : Nat) (r : Rat) :
 axiom embed_lower_le_self {e s : Nat} (r : ExtRat) :
     SmtLibSemantics.RoundableEmbed.embed
       (SmtLibSemantics.smtLibLower.lower r : PackedFloat e s) ≤ r -- := by
---  sorry
 
 axiom le_lower_of_embed_le
     {e s : Nat} (r : ExtRat) (lower' : PackedFloat e s)
     (hlower' : SmtLibSemantics.RoundableEmbed.embed lower' ≤ r) :
     lower' ≤ SmtLibSemantics.smtLibLower.lower r
 
--- := by
---  sorry
 
 theorem isLawfulLower_lower (e s : Nat) (r : ExtRat) :
     SmtLibSemantics.IsLawfulLower r (SmtLibSemantics.smtLibLower.lower r : PackedFloat e s) := by
