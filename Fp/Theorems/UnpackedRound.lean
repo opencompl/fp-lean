@@ -1057,6 +1057,18 @@ theorem clearSignificand_toRat_sub_lt (uf : UnpackedFloat e s)
       (2 : Rat) ^ uf.toExpInt := by
   sorry
 
+/--
+The result of 'clearSignificand' results in an unpacked float
+that can be represented in the target format, and has the same rational value as some `PackedFloat`.
+-/
+theorem exists_packedFloat_toRat_eq_clearSignificand_toRat (uf : UnpackedFloat e s)
+    (targetExponentWidth targetSignificandWidth : Nat) :
+    ∃ (pf : PackedFloat targetExponentWidth targetSignificandWidth),
+      pf.toRat = (uf.clearSignificand targetExponentWidth targetSignificandWidth).toRat := by
+  sorry
+
+
+
 theorem toExtRat_ufCleared_eq_lower_of_nonneg (x : UnpackedFloat e s)
     (hx : 0 ≤ x.toRat) :
     (ExtRat.Number (x.roundTowardZero targetExponentWidth targetSignificandWidth).toRat) =
@@ -1079,6 +1091,48 @@ theorem toExtRat_successorAwayFromZero_eq_lower_of_neg (x : UnpackedFloat e s)
   sorry
 
 
+@[simp]
+theorem UnpackedFloat.extractIsEven_eq_isEven_lower_of_nonneg (x : UnpackedFloat e s)
+    (hx : x.sign = false) :
+    x.extractIsEven e s = (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) e s SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).isEven
+          (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat)) := by
+  simp [UnpackedFloat.extractIsEven]
+  simp [SmtLibSemantics.smtLibRoundMethod]
+  sorry
+
+@[simp]
+theorem UnpackedFloat.extractIsEven_eq_isEven_upper_of_neg (x : UnpackedFloat e s)
+    (hx : x.sign = true) :
+    x.extractIsEven e s = (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) e s SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).isEven
+          (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat)) := by
+  simp [UnpackedFloat.extractIsEven]
+  simp [SmtLibSemantics.smtLibRoundMethod]
+  sorry
+
+@[simp]
+theorem UnpackedFloat.extractGuardBit_eq_not_lowerHalf_of_nonneg (x : UnpackedFloat e s)
+    (hx : x.sign = false) :
+    x.extractGuardBit e s = ! (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) e s SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat) := by
+  simp [UnpackedFloat.extractGuardBit]
+  simp [SmtLibSemantics.smtLibRoundMethod]
+  sorry
+
+@[simp]
+theorem UnpackedFloat.extractGuardBit_eq_lowerHalf_of_neg (x : UnpackedFloat e s)
+    (hx : x.sign = true) :
+    x.extractGuardBit e s = (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) e s SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat) := by
+  simp [UnpackedFloat.extractGuardBit]
+  simp [SmtLibSemantics.smtLibRoundMethod]
+  sorry
+
+@[simp]
+theorem UnpackedFloat.extractStickyBit_eq_not_tieBreak_of_nonneg_of_guardBit (x : UnpackedFloat e s)
+    (hx : x.sign = false)
+    (hguard : x.extractGuardBit e s = true) :
+    x.extractStickyBit e s = ! (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) e s SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).tieBreak (ExtRat.Number x.toRat) := by
+  simp [UnpackedFloat.extractStickyBit]
+  simp [SmtLibSemantics.smtLibRoundMethod]
+  sorry
 
 
 end Fp
