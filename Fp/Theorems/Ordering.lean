@@ -517,19 +517,12 @@ theorem PackedFloat.sig_lt_sig_of_lt_of_of_exp_eq_exp_of_sign_eq_false
     · grind only
 
 
-/--
-for non-NaN packed floats, the ordering by `toRat'` agrees with the packed float ordering.
--/
-theorem le_of_toExtRat'_le_toExtRat' (x y : PackedFloat e s) (hx : ¬ x.isNaN) (hy : ¬ y.isNaN)
-    (hxy : x.toExtRat' ≤ y.toExtRat') : x ≤ y :=
-  sorry
-
 
 /--
 Packed floats are less than each other if the tuple (exponent, significand)
 is lex ordered.
 -/
-theorem PackedFloat.le_of_ex_le_ex_or_sig_le_sig_of_nonneg_of_nonneg (a b : PackedFloat e s)
+theorem le_of_ex_le_ex_or_sig_le_sig_of_nonneg_of_nonneg (a b : PackedFloat e s)
   (hasign : a.sign = false) (hbsign : b.sign = false) (hanan : ¬ a.isNaN) (hbnan : ¬ b.isNaN) :
   a ≤ b ↔ a.ex.toNat < b.ex.toNat ∨ (a.ex.toNat = b.ex.toNat ∧ a.sig.toNat ≤ b.sig.toNat) := by
   rw [← PackedFloat.le_def]
@@ -540,7 +533,7 @@ theorem PackedFloat.le_of_ex_le_ex_or_sig_le_sig_of_nonneg_of_nonneg (a b : Pack
 Packed floats are less than each other if the tuple (exponent, significand)
 is lex ordered, amongst negative numbers.
 -/
-theorem PackedFloat.le_of_ex_le_ex_or_sig_le_sig_of_neg_of_neg (a b : PackedFloat e s)
+theorem le_of_ex_le_ex_or_sig_le_sig_of_neg_of_neg (a b : PackedFloat e s)
   (hasign : a.sign = true) (hbsign : b.sign = true) (hanan : ¬ a.isNaN) (hbnan : ¬ b.isNaN) :
   a ≤ b ↔ b.ex.toNat < a.ex.toNat ∨ (b.ex.toNat = a.ex.toNat ∧ b.sig.toNat ≤ a.sig.toNat) := by
   rw [← PackedFloat.le_def]
@@ -548,20 +541,20 @@ theorem PackedFloat.le_of_ex_le_ex_or_sig_le_sig_of_neg_of_neg (a b : PackedFloa
   grind only [BitVec.toNat_inj, #8f52c9ba759470ab]
 
 @[simp, grind .]
-theorem PackedFloat.le_of_nonneg_of_neg (a b : PackedFloat e s)
+theorem le_of_nonneg_of_neg (a b : PackedFloat e s)
   (hasign : a.sign = true) (hbsign : b.sign = false) (hanan : ¬ a.isNaN) (hbnan : ¬ b.isNaN) :
   a ≤ b := by
   rw [← PackedFloat.le_def]
   simp [PackedFloat.le, hasign, hbsign, hanan, hbnan]
 
 @[simp, grind .]
-theorem PackedFloat.not_le_of_neg_of_nonneg (a b : PackedFloat e s)
+theorem not_le_of_neg_of_nonneg (a b : PackedFloat e s)
   (hasign : a.sign = false) (hbsign : b.sign = true) (hanan : ¬ a.isNaN) (hbnan : ¬ b.isNaN) :
   ¬ a ≤ b := by
   rw [← PackedFloat.le_def]
   simp [PackedFloat.le, hasign, hbsign, hanan, hbnan]
 
-theorem PackedFloat.lt_of_ex_lt_ex_or_sig_lt_sig_of_nonneg_of_nonneg (a b : PackedFloat e s)
+theorem lt_of_ex_lt_ex_or_sig_lt_sig_of_nonneg_of_nonneg (a b : PackedFloat e s)
   (hasign : a.sign = false) (hbsign : b.sign = false) (hanan : ¬ a.isNaN) (hbnan : ¬ b.isNaN) :
   a < b ↔ a.ex.toNat < b.ex.toNat ∨ (a.ex.toNat = b.ex.toNat ∧ a.sig.toNat < b.sig.toNat) := by
   rw [← PackedFloat.lt_def]
@@ -916,11 +909,19 @@ theorem getZero_le_of_nonneg {e s : Nat} {sign : Bool}
     (hsign : x.sign = false)
     (hnan : ¬ x.isNaN) :
     PackedFloat.getZero e s sign ≤ x := by
-  apply PackedFloat.le_of_toExtRat'_le_toExtRat'
-  · grind only [= isNaN_iff_toExtRat'_eq_NaN, !toExtRat'_getZero]
-  · grind only
-  · simp [he, hs]
-    grind only
+  rcases sign with rfl | rfl
+  · rw [PackedFloat.le_of_ex_le_ex_or_sig_le_sig_of_nonneg_of_nonneg]
+    · simp [he, hs]
+      grind only
+    · simp [hs]
+    · simp [hsign]
+    · simp; grind
+    · grind only
+  · apply le_of_nonneg_of_neg
+    · simp
+    · simp [hsign]
+    · grind only [= isNaN_iff_toExtRat'_eq_NaN, !toExtRat'_getZero]
+    · grind only
 
 @[grind .]
 theorem getZero_lt_of_nonneg_of_not_isZero {e s : Nat} {sign : Bool}
