@@ -754,6 +754,8 @@ theorem eq_mkInfinity_of_isInfinite {pf : PackedFloat e s} :
   simp_all
 
 
+-- TODO: delete the 'e=0' case, since a lot of the basic theory
+-- just breaks down.
 @[bv_normalize]
 def isZero (pf : PackedFloat e s) : Bool :=
   -- Prioritize `0` over `Subnormals`.
@@ -764,6 +766,25 @@ theorem ex_eq_of_isZero {pf : PackedFloat e s} (h : pf.isZero) :
     pf.ex = 0#e := by
   simp [isZero] at h
   simp [h]
+
+@[simp]
+theorem sig_eq_zero_if_isZero {pf : PackedFloat e s} (h : pf.isZero) :
+    pf.sig = 0#s := by
+  simp [isZero] at h
+  simp [h]
+
+/--
+A packed float is zero iff the exponent and significand are zero.
+-/
+theorem isZero_iff_ex_eq_zero_and_sig_eq_zero {pf : PackedFloat e s} (he : 0 < e) :
+    pf.isZero ↔ (pf.ex = 0#e ∧ pf.sig = 0#s) := by
+  constructor
+  · intro h
+    simp only [isZero, BitVec.zero_eq, Bool.and_eq_true, bne_iff_ne, ne_eq, beq_iff_eq] at h
+    simp [h]
+  · intro h
+    simp [isZero]
+    grind only
 
 @[simp, grind →]
 theorem eq_mkZero_of_isZero {pf : PackedFloat e s} :
@@ -793,6 +814,7 @@ theorem eq_mkZero_of_isZero' {pf : PackedFloat e s} {sign : Bool} (he : 0 < e):
   · intros h
     rw [h]
     simp [he]
+
 @[simp, grind =]
 theorem zero_eq_allOnes_eq_decide (e : Nat) :
     (0#e = BitVec.allOnes e) = decide (e = 0) := by
@@ -2184,7 +2206,7 @@ theorem ne_of_lt {a b : PackedFloat e s} (h : a < b) : ¬ (a = b) := by
   simp [← lt_def, lt] at h
   grind only
 
-@[grind .]
+@[grind ., simp]
 theorem lt_of_le_of_ne (a b : PackedFloat e s) (hle : a ≤ b) (hne : a ≠ b) :
     a < b := by
   simp [← lt_def, lt]
@@ -2994,7 +3016,6 @@ theorem lt_trans (x y z : PackedFloat e s)
 If `x = NaN₁` `y = NaN₂`, the we have that `x ≤ y` and `y ≤ x` since all NaNs
 are comparable, but this does not imply that `x = y`.
 -/
-@[simp]
 theorem eq_of_le_of_le_of_not_isNaN (x y : PackedFloat e s)
   (hxy : x ≤ y) (hyx : y ≤ x) (hnan : x.isNaN = false ∨ y.isNaN = false) :
   x = y := by grind only [le_iff_eq_of_isNaN, le_antisymm_of_ne_NaN, #cc201580b0d91919]
