@@ -771,8 +771,10 @@ and that calling `lower` on a rational that represents a `PackedFloat`
 gives us the same `PackedFloat` back, as long as it's not NaN.
 -/
 theorem lower_eq_self_of_eq_toExtRat_of_not_isNaN
+  (he : 0 < e) (hs : 0 < s)
   (x : PackedFloat e s) (r : ExtRat)
   (hnum : ¬ x.isNaN)
+  (hzero : ¬ x.isZero)
   (h : x.toExtRat = r) :
   (SmtLibSemantics.smtLibLower.lower r : PackedFloat e s) = x := by
   have hlower := isLawfulLower_lower e s r
@@ -788,12 +790,16 @@ theorem lower_eq_self_of_eq_toExtRat_of_not_isNaN
   simp only [PackedFloat.toExtRat_eq_toExtRat']
   have : SmtLibSemantics.smtLibLower.lower x.toExtRat' ≤ x := by
     apply PackedFloat.le_of_toExtRat'_le_toExtRat'
+    · grind only
+    · grind only
     · simp
       grind only [PackedFloat.le_iff_eq_of_isNaN']
     · simp
       grind only
     · simp only [PackedFloat.toExtRat_eq_toExtRat'] at hlower1
-      grind only
+      sorry
+    · grind only
+    · sorry
   grind only [PackedFloat.le_antisymm_of_ne_NaN, PackedFloat.le_iff_eq_of_isNaN']
 
 /--
@@ -801,8 +807,10 @@ upper perfectly approximates PackedFloats, and calling `upper` on a rational tha
 gives us the same `PackedFloat` back, as long as it's not NaN.
 -/
 theorem upper_eq_self_of_eq_toExtRat_of_not_isNaN
+  (he : 0 < e) (hs : 0 < s)
   (x : PackedFloat e s) (r : ExtRat)
   (hnum : ¬ x.isNaN)
+  (hzero : ¬ x.isZero)
   (h : x.toExtRat = r) :
   (SmtLibSemantics.smtLibUpper.upper r : PackedFloat e s) = x := by
   have hupper := isLawfulUpper_upper e s r
@@ -816,12 +824,18 @@ theorem upper_eq_self_of_eq_toExtRat_of_not_isNaN
     ExtRat.ExtRat.le_refl, forall_const] at hupper2
   have : x ≤ SmtLibSemantics.smtLibUpper.upper x.toExtRat' := by
     apply PackedFloat.le_of_toExtRat'_le_toExtRat'
+    · simp [he]
+    · simp [hs]
     · simp
       grind only [PackedFloat.le_iff_eq_of_isNaN']
     · simp
       grind only [PackedFloat.le_iff_eq_of_isNaN]
     · simp only [PackedFloat.toExtRat_eq_toExtRat'] at hupper1
       grind only
+    · simp only [Bool.not_eq_true]
+      -- if not zero, the upper will not be zero.
+      sorry
+    · sorry
   simp only [PackedFloat.toExtRat_eq_toExtRat']
   grind only [PackedFloat.le_antisymm_of_ne_NaN, PackedFloat.le_iff_eq_of_isNaN']
 
@@ -1133,6 +1147,7 @@ theorem UnpackedFloat.extractStickyBit_eq_not_tieBreak_of_nonneg_of_guardBit (x 
   simp [UnpackedFloat.extractStickyBit]
   simp [SmtLibSemantics.smtLibRoundMethod]
   sorry
+
 
 
 end Fp
