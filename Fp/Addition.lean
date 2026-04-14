@@ -1,6 +1,7 @@
 import Fp.Comparison
 import Fp.Negation
 import Fp.UnpackedRound
+import Mathlib.Tactic
 
 @[bv_normalize]
 def UnpackedFloat.add (x y : UnpackedFloat e s) : UnpackedFloat (e + 1) (s + 2) :=
@@ -78,6 +79,7 @@ instance : Add (PackedFloat e s) where
 @[bv_normalize]
 theorem PackedFloat.add_def {x y : PackedFloat e s} : x + y = PackedFloat.add .RNE x y := rfl
 
+
 end PackedFloat
 
 -- Minor cancellation with rounding
@@ -86,7 +88,7 @@ end PackedFloat
 #guard_msgs in #eval (PackedFloat.ofBits 3 4 0b00000101).toExtRat
 /-- info: ExtRat.Number -2 -/
 #guard_msgs in #eval (PackedFloat.ofBits 3 4 0b11000000).toExtRat
-/-- info: -123 / 64 -/
+/-- info: mkRat (-123) 64 -/
 #guard_msgs in #eval (5 : Rat)/64 + -2
 /-- info: ExtRat.Number (-31 : Rat)/16 -/
 #guard_msgs in #eval (PackedFloat.ofRat 3 4 .RNE (-123) 64).toExtRat
@@ -99,7 +101,7 @@ end PackedFloat
 #guard_msgs in #eval (PackedFloat.ofBits 3 4 0b00000101).toExtRat
 /-- info: ExtRat.Number -4 -/
 #guard_msgs in #eval (PackedFloat.ofBits 3 4 0b11010000).toExtRat
-/-- info: -251 / 64 -/
+/-- info: mkRat (-251) 64 -/
 #guard_msgs in #eval (5 : Rat)/64 + -4
 /-- info: ExtRat.Number (-31 : Rat)/8 -/
 #guard_msgs in #eval (PackedFloat.ofRat 3 4 .RNE (-251) 64).toExtRat
@@ -112,7 +114,7 @@ end PackedFloat
 #guard_msgs in #eval (PackedFloat.ofBits 5 2 0b10000100#8).toExtRat
 /-- info: ExtRat.Number (5 : Rat)/8192 -/
 #guard_msgs in #eval (PackedFloat.ofBits 5 2 0b00010001#8).toExtRat
-/-- info: 9 / 16384 -/
+/-- info: mkRat 9 16384 -/
 #guard_msgs in #eval (-1 : Rat)/16384 + (5 : Rat)/8192
 /-- info: ExtRat.Number (1 : Rat)/2048 -/
 #guard_msgs in #eval (PackedFloat.ofRat 5 2 .RNE 9 16384).toExtRat

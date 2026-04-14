@@ -29,7 +29,7 @@ end PackedFloat
 /-- info: ExtRat.Number (5 : Rat)/8192 -/
 #guard_msgs in #eval (PackedFloat.ofBits 5 2 0b00010001#8).toExtRat
 
-/-- info: -11 / 16384 -/
+/-- info: mkRat (-11) 16384 -/
 #guard_msgs in #eval (-1 : Rat)/16384 - (5 : Rat)/8192
 
 /-- info: ExtRat.Number (-3 : Rat)/4096 -/
