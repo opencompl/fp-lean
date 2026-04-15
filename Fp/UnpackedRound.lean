@@ -658,18 +658,18 @@ def UnpackedFloat.round {expWidth sigWidth : Nat} {targetExponentWidth targetSig
   (inUf : UnpackedFloat expWidth sigWidth)
   (mode : RoundingMode) :
   EUnpackedFloat (exponentWidth targetExponentWidth targetSignificandWidth) (targetSignificandWidth + 1) :=
-  if hzero : inUf.isZero then
+  if _hzero : inUf.isZero then
     EUnpackedFloat.mkZero inUf.sign
   else
   -- round a normalized, normal float.
   let earlyOverflow : Bool := inUf.ex.sgt (BitVec.ofInt expWidth (maxNormalExp targetExponentWidth))
-  if hoverflow : earlyOverflow then
+  if _hoverflow : earlyOverflow then
     rounderSpecialCaseOverflow mode inUf.sign
   else
 
   -- early underflow:
   let earlyUnderflow : Bool := inUf.ex.slt (BitVec.ofInt expWidth (minSubnormalExp targetExponentWidth targetSignificandWidth - 1))
-  if hunderflow : earlyUnderflow then
+  if _hunderflow : earlyUnderflow then
     rounderSpecialCaseUnderflow mode inUf.sign
   else
 

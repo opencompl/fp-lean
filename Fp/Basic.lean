@@ -1201,7 +1201,7 @@ theorem neg_def {x : PackedFloat e s} : -x = PackedFloat.neg x := rfl
 
 @[simp]
 theorem neg_neg (x : PackedFloat e s) : -(-x) = x := by
-  simp [neg_def, neg, PackedFloat.ext_iff]
+  simp only [neg_def, neg, Bool.not_not]
 
 @[simp]
 theorem neg_sign (x : PackedFloat e s) : (-x).sign = !x.sign := rfl
@@ -1233,7 +1233,7 @@ theorem abs_abs (x : PackedFloat e s) : x.abs.abs = x.abs := rfl
 
 @[simp]
 theorem abs_neg (x : PackedFloat e s) : (-x).abs = x.abs := by
-  simp [abs, neg_def, neg, PackedFloat.ext_iff]
+  simp [abs, neg_def, neg]
 
 end PackedFloat
 
@@ -4246,7 +4246,7 @@ theorem toRatExp_minNormalNumber (e s : Nat) (he : 1 < e) (sign : Bool) :
 theorem toRatSig_maxNormalNumber (e s : Nat) (he : 2 < e) (sign : Bool) :
     (PackedFloat.maxNormalNumber e s sign).toRatSig = 2 - 2 ^ (- (s : Int)) := by
   rw [toRatSig]
-  simp [isNorm_maxNormalNumber_eq_decide, he]
+  simp [isNorm_maxNormalNumber_eq_decide]
   have : 0 < 2 ^ s := by grind only [!Nat.two_pow_pos]
   rw [Rat.natCast_sub_of_le (by grind only)]
   simp
