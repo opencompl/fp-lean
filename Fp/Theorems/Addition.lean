@@ -5,9 +5,19 @@ import Fp.Addition
 import Mathlib.Tactic
 
 theorem add_zero_is_id (a : PackedFloat 5 2)
-  (ha : ¬a.isNaN ∧ ¬a.isZero)
-  :  a + (PackedFloat.getZero _ _ s) = a := by
+  (ha : ¬a.isNaN)
+  :  a + (PackedFloat.getZero _ _ true) = a := by
   bv_decide
+
+theorem isSome_not_nan {a : PackedFloat e s} (h : a.toRat?.isSome) : ¬a.isNaN := by
+  intro hnan
+  have hnone : a.toRat? = none := by
+    have : a.ex = BitVec.allOnes e ∧ (s = 0 ∨ ¬a.sig = 0#s) := by
+      simpa [PackedFloat.isNaN] using hnan
+    simp [PackedFloat.toRat?, PackedFloat.toEFixed, PackedFloat.isNaN, this, EFixedPoint.toRat?,
+      EFixedPoint.toDyadic?]
+    grind
+  simp [hnone] at h
 
 theorem infin_not_num {e s : Nat} (sign : Bool) :
     (EUnpackedFloat.mkInfinity (e := exponentWidth e s) (s := s + 1) sign).pack.toEFixed.state ≠ .Number := by
