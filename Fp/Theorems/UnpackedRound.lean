@@ -313,9 +313,13 @@ theorem isZero_round_zero {eout sout : Nat} {zeroSign : Bool} {rm : RoundingMode
   rcases rm <;> simp [heout]
 
 /-- rounding a number never produces NaN. -/
-theorem isNaN_round_number_eq_false {eout sout : Nat} {zeroSign : Bool} {rm : RoundingMode} {r : Rat} (heout : 0 < eout) :
+theorem isNaN_round_number_eq_false {eout sout : Nat} {zeroSign : Bool} {rm : RoundingMode} {r : Rat}
+  (heout : 0 < eout) :
   ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round
     rm zeroSign (ExtRat.Number r)).isNaN = false := by
+  apply Classical.byContradiction
+  intros hcontra
+  simp at hcontra
   sorry
 
 @[simp]
@@ -797,10 +801,21 @@ theorem lower_eq_self_of_eq_toExtRat_of_not_isNaN
     · simp
       grind only
     · simp only [PackedFloat.toExtRat_eq_toExtRat'] at hlower1
-      sorry
+      intros hxzero hlowrzero hxsign
+      grind only
     · grind only
-    · sorry
+    · simp only [PackedFloat.toExtRat_eq_toExtRat'] at hlower hlower1 ⊢
+      grind only
   grind only [PackedFloat.le_antisymm_of_ne_NaN, PackedFloat.le_iff_eq_of_isNaN']
+
+  /--
+info: 'Fp.lower_eq_self_of_eq_toExtRat_of_not_isNaN' depends on axioms: [propext,
+ Classical.choice,
+ Fp.embed_lower_le_self,
+ Fp.le_lower_of_embed_le,
+ Quot.sound]
+-/
+#guard_msgs in #print axioms lower_eq_self_of_eq_toExtRat_of_not_isNaN
 
 /--
 upper perfectly approximates PackedFloats, and calling `upper` on a rational that represents a `PackedFloat`
@@ -832,12 +847,21 @@ theorem upper_eq_self_of_eq_toExtRat_of_not_isNaN
       grind only [PackedFloat.le_iff_eq_of_isNaN]
     · simp only [PackedFloat.toExtRat_eq_toExtRat'] at hupper1
       grind only
-    · simp only [Bool.not_eq_true]
-      -- if not zero, the upper will not be zero.
-      sorry
-    · sorry
+    · intros hUpperZero hXZero hXSign
+      grind only
+    · simp only [PackedFloat.toExtRat_eq_toExtRat'] at hupper1
+      grind only
   simp only [PackedFloat.toExtRat_eq_toExtRat']
   grind only [PackedFloat.le_antisymm_of_ne_NaN, PackedFloat.le_iff_eq_of_isNaN']
+
+/--
+info: 'Fp.upper_eq_self_of_eq_toExtRat_of_not_isNaN' depends on axioms: [propext,
+ Classical.choice,
+ Fp.le_upper_of_self_le_embed,
+ Fp.self_le_embed_upper,
+ Quot.sound]
+-/
+#guard_msgs in #print axioms upper_eq_self_of_eq_toExtRat_of_not_isNaN
 
 -- /--
 -- The abstract version of 'shouldRoundUp' that only depends on the rounding mode and the bits,
