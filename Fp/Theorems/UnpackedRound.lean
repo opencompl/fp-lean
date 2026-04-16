@@ -856,6 +856,7 @@ else
 the 'lower' function indeed computes a lawful lower bound for every ExtRat.
 This shows that lawful lower bounds exist for all rationals.
 -/
+@[simp]
 theorem IsLawfulLower_lower (e s : Nat) (he : 0 < e) (hs : 0 < s) (r : ExtRat) :
     SmtLibSemantics.IsLawfulLower r (lower e s he hs r) := by
   simp [lower]
@@ -884,6 +885,57 @@ theorem IsLawfulLower_lower (e s : Nat) (he : 0 < e) (hs : 0 < s) (r : ExtRat) :
 
 /-- info: 'Fp.IsLawfulLower_lower' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms IsLawfulLower_lower
+
+
+/--
+We know that that we have a lawful upper iff it's a lawful lower for the negated version.
+-/
+@[simp ←]
+theorem IsLawfulUpper_iff_IsLawfulLower_neg_neg (r : ExtRat) (x : PackedFloat e s) :
+    SmtLibSemantics.IsLawfulUpper r x ↔ SmtLibSemantics.IsLawfulLower (-r) (-x) := by
+  simp only [IsLawfulUpper, smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
+    ExtRat.ge_eq_le_symm, IsLawfulLower, PackedFloat.toExtRat'_neg]
+  constructor
+  · intros h
+    obtain ⟨hupper, hlower⟩ := h
+    constructor
+    · grind only [= ExtRat.neg_le_iff_neg_le, = ExtRat.neg_neg]
+    · intros lower hlower'
+      suffices x ≤ -lower by grind only [= PackedFloat.le_neg_iff_le_neg]
+      apply hlower
+      simp only [PackedFloat.toExtRat'_neg]
+      grind only [= ExtRat.le_neg_iff_le_neg]
+  · intros h
+    obtain ⟨hlower, hupper⟩ := h
+    constructor
+    · grind only [= ExtRat.neg_le_iff_neg_le, = ExtRat.neg_neg]
+    · intros upper hupper'
+      suffices -upper ≤ -x by grind only [= PackedFloat.neg_le_iff_neg_le, = PackedFloat.neg_neg']
+      apply hupper
+      simp only [PackedFloat.toExtRat'_neg]
+      grind only [= ExtRat.neg_le_iff_neg_le, = ExtRat.neg_neg]
+
+/--
+We have a lawful lower iff it's a lawful upper for the negated version.
+-/
+@[simp ←]
+theorem IsLawfulLower_iff_IsLawfulUpper_neg_neg (r : ExtRat) (x : PackedFloat e s) :
+    SmtLibSemantics.IsLawfulLower r x ↔ SmtLibSemantics.IsLawfulUpper (-r) (-x) := by
+  rw [IsLawfulUpper_iff_IsLawfulLower_neg_neg]
+  simp
+
+def upper (e s : Nat) (he : 0 < e) (hs : 0 < s) (r : ExtRat) : PackedFloat e s :=
+  - lower e s he hs (-r)
+
+@[simp]
+theorem IsLawfulUpper_upper (e s : Nat) (he : 0 < e) (hs : 0 < s) (r : ExtRat) :
+    SmtLibSemantics.IsLawfulUpper r (upper e s he hs r) := by
+  simp [upper]
+  apply IsLawfulUpper_iff_IsLawfulLower_neg_neg .. |>.mpr
+  simp
+
+/-- info: 'Fp.IsLawfulUpper_upper' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms IsLawfulUpper_upper
 
 end ComputableLowerUpper
 
