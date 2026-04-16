@@ -3,6 +3,7 @@ import Fp.SmtLibSemantics
 import Fp.Theorems.Basic
 import Fp.Theorems.Packing
 import Fp.Theorems.Packing
+import Fp.Theorems.Ordering
 
 namespace Fp
 open SmtLibSemantics
@@ -108,10 +109,10 @@ def enumerateNonNanPackedFloatList (e s : Nat) :
 --     grind only [#ca5c]
 --   ⟩
 
-def lower (e s : Nat) (r : ExtRat) :
-    { xs : List (PackedFloat e s) // ∀ (x : PackedFloat e s), x ∈ xs ↔ x.toExtRat ≤ r } :=
+def lowerList (e s : Nat) (r : ExtRat) (hr : r ≠ .NaN) :
+    { xs : List (PackedFloat e s) // ∀ (x : PackedFloat e s), x ∈ xs ↔ (¬ x.isNaN ∧ x.toExtRat ≤ r) } :=
     let arr := enumeratePackedFloatList e s
-    let out := arr.val.filter (fun pf => pf.toExtRat ≤ r)
+    let out := arr.val.filter (fun pf => ¬ pf.isNaN && pf.toExtRat ≤ r)
     ⟨out, by
       intros x
       constructor
@@ -123,16 +124,145 @@ def lower (e s : Nat) (r : ExtRat) :
         grind only [= List.mem_filter, #f38e]
     ⟩
 
+@[simp]
+theorem mem_lowerList_iff (e s : Nat) (r : ExtRat) (hr : r ≠ .NaN) (pf : PackedFloat e s) :
+    pf ∈ (lowerList e s r hr).val ↔ (¬ pf.isNaN ∧ pf.toExtRat ≤ r) := by
+  have := lowerList e s r hr
+  grind only [= PackedFloat.isNaN_iff_toExtRat'_eq_NaN,
+    = PackedFloat.toExtRat'_eq_Infinity_of_isInfinite, = PackedFloat.toExtRat'_eq_NaN_iff_isNaN,
+    = PackedFloat.toExtRat'_eq_zero_of_isZero, = PackedFloat.toExtRat'_eq_toRat_of,
+    = PackedFloat.isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero, #d3b2, #96bca0d4ecd67426,
+    #aefe0df31a27f84b]
 
-def glbLower (e s : Nat) (he : 0 < e) (hs : 0 < s) (r : ExtRat) :
+
+@[simp]
+theorem infty_mem_lowerList (e s : Nat) (r : ExtRat) (hr : r ≠ .NaN) (hs : 0 < s):
+    PackedFloat.getInfinity e s true ∈ (lowerList e s r hr).val := by
+    simp [hs]
+    grind only
+
+/--
+the lowerList is nonempty when the significand is nonzero.
+-/
+@[grind! .]
+theorem lowerList_nonempty (e s : Nat) (r : ExtRat) (hr : r ≠ .NaN) (hs : 0 < s) :
+    (lowerList e s r hr).val.length ≠ 0 := by
+  have := infty_mem_lowerList e s r hr hs
+  grind only [usr List.length_pos_of_mem]
+
+/--
+on a non-NaN set of packed floats, compute the 'max'.
+-/
+def maxPackedFloatNonNaN (xs : List (PackedFloat e s)) (hxs : ∀ x ∈ xs, ¬ x.isNaN) (he : 0 < e) (hs : 0 < s) :
     { pf : PackedFloat e s //
-      pf.toExtRat ≤ r ∧ (¬ r.isNaN → ∀ pf' : PackedFloat e s, pf'.toExtRat ≤ r → pf'.toExtRat ≤ pf.toExtRat) } :=
+         ¬ pf.isNaN ∧ ∀ (x : PackedFloat e s), x ∈ xs → pf.toExtRat ≥ x.toExtRat } :=
+  match xs with
+  | [] => ⟨PackedFloat.getInfinity e s true, by
+    constructor
+    · grind only [= PackedFloat.isNaN_iff_toExtRat'_eq_NaN, !PackedFloat.toExtRat'_getInfinity]
+    · intros x hx; simp at hx⟩
+  | x :: xs =>
+    let candidate := maxPackedFloatNonNaN xs (by simp; grind only [= List.mem_cons, #1c8d]) he hs
+    if hc : candidate.val.toExtRat ≥ x.toExtRat then
+      ⟨candidate, by
+        constructor
+        · grind
+        · intros y hy; simp at hy; cases hy with
+          | inl h => simp [h]; simp at hc; simp [hc]
+          | inr h =>
+            simp at hc
+            have := (candidate.property.right) y h
+            exact this⟩
+    else
+      ⟨x, by
+        constructor
+        · grind only [usr Subtype.property, = List.mem_cons, #1c8d]
+        · intros y hy;
+          simp at hy;
+          rcases hy with h | h
+          · simp [h]
+          · simp
+            simp at hc
+            have := candidate.property.right y h
+            simp at this
+            apply ExtRat.le_trans
+            · exact this
+            · apply ExtRat.le_of_lt
+              apply ExtRat.lt_of_not_le
+              · grind only [= PackedFloat.toExtRat'_eq_NaN_iff_isNaN, = List.mem_cons, #1c8d]
+              · grind only [usr Subtype.property, = PackedFloat.isNaN_iff_toExtRat'_eq_NaN]
+              · exact hc
+⟩
+
+/--
+the result of 'maxPackedFloatNonNaN' is actually in the list when the list is nonempty.
+-/
+theorem maxFloatNonNaN_mem (xs : List (PackedFloat e s))
+    (hxs : ∀ x ∈ xs, ¬ x.isNaN)
+    (hxsLen : xs.length ≠ 0)
+    (he : 0 < e) (hs : 0 < s) :
+    (maxPackedFloatNonNaN xs hxs he hs).val ∈ xs := by
+  induction xs
+  case nil => simp at hxsLen
+  case cons x xs ih =>
+    simp only [List.mem_cons]
+    simp at ih
+    simp [maxPackedFloatNonNaN]
+    split
+    case isTrue h =>
+      simp
+      rcases xs with rfl | ⟨x', xs'⟩
+      · simp [maxPackedFloatNonNaN, hs] at h
+        simp at ih
+        simp
+        simp at hxs
+        subst h
+        simp at hxs
+        simp [maxPackedFloatNonNaN]
+      · right
+        apply ih
+        · grind
+        · simp
+    case isFalse h =>
+      simp
+
+/--
+lower is computable for all arguments.
+-/
+def lower (e s : Nat) (he : 0 < e) (hs : 0 < s) (r : ExtRat) :
+  {
+    pf : PackedFloat e s //
+    SmtLibSemantics.IsLawfulLower r pf
+  } :=
   if hr : r = .NaN then
     ⟨PackedFloat.getNaN e s, by
-      simp [hr, hs]⟩
+      simp [hr, hs, IsLawfulLower]⟩
   else
-    let arr := enumeratePackedFloatArray e s
-    sorry
+    let arr := lowerList e s r (by simp [hr])
+    let max := maxPackedFloatNonNaN arr.val (by simp; grind only [#1a7c]) he hs
+    have : max.val ∈ arr.val := by
+      apply maxFloatNonNaN_mem
+      · grind only [usr Subtype.property, !lowerList_nonempty]
+    ⟨max, by
+      constructor
+      · simp
+        have := max.property.right
+        have := arr.property max |>.mp (by grind only)
+        simp at this
+        grind only
+      · intros lower hlower
+        simp at hlower
+        have := max.property.right lower
+        simp at this
+        apply PackedFloat.le_of_toExtRat'_le_toExtRat'
+        · grind only
+        · grind only
+        · sorry
+        · grind only
+        · sorry
+        · sorry
+        · sorry
+    ⟩
 
 structure PackedFloatEnumeration (e : Nat) (s : Nat) where ofEnumeration ::
   -- | Sorted array of packed float with its rational value. Only numbers,

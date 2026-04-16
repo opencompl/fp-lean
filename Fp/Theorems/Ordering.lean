@@ -520,6 +520,10 @@ theorem toRat_le_toRat_of_le (he : 0 < e) (hs : 0 < s)
   simp [PackedFloat.toExtRat', hxnan, hxinf, hynan, hyinf] at this
   exact this
 
+/--
+Prove that two packed floats that are ordered by `<` are also ordered
+in their rational interpretation.
+-/
 theorem toRat_lt_toRat_of_lt (he : 0 < e) (hs : 0 < s)
     (x y : PackedFloat e s)
     (hxzero : ¬ x.isZero)
@@ -533,9 +537,26 @@ theorem toRat_lt_toRat_of_lt (he : 0 < e) (hs : 0 < s)
   have : x.toRat ≤ y.toRat := by
     apply toRat_le_toRat_of_le <;> grind only
   have : x.toRat ≠ y.toRat := by
-    sorry
+    intros hcontra
+    have : x.sign = y.sign := by grind only [sig_eq_and_ex_eq_of_toRat_eq,
+      = isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero]
+    have : x.ex = y.ex := by grind only [sig_eq_and_ex_eq_of_toRat_eq,
+      = isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero]
+    have : x.sig = y.sig := by grind only [sig_eq_and_ex_eq_of_toRat_eq,
+      = isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero]
+    have : x = y := by
+      ext
+      · grind only
+      · grind only
+      · grind only
+    subst this
+    grind only [ne_of_lt]
   grind
 
+/--
+info: 'PackedFloat.toRat_lt_toRat_of_lt' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms toRat_lt_toRat_of_lt
 
 @[simp]
 theorem PackedFloat.one_le_ex_of_isNorm (x : PackedFloat e s) (hxnorm : x.isNorm) (he : 0 < e) :
@@ -1250,12 +1271,13 @@ theorem le_of_toRat_le_toRat_of_nonneg_of_nonneg
     (hxy : x.toRat ≤ y.toRat) : x ≤ y := by
   by_cases hx : x.isNorm
   · by_cases hy : y.isNorm
-    · rw [PackedFloat.le_of_ex_le_ex_or_sig_le_sig_of_nonneg_of_nonneg]
-      · sorry
-      · grind only
-      · grind only
-      · grind only
-      · grind only
+    · apply Classical.byContradiction
+      intros hcontra
+      have hlt : y < x := by
+        grind only [lt_of_not_le]
+      have : y.toRat < x.toRat := by
+        apply toRat_lt_toRat_of_lt <;> grind only
+      grind only
     · have : y.isNonzeroSubnorm := by
         grind only [PackedFloat.isNorm_of_not_isNaN_of_not_isInfinity_of_not_isZero_isNonzeroSubnorm]
       have hlt : y < x := by grind only [sig_eq_and_ex_eq_of_toRat_eq, lt_of_not_le,
@@ -1454,6 +1476,13 @@ theorem le_of_toExtRat'_le_toExtRat'_of_nonneg_of_nonneg
       apply le_of_toRat_le_toRat <;> grind only
 
 /--
+info: 'PackedFloat.le_of_toExtRat'_le_toExtRat'_of_nonneg_of_nonneg' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+-/
+#guard_msgs in #print axioms le_of_toExtRat'_le_toExtRat'_of_nonneg_of_nonneg
+
+/--
 Packed floats that are negative are less than or equal to packed floats that are nonnegative.
 -/
 theorem toRat_le_toRat_of_neg_of_nonneg
@@ -1510,6 +1539,7 @@ theorem le_of_toExtRat'_le_toExtRat'
     (he : 0 < e)
     (hs : 0 < s) (x y : PackedFloat e s)
     (hx : ¬ x.isNaN) (hy : ¬ y.isNaN)
+    -- (hzero : y.isZero → x.isZero → y.sign = true → x.sign = true) -- if 'y = -0', then 'x = -0'.
     (hxzero : ¬ x.isZero)
     (hyzero : ¬ y.isZero)
     (hxy : x.toExtRat' ≤ y.toExtRat') : x ≤ y := by
@@ -1557,5 +1587,10 @@ theorem le_of_toExtRat'_le_toExtRat'
       · grind only
       · grind only
       · grind only
+
+/--
+info: 'PackedFloat.le_of_toExtRat'_le_toExtRat'' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms le_of_toExtRat'_le_toExtRat'
 
 end PackedFloat

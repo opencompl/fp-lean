@@ -1693,6 +1693,31 @@ theorem num_lt_num_iff {r1 r2 : Rat} :
   simp [lt_iff]
   grind
 
+theorem lt_of_not_le {a b : ExtRat} (ha : a ≠ .NaN) (hb : b ≠ .NaN)
+  (h : ¬ (a ≤ b)) : (b < a) := by
+  rcases a with rfl | sign | r
+  · simp at ha
+  · simp at ha
+    rcases sign with rfl | rfl
+    · simp at h
+      simp
+      grind only
+    · simp at h
+      grind only
+  · simp at ha
+    rcases b with rfl | sign' | r'
+    · simp at hb
+    · simp at hb
+      rcases sign' with rfl | rfl
+      · simp at h
+      · simp at h
+        simp
+    · simp at hb
+      simp at h
+      simp
+      grind only
+
+
 instance {a b : ExtRat }: Decidable (a < b) := by
   simp only [· < ·]
   infer_instance
