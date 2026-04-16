@@ -4489,13 +4489,14 @@ def successorAwayFromZero (x : PackedFloat e s) : PackedFloat e s :=
     let sig := x.sig
     let ex := x.ex
     if sig ≠ BitVec.allOnes _
-    then ⟨x.sign, ex, sig + 1#_⟩
+    then sigSucc
     else
-      if ex = BitVec.allOnes _
+      if ex ≥ BitVec.allOnes _ - 1#_ -- exponent is at the largest normal exponent
       then PackedFloat.getInfinity e s x.sign
-      else
-        ⟨x.sign, ex + 1#_, 0#_⟩
-
+      else exSucc
+  where
+    sigSucc : PackedFloat e s := ⟨x.sign, x.ex, x.sig + 1#_⟩
+    exSucc : PackedFloat e s := ⟨x.sign, x.ex + 1#_, 0#_⟩
 end PackedFloat
 
 -- Constants
