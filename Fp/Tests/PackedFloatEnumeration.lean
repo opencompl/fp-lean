@@ -216,6 +216,50 @@ theorem maxFloatNonNaN_mem (xs : List (PackedFloat e s))
         · simp
     case isFalse h =>
       simp
+/--
+all values in the list are less than the max.
+-/
+theorem le_maxPackedFloatNonNaN (xs : List (PackedFloat e s))
+    (hxs : ∀ x ∈ xs, ¬ x.isNaN) (he : 0 < e) (hs : 0 < s) :
+    ∀ x ∈ xs, x ≤ (maxPackedFloatNonNaN xs hxs he hs).val := by
+  intros x hx
+  obtain ⟨hnan, hle⟩ := (maxPackedFloatNonNaN xs hxs he hs).property
+  simp at hle
+  apply hle
+  grind
+
+/--
+Every element in 'xs' is less than the 'max', when interpreted in the rationals.
+-/
+theorem le_maxPackedFloatNaN_toExtRat' (xs : List (PackedFloat e s))
+    (hxs : ∀ x ∈ xs, ¬ x.isNaN) (he : 0 < e) (hs : 0 < s) :
+    ∀ x ∈ xs, x.toExtRat' ≤ (maxPackedFloatNonNaN xs hxs he hs).val.toExtRat' := by
+  intros x hx
+  have := le_maxPackedFloatNonNaN xs hxs he hs x hx
+  apply PackedFloat.toExtRat'_le_toExtRat'_of_le
+  · grind only
+  · grind only
+  · grind
+  · grind only
+  · apply le_maxPackedFloatNonNaN
+    · grind only
+
+/--
+To show that a rational 'r' is greater than the max,
+it suffices to show that it is greater than all the elements in the list.
+-/
+theorem maxPackedFloatNaN_toExtRat'_le_of_toExtRat'_le (xs : List (PackedFloat e s))
+    (hxsEmpty : xs ≠ [])
+    (hxs : ∀ x ∈ xs, ¬ x.isNaN) (he : 0 < e) (hs : 0 < s) (r : ExtRat)
+    (hr : ∀ x ∈ xs, x.toExtRat' ≤ r) :
+    (maxPackedFloatNonNaN xs hxs he hs).val.toExtRat' ≤ r := by
+  have := maxFloatNonNaN_mem xs hxs (by simp; grind only) he hs
+  grind only [#e993]
+
+/--
+info: 'Fp.le_maxPackedFloatNaN_toExtRat'' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms le_maxPackedFloatNaN_toExtRat'
 
 theorem ExtRat.not_isNaN_of_le_of_not_isNaN (r1 r2 : ExtRat)
   (hr1 : r1 ≤ r2) (hr2 : r2 ≠ .NaN) : r1 ≠ .NaN := by
@@ -237,16 +281,35 @@ else
   let max := maxPackedFloatNonNaN arr.val (by simp; grind only [#1a7c]) he hs
   max.val
 
+/--
+the 'lower' function indeed computes a lawful lower bound for every ExtRat.
+This shows that lawful lower bounds exist for all rationals.
+-/
 theorem IsLawfulLower_lower (e s : Nat) (he : 0 < e) (hs : 0 < s) (r : ExtRat) :
     SmtLibSemantics.IsLawfulLower r (lower e s he hs r) := by
   simp [lower]
   split
   case isTrue h =>
     subst h
-    sorry
+    simp
   case isFalse h =>
-    sorry
-
+    by_cases hr : r = .Number 0
+    · simp [hr, he, hs]
+    · simp [hr]
+      constructor
+      · simp only [smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat', ExtRat.ge_eq_le_symm]
+        apply maxPackedFloatNaN_toExtRat'_le_of_toExtRat'_le
+        · grind
+        · intros x hx
+          simp at hx
+          grind only
+      · intros x hx
+        simp only [smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat', ExtRat.ge_eq_le_symm] at hx
+        apply le_maxPackedFloatNonNaN
+        simp only [mem_lowerList_iff, Bool.not_eq_true, PackedFloat.toExtRat_eq_toExtRat']
+        constructor
+        · grind only [= PackedFloat.toExtRat'_eq_NaN_iff_isNaN, = ExtRat.le_NaN]
+        · grind only
 /-
   {
     pf : PackedFloat e s //
