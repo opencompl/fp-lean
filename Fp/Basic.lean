@@ -4236,6 +4236,78 @@ theorem isNorm_maxNormalNumber_eq_decide
       · grind only
 
 @[simp]
+theorem Nat.four_le_two_pow_of_lt {n : Nat} (hn : 1 < n) : 4 ≤ 2 ^ n := by
+  have : 2 ^ 2 ≤ 2 ^ n := by apply Fp.Nat.two_pow_le_two_pow_of_le; grind only
+  simp at this
+  assumption
+
+@[simp]
+theorem BitVec.allOnes_eq_one_iff (e : Nat) : BitVec.allOnes e = 1#e ↔ e ≤ 1 := by
+  constructor
+  · intros h
+    have := BitVec.toNat_inj.mpr h
+    simp at this
+    apply Classical.byContradiction
+    intros hcontra
+    simp at hcontra
+    rw [Nat.mod_eq_of_lt] at this
+    · have : 4 ≤ 2^e := by simp [hcontra]
+      grind only
+    · have : 4 ≤ 2^e := by simp [hcontra]
+      grind only
+  · intros h
+    rcases e with rfl | rfl | e
+    · grind only
+    · grind only
+    · grind only
+
+/--
+The only way we can get 'x = x+1` is if the width is zero.
+-/
+theorem BitVec.add_one_eq_self_iff (x : BitVec w) : x = x + 1#w ↔ w = 0 := by
+  constructor
+  · intros h
+    have hcontra := BitVec.toNat_inj.mpr h
+    simp [BitVec.toNat_add] at hcontra
+    have : x.toNat < 2^w := by grind
+    by_cases hxlt : x.toNat + 1 < 2^w
+    · rw [Nat.mod_eq_of_lt] at hcontra
+      · grind only
+      · grind only
+    · have hx : x.toNat = 2^w - 1 := by grind
+      rw [hx] at hcontra
+      rw [show 2^w - 1 + 1 = 2^w by grind] at hcontra
+      simp at hcontra
+      rcases w with rfl | w
+      · simp
+      · simp [Nat.pow_succ] at hcontra
+        have : 0 < 2^w := by grind only
+        grind only
+  · intros h
+    simp [h]
+
+@[simp, grind .]
+theorem isNorm_maxNormalNumber_of_lt_e (e s : Nat) (he : 1 < e) (sign : Bool) :
+    (PackedFloat.maxNormalNumber e s sign).isNorm = true := by
+  simp [PackedFloat.maxNormalNumber, isNorm]
+  constructor
+  · intros hcontra
+    have : BitVec.allOnes e = BitVec.allOnes e + 1#e := by
+      grind only
+    simp at this
+    grind only
+  · intros hcontra
+    have : BitVec.allOnes e = 0#e + 1#e := by
+      rw [← hcontra]
+      grind only
+    simp at this
+    grind only
+
+
+
+
+
+@[simp]
 theorem isNorm_minNormalNumber (e s : Nat) (he : 1 < e) (sign : Bool) :
     (PackedFloat.minNormalNumber e s sign).isNorm = true := by
   simp [PackedFloat.minNormalNumber, isNorm]
