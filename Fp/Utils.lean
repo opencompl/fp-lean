@@ -737,3 +737,116 @@ theorem Rat.inv_le_inv_of_le_of_positive {a b : Rat} (ha : 0 < a)
       · apply Rat.mul_positive
         · grind only
         · grind only
+
+theorem Rat.inv_eq_div (a : Rat)  : a⁻¹ = 1 / a := by
+  grind only
+
+-- TODO: write a simp lemma
+theorem Rat.zpow_neg_natCast_eq_one_div_zpow (a : Rat) (n : Nat)
+    : a ^ (-n : Int) = 1 / a ^ n := by
+  rw [Rat.zpow_neg]
+  rw [Rat.inv_eq_div]
+  rw [Rat.zpow_natCast]
+
+theorem Rat.one_div_zpow_natCast_eq_zpow_neg (a : Rat) (n : Nat) : 1 / a ^ n = a ^ (- (n : Int)) := by
+  rw [Rat.zpow_neg]
+  rw [← inv_eq_div]
+  simp
+
+theorem Rat.one_div_zpow_eq_zpow_neg (a : Rat) (n : Int) : 1 / a ^ n = a ^ (-n) := by
+  rw [Rat.zpow_neg]
+  rw [← inv_eq_div]
+
+
+@[simp]
+theorem Rat.inv_zpow_eq_zpow_neg (a : Rat) (n : Int) : (a ^ n)⁻¹ = a ^ (-n) := by
+  rw [Rat.inv_eq_div]
+  rw [one_div_zpow_eq_zpow_neg]
+
+@[simp]
+theorem Rat.inv_zpow_natCast_eq_zpow_neg (a : Rat) (n : Nat) : (a ^ n)⁻¹ = a ^ (- (n : Int)) := by
+  rw [Rat.inv_eq_div]
+  rw [one_div_zpow_natCast_eq_zpow_neg]
+
+theorem Rat.zpow_mul_zpow {a : Rat} (ha : a ≠ 0) (x y : Int) : a ^ x * a ^ y = a ^ (x + y) := by
+  rw [Rat.zpow_add ha]
+
+theorem Rat.zpow_div_zpow {a : Rat} (ha : a ≠ 0) (x y : Int) : a ^ x / a ^ y = a ^ (x - y) := by
+  rw [zpow_sub_eq_zpow_mul_zpow ha x y]
+  rw [Rat.div_def]
+  rw [Rat.inv_zpow_eq_zpow_neg]
+
+theorem Rat.div_zpow_eq_zpow_neg {n a : Rat} (i : Int) : n / a ^ i = n * a ^ (-i) := by
+  rw [Rat.div_def]
+  rw [Rat.inv_zpow_eq_zpow_neg]
+
+theorem Rat.div_zpow_natCast_eq_zpow_neg {n a : Rat} (i : Nat) : n / a ^ i = n * a ^ (- (i : Int)) := by
+  rw [Rat.div_def]
+  rw [Rat.inv_zpow_natCast_eq_zpow_neg]
+
+@[simp]
+theorem Rat.natCast_sub_of_le {m n : Nat} (h : m ≤ n) :
+  ((n - m : Nat) : Rat) = n - m := by
+  have : ∃ k : Nat, n = m + k := by
+    apply Nat.exists_eq_add_of_le
+    exact h
+  obtain ⟨k, hk⟩ := this
+  subst hk
+  simp
+  grind only
+
+theorem Rat.sub_div_eq_div_sub_div {a b c : Rat} :
+  (a - b) / c = a / c - b / c := by
+  grind only
+
+theorem Rat.div_self_eq_one_of_ne_zero {a : Rat} (ha : a ≠ 0) : a / a = 1 := by
+  grind
+
+theorem Rat.div_self_eq_ite {a : Rat} : a / a = (if a = 0 then 0 else 1) := by
+  grind
+
+@[grind]
+def Int.monus (a b : Int) : Int :=
+  if a < b then 0 else a - b
+
+@[simp]
+theorem Int.zero_le_monus (a b : Int) : 0 ≤ a.monus b := by
+  grind
+
+@[simp]
+theorem Int.add_monus_eq_self_of_le {a b : Int} (h : a ≤ b) : a + a.monus b = a := by
+  grind
+
+theorem natCast_monus_natCast_eq_natCast_sub {m n : Nat} : Int.monus m n = ((m - n : Nat) : Int) := by
+  grind
+
+
+@[simp, grind .]
+theorem one_lt_two_pow_iff (x : Nat) : 1 < 2 ^ x ↔ 0 < x := by
+  rw [show 1 = 2 ^ 0 by simp]
+  rw [Nat.pow_lt_pow_iff_right]
+  · grind only
+
+
+@[grind .]
+protected theorem BitVec.eq_allOnes_iff_toNat_eq (x : BitVec w) :
+    x = .allOnes w ↔ x.toNat = 2 ^ w - 1 := by
+  constructor
+  · intros h
+    subst h
+    simp
+  · intros h
+    apply BitVec.toNat_inj.mp
+    simp [h]
+
+
+@[grind .]
+protected theorem BitVec.eq_zero_iff_toNat_eq (x : BitVec w) :
+    x = .zero w ↔ x.toNat = 0 := by
+  constructor
+  · intros h
+    subst h
+    simp
+  · intros h
+    apply BitVec.toNat_inj.mp
+    simp [h]

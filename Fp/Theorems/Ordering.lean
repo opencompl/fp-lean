@@ -1,4 +1,6 @@
 import Fp.Theorems.Packing
+import Fp.Utils
+import Fp.Theorems.Negation
 
 namespace PackedFloat
 
@@ -317,80 +319,290 @@ info: 'PackedFloat.toExtRat'_le_toExtRat'_of_le_of_number' depends on axioms: [p
 #guard_msgs in #print axioms toExtRat'_le_toExtRat'_of_le_of_number
 
 /--
-The packed float '≤' relationship captures ordering by `toRat'`.
+The `x.isInfinite` branch of `toExtRat'_le_toExtRat'_of_le`:
+if `x` is infinite and `x ≤ y`, then `x.toExtRat' ≤ y.toExtRat'`.
 -/
-@[simp]
-theorem toExtRat'_le_toExtRat'_of_le (_he : 0 < e) (hs : 0 < s)
+theorem toExtRat'_le_toExtRat'_of_le_of_isInfinite (_he : 0 < e) (hs : 0 < s)
     (x y : PackedFloat e s)
     (hxzero : ¬ x.isZero) (hyzero : ¬ y.isZero) (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN)
+    (hxinf : x.isInfinite)
     (hxy : x ≤ y) : x.toExtRat' ≤ y.toExtRat' := by
   rw [PackedFloat.toExtRat']
   have hxy' := hxy
   rw [← PackedFloat.le_def, PackedFloat.le] at hxy'
   simp [hxnan, hynan] at hxy'
   simp [hxnan] at ⊢
-  by_cases hxinf : x.isInfinite
-  · simp [hxinf]
-    by_cases hxsign : x.sign
-    · simp [hxsign, hynan]
-    · simp at hxsign
-      simp [hxsign]
-      have := PackedFloat.eq_getInfinity_iff_isInfinity hs |>.mp hxinf
-      simp [hxsign] at this
-      subst this
-      simp [hs] at hxy
-      subst hxy
-      simp [hs]
-  · simp [hxinf]
-    rw [PackedFloat.toExtRat']
-    by_cases hyinf : y.isInfinite
-    · simp [hyinf, hynan]
-      by_cases hysign : y.sign
-      · simp [hysign]
-        have := PackedFloat.eq_getInfinity_iff_isInfinity hs |>.mp hyinf
-        simp [hysign] at this
-        subst this
-        simp [hs] at hxy
-        grind only
-      · simp [hysign]
-    · simp [hyinf, hynan]
-      rw [PackedFloat.toRat, PackedFloat.toRat]
+  simp [hxinf]
+  by_cases hxsign : x.sign
+  · simp [hxsign, hynan]
+  · simp at hxsign
+    simp [hxsign]
+    have := PackedFloat.eq_getInfinity_iff_isInfinity hs |>.mp hxinf
+    simp [hxsign] at this
+    subst this
+    simp [hs] at hxy
+    subst hxy
+    simp [hs]
+
+/--
+The `y.isInfinite` subcase of `toExtRat'_le_toExtRat'_of_le_of_not_isInfinite`:
+if `x` is not infinite, `y` is infinite, and `x ≤ y`, then `x.toExtRat' ≤ y.toExtRat'`.
+-/
+theorem toExtRat'_le_toExtRat'_of_le_of_not_isInfinite_of_isInfinite
+    (_he : 0 < e) (hs : 0 < s)
+    (x y : PackedFloat e s)
+    (_hxzero : ¬ x.isZero) (hyzero : ¬ y.isZero) (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN)
+    (hxinf : ¬ x.isInfinite) (hyinf : y.isInfinite)
+    (hxy : x ≤ y) : x.toExtRat' ≤ y.toExtRat' := by
+  rw [PackedFloat.toExtRat']
+  have hxy' := hxy
+  rw [← PackedFloat.le_def, PackedFloat.le] at hxy'
+  simp [hxnan, hynan] at hxy'
+  simp [hxnan] at ⊢
+  simp [hxinf]
+  rw [PackedFloat.toExtRat']
+  simp [hyinf, hynan]
+  by_cases hysign : y.sign
+  · simp [hysign]
+    have := PackedFloat.eq_getInfinity_iff_isInfinity hs |>.mp hyinf
+    simp [hysign] at this
+    subst this
+    simp [hs] at hxy
+    grind only
+  · simp [hysign]
+
+set_option maxHeartbeats 9999999 in
+/--
+The `x.sign` subcase of `toExtRat'_le_toExtRat'_of_le_of_not_isInfinite_of_not_isInfinite`:
+neither `x` nor `y` infinite, `x` negative, and `x ≤ y`, then `x.toExtRat' ≤ y.toExtRat'`.
+-/
+theorem toExtRat'_le_toExtRat'_of_le_of_not_isInfinite_of_not_isInfinite_of_sign
+    (_he : 0 < e) (_hs : 0 < s)
+    (x y : PackedFloat e s)
+    (hxzero : ¬ x.isZero) (hyzero : ¬ y.isZero) (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN)
+    (hxinf : ¬ x.isInfinite) (hyinf : ¬ y.isInfinite)
+    (hxsign : x.sign)
+    (hxy : x ≤ y) : x.toExtRat' ≤ y.toExtRat' := by
+  rw [PackedFloat.toExtRat']
+  have hxy' := hxy
+  rw [← PackedFloat.le_def, PackedFloat.le] at hxy'
+  simp [hxnan, hynan] at hxy'
+  simp [hxnan] at ⊢
+  simp [hxinf]
+  rw [PackedFloat.toExtRat']
+  simp [hyinf, hynan]
+  rw [PackedFloat.toRat, PackedFloat.toRat]
+  simp [hxsign]
+  -- x -ve
+  by_cases hysign : y.sign
+  · -- x -ve, y -ve
+    simp [hysign]
+    simp [hxsign, hysign] at hxy'
+    rw [Rat.mul_assoc, Rat.mul_assoc]
+    simp only [Rat.neg_one_mul_le_neg_one_mul_iff]
+    apply toExtRat'_le_toExtRat'_of_le_of_number <;> grind only
+  · -- x -ve, y +ve
+    simp [hysign]
+    simp [hxsign, hysign] at hxy'
+    have := x.zero_le_twoNumberRatSig
+    have := y.zero_le_twoNumberRatSig
+    have := Rat.zpow_nonneg (a := 2) (h := by decide) (n := y.toRatExp)
+    have := Rat.zpow_nonneg (a := 2) (h := by decide) (n := x.toRatExp)
+    simp only [ge_iff_le]
+    apply Rat.le_trans (b := 0)
+    · grind =>
+      instantiate only [Rat.le_of_lt, toRatSig_ne_zero_of_isNormOrNonzeroSubnorm]
+      instantiate only [Fp.Rat.two_pow_pos, → Rat.mul_pos,
+        = isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero]
+    · grind => instantiate only [Rat.mul_nonneg]
+    -- grind?
+
+/--
+The `¬ x.sign` subcase of `toExtRat'_le_toExtRat'_of_le_of_not_isInfinite_of_not_isInfinite`:
+neither `x` nor `y` infinite, `x` non-negative, and `x ≤ y`, then `x.toExtRat' ≤ y.toExtRat'`.
+-/
+theorem toExtRat'_le_toExtRat'_of_le_of_not_isInfinite_of_not_isInfinite_of_not_sign
+    (_he : 0 < e) (_hs : 0 < s)
+    (x y : PackedFloat e s)
+    (hxzero : ¬ x.isZero) (hyzero : ¬ y.isZero) (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN)
+    (hxinf : ¬ x.isInfinite) (hyinf : ¬ y.isInfinite)
+    (hxsign : ¬ x.sign)
+    (hxy : x ≤ y) : x.toExtRat' ≤ y.toExtRat' := by
+  rw [PackedFloat.toExtRat']
+  have hxy' := hxy
+  rw [← PackedFloat.le_def, PackedFloat.le] at hxy'
+  simp [hxnan, hynan] at hxy'
+  simp [hxnan] at ⊢
+  simp [hxinf]
+  rw [PackedFloat.toExtRat']
+  simp [hyinf, hynan]
+  rw [PackedFloat.toRat, PackedFloat.toRat]
+  -- x +ve
+  simp at hxsign
+  simp [hxsign]
+  by_cases hysign : y.sign
+  · -- x+ve, y -ve
+    simp [hxsign, hysign] at hxy'
+  · -- x+ve, y +ve
+    simp at hysign
+    simp [hysign]
+    simp [hxsign, hysign] at hxy'
+    apply toExtRat'_le_toExtRat'_of_le_of_number
+    · grind only
+    · assumption
+    · assumption
+    · assumption
+    · grind only
+    · grind only
+    · grind only
+
+/--
+The `¬ y.isInfinite` subcase of `toExtRat'_le_toExtRat'_of_le_of_not_isInfinite`:
+if neither `x` nor `y` is infinite and `x ≤ y`, then `x.toExtRat' ≤ y.toExtRat'`.
+-/
+theorem toExtRat'_le_toExtRat'_of_le_of_not_isInfinite_of_not_isInfinite
+    (he : 0 < e) (hs : 0 < s)
+    (x y : PackedFloat e s)
+    (hxzero : ¬ x.isZero) (hyzero : ¬ y.isZero) (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN)
+    (hxinf : ¬ x.isInfinite) (hyinf : ¬ y.isInfinite)
+    (hxy : x ≤ y) : x.toExtRat' ≤ y.toExtRat' := by
+  by_cases hxsign : x.sign
+  · exact toExtRat'_le_toExtRat'_of_le_of_not_isInfinite_of_not_isInfinite_of_sign
+      he hs x y hxzero hyzero hxnan hynan hxinf hyinf hxsign hxy
+  · exact toExtRat'_le_toExtRat'_of_le_of_not_isInfinite_of_not_isInfinite_of_not_sign
+      he hs x y hxzero hyzero hxnan hynan hxinf hyinf hxsign hxy
+
+/--
+The `¬ x.isInfinite` branch of `toExtRat'_le_toExtRat'_of_le`:
+if `x` is not infinite and `x ≤ y`, then `x.toExtRat' ≤ y.toExtRat'`.
+-/
+theorem toExtRat'_le_toExtRat'_of_le_of_not_isInfinite (he : 0 < e) (hs : 0 < s)
+    (x y : PackedFloat e s)
+    (hxzero : ¬ x.isZero) (hyzero : ¬ y.isZero) (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN)
+    (hxinf : ¬ x.isInfinite)
+    (hxy : x ≤ y) : x.toExtRat' ≤ y.toExtRat' := by
+  by_cases hyinf : y.isInfinite
+  · exact toExtRat'_le_toExtRat'_of_le_of_not_isInfinite_of_isInfinite
+      he hs x y hxzero hyzero hxnan hynan hxinf hyinf hxy
+  · exact toExtRat'_le_toExtRat'_of_le_of_not_isInfinite_of_not_isInfinite
+      he hs x y hxzero hyzero hxnan hynan hxinf hyinf hxy
+
+
+/--
+the rational interpretation is strictly less than zero iff
+the number is negative and nonzero.
+-/
+@[simp, grind .]
+theorem toExtRat'_lt_zero_eq_decide
+    (x : PackedFloat e s)
+    (hxnan : ¬ x.isNaN)
+    : x.toExtRat' < 0 ↔ (x.sign = true ∧ ¬ x.isZero) := by
+  by_cases hxzero : x.isZero
+  · simp [hxzero]
+  · by_cases hxinf : x.isInfinite
+    · simp [hxinf]
       by_cases hxsign : x.sign
       · simp [hxsign]
-        -- x -ve
-        by_cases hysign : y.sign
-        · -- x -ve, y -ve
-          simp [hysign]
-          simp [hxsign, hysign] at hxy'
-          rw [Rat.mul_assoc, Rat.mul_assoc]
-          simp only [Rat.neg_one_mul_le_neg_one_mul_iff]
-          apply toExtRat'_le_toExtRat'_of_le_of_number <;> grind only
-        · -- x -ve, y +ve
-          simp [hysign]
-          simp [hxsign, hysign] at hxy'
-          have := x.zero_le_twoNumberRatSig
-          have := y.zero_le_twoNumberRatSig
-          have := Rat.zpow_nonneg (a := 2) (h := by decide) (n := y.toRatExp)
-          have := Rat.zpow_nonneg (a := 2) (h := by decide) (n := x.toRatExp)
-          simp only [ge_iff_le]
-          apply Rat.le_trans (b := 0)
-          · grind =>
-            instantiate only [Rat.le_of_lt, toRatSig_ne_zero_of_isNormOrNonzeroSubnorm]
-            instantiate only [Fp.Rat.two_pow_pos, → Rat.mul_pos,
-              = isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero]
-          · grind => instantiate only [Rat.mul_nonneg]
-          -- grind?
-      · -- x +ve
-        simp at hxsign
+        grind only
+      · simp [hxsign]
+    · rw [PackedFloat.toExtRat']
+      simp [hxnan, hxinf]
+      by_cases hxsign : x.sign
+      · simp [hxsign]
+        have := x.zero_le_twoNumberRatSig
+        have := Rat.zpow_nonneg (a := 2) (h := by decide) (n := x.toRatExp)
+        grind only [= sign_iff_toRat_neg, = isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero]
+      · simp at hxsign
         simp [hxsign]
-        by_cases hysign : y.sign
-        · -- x+ve, y -ve
-          simp [hxsign, hysign] at hxy'
-        · -- x+ve, y +ve
-          simp at hysign
-          simp [hysign]
-          simp [hxsign, hysign] at hxy'
-          apply toExtRat'_le_toExtRat'_of_le_of_number <;> grind only
+        grind only [= sign_iff_toRat_neg, = isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero]
+
+/--
+signs must be equal if the `toExtRat` are equal and neither is NaN or zero.
+-/
+@[simp, grind .]
+theorem sign_eq_sign_of_toExtRat_eq_toExtRat_of_not_isNaN_not_isZero  (hs : 0 < s)
+    (x y : PackedFloat e s)
+    (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN)
+    (hxzero : ¬ x.isZero) (hyzero : ¬ y.isZero)
+    (hxy : x.toExtRat = y.toExtRat) : x.sign = y.sign := by
+  simp at hxy
+  have hxsign := x.toExtRat'_lt_zero_eq_decide hxnan
+  simp [hxzero] at hxsign
+
+  have hysign := y.toExtRat'_lt_zero_eq_decide hynan
+  simp [hyzero] at hysign
+  grind only [= toExtRat'_eq_Infinity_of_isInfinite, = toExtRat'_eq_toRat_of,
+    sig_eq_and_ex_eq_of_toRat_eq,
+    PackedFloat.isNorm_of_not_isNaN_of_not_isInfinity_of_not_isZero_isNonzeroSubnorm,
+    → isNormOrSubnorm_of_isNorm, eq_getInfinity_iff_isInfinity,
+    = isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero,
+    isNormOrSubnorm_eq_isNorm_or_isSubnorm, !toExtRat'_getInfinity, !isInfinite_getInfinity, #1df7]
+
+/--
+TODO: split into separate proofs based on
+ - nan
+ - signs.
+The packed float '≤' relationship captures ordering by `toRat'`.
+-/
+@[simp]
+theorem toExtRat'_le_toExtRat'_of_le (he : 0 < e) (hs : 0 < s)
+    (x y : PackedFloat e s)
+    (hxzero : ¬ x.isZero) (hyzero : ¬ y.isZero) (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN)
+    (hxy : x ≤ y) : x.toExtRat' ≤ y.toExtRat' := by
+  by_cases hxinf : x.isInfinite
+  · exact toExtRat'_le_toExtRat'_of_le_of_isInfinite he hs x y hxzero hyzero hxnan hynan hxinf hxy
+  · exact toExtRat'_le_toExtRat'_of_le_of_not_isInfinite he hs x y hxzero hyzero hxnan hynan hxinf hxy
+
+@[simp]
+theorem toExtRat'_lt_toExtRat'_of_lt (he : 0 < e) (hs : 0 < s)
+    (x y : PackedFloat e s)
+    (hxzero : ¬ x.isZero) (hyzero : ¬ y.isZero) (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN)
+    (hxy : x < y) : x.toExtRat' < y.toExtRat' := by
+  have : x ≤ y := by grind only [le_of_lt]
+  have : x.toExtRat' ≤ y.toExtRat' := by
+    apply toExtRat'_le_toExtRat'_of_le
+    all_goals { assumption }
+  have : x.toExtRat' ≠ y.toExtRat' := by
+    intros hcontra
+    have : x.sign = y.sign := by
+      apply sign_eq_sign_of_toExtRat_eq_toExtRat_of_not_isNaN_not_isZero
+      · grind only
+      · grind only
+      · grind only
+      · grind only
+      · grind only
+      · simp; grind only
+    have : x.ex = y.ex := by grind only [=> isNaN_iff_ex_eq_sig_eq, ne_of_lt,
+      = toExtRat'_eq_Infinity_of_isInfinite, = toExtRat'_eq_toRat_of, sig_eq_and_ex_eq_of_toRat_eq,
+      = isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero,
+      isNormOrSubnorm_eq_isNorm_or_isSubnorm,
+      PackedFloat.isNorm_of_not_isNaN_of_not_isInfinity_of_not_isZero_isNonzeroSubnorm,
+      eq_getInfinity_iff_isInfinity, !toExtRat'_getInfinity, !isInfinite_getInfinity, #3cf6, #d176,
+      #9085, #b00e, #1ffb]
+    have : x.sig = y.sig := by grind only [=> isNaN_iff_ex_eq_sig_eq,
+      => not_isNaN_iff_ex_ne_or_sig_ne, ne_of_lt, = toExtRat'_eq_Infinity_of_isInfinite,
+      = toExtRat'_eq_toRat_of, sig_eq_and_ex_eq_of_toRat_eq,
+      = isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero,
+      isNormOrSubnorm_eq_isNorm_or_isSubnorm,
+      PackedFloat.isNorm_of_not_isNaN_of_not_isInfinity_of_not_isZero_isNonzeroSubnorm,
+      eq_getInfinity_iff_isInfinity, !toExtRat'_getInfinity, !isInfinite_getInfinity, #7328, #1059,
+      #5c26, #b00e, #9276, #b246, #063f]
+    have : x = y := by
+      ext
+      · grind only
+      · grind only
+      · grind only
+    subst this
+    grind only [ne_of_lt]
+  apply ExtRat.lt_of_not_le
+  · grind only [= isNaN_iff_toExtRat'_eq_NaN]
+  · grind only [= isNaN_iff_toExtRat'_eq_NaN]
+  · grind only
+
+/--
+info: 'PackedFloat.toExtRat'_lt_toExtRat'_of_lt' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms toExtRat'_lt_toExtRat'_of_lt
 
 /--
 Two packed floats that are ordered by `≤` are ordered by `toRat`, if they are numbers.
@@ -410,19 +622,43 @@ theorem toRat_le_toRat_of_le (he : 0 < e) (hs : 0 < s)
   simp [PackedFloat.toExtRat', hxnan, hxinf, hynan, hyinf] at this
   exact this
 
+/--
+Prove that two packed floats that are ordered by `<` are also ordered
+in their rational interpretation.
+-/
+theorem toRat_lt_toRat_of_lt (he : 0 < e) (hs : 0 < s)
+    (x y : PackedFloat e s)
+    (hxzero : ¬ x.isZero)
+    (hyzero : ¬ y.isZero)
+    (hxnan : ¬ x.isNaN)
+    (hynan : ¬ y.isNaN)
+    (hxinf : ¬ x.isInfinite)
+    (hyinf : ¬ y.isInfinite)
+    (hxy : x < y) : x.toRat < y.toRat := by
+  have : x ≤ y := by grind only [le_of_lt]
+  have : x.toRat ≤ y.toRat := by
+    apply toRat_le_toRat_of_le <;> grind only
+  have : x.toRat ≠ y.toRat := by
+    intros hcontra
+    have : x.sign = y.sign := by grind only [sig_eq_and_ex_eq_of_toRat_eq,
+      = isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero]
+    have : x.ex = y.ex := by grind only [sig_eq_and_ex_eq_of_toRat_eq,
+      = isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero]
+    have : x.sig = y.sig := by grind only [sig_eq_and_ex_eq_of_toRat_eq,
+      = isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero]
+    have : x = y := by
+      ext
+      · grind only
+      · grind only
+      · grind only
+    subst this
+    grind only [ne_of_lt]
+  grind
 
-theorem Rat.inv_eq_div (a : Rat)  : a⁻¹ = 1 / a := by
-  grind only
-
--- TODO: write a simp lemma
-@[simp]
-theorem Rat.zpow_neg_natCast_eq_one_div_zpow (a : Rat) (n : Nat)
-    : a ^ (-n : Int) = 1 / a ^ n := by
-  rw [Rat.zpow_neg]
-  rw [Rat.inv_eq_div]
-  simp
-
-
+/--
+info: 'PackedFloat.toRat_lt_toRat_of_lt' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms toRat_lt_toRat_of_lt
 
 @[simp]
 theorem PackedFloat.one_le_ex_of_isNorm (x : PackedFloat e s) (hxnorm : x.isNorm) (he : 0 < e) :
@@ -515,6 +751,112 @@ theorem PackedFloat.sig_lt_sig_of_lt_of_of_exp_eq_exp_of_sign_eq_false
     · grind only [BitVec.le_def]
     · grind only
 
+
+
+/--
+Packed floats are less than each other if the tuple (exponent, significand)
+is lex ordered.
+-/
+theorem le_of_ex_le_ex_or_sig_le_sig_of_nonneg_of_nonneg (a b : PackedFloat e s)
+  (hasign : a.sign = false) (hbsign : b.sign = false) (hanan : ¬ a.isNaN) (hbnan : ¬ b.isNaN) :
+  a ≤ b ↔ a.ex.toNat < b.ex.toNat ∨ (a.ex.toNat = b.ex.toNat ∧ a.sig.toNat ≤ b.sig.toNat) := by
+  rw [← PackedFloat.le_def]
+  simp [PackedFloat.le, hasign, hbsign, hanan, hbnan]
+  grind only [BitVec.toNat_inj, #c695bb6e572d0f9f]
+
+/--
+Packed floats are less than each other if the tuple (exponent, significand)
+is lex ordered, amongst negative numbers.
+-/
+theorem le_of_ex_le_ex_or_sig_le_sig_of_neg_of_neg (a b : PackedFloat e s)
+  (hasign : a.sign = true) (hbsign : b.sign = true) (hanan : ¬ a.isNaN) (hbnan : ¬ b.isNaN) :
+  a ≤ b ↔ b.ex.toNat < a.ex.toNat ∨ (b.ex.toNat = a.ex.toNat ∧ b.sig.toNat ≤ a.sig.toNat) := by
+  rw [← PackedFloat.le_def]
+  simp [PackedFloat.le, hasign, hbsign, hanan, hbnan]
+  grind only [BitVec.toNat_inj, #8f52c9ba759470ab]
+
+@[simp, grind .]
+theorem le_of_nonneg_of_neg (a b : PackedFloat e s)
+  (hasign : a.sign = true) (hbsign : b.sign = false) (hanan : ¬ a.isNaN) (hbnan : ¬ b.isNaN) :
+  a ≤ b := by
+  rw [← PackedFloat.le_def]
+  simp [PackedFloat.le, hasign, hbsign, hanan, hbnan]
+
+@[simp, grind .]
+theorem not_le_of_neg_of_nonneg (a b : PackedFloat e s)
+  (hasign : a.sign = false) (hbsign : b.sign = true) (hanan : ¬ a.isNaN) (hbnan : ¬ b.isNaN) :
+  ¬ a ≤ b := by
+  rw [← PackedFloat.le_def]
+  simp [PackedFloat.le, hasign, hbsign, hanan, hbnan]
+
+theorem lt_of_ex_lt_ex_or_sig_lt_sig_of_nonneg_of_nonneg (a b : PackedFloat e s)
+  (hasign : a.sign = false) (hbsign : b.sign = false) (hanan : ¬ a.isNaN) (hbnan : ¬ b.isNaN) :
+  a < b ↔ a.ex.toNat < b.ex.toNat ∨ (a.ex.toNat = b.ex.toNat ∧ a.sig.toNat < b.sig.toNat) := by
+  rw [← PackedFloat.lt_def]
+  simp [PackedFloat.lt, hasign, hbsign, hanan, hbnan]
+  by_cases hex : a.ex.toNat < b.ex.toNat
+  · simp [hex]
+    intros hcontra
+    subst hcontra
+    grind only
+  · simp [hex]
+    by_cases hex' : a.ex = b.ex
+    · simp [hex']
+      by_cases hsig : a.sig.toNat < b.sig.toNat
+      · simp [hsig]
+        grind only
+      · simp [hsig]
+        by_cases hsig' : a.sig = b.sig
+        · simp [hsig']
+          ext <;> grind only
+        · intros hsig
+          grind only [BitVec.toNat_inj]
+    · simp [show a.ex.toNat ≠ b.ex.toNat by grind only [BitVec.toNat_inj]]
+
+theorem PackedFloat.lt_of_ex_lt_ex_or_sig_lt_sig_of_neg_of_neg (a b : PackedFloat e s)
+  (hasign : a.sign = true) (hbsign : b.sign = true) (hanan : ¬ a.isNaN) (hbnan : ¬ b.isNaN) :
+  a < b ↔ b.ex.toNat < a.ex.toNat ∨ (b.ex.toNat = a.ex.toNat ∧ b.sig.toNat < a.sig.toNat) := by
+  rw [← PackedFloat.lt_def]
+  simp [PackedFloat.lt, hasign, hbsign, hanan, hbnan]
+  by_cases hex : b.ex.toNat < a.ex.toNat
+  · simp [hex]
+    intros hcontra
+    subst hcontra
+    grind only
+  · simp only [hex, false_or]
+    by_cases hex' : a.ex = b.ex
+    · simp only [hex', true_and]
+      by_cases hsig : b.sig.toNat < a.sig.toNat
+      · simp only [hsig, iff_true]
+        grind only
+      · simp only [hsig, iff_false]
+        by_cases hsig' : a.sig = b.sig
+        · simp only [hsig', Nat.le_refl, true_and, Decidable.not_not]
+          ext <;> grind only
+        · intros hsig
+          grind only [BitVec.toNat_inj]
+    · simp only [show a.ex.toNat ≠ b.ex.toNat by grind only [BitVec.toNat_inj], false_and,
+      false_iff, not_and, Nat.not_lt]
+      intros hex
+      have : a.ex = b.ex := by grind only [BitVec.toNat_inj]
+      grind only
+
+@[simp, grind . ]
+theorem PackedFloat.lt_of_neg_of_nonneg (a b : PackedFloat e s)
+  (hasign : a.sign = true)
+  (hbsign : b.sign = false) (hanan : ¬ a.isNaN) (hbnan : ¬ b.isNaN) :
+  a < b ↔ (a ≠ b) := by
+  rw [← PackedFloat.lt_def]
+  simp [PackedFloat.lt, hasign, hbsign, hanan, hbnan]
+
+@[simp, grind .]
+theorem PackedFloat.not_lt_of_nonneg_of_neg (a b : PackedFloat e s)
+  (hasign : a.sign = false)
+  (hbsign : b.sign = true) (hanan : ¬ a.isNaN) :
+  ¬ a < b := by
+  rw [← PackedFloat.lt_def]
+  simp [PackedFloat.lt, hasign, hbsign, hanan]
+
 /-
 This shows that the packed floats packed floats are always at least a distance
 of 2^-e. This gives us the discreteness of the ordering
@@ -548,6 +890,8 @@ theorem toRat_le_plus_toRat_of_toRat_le_toRat_of_sign_eq_false (he : 0 < e) (hs 
       simp [hxsign, hysign, hxnan, hynan] at hle
       rcases hle with (hleExp | hleSig)
       · rw [← Rat.add_mul]
+        rw [← Rat.one_div_zpow_eq_zpow_neg]
+        simp only [Rat.zpow_natCast, ge_iff_le]
         rw [show y.toRatExp = (y.toRatExp - 1) + 1 by grind only]
         rw [Rat.zpow_succ (by grind only)]
         suffices (x.toRatSig + 1 / 2 ^ s) * 2 ^ x.toRatExp ≤ (2 * y.toRatSig) * (2 ^ (y.toRatExp - 1)) by grind only
@@ -588,6 +932,7 @@ theorem toRat_le_plus_toRat_of_toRat_le_toRat_of_sign_eq_false (he : 0 < e) (hs 
           le_antisymm_of_ne_NaN, le_eq_of_sign_eq_false_of_sign_eq_false]
         have hsigLt : x.sig < y.sig := by grind only
         suffices (x.toRatSig + 1 / 2 ^ s) * 2 ^  y.toRatExp ≤ y.toRatSig * 2 ^ y.toRatExp by
+          rw [Rat.zpow_neg_natCast_eq_one_div_zpow]
           grind only
         apply Rat.mul_le_mul_cancel_right_of_lt .. |>.mpr
         · -- ⊢  x.toRatSig + 2 ^ -s ≤ y.toRatSig
@@ -661,5 +1006,769 @@ info: 'PackedFloat.toRat_le_plus_toRat_of_toRat_le_toRat_of_sign_eq_false' depen
  Quot.sound]
 -/
 #guard_msgs in #print axioms toRat_le_plus_toRat_of_toRat_le_toRat_of_sign_eq_false
+
+
+/--
+All nonnegative subnormals are less than the max subnormal number.
+-/
+theorem PackedFloat.le_maxSubnormalNumber_of_isSubnormal_of_nonneg (x : PackedFloat e s)
+    (he : 0 < e) (hs : 0 < s)
+    (hxsubnorm : x.isNonzeroSubnorm ∨ x.isZero) (hxsign : x.sign = false) :
+    x ≤ PackedFloat.maxSubnormalNumber e s false := by
+  rw [PackedFloat.le_of_ex_le_ex_or_sig_le_sig_of_nonneg_of_nonneg]
+  · simp
+    constructor
+    · rcases hxsubnorm
+      · have := x.exp_eq_of_isNonzeroSubnorm
+        grind only [= BitVec.toNat_zero]
+      · have := x.ex_eq_of_isZero
+        grind only [= BitVec.toNat_zero]
+    · grind only [!Nat.two_pow_pos, usr BitVec.isLt]
+  · grind only
+  · simp
+  · grind only [→ not_isNaN_of_isSubnorm, → not_isNaN_of_isZero]
+  · simp
+    grind only [→ not_isSubnorm_of_isNaN, isNonzeroSubnorm_maxSubnormalNumber_eq_decide]
+
+/--
+The max subnormal number is less than or equal to the min normal number
+-/
+theorem PackedFloat.maxSubnormalNumber_le_minNormalNumber_of_nonneg (he : 1 < e) (hs : 0 < s):
+  (PackedFloat.maxSubnormalNumber e s false ≤ PackedFloat.minNormalNumber e s false) := by
+  rw [PackedFloat.le_of_ex_le_ex_or_sig_le_sig_of_nonneg_of_nonneg]
+  · simp
+    grind only [= Nat.mod_eq_of_lt, !Nat.two_pow_pos, usr Nat.div_pow_of_pos, #56f6]
+  · simp
+  · simp
+  · have := isNonzeroSubnorm_maxSubnormalNumber_eq_decide e s false
+    grind only [→ not_isNaN_of_isSubnorm]
+  · have := isNorm_minNormalNumber_eq_decide e s false
+    grind only [→ not_isNaN_of_isNorm]
+
+/--
+The exponent of a nonzero number is not all ones,
+which is reserved for infinity/NaN.
+-/
+@[simp]
+theorem ex_ne_of_isNormOrNonzeroSubnorm (x : PackedFloat e s)
+    (hxnorm : x.isNormOrNonzeroSubnorm) :
+    x.ex ≠ BitVec.allOnes e := by
+  simp [PackedFloat.isNormOrNonzeroSubnorm] at hxnorm
+  grind only
+
+/--
+The exponent of a nonzero number is ≤ 2^e-2.
+Recall that the full exponent is reserved for infinity/NaN.
+-/
+@[simp, grind .]
+theorem toNat_ex_le_of_isNormOrNonzeroSubnorm (x : PackedFloat e s)
+    (hxnorm : x.isNormOrNonzeroSubnorm) :
+    x.ex.toNat ≤ 2^e - 2 := by
+  have := x.ex_ne_of_isNormOrNonzeroSubnorm hxnorm
+  have : x.ex.toNat ≠ 2^e - 1 := by
+    intros hcontra
+    apply this
+    apply BitVec.eq_of_toNat_eq
+    simp; grind
+  have : x.ex.toNat ≤ 2 ^ e - 1 := by grind only [!Nat.two_pow_pos, usr BitVec.isLt]
+  grind only [!Nat.two_pow_pos, usr BitVec.isLt, #11341de38214aa15]
+
+/--
+The exponent of a nonzero number is ≤ the exponent of the max normal number.
+-/
+theorem ex_le_ex_maxNormalNumber_of_isNormOrNonzeroSubnorm
+    (x : PackedFloat e s) (he : 1 < e)
+    (hxnorm : x.isNormOrNonzeroSubnorm) :
+    x.ex ≤ (PackedFloat.maxNormalNumber e s false).ex := by
+  simp only [ex_maxNormalNumber, BitVec.ofNat_eq_ofNat]
+  rw [BitVec.le_def]
+  rw [BitVec.toNat_sub_of_le]
+  · simp
+    rw [Nat.mod_eq_of_lt]
+    · apply toNat_ex_le_of_isNormOrNonzeroSubnorm x hxnorm
+    · grind => instantiate approx
+  · rw [BitVec.le_def]
+    simp
+    grind only [!Nat.two_pow_pos, = Nat.mod_eq_of_lt, one_lt_two_pow_iff]
+
+/--
+all numbers that are nonnegative and normal are less than or equal to the max normal number.
+-/
+theorem le_maxNormalNumber_of_isNormOrNonzeroSubnorm_of_nonneg (x : PackedFloat e s)
+    (he : 1 < e)
+    (hxnorm : x.isNormOrNonzeroSubnorm) (hxsign : x.sign = false) :
+    x ≤ PackedFloat.maxNormalNumber e s false := by
+  rw [PackedFloat.le_of_ex_le_ex_or_sig_le_sig_of_nonneg_of_nonneg]
+  · have : x.ex.toNat ≤ (maxNormalNumber e s false).ex.toNat := by
+      apply PackedFloat.ex_le_ex_maxNormalNumber_of_isNormOrNonzeroSubnorm
+      · grind only
+      · grind only
+    by_cases hex : x.ex.toNat = (maxNormalNumber e s false).ex.toNat
+    · simp [hex]
+      grind only [usr BitVec.isLt, !Nat.two_pow_pos]
+    · left
+      grind only
+  · grind only
+  · simp
+  · simp; grind only [→ not_isNaN_of_isNormOrSubnorm]
+  · simp
+    have := isNorm_maxNormalNumber_eq_decide e s false
+    grind only [→ not_isNaN_of_isNorm]
+
+/--
+only number that is not strictly less than +infinity is NaN
+-/
+@[simp, grind =]
+theorem lt_getInfinity_iff (x : PackedFloat e s) (hs : 0 < s) : x < getInfinity e s false ↔ (¬ x.isNaN ∧ x ≠ getInfinity e s false) := by
+  constructor
+  · intros h
+    by_cases hnan : x.isNaN
+    · simp only [hnan, lt_iff_ne_and_isNaN_of_isNaN, isNaN_getInfinity_eq_false,
+      Bool.not_eq_eq_eq_not, Bool.not_true, decide_eq_false_iff_not, Nat.not_lt, Nat.le_zero_eq,
+      ne_eq] at h
+      grind only
+    · simp only [hnan, Bool.false_eq_true, not_false_eq_true, ne_eq, true_and] at ⊢
+      grind only [ne_of_lt]
+  · intros h
+    apply lt_of_le_of_ne
+    · grind only [=> le_getInfinity_false_of_not_isNaN]
+    · grind only
+
+/--
+zero is less than or equal to all other nonneg numbers.
+-/
+@[grind .]
+theorem getZero_le_of_nonneg {e s : Nat} {sign : Bool}
+    (he : 0 < e) (hs : 0 < s)
+    (x : PackedFloat e s)
+    (hsign : x.sign = false)
+    (hnan : ¬ x.isNaN) :
+    PackedFloat.getZero e s sign ≤ x := by
+  rcases sign with rfl | rfl
+  · rw [PackedFloat.le_of_ex_le_ex_or_sig_le_sig_of_nonneg_of_nonneg]
+    · simp [he, hs]
+      grind only
+    · simp [hs]
+    · simp [hsign]
+    · simp; grind
+    · grind only
+  · apply le_of_nonneg_of_neg
+    · simp
+    · simp [hsign]
+    · grind only [= isNaN_iff_toExtRat'_eq_NaN, !toExtRat'_getZero]
+    · grind only
+
+@[grind .]
+theorem getZero_lt_of_nonneg_of_not_isZero {e s : Nat} {sign : Bool}
+  (he : 0 < e) (hs : 0 < s)
+  (x : PackedFloat e s)
+  (hsign : x.sign = false)
+  (hnan : ¬ x.isNaN)
+  (hzero : ¬ x.isZero) :
+  PackedFloat.getZero e s sign < x := by
+  apply PackedFloat.lt_of_le_of_ne
+  · grind only [getZero_le_of_nonneg]
+  · grind only [isZero_getZero]
+
+@[grind .]
+theorem isZero_lt_of_nonneg_of_not_isZero {e s : Nat}
+  (he : 0 < e) (hs : 0 < s)
+  (z x : PackedFloat e s)
+  (hz : z.isZero)
+  (hsign : x.sign = false)
+  (hnan : ¬ x.isNaN)
+  (hzero : ¬ x.isZero) :
+  z < x := by
+  have := z.eq_mkZero_of_isZero hz
+  obtain ⟨zsign, rfl⟩ := this
+  grind only [getZero_lt_of_nonneg_of_not_isZero]
+
+
+/--
+If one is strictly greater than `maxNormal`, then one equals `+∞`.
+-/
+theorem eq_getInfinity_of_lt_maxNormalNumber_of_isNaN_of_nonneg (x : PackedFloat e s)
+  (he : 1 < e) (hs : 0 < s)
+  (hx : ¬ x.isNaN)
+  (hxsign : x.sign = false) :
+  PackedFloat.maxNormalNumber e s false < x ↔ x = PackedFloat.getInfinity e s false := by
+  constructor
+  · intros hx
+    apply Classical.byContradiction
+    intros hcontra
+    have : ¬ x.isInfinite := by grind only [eq_getInfinity_iff_isInfinity]
+    by_cases hxzero : x.isZero
+    · have : x ≤ PackedFloat.maxNormalNumber e s false := by
+        apply PackedFloat.le_of_lt
+        apply isZero_lt_of_nonneg_of_not_isZero
+        · grind only
+        · grind only
+        · grind only
+        · simp
+        · grind only [= lt_iff_ne_and_isNaN_of_isNaN]
+        · grind only [→ not_isNorm_of_isZero, isNorm_maxNormalNumber_eq_decide]
+      grind only [ne_of_lt, = lt_iff_ne_and_isNaN_of_isNaN, le_antisymm_of_ne_NaN, le_of_lt]
+    · have : x ≤ PackedFloat.maxNormalNumber e s false := by
+        apply le_maxNormalNumber_of_isNormOrNonzeroSubnorm_of_nonneg
+        · grind only
+        · grind only [= isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero]
+        · grind only
+      grind only [ne_of_lt, = lt_iff_ne_and_isNaN_of_isNaN, le_antisymm_of_ne_NaN, le_of_lt]
+  · intros hx
+    subst hx
+    grind only [→ not_isNorm_of_isNaN, !isInfinite_getInfinity, = lt_getInfinity_iff,
+      → not_isInfinite_of_isNorm, isNorm_maxNormalNumber_eq_decide]
+
+/--
+A nonnegative number that is less than the min subnormal number is zero.
+-/
+theorem isZero_iff_lt_minSubnormalNumber_of_isNaN_of_nonneg (x : PackedFloat e s)
+  (he : 1 < e) (hs : 0 < s)
+  (hxnan : ¬ x.isNaN)
+  (hxsign : x.sign = false) :
+  x < PackedFloat.minSubnormalNumber e s false ↔ x.isZero := by
+  constructor
+  · intros hx
+    rw [PackedFloat.lt_of_ex_lt_ex_or_sig_lt_sig_of_nonneg_of_nonneg] at hx
+    · simp at hx
+      rw [Nat.mod_eq_of_lt] at hx
+      · rw [PackedFloat.isZero_iff_ex_eq_zero_and_sig_eq_zero]
+        constructor
+        · apply BitVec.eq_of_toNat_eq
+          simp
+          grind only
+        · apply BitVec.eq_of_toNat_eq
+          simp
+          grind
+        · grind only
+      · simp; grind only
+    · grind only
+    · grind only [PackedFloat.not_lt_of_nonneg_of_neg]
+    · grind only
+    · grind only [= lt_iff_ne_and_isNaN_of_isNaN']
+  · intros hx
+    apply PackedFloat.lt_of_le_of_ne
+    · rw [PackedFloat.le_of_ex_le_ex_or_sig_le_sig_of_nonneg_of_nonneg]
+      · simp [hx]
+      · simp [hxsign]
+      · simp
+      · grind only
+      · grind only [→ not_isSubnorm_of_isNaN, isNonzeroSubnorm_minSubnormalNumber_eq_decide]
+    · grind only [→ not_isSubnorm_of_isZero, isNonzeroSubnorm_minSubnormalNumber_eq_decide]
+
+@[grind .]
+theorem not_eq_of_not_le (x y : PackedFloat e s)
+  (hnan : x.isNaN = y.isNaN) (hxy : ¬ x ≤ y) : x ≠ y := by
+  apply Classical.byContradiction
+  intros hcontra
+  simp only [ne_eq, Decidable.not_not] at hcontra
+  subst hcontra
+  grind only [le_refl]
+
+@[grind ., simp]
+theorem lt_of_not_le (x y : PackedFloat e s) (hxnan : x.isNaN = y.isNaN)
+  (hxy : ¬ x ≤ y) : y < x := by
+  have := PackedFloat.le_total_of_isNaN_eq_isNaN x y (by grind only)
+  rcases this with hxy | hxy
+  · grind only
+  · have : ¬ x = y := by grind only
+    apply lt_of_le_of_ne
+    · grind only
+    · grind only
+
+/--
+If the toRatSig of two numbers are equal,
+then they are both normal or both subnormal.
+-/
+theorem isNorm_eq_isNorm_of_toRatSig_eq_toRatSig (x y : PackedFloat e s)
+    (hxy : x.toRatSig = y.toRatSig) :
+    x.isNorm = y.isNorm := by
+  -- simp [PackedFloat.toRatSig] at hxy
+  apply Classical.byContradiction
+  intros hcontra
+  by_cases hx : x.isNorm
+  · have :=  x.one_le_toRatSig_of_isNorm (by grind only)
+    simp [hx] at hcontra
+    have := y.toRatSig_lt_one_of_not_isNorm (by grind only)
+    grind only
+  · have := x.toRatSig_lt_one_of_not_isNorm (by grind only)
+    simp [hx] at hcontra
+    have := y.one_le_toRatSig_of_isNorm (by grind only)
+    grind only
+
+
+/--
+If the toRatSig of two nonnegative numbers are equal, and they are both normal or both subnormal,
+then their significands are equal.
+-/
+theorem sig_eq_sig_of_toRatSig_eq_toRatSig
+    (x y : PackedFloat e s)
+    (hxy : x.toRatSig = y.toRatSig) :
+    x.sig = y.sig := by
+  have hxynorm : x.isNorm = y.isNorm := by
+    apply isNorm_eq_isNorm_of_toRatSig_eq_toRatSig
+    exact hxy
+  simp [PackedFloat.toRatSig] at hxy
+  by_cases hx : x.isNorm
+  · simp [hx] at hxynorm
+    have : 0 < (2 : Rat) ^ s := by grind only [Rat.pow_pos]
+    have : (x.sig.toNat : Rat) = (y.sig.toNat : Rat) := by
+      rw [← Rat.mul_cancel_right (x := (2 : Rat) ^ s)]
+      · grind only [Rat.two_pow_nat_ne_zero]
+      · grind only
+    simp at this
+    apply BitVec.eq_of_toNat_eq
+    simp [this]
+  · simp [hx] at hxynorm
+    have : 0 < (2 : Rat) ^ s := by grind only [Rat.pow_pos]
+    have : (x.sig.toNat : Rat) = (y.sig.toNat : Rat) := by
+      rw [← Rat.mul_cancel_right (x := (2 : Rat) ^ s)]
+      · grind only [Rat.two_pow_nat_ne_zero]
+      · grind only
+    simp at this
+    apply BitVec.eq_of_toNat_eq
+    simp [this]
+
+@[simp]
+theorem Rat.natCast_le_natCast_iff_le {n m : Nat} : (n : Rat) ≤ (m : Rat) ↔ n ≤ m := by
+  norm_cast
+
+/--
+The significand of a nonnegative number is less than or equal to the significand of another nonnegative number,
+when they are both normal or both subnormal.
+
+When one is normal and the other subnormal, the skew from being normal
+overrules the skew from having a larger significand, so nothing can be said.
+-/
+theorem sig_le_sig_of_toRatSig_le_toRatSig_of_isNorm_eq_isNorm
+    (x y : PackedFloat e s)
+    (hxynorm : x.isNorm = y.isNorm)
+    (hxy : x.toRatSig ≤ y.toRatSig) :
+    x.sig ≤ y.sig := by
+  by_cases hx : x.isNorm
+  · simp only [hx, Bool.true_eq] at hxynorm
+    simp only [toRatSig, hx, ↓reduceIte, hxynorm, Rat.add_le_iff_le'] at hxy
+    have hpow : 0 < (2 : Rat) ^ s := by grind only [Rat.pow_pos]
+    simp only [hpow, Rat.div_le_div_self, Rat.natCast_le_natCast_iff_le] at hxy
+    rw [BitVec.le_def]
+    exact hxy
+  · simp only [hx, Bool.false_eq] at hxynorm
+    simp only [toRatSig, hx, Bool.false_eq_true, ↓reduceIte, Rat.zero_add, hxynorm] at hxy
+    have hpow : 0 < (2 : Rat) ^ s := by grind only [Rat.pow_pos]
+    simp only [hpow, Rat.div_le_div_self, Rat.natCast_le_natCast_iff_le] at hxy
+    rw [BitVec.le_def]
+    exact hxy
+
+theorem le_of_toRat_le_toRat_of_nonneg_of_nonneg
+    (he : 0 < e) (hs : 0 < s)
+    (x y : PackedFloat e s)
+    (hxnan : ¬ x.isNaN)
+    (hy : ¬ y.isNaN)
+    (hxinf : ¬ x.isInfinite)
+    (hyinf : ¬ y.isInfinite )
+    (hxzero : ¬ x.isZero)
+    (hyzero : ¬ y.isZero)
+    (hxsign : x.sign = false)
+    (hysign : y.sign = false)
+    (hxy : x.toRat ≤ y.toRat) : x ≤ y := by
+  by_cases hx : x.isNorm
+  · by_cases hy : y.isNorm
+    · apply Classical.byContradiction
+      intros hcontra
+      have hlt : y < x := by
+        grind only [lt_of_not_le]
+      have : y.toRat < x.toRat := by
+        apply toRat_lt_toRat_of_lt <;> grind only
+      grind only
+    · have : y.isNonzeroSubnorm := by
+        grind only [PackedFloat.isNorm_of_not_isNaN_of_not_isInfinity_of_not_isZero_isNonzeroSubnorm]
+      have hlt : y < x := by grind only [sig_eq_and_ex_eq_of_toRat_eq, lt_of_not_le,
+        le_eq_of_sign_eq_false_of_sign_eq_false, ex_ne_zero_if_isNorm,
+        toNat_ex_eq_of_isNonzeroSubnorm, BitVec.eq_zero_iff_toNat_eq]
+      have : y.toRat < x.toRat := by
+        apply toRat_lt_toRat_of_lt <;> grind only
+      grind only
+  · have : x.isNonzeroSubnorm := by grind only [PackedFloat.isNorm_of_not_isNaN_of_not_isInfinity_of_not_isZero_isNonzeroSubnorm]
+    by_cases hy : y.isNorm
+    · grind only [le_eq_of_sign_eq_false_of_sign_eq_false, ex_ne_zero_if_isNorm, BitVec.toNat_inj,
+      toNat_ex_eq_of_isNonzeroSubnorm, BitVec.eq_zero_iff_toNat_eq]
+    · have : y.isNonzeroSubnorm := by grind only [PackedFloat.isNorm_of_not_isNaN_of_not_isInfinity_of_not_isZero_isNonzeroSubnorm]
+      rw [PackedFloat.le_of_ex_le_ex_or_sig_le_sig_of_nonneg_of_nonneg]
+      · have : x.ex = y.ex := by
+          grind only [exp_eq_of_isNonzeroSubnorm]
+        rw [this]
+        have : x.toRatExp = y.toRatExp := by
+          apply PackedFloat.toRatExp_eq_of_ex_eq
+          grind only
+        simp [PackedFloat.toRat] at hxy
+        simp [hxsign, hysign] at hxy
+        rw [this] at hxy
+        simp only [Nat.lt_irrefl, true_and, false_or, ge_iff_le]
+        have : (0 : Rat) < 2 ^ (y.toRatExp) := by grind only [Fp.Rat.two_pow_pos]
+        rw [Rat.mul_le_mul_cancel_right_of_lt] at hxy
+        · suffices x.sig ≤ y.sig by
+            rw [← BitVec.le_def]
+            assumption
+          apply sig_le_sig_of_toRatSig_le_toRatSig_of_isNorm_eq_isNorm
+          · grind only
+          · grind only
+        · grind only
+      · grind only
+      · grind only
+      · grind only
+      · grind only
+
+@[simp]
+theorem Rat.lt_iff_not_le (x y : Rat) : ¬ (x ≤ y) ↔ y < x := by
+  grind
+
+/--
+The 'toRat' of a negative number is less than the 'toRat' of a nonnegative number.
+We get strict inequality when they are nonzero.
+-/
+theorem toRat_lt_toRat_of_nonneg_of_neg_of_not_isZero (x y : PackedFloat e s)
+    (hxnan : ¬ x.isNaN)
+    (hy : ¬ y.isNaN)
+    (hxinf : ¬ x.isInfinite)
+    (hyinf : ¬ y.isInfinite )
+    (hxzero : ¬ x.isZero)
+    (hyzero : ¬ y.isZero)
+    (hxsign : x.sign = false)
+    (hysign : y.sign = true)
+    : y.toRat < x.toRat := by
+  simp only [toRat, hysign, toSign_true, Int.reduceNeg, Rat.intCast_neg, Rat.intCast_ofNat, hxsign,
+    toSign_false, Rat.one_mul]
+  have : x.isNormOrNonzeroSubnorm := by grind only [=
+          isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero]
+  have : y.isNormOrNonzeroSubnorm := by grind only [=
+      isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero]
+  have : 0 < x.toRatSig := by
+    grind only [toRatSig_pos_of_isNormOrNonzeroSubnorm]
+  have : 0 < (2 : Rat) ^ x.toRatExp := by grind only [Fp.Rat.two_pow_pos]
+  have : 0 < x.toRatSig * (2 : Rat) ^ x.toRatExp := by
+    apply Rat.mul_pos
+    · grind only
+    · grind only
+  have : 0 < y.toRatSig := by grind only [toRatSig_pos_of_isNormOrNonzeroSubnorm]
+  have : 0 < (2 : Rat) ^ y.toRatExp := by grind only [Fp.Rat.two_pow_pos]
+  grind only [→ Rat.mul_pos]
+
+
+/--
+The 'toRat' of a nonpositive number is less than or equal to the 'toRat' of a nonnegative number.
+We get strict inequality when they are nonzero.
+-/
+theorem toRat_le_toRat_of_nonneg_of_neg (x y : PackedFloat e s)
+    (hxnan : ¬ x.isNaN)
+    (hy : ¬ y.isNaN)
+    (hxinf : ¬ x.isInfinite)
+    (hyinf : ¬ y.isInfinite )
+    (hxzero : ¬ x.isZero)
+    (hyzero : ¬ y.isZero)
+    (hxsign : x.sign = false)
+    (hysign : y.sign = true)
+    : y.toRat ≤ x.toRat := by
+  by_cases hy : y.isZero
+  · simp [hy]
+    grind only
+  · by_cases hx : x.isZero
+    · simp [hx]
+      grind only
+    · apply Rat.le_of_lt
+      apply toRat_lt_toRat_of_nonneg_of_neg_of_not_isZero x y
+      · grind only
+      · grind only
+      · grind only
+      · grind only
+      · grind only
+      · grind only
+      · grind only
+      · grind only
+
+/--
+For nonnegative numbers that are not NaN, not infinite, and not zero, the ordering of the packed floats
+is consistent with the ordering of the rationals.
+-/
+theorem le_of_toRat_le_toRat
+    (he : 0 < e)
+    (hs : 0 < s)
+    (x y : PackedFloat e s)
+    (hxnan : ¬ x.isNaN)
+    (hy : ¬ y.isNaN)
+    (hxinf : ¬ x.isInfinite)
+    (hyinf : ¬ y.isInfinite )
+    (hxzero : ¬ x.isZero)
+    (hyzero : ¬ y.isZero)
+    (hxy : x.toRat ≤ y.toRat) : x ≤ y := by
+  by_cases hxsign : x.sign
+  · -- x -ve
+    by_cases hysign : y.sign
+    · -- x -ve, y -ve
+      suffices (-y ) ≤ (- x) by
+        grind only [= le_neg_iff_le_neg, = neg_neg']
+      apply le_of_toRat_le_toRat_of_nonneg_of_nonneg <;> (solve | grind only | simp; grind only)
+    · -- x -ve, y +ve: This is trivial.
+      have := not_le_of_neg_of_nonneg y x (by grind only) (by grind only) (by grind only) (by grind only)
+      have : x < y := by
+        apply lt_of_not_le
+        · grind only
+        · grind only [ne_of_lt]
+      apply le_of_lt
+      grind only
+  · -- x +ve
+    simp at hxsign
+    by_cases hysign : y.sign
+    · -- x +ve, y -ve: This is impossible
+
+      simp [toRat, hxsign, hysign] at hxy
+      have : 0 < x.toRatSig := by
+        grind only [→ not_isNorm_of_isNaN, → not_isSubnorm_of_isNaN,
+          toRatSig_pos_of_isNormOrNonzeroSubnorm,
+          PackedFloat.isNorm_of_not_isNaN_of_not_isInfinity_of_not_isZero_isNonzeroSubnorm,
+          → isNormOrSubnorm_of_isNorm, → isNormOrSubnorm_of_isSubnorm]
+      have : 0 < (2 : Rat) ^ x.toRatExp := by grind only [Fp.Rat.two_pow_pos]
+      have : 0 < x.toRatSig * (2 : Rat) ^ x.toRatExp := by
+        apply Rat.mul_pos
+        · grind only
+        · grind only
+      have : 0 < y.toRatSig := by grind only [→ not_isNorm_of_isNaN, → not_isSubnorm_of_isNaN,
+        toRatSig_pos_of_isNormOrNonzeroSubnorm,
+        PackedFloat.isNorm_of_not_isNaN_of_not_isInfinity_of_not_isZero_isNonzeroSubnorm,
+        → isNormOrSubnorm_of_isNorm, → isNormOrSubnorm_of_isSubnorm]
+      have : 0 < (2 : Rat) ^ y.toRatExp := by grind only [Fp.Rat.two_pow_pos]
+      grind only [→ Rat.mul_pos]
+
+    · -- x +ve, y +ve
+      apply le_of_toRat_le_toRat_of_nonneg_of_nonneg <;> grind only
+
+
+/--
+For nonnegative numbers, the ordering of the packed floats
+is consistent with the ordering of the extended rationals.
+-/
+theorem le_of_toExtRat'_le_toExtRat'_of_nonneg_of_nonneg
+    (he : 0 < e)
+    (hs : 0 < s)
+    (x y : PackedFloat e s)
+    (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN)
+    (hxzero : ¬ x.isZero) (hyzero : ¬ y.isZero)
+    (hxsign : x.sign = false) (hysign : y.sign = false)
+    (hxy : x.toExtRat' ≤ y.toExtRat') : x ≤ y := by
+  simp [toExtRat', hxnan, hynan, hxsign, hysign] at hxy
+  by_cases hxinf : x.isInfinite
+  · simp [hxinf] at hxy
+    have hxinf := x.eq_getInfinity_iff_isInfinity hs |>.mp hxinf
+    simp only [hxsign] at hxinf
+    subst hxinf
+    by_cases hyinf : y.isInfinite
+    · simp [hyinf] at hxy
+      have hyinf := y.eq_getInfinity_iff_isInfinity hs |>.mp hyinf
+      simp only [hysign] at hyinf
+      subst hyinf
+      grind only [le_refl]
+    · grind only
+  · simp [hxinf] at hxy
+    by_cases hyinf : y.isInfinite
+    · simp [hyinf] at hxy
+      have hyinf := y.eq_getInfinity_iff_isInfinity hs |>.mp hyinf
+      simp only [hysign] at hyinf
+      subst hyinf
+      simp [hs, hxnan]
+    · simp [hyinf] at hxy
+      apply le_of_toRat_le_toRat <;> grind only
+
+/--
+info: 'PackedFloat.le_of_toExtRat'_le_toExtRat'_of_nonneg_of_nonneg' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+-/
+#guard_msgs in #print axioms le_of_toExtRat'_le_toExtRat'_of_nonneg_of_nonneg
+
+/--
+Packed floats that are negative are less than or equal to packed floats that are nonnegative.
+-/
+theorem toRat_le_toRat_of_neg_of_nonneg
+    (x y : PackedFloat e s) (hxsign : x.sign = true) (hysign : y.sign = false) :
+    x.toRat ≤ y.toRat := by
+  simp [PackedFloat.toRat, hxsign, hysign]
+  have : 0 ≤ x.toRatSig := by grind only [nonneg_toRatSig]
+  have : 0 ≤ (2 : Rat) ^ x.toRatExp := by grind only [Rat.le_of_lt, Fp.Rat.two_pow_pos]
+  have : 0 ≤ y.toRatSig := by grind only [nonneg_toRatSig]
+  have : 0 ≤ (2 : Rat) ^ y.toRatExp := by grind only [Rat.le_of_lt, Fp.Rat.two_pow_pos]
+  have : 0 ≤ y.toRatSig * (2 : Rat) ^ y.toRatExp := by
+    apply Rat.mul_nonneg
+    · grind only
+    · grind only
+  have : 0 ≤ x.toRatSig * (2 : Rat) ^ x.toRatExp := by
+    apply Rat.mul_nonneg
+    · grind only
+    · grind only
+  grind only
+
+
+theorem toExtRat'_le_toExtRat'_of_neg_of_nonneg (x y : PackedFloat e s)
+    (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN)
+    (hxsign : x.sign = true) (hysign : y.sign = false) :
+    x.toExtRat' ≤ y.toExtRat' := by
+  simp [toExtRat', hxnan  , hynan, hxsign, hysign]
+  by_cases hxinf : x.isInfinite
+  · simp only [Bool.not_eq_true] at hxnan
+    simp only [hxinf,  cond_true, ExtRat.ExtRat.inf_true_le_iff, ne_eq, decide_not, Bool.not_eq_eq_eq_not,
+      Bool.not_true, decide_eq_false_iff_not]
+    by_cases hyinf : y.isInfinite
+    · simp [hyinf]
+    · simp [hyinf]
+  · simp only [Bool.not_eq_true] at hxnan
+    simp [hxinf]
+    by_cases hyinf : y.isInfinite
+    · simp only [Bool.not_eq_true] at hynan
+      simp [hyinf]
+    · simp only [Bool.not_eq_true] at hynan
+      simp only [hyinf, decide_eq_true_eq,
+        cond_false, ExtRat.ExtRat.num_le_num_iff]
+      apply PackedFloat.toRat_le_toRat_of_neg_of_nonneg
+      · grind only
+      · grind only
+
+/--
+For nonnegative numbers, the ordering of the packed floats
+is consistent with the ordering of the extended rationals.
+We disallow zero as we could have `x=+0`, `y=-0`.
+The rational numbers will give `x:0 ≤ y:0`, but the
+packed floats will give `x:0 ≤ y:0` is false, since `+0 ≤ -0` is false.
+-/
+theorem le_of_toExtRat'_le_toExtRat'
+    (he : 0 < e)
+    (hs : 0 < s) (x y : PackedFloat e s)
+    (hx : ¬ x.isNaN) (hy : ¬ y.isNaN)
+    -- x:+-0 ≤ -0 => x = -0
+    (hzeroy : y.isZero → x.isZero → y.sign = true → x.sign = true)
+    -- x:+0 ≤ y:+-0 => y = +0
+    (hzerox : y.isZero → x.isZero → x.sign = false → y.sign = false)
+    (hxy : x.toExtRat' ≤ y.toExtRat') : x ≤ y := by
+  by_cases hxzero : x.isZero
+  · simp [hxzero] at hxy
+    by_cases hy : y.isZero
+    · simp [hy] at hxy
+      grind only [not_eq_of_not_le, → not_isInfinite_of_isNaN, → eq_mkZero_of_isZero,
+        eq_getInfinity_iff_isInfinity, !toExtRat'_getInfinity, !isInfinite_getInfinity,
+        = toExtRat'_eq_Infinity_of_isInfinite, = sign_getZero, eq_mkZero_of_isZero',
+        getZero_le_of_nonneg, #d3f8, #f757]
+    · grind only [le_of_lt, isZero_lt_of_nonneg_of_not_isZero]
+  · by_cases hyzero : y.isZero
+    · simp [hyzero, hxzero] at hxy
+      grind only [→ eq_mkZero_of_isZero, le_eq_of_sign_eq_false_of_sign_eq_false,
+        le_eq_of_sign_eq_true_of_sign_eq_true, le_of_nonneg_of_neg, ex_eq_of_isZero,
+        = BitVec.toNat_zero, = sig_getZero, = BitVec.ofNat_eq_ofNat, #d3f8, #2af0]
+    · by_cases hxsign : x.sign
+      · -- x -ve
+        by_cases hysign : y.sign
+        · -- -ve
+          suffices - y ≤ - x by
+            grind only [= le_neg_iff_le_neg, = neg_neg']
+          apply le_of_toExtRat'_le_toExtRat'_of_nonneg_of_nonneg
+          · grind only
+          · grind only
+          · simp; grind only
+          · simp; grind only
+          · simp; grind only
+          · simp; grind only
+          · simp; grind only
+          · simp; grind only
+          · simp; grind only [= ExtRat.neg_le_iff_neg_le, = ExtRat.neg_neg]
+        · -- +ve
+          grind only [le_of_nonneg_of_neg]
+      · -- x +ve
+        by_cases hysign : y.sign
+        · -- y -ve
+          simp only [Bool.not_eq_true] at hx hxsign
+          have := toExtRat'_le_toExtRat'_of_neg_of_nonneg  y x
+            (by grind only) (by grind only) (by grind only) (by grind only)
+          have : x.toExtRat' = y.toExtRat' := by grind only
+          have : x = y := by
+            apply eq_of_toExtRat'_eq
+            · grind only
+            · grind only
+            · grind only
+            · grind only
+            · grind only
+          subst this
+          simp
+        · apply le_of_toExtRat'_le_toExtRat'_of_nonneg_of_nonneg
+          · grind only
+          · grind only
+          · grind only
+          · grind only
+          · grind only
+          · grind only
+          · grind only
+          · grind only
+          · grind only
+
+/--
+info: 'PackedFloat.le_of_toExtRat'_le_toExtRat'' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms le_of_toExtRat'_le_toExtRat'
+
+theorem lt_of_toExtRat'_lt_toExtRat' (he : 0 < e) (hs : 0 < s) (x y : PackedFloat e s)
+    (hx : ¬ x.isNaN) (hy : ¬ y.isNaN)
+    -- x:+-0 ≤ -0 => x = -0
+    (hzeroy : y.isZero → x.isZero → y.sign = true → x.sign = true)
+    -- x:+0 ≤ y:+-0 => y = +0
+    (hzerox : y.isZero → x.isZero → x.sign = false → y.sign = false)
+    (hxy : x.toExtRat' < y.toExtRat') : x < y := by
+  apply lt_of_le_of_ne
+  · apply le_of_toExtRat'_le_toExtRat' <;> grind only [ExtRat.le_of_lt]
+  · apply Classical.byContradiction
+    intros hcontra
+    simp only [ne_eq, Decidable.not_not] at hcontra
+    subst hcontra
+    grind only [ExtRat.ne_of_lt]
+
+
+/--
+Key theorem, says that for non-NaN packed floats, the ordering of the packed floats is consistent with the ordering of the extended rationals.
+-/
+theorem lt_iff_toExtRat'_lt_toExtRat'_of_not_isZero_or_not_isZero
+    (he : 0 < e) (hs : 0 < s) (x y : PackedFloat e s)
+    (hx : ¬ x.isNaN) (hy : ¬ y.isNaN)
+    -- x:+-0 ≤ -0 => x = -0
+    (hzero : ¬ x.isZero ∨ ¬ y.isZero) :
+    x < y ↔ x.toExtRat' < y.toExtRat' := by
+  constructor
+  · intros hxy
+    by_cases hxzero : x.isZero
+    · by_cases hyzero : y.isZero
+      · simp [hxzero, hyzero]
+        grind only
+      · simp [hxzero] at hzero
+        simp [hxzero]
+        simp [hzero]
+        grind only [=> not_isNaN_iff_ex_ne_or_sig_ne, not_eq_of_not_le, ne_of_lt,
+          PackedFloat.not_lt_of_nonneg_of_neg, → eq_mkZero_of_isZero, le_of_lt,
+          le_antisymm_of_ne_NaN, le_eq_of_sign_eq_true_of_sign_eq_true, ex_eq_of_isZero,
+          = zero_ne_allOnes_eq_decide, BitVec.toNat_inj, = BitVec.toNat_zero, = sig_getZero,
+          = BitVec.ofNat_eq_ofNat, #f757, #ec28, #b00e, #9276, #e5e2]
+    · by_cases hyzero : y.isZero
+      · simp [hyzero]
+        grind only [not_eq_of_not_le, ne_of_lt, le_of_lt, le_antisymm_of_ne_NaN,
+          isZero_lt_of_nonneg_of_not_isZero]
+      · apply toExtRat'_lt_toExtRat'_of_lt <;> grind only
+  · intros hlt
+    apply lt_of_toExtRat'_lt_toExtRat'
+    · grind only
+    · grind only
+    · grind only
+    · grind only
+    · grind only
+    · grind only
+    · grind only
+
+/--
+info: 'PackedFloat.lt_iff_toExtRat'_lt_toExtRat'_of_not_isZero_or_not_isZero' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+-/
+#guard_msgs in #print axioms lt_iff_toExtRat'_lt_toExtRat'_of_not_isZero_or_not_isZero
 
 end PackedFloat

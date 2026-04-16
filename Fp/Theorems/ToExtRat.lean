@@ -58,4 +58,59 @@ theorem toExtRat_eq_toExtRat' {pf : PackedFloat e s}
   · grind only [→ not_isNorm_of_isZero]
   · grind only [→ not_isNorm_of_isZero]
 
+@[simp]
+theorem toExtRat_minSubnormal_eq (e s : Nat) (he : 1 < e) (hs : 0 < s):
+    (PackedFloat.minSubnormalNumber e s false).toRat =
+    (2 : Rat) ^ (minNormalExp e - s)  := by -- I should NOT need a + 1?
+  rw [toRat]
+  simp [sign_minSubnormalNumber]
+  simp [toRatExp]
+  simp [toRatSig]
+  have := isNonzeroSubnorm_minSubnormalNumber_eq_decide e s false
+  have : (minSubnormalNumber e s false).isNorm = false := by grind only [→ not_isNorm_of_isSubnorm]
+  simp [this]
+  rw [show 1 % (2 ^ s) = 1 by grind only [= Nat.mod_eq_of_lt, !Nat.two_pow_pos,
+    usr Nat.div_pow_of_pos]]
+  simp only [Rat.natCast_ofNat]
+  rw[Rat.one_div_zpow_natCast_eq_zpow_neg]
+  rw [Rat.zpow_mul_zpow]
+  · congr 1
+    simp [minNormalExp]
+    norm_cast
+    generalize hb : - (((bias e - 1 ) : Nat) : Int) = b
+    rw [Int.sub_eq_add_neg]
+    grind only
+  · decide
+
+@[simp]
+theorem toExtRat_maxSubnormal_eq (e s : Nat) (he : 1 < e) (hs : 0 < s):
+    (PackedFloat.maxSubnormalNumber e s false).toRat =
+    (2 : Rat) ^ (minNormalExp e - s) * ((2 : Rat) ^ s - 1) := by
+  rw [toRat]
+  simp [sign_maxSubnormalNumber]
+  simp [toRatExp]
+  simp [toRatSig]
+  have := isNonzeroSubnorm_maxSubnormalNumber_eq_decide e s false
+  have : (maxSubnormalNumber e s false).isNorm = false := by grind only [→ not_isNorm_of_isSubnorm]
+  simp only [this]
+  simp only [Bool.false_eq_true, ↓reduceIte]
+  rw [Rat.div_def]
+  simp only [Rat.inv_zpow_natCast_eq_zpow_neg]
+  rw [Rat.mul_assoc]
+  have h1 : (((2 ^ s - 1) : Nat) : Rat) = (2 : Rat) ^ s - 1 := by
+    have : 0 < 2 ^ s := by grind only [!Nat.two_pow_pos]
+    rw [Rat.natCast_sub_of_le (by grind only)]
+    grind only
+  -- ⊢ ↑(2 ^ s - 1) * (2 ^ (-↑s) * 2 ^ (-↑(bias e - 1))) = 2 ^ (minNormalExp e - ↑s) * (2 ^ s - 1)
+  have h2 : (2 : Rat) ^ (- (s : Int)) * (2 : Rat) ^ (- (((bias e - 1) : Nat) : Int)) =
+    (2 : Rat) ^ (minNormalExp e - s) := by
+    rw [Rat.zpow_mul_zpow]
+    · apply congrArg
+      simp [minNormalExp]
+      grind only
+    · grind only
+  grind only
+
+
+
 end PackedFloat

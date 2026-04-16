@@ -600,6 +600,26 @@ theorem sig_getZero (exWidth sigWidth : Nat) (sign : Bool) :
 theorem ex_getZero (exWidth sigWidth : Nat) (sign : Bool) :
     (PackedFloat.getZero exWidth sigWidth sign).ex = 0 := rfl
 
+
+@[bv_normalize]
+def minNormalNumber (exWidth sigWidth : Nat) (sign : Bool)
+  : PackedFloat exWidth sigWidth where
+  sign
+  ex := 1
+  sig := 0
+
+@[simp]
+theorem sign_minNormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.minNormalNumber exWidth sigWidth sign).sign = sign := rfl
+
+@[simp]
+theorem sig_minNormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.minNormalNumber exWidth sigWidth sign).sig = 0 := rfl
+
+@[simp]
+theorem ex_minNormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.minNormalNumber exWidth sigWidth sign).ex = 1 := rfl
+
 /--
 Returns the maximum (magnitude) value for the given sign.
 -/
@@ -607,7 +627,7 @@ Returns the maximum (magnitude) value for the given sign.
 def maxNormalNumber (exWidth sigWidth : Nat) (sign : Bool)
   : PackedFloat exWidth sigWidth where
   sign
-  ex := BitVec.intMax exWidth - 1
+  ex := BitVec.allOnes exWidth - 1
   sig := BitVec.allOnes sigWidth
 
 @[simp]
@@ -620,7 +640,7 @@ theorem sig_maxNormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
 
 @[simp]
 theorem ex_maxNormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
-    (PackedFloat.maxNormalNumber exWidth sigWidth sign).ex = BitVec.intMax exWidth - 1 := rfl
+    (PackedFloat.maxNormalNumber exWidth sigWidth sign).ex = BitVec.allOnes exWidth - 1 := rfl
 
 -- TODO: write toRat_getMax
 
@@ -647,7 +667,25 @@ theorem ex_minSubnormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
     (PackedFloat.minSubnormalNumber exWidth sigWidth sign).ex =
     BitVec.ofInt exWidth 0 := rfl
 
--- TODO: write toRat_minSubnormalNumber
+@[bv_normalize]
+def maxSubnormalNumber (exWidth sigWidth : Nat) (sign : Bool)
+  : PackedFloat exWidth sigWidth where
+  sign
+  ex := BitVec.ofInt exWidth 0
+  sig := BitVec.allOnes sigWidth
+
+@[simp]
+theorem sign_maxSubnormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.maxSubnormalNumber exWidth sigWidth sign).sign = sign := rfl
+
+@[simp]
+theorem sig_maxSubnormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.maxSubnormalNumber exWidth sigWidth sign).sig = BitVec.allOnes sigWidth := rfl
+
+@[simp]
+theorem ex_maxSubnormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.maxSubnormalNumber exWidth sigWidth sign).ex =
+    BitVec.ofInt exWidth 0 := rfl
 
 @[bv_normalize]
 theorem injEq (a b : PackedFloat e s)
@@ -666,28 +704,6 @@ def isNaN (pf : PackedFloat e s) : Bool :=
   -- Prioritize `NaN` over `Infinity`.
   pf.ex == .allOnes e && (s == 0 || pf.sig != .zero s)
 
-@[grind .]
-private theorem BitVec.eq_allOnes_iff_toNat_eq (x : BitVec w) :
-    x = .allOnes w ↔ x.toNat = 2 ^ w - 1 := by
-  constructor
-  · intros h
-    subst h
-    simp
-  · intros h
-    apply BitVec.toNat_inj.mp
-    simp [h]
-
-
-@[grind .]
-private theorem BitVec.eq_zero_iff_toNat_eq (x : BitVec w) :
-    x = .zero w ↔ x.toNat = 0 := by
-  constructor
-  · intros h
-    subst h
-    simp
-  · intros h
-    apply BitVec.toNat_inj.mp
-    simp [h]
 
 @[grind =>]
 theorem isNaN_iff_ex_eq_sig_eq (pf : PackedFloat e s) (hs : 0 < s) :
@@ -716,10 +732,37 @@ theorem eq_mkInfinity_of_isInfinite {pf : PackedFloat e s} :
   simp_all
 
 
+-- TODO: delete the 'e=0' case, since a lot of the basic theory
+-- just breaks down.
 @[bv_normalize]
 def isZero (pf : PackedFloat e s) : Bool :=
   -- Prioritize `0` over `Subnormals`.
   e != 0 && pf.ex == .zero e && pf.sig == .zero s
+
+@[simp, grind .]
+theorem ex_eq_of_isZero {pf : PackedFloat e s} (h : pf.isZero) :
+    pf.ex = 0#e := by
+  simp [isZero] at h
+  simp [h]
+
+@[simp]
+theorem sig_eq_zero_if_isZero {pf : PackedFloat e s} (h : pf.isZero) :
+    pf.sig = 0#s := by
+  simp [isZero] at h
+  simp [h]
+
+/--
+A packed float is zero iff the exponent and significand are zero.
+-/
+theorem isZero_iff_ex_eq_zero_and_sig_eq_zero {pf : PackedFloat e s} (he : 0 < e) :
+    pf.isZero ↔ (pf.ex = 0#e ∧ pf.sig = 0#s) := by
+  constructor
+  · intro h
+    simp only [isZero, BitVec.zero_eq, Bool.and_eq_true, bne_iff_ne, ne_eq, beq_iff_eq] at h
+    simp [h]
+  · intro h
+    simp [isZero]
+    grind only
 
 @[simp, grind →]
 theorem eq_mkZero_of_isZero {pf : PackedFloat e s} :
@@ -749,6 +792,7 @@ theorem eq_mkZero_of_isZero' {pf : PackedFloat e s} {sign : Bool} (he : 0 < e):
   · intros h
     rw [h]
     simp [he]
+
 @[simp, grind =]
 theorem zero_eq_allOnes_eq_decide (e : Nat) :
     (0#e = BitVec.allOnes e) = decide (e = 0) := by
@@ -780,13 +824,19 @@ theorem isZero_getInfinity {exWidth sigWidth : Nat} (sign : Bool) :
 def isNonzeroSubnorm (pf : PackedFloat e s) : Bool :=
   e != 0 && pf.ex == .zero e && pf.sig != .zero s
 
-@[simp]
+@[simp, grind .]
 theorem exp_eq_of_isNonzeroSubnorm {pf : PackedFloat e s}
     (h : pf.isNonzeroSubnorm := by solve | simp | grind) :
     pf.ex = 0#e := by
   simp [isNonzeroSubnorm] at h
   simp [h]
 
+@[simp, grind .]
+theorem toNat_ex_eq_of_isNonzeroSubnorm {pf : PackedFloat e s}
+    (h : pf.isNonzeroSubnorm := by solve | simp | grind) :
+    pf.ex.toNat = 0 := by
+  simp [isNonzeroSubnorm] at h
+  simp [h]
 
 
 -- See that this means that it is a number.
@@ -1151,7 +1201,7 @@ theorem neg_def {x : PackedFloat e s} : -x = PackedFloat.neg x := rfl
 
 @[simp]
 theorem neg_neg (x : PackedFloat e s) : -(-x) = x := by
-  simp [neg_def, neg, PackedFloat.ext_iff]
+  simp only [neg_def, neg, Bool.not_not]
 
 @[simp]
 theorem neg_sign (x : PackedFloat e s) : (-x).sign = !x.sign := rfl
@@ -1183,7 +1233,7 @@ theorem abs_abs (x : PackedFloat e s) : x.abs.abs = x.abs := rfl
 
 @[simp]
 theorem abs_neg (x : PackedFloat e s) : (-x).abs = x.abs := by
-  simp [abs, neg_def, neg, PackedFloat.ext_iff]
+  simp [abs, neg_def, neg]
 
 end PackedFloat
 
@@ -1643,6 +1693,31 @@ theorem num_lt_num_iff {r1 r2 : Rat} :
   simp [lt_iff]
   grind
 
+theorem lt_of_not_le {a b : ExtRat} (ha : a ≠ .NaN) (hb : b ≠ .NaN)
+  (h : ¬ (a ≤ b)) : (b < a) := by
+  rcases a with rfl | sign | r
+  · simp at ha
+  · simp at ha
+    rcases sign with rfl | rfl
+    · simp at h
+      simp
+      grind only
+    · simp at h
+      grind only
+  · simp at ha
+    rcases b with rfl | sign' | r'
+    · simp at hb
+    · simp at hb
+      rcases sign' with rfl | rfl
+      · simp at h
+      · simp at h
+        simp
+    · simp at hb
+      simp at h
+      simp
+      grind only
+
+
 instance {a b : ExtRat }: Decidable (a < b) := by
   simp only [· < ·]
   infer_instance
@@ -1687,13 +1762,13 @@ theorem mul_NaN (x : ExtRat) : (x * .NaN) = .NaN := by
   unfold ExtRat.mul
   grind [ExtRat]
 
-@[simp]
+@[simp, grind =]
 theorem le_NaN (x : ExtRat) : ExtRat.NaN ≤ x ↔ x = ExtRat.NaN := by
   rw [← ExtRat.le_def]
   unfold ExtRat.le
   grind
 
-@[simp]
+@[simp, grind =]
 theorem NaN_le (x : ExtRat) : x ≤ ExtRat.NaN ↔ x = ExtRat.NaN := by
   rw [← ExtRat.le_def]
   unfold ExtRat.le
@@ -1996,6 +2071,9 @@ theorem neg_le_neg {x y : ExtRat} (h : x ≤ y) : -y ≤ -x :=
 def isNaN (r : ExtRat) : Bool :=
   r = .NaN
 
+@[simp]
+theorem isNaN_iff (r : ExtRat) : isNaN r = decide (r = .NaN) := by
+  simp [isNaN]
 @[simp] theorem isNaN_NaN : isNaN ExtRat.NaN = true := rfl
 @[simp] theorem isNaN_infinity (s : Bool) : isNaN (.Infinity s) = false := rfl
 @[simp] theorem isNaN_number (r : Rat) : isNaN (.Number r) = false := rfl
@@ -2134,6 +2212,14 @@ theorem ne_of_lt {a b : PackedFloat e s} (h : a < b) : ¬ (a = b) := by
   simp [← lt_def, lt] at h
   grind only
 
+@[grind ., simp]
+theorem lt_of_le_of_ne (a b : PackedFloat e s) (hle : a ≤ b) (hne : a ≠ b) :
+    a < b := by
+  simp [← lt_def, lt]
+  grind only
+
+theorem lt_iff_le_and_ne (a b : PackedFloat e s) : a < b ↔ (a ≤ b ∧ a ≠ b) := by
+  simp [← lt_def, lt]
 
 @[simp, grind .]
 theorem minus_zero_le_plus_zero {e s} (he : 0 < e) :
@@ -2150,14 +2236,6 @@ theorem plus_zero_not_le_minus_zero (he : 0 < e) :
 instance {x y : PackedFloat e s} : Decidable (x ≤ y) := by
     simp only [← PackedFloat.le_def]
     infer_instance
-
-/--
-The successor is the least *strict* upper bound.
-This is used to show that the ordering on 'PackedFloat' is a discrete ordering,
-with adjacent elements having a gap of at least '2^-s'
--/
-def IsSuccessor (p q : PackedFloat e s) : Prop :=
-  p < q ∧ (∀ (r : PackedFloat e s), p < r → q ≤ r)
 
 instance {x y : PackedFloat e s} : Decidable (x < y) := by
   simp only [← PackedFloat.lt_def, PackedFloat.lt]
@@ -2601,7 +2679,7 @@ theorem sig_ne_zero_of_isNormOrNonzeroSubnorm_of_not_isNorm {pf : PackedFloat e 
 
 attribute [grind .] Rat.natCast_eq_zero_iff
 
-@[simp, grind .]
+@[simp]
 theorem toRatSig_ne_zero_of_isNormOrNonzeroSubnorm {pf : PackedFloat e s} (h : pf.isNormOrNonzeroSubnorm) :
   pf.toRatSig ≠ 0 := by
   simp [toRatSig]
@@ -2617,6 +2695,13 @@ theorem toRatSig_ne_zero_of_isNormOrNonzeroSubnorm {pf : PackedFloat e s} (h : p
     have : (pf.sig.toNat : Rat) ≠ 0 := by
       grind only [Rat.natCast_eq_zero_iff]
     grind only [Fp.Rat.div_pos, Rat.pow_pos]
+
+@[simp, grind .]
+theorem toRatSig_pos_of_isNormOrNonzeroSubnorm {pf : PackedFloat e s} (h : pf.isNormOrNonzeroSubnorm) :
+  0 < pf.toRatSig := by
+  have : pf.toRatSig ≠ 0 := by exact toRatSig_ne_zero_of_isNormOrNonzeroSubnorm h
+  have : pf.toRatSig ≥ 0 := by exact zero_le_toRatSig pf
+  grind
 
 @[simp, grind =]
 theorem toRat_eq_Zero_of_isZero {e s} (pf : PackedFloat e s) (hp : pf.isZero) :
@@ -2913,6 +2998,106 @@ theorem le_trans
           #ca7289c2a156499b, #8f9092e537ef6258, #ef1611d882ec5869, #e781b8f11c51b17b,
           #2d6d3bcdb3a3b35c, #31dd348e5c4aee2a, #a7908cd812b01724, #f811994cd6c34475,
           #7d54ade5a8b64ca3, #b35f21abfee2096d]
+
+/--
+If `x = y = NaN`, then we can have `NaN₁ < NaN₂ `, since we have that `NaN₁ ≤ NaN₂`,
+but also that `NaN₁ ≠ NaN₂`
+-/
+theorem lt_trans (x y z : PackedFloat e s)
+  (hnan : x.isNaN = false ∨ y.isNaN = false)
+  (hxy : x < y)
+  (hyz : y < z) :
+  x < z := by
+  simp only [← PackedFloat.lt_def, PackedFloat.lt] at hxy hyz ⊢
+  have : x ≤ z := by grind only [le_trans]
+  simp [this]
+  intros hcontra
+  subst hcontra
+  rcases hnan with hnan | hnan
+  · grind only [le_iff_eq_of_isNaN, le_antisymm_of_ne_NaN]
+  · grind only [le_iff_eq_of_isNaN, le_antisymm_of_ne_NaN]
+
+/--
+If `x = NaN₁` `y = NaN₂`, the we have that `x ≤ y` and `y ≤ x` since all NaNs
+are comparable, but this does not imply that `x = y`.
+-/
+theorem eq_of_le_of_le_of_not_isNaN (x y : PackedFloat e s)
+  (hxy : x ≤ y) (hyx : y ≤ x) (hnan : x.isNaN = false ∨ y.isNaN = false) :
+  x = y := by grind only [le_iff_eq_of_isNaN, le_antisymm_of_ne_NaN, #cc201580b0d91919]
+
+@[simp, grind =]
+theorem lt_iff_ne_of_isNaN_of_isNaN (x y : PackedFloat e s)
+    (hx : x.isNaN) (hy : y.isNaN) : (x < y) ↔ x ≠ y := by
+  rw [lt_iff_le_and_ne]
+  simp [hx, hy]
+
+@[simp, grind =]
+theorem lt_iff_ne_and_isNaN_of_isNaN (x y : PackedFloat e s)
+    (hx : x.isNaN) : (x < y) ↔ (y.isNaN = true ∧ x ≠ y) := by
+  rw [lt_iff_le_and_ne]
+  simp [hx]
+
+@[simp, grind =]
+theorem lt_iff_ne_and_isNaN_of_isNaN' (x y : PackedFloat e s)
+    (hx : y.isNaN) : (x < y) ↔ (x.isNaN = true ∧ x ≠ y) := by
+  rw [lt_iff_le_and_ne]
+  simp [hx]
+
+theorem lt_of_le_of_lt_of_not_isNaN (x y z : PackedFloat e s)
+    (hnan : ¬ x.isNaN ∨ ¬ y.isNaN ∨ ¬ z.isNaN)
+    (hxy : x ≤ y) (hyz : y < z) : x < z := by
+  apply lt_of_le_of_ne
+  · apply le_trans (y := y)
+    · grind only
+    · grind only [le_of_lt]
+  · intros hcontra
+    subst hcontra
+    have : y ≤ x := by grind only [le_of_lt]
+    have : x = y := by grind only [le_iff_eq_of_isNaN, le_antisymm_of_ne_NaN]
+    subst this
+    grind only [ne_of_lt]
+
+theorem lt_of_lt_of_le_of_not_isNaN (x y z : PackedFloat e s)
+    (hnan : ¬ x.isNaN ∨ ¬ y.isNaN ∨ ¬ z.isNaN)
+    (hxy : x < y) (hyz : y ≤ z) : x < z := by
+  apply lt_of_le_of_ne
+  · apply le_trans (y := y)
+    · grind only [le_of_lt]
+    · grind only
+  · intros hcontra
+    subst hcontra
+    have : x ≤ y := by grind only [le_of_lt]
+    have : x = y := by grind only [le_iff_eq_of_isNaN, le_antisymm_of_ne_NaN]
+    subst this
+    grind only [ne_of_lt]
+
+/--
+Both amongst NaNs and amongst regular numbers, the ordering is total,
+but not across these domains.
+-/
+theorem le_total_of_isNaN_eq_isNaN (x y : PackedFloat e s) (hnan : x.isNaN = y.isNaN)
+    : x ≤ y ∨ y ≤ x := by
+  simp [← le_def, le]
+  by_cases hxnan : x.isNaN
+  · simp [hxnan]
+    simp [hxnan] at hnan
+    grind only
+  · simp [hxnan]
+    have : y.isNaN = false := by grind only
+    simp [this]
+    grind only [BitVec.toNat_inj]
+
+/--
+floats are totally ordered amongst NaNs and regular numbers.
+-/
+theorem lt_trichotomy_of_isNaN_eq_isNaN (x y : PackedFloat e s)
+    (hnan : x.isNaN = y.isNaN) :
+    x < y ∨ x = y ∨ y < x := by
+  by_cases heq : x = y
+  · simp [heq]
+  · simp [heq]
+    have hle := le_total_of_isNaN_eq_isNaN x y hnan
+    grind only [lt_of_le_of_ne]
 
 /--
 If the numbers are notNaN, then 'x ≤ y' if the x is negative and y is positive.
@@ -3983,6 +4168,11 @@ theorem PackedFloat.lt_zero_toExtRat'_iff (x : PackedFloat e s) :
       · simp [hxZero]
       · simp [hxZero]
         grind
+/--
+info: 'PackedFloat.PackedFloat.lt_zero_toExtRat'_iff' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms PackedFloat.lt_zero_toExtRat'_iff
+
 
 @[simp]
 theorem PackedFloat.zero_lt_toExtRat'_iff (x : PackedFloat e s) :
@@ -4013,24 +4203,21 @@ theorem eq_getInfinity_iff_toExtRat'_eq_Infinity (x : PackedFloat e s)
     !toExtRat'_getInfinity, !isInfinite_getInfinity, eq_getInfinity_iff_isInfinity,
     = isNaN_iff_toExtRat'_eq_NaN, = isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero, #8ef6]
 
-@[simp]
+@[simp, grind .]
 theorem isNorm_maxNormalNumber_eq_decide
     (exWidth sigWidth : Nat) (sign : Bool) :
     (PackedFloat.maxNormalNumber exWidth sigWidth sign).isNorm =
-    decide (2 < exWidth) := by
+    decide (1 < exWidth) := by
   simp [PackedFloat.maxNormalNumber, isNorm]
-  rcases exWidth with rfl | rfl | rfl | exWidth
-  · simp; grind only
-  · simp; grind only
-  · simp [BitVec.intMax, BitVec.twoPow]
-  · simp only [Nat.lt_add_left_iff_pos, Nat.zero_lt_succ, decide_true, Bool.and_eq_true,
-    bne_iff_ne, ne_eq]
+  rcases exWidth with rfl | rfl  | exWidth
+  · simp
+  · simp
+  · simp
     constructor
     · intros hcontra
       have := BitVec.toInt_inj.mpr hcontra
-      simp only [BitVec.toInt_sub, BitVec.toInt_intMax, Nat.add_one_sub_one,
-        Nat.lt_add_left_iff_pos, Nat.zero_lt_succ, BitVec.toInt_one_of_lt, BitVec.toInt_allOnes,
-        ↓reduceIte, Int.reduceNeg] at this
+      simp only [BitVec.toInt_sub, BitVec.toInt_allOnes, Nat.lt_add_left_iff_pos, Nat.zero_lt_succ,
+        ↓reduceIte, Int.reduceNeg, BitVec.toInt_one_of_lt, Int.reduceSub] at this
       rw [Int.bmod_eq_of_le] at this
       · have : 4 ≤ 2 ^ (exWidth + 2) := by grind only
         grind only
@@ -4039,9 +4226,8 @@ theorem isNorm_maxNormalNumber_eq_decide
       · grind only
     · intros hcontra
       have := BitVec.toInt_inj.mpr hcontra
-      simp only [BitVec.toInt_sub, BitVec.toInt_intMax, Nat.add_one_sub_one,
-        Nat.lt_add_left_iff_pos, Nat.zero_lt_succ, BitVec.toInt_one_of_lt,
-        BitVec.toInt_zero] at this
+      simp only [BitVec.toInt_sub, BitVec.toInt_allOnes, Nat.lt_add_left_iff_pos, Nat.zero_lt_succ,
+        ↓reduceIte, Int.reduceNeg, BitVec.toInt_one_of_lt, Int.reduceSub, BitVec.toInt_zero] at this
       rw [Int.bmod_eq_of_le] at this
       · have : 4 ≤ 2 ^ (exWidth + 2) := by grind only
         grind only
@@ -4049,6 +4235,50 @@ theorem isNorm_maxNormalNumber_eq_decide
         grind only
       · grind only
 
+@[simp]
+theorem isNorm_minNormalNumber (e s : Nat) (he : 1 < e) (sign : Bool) :
+    (PackedFloat.minNormalNumber e s sign).isNorm = true := by
+  simp [PackedFloat.minNormalNumber, isNorm]
+  constructor
+  · apply BitVec.toNat_ne_iff_ne.mp
+    simp
+    rw [Nat.mod_eq_of_lt (by grind)]
+    have : 2^2 ≤ 2 ^ e := by
+      exact Fp.Nat.two_pow_le_two_pow_of_le he
+    grind only
+  · grind only
+
+@[simp]
+theorem toRatSig_minNormalNumber (e s : Nat) (he : 1 < e) (sign : Bool) :
+    (PackedFloat.minNormalNumber e s sign).toRatSig = 1 := by
+  rw [toRatSig]
+  simp [isNorm_minNormalNumber, he]
+  grind only
+
+@[simp]
+theorem toRatExp_minNormalNumber (e s : Nat) (he : 1 < e) (sign : Bool) :
+    (PackedFloat.minNormalNumber e s sign).toRatExp = minNormalExp e := by
+  rw [toRatExp]
+  simp [isNorm_minNormalNumber, he]
+  norm_cast
+  rw [Nat.mod_eq_of_lt (by grind)]
+  rw [minNormalExp]
+  have : 0 < bias e := by exact bias_pos_of_one_lt e he
+  grind only
+
+
+@[simp]
+theorem toRatSig_maxNormalNumber (e s : Nat) (he : 2 < e) (sign : Bool) :
+    (PackedFloat.maxNormalNumber e s sign).toRatSig = 2 - 2 ^ (- (s : Int)) := by
+  rw [toRatSig]
+  simp [isNorm_maxNormalNumber_eq_decide]
+  have : 0 < 2 ^ s := by grind only [!Nat.two_pow_pos]
+  rw [Rat.natCast_sub_of_le (by grind only)]
+  simp
+  rw [Rat.sub_div_eq_div_sub_div]
+  rw [Rat.div_self_eq_one_of_ne_zero (by grind only [Rat.two_pow_nat_ne_zero])]
+  rw [Rat.one_div_zpow_natCast_eq_zpow_neg]
+  grind only
 
 @[simp]
 theorem BitVec.ofInt_eq_zero_iff_of_width_1 :
@@ -4064,22 +4294,54 @@ theorem BitVec.ofInt_eq_zero_iff_of_width_1 :
     simp
     grind only [#8803]
 
-@[simp]
-theorem isNonzeroSubnorm_minSubnormalNumber_eq_of_lt
-    (exWidth sigWidth : Nat) (sign : Bool)
-    (he : 1 < exWidth) (hs : 0 < sigWidth) :
+@[simp, grind .]
+theorem isNonzeroSubnorm_minSubnormalNumber_eq_decide
+    (exWidth sigWidth : Nat) (sign : Bool) :
     (PackedFloat.minSubnormalNumber exWidth sigWidth sign).isNonzeroSubnorm =
-    true := by
+    (decide (0 < exWidth) && decide (0 < sigWidth)) := by
   simp [PackedFloat.minSubnormalNumber, isNonzeroSubnorm]
-  simp [show ¬ sigWidth = 0 by grind only]
-  simp [show ¬ exWidth = 0 by grind only]
+  rcases exWidth with rfl | rfl | exWidth
+  · simp
+  · simp
+    rcases sigWidth with rfl | sigWidth
+    · simp
+    · simp
+  · simp
+    rcases sigWidth with rfl | sigWidth
+    · simp
+    · simp
 
--- TODO: show that
---    PackedFloat.minSubnormalNumber.toRat =
---    UnpackedFloat.minSubnormalNumber.toRat
--- TODO: show that
---    PackedFloat.maxNormalNumber.toRat =
---    UnpackedFloat.maxNormalNumber.toRat
+@[simp, grind .]
+theorem isNonzeroSubnorm_maxSubnormalNumber_eq_decide
+    (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.maxSubnormalNumber exWidth sigWidth sign).isNonzeroSubnorm =
+    (decide (0 < exWidth) && decide (0 < sigWidth)) := by
+  simp [PackedFloat.maxSubnormalNumber, isNonzeroSubnorm]
+  rcases exWidth with rfl | rfl | exWidth
+  · simp
+  · simp
+    rcases sigWidth with rfl | sigWidth
+    · simp
+    · simp
+  · simp
+    rcases sigWidth with rfl | sigWidth
+    · simp
+    · simp
+
+@[simp, grind .]
+theorem isNorm_minNormalNumber_eq_decide
+  (exWidth sigWidth : Nat) (sign : Bool) :
+  (PackedFloat.minNormalNumber exWidth sigWidth sign).isNorm =
+  decide (1 < exWidth) := by
+  simp [PackedFloat.minNormalNumber, isNorm]
+  rcases exWidth with rfl | rfl | exWidth
+  · simp
+  · simp
+  · simp
+    intros hcontra
+    have := BitVec.toInt_inj.mpr hcontra
+    simp at this
+
 end PackedFloat
 
 namespace UnpackedFloat
@@ -4100,8 +4362,8 @@ that these are multiplicative inverses.
 theorem two_pow_mul_two_pow_neg_intCast_eq_one (z : Nat) :
   (2 : Rat) ^ z * (2 : Rat) ^ (-( z : Int)) = 1 := by
   have := two_zpow_mul_two_zpow_neg_eq_one (z := z)
-  simp at this
-  grind
+  simp at this ⊢
+  grind only
 
 -- TODO: find a more natural phrasing that
 -- this does not overflow.
@@ -4138,6 +4400,31 @@ theorem UnpackedFloat.toRat_normalize_eq {uf : UnpackedFloat e s}
     grind only [two_pow_mul_two_pow_neg_intCast_eq_one]
 
 end UnpackedFloat
+
+namespace PackedFloat
+
+/--
+Get the next packed float away from zero, i.e.
+the smallest packed float that is greater than `x` if `x` is positive,
+and the largest packed float that is smaller than `x` if `x` is negative.
+-/
+def successorAwayFromZero (x : PackedFloat e s) : PackedFloat e s :=
+  if x.isNaN
+  then x
+  else if x.isInfinite
+  then PackedFloat.getInfinity e s x.sign
+  else
+    let sig := x.sig
+    let ex := x.ex
+    if sig ≠ BitVec.allOnes _
+    then ⟨x.sign, ex, sig + 1#_⟩
+    else
+      if ex = BitVec.allOnes _
+      then PackedFloat.getInfinity e s x.sign
+      else
+        ⟨x.sign, ex + 1#_, 0#_⟩
+
+end PackedFloat
 
 -- Constants
 
