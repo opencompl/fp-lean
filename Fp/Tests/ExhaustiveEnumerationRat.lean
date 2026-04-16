@@ -137,8 +137,10 @@ Produce the results from adding all pairs of packed floats for the given exponen
 def testAdd (ein sin : Nat) : IO (UnpackedRatTestSummary ein sin) := do
   let mut results : Array (UnpackedRatTestResult ein sin) := #[]
   let enum : PackedFloatEnumeration ein sin := PackedFloatEnumeration.mk ein sin
-  for (pf1, r1) in enum.enumeration do
-    for (pf2, r2) in enum.enumeration do
+  for pf1 in enum.enumeration do
+    let r1 := pf1.toRat
+    for pf2 in enum.enumeration do
+      let r2 := pf2.toRat
       let uf1 := pf1.unpack.num
       let uf2 := pf2.unpack.num
       let produced := UnpackedFloat.add uf1 uf2
@@ -150,8 +152,10 @@ def testAdd (ein sin : Nat) : IO (UnpackedRatTestSummary ein sin) := do
 def testMul (ein sin : Nat) : IO (UnpackedRatTestSummary ein sin) := do
   let mut results : Array (UnpackedRatTestResult ein sin) := #[]
   let enum : PackedFloatEnumeration ein sin := PackedFloatEnumeration.mk ein sin
-  for (pf1, r1) in enum.enumeration do
-    for (pf2, r2) in enum.enumeration do
+  for pf1 in enum.enumeration do
+    let r1 := pf1.toRat
+    for pf2 in enum.enumeration do
+      let r2 := pf2.toRat
       let uf1 := pf1.unpack.num
       let uf2 := pf2.unpack.num
       let produced := UnpackedFloat.mul uf1 uf2
@@ -163,8 +167,10 @@ def testMul (ein sin : Nat) : IO (UnpackedRatTestSummary ein sin) := do
 def testDiv (ein sin : Nat) : IO (UnpackedRatTestSummary ein sin) := do
   let mut results : Array (UnpackedRatTestResult ein sin) := #[]
   let enum : PackedFloatEnumeration ein sin := PackedFloatEnumeration.mk ein sin
-  for (pf1, r1) in enum.enumeration do
-    for (pf2, r2) in enum.enumeration do
+  for pf1 in enum.enumeration do
+    let r1 := pf1.toRat
+    for pf2 in enum.enumeration do
+      let r2 := pf2.toRat
       if r2 == 0 then continue
       let uf1 := pf1.unpack.num
       let uf2 := pf2.unpack.num
@@ -192,7 +198,8 @@ for the given exponent and significand sizes.
 def testSqrt (ein sin : Nat) : IO (UnpackedRatTestSummary ein sin) := do
   let mut results : Array (UnpackedRatTestResult ein sin) := #[]
   let enum : PackedFloatEnumeration ein sin := PackedFloatEnumeration.mk ein sin
-  for (pf, r) in enum.enumeration do
+  for pf in enum.enumeration do
+    let r := pf.toRat
     if r ≤ 0 then continue
     let uf := pf.unpack.num
     let produced := UnpackedFloat.sqrt uf
