@@ -4173,6 +4173,11 @@ theorem PackedFloat.lt_zero_toExtRat'_iff (x : PackedFloat e s) :
       · simp [hxZero]
       · simp [hxZero]
         grind
+/--
+info: 'PackedFloat.PackedFloat.lt_zero_toExtRat'_iff' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms PackedFloat.lt_zero_toExtRat'_iff
+
 
 @[simp]
 theorem PackedFloat.zero_lt_toExtRat'_iff (x : PackedFloat e s) :
