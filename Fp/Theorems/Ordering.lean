@@ -502,6 +502,41 @@ theorem toExtRat'_le_toExtRat'_of_le (he : 0 < e) (hs : 0 < s)
   · exact toExtRat'_le_toExtRat'_of_le_of_isInfinite he hs x y hxzero hyzero hxnan hynan hxinf hxy
   · exact toExtRat'_le_toExtRat'_of_le_of_not_isInfinite he hs x y hxzero hyzero hxnan hynan hxinf hxy
 
+@[simp]
+theorem toExtRat'_lt_toExtRat'_of_lt (he : 0 < e) (hs : 0 < s)
+    (x y : PackedFloat e s)
+    (hxzero : ¬ x.isZero) (hyzero : ¬ y.isZero) (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN)
+    (hxinf : ¬ x.isInfinite) (hyinf : ¬ y.isInfinite)
+    (hxy : x < y) : x.toExtRat' < y.toExtRat' := by
+  have : x ≤ y := by grind only [le_of_lt]
+  have : x.toExtRat' ≤ y.toExtRat' := by
+    apply toExtRat'_le_toExtRat'_of_le
+    all_goals { assumption }
+  have : x.toExtRat' ≠ y.toExtRat' := by
+    intros hcontra
+    have : x.sign = y.sign := by grind only [= toExtRat'_eq_toRat_of, sig_eq_and_ex_eq_of_toRat_eq,
+      = isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero]
+    have : x.ex = y.ex := by grind only [= toExtRat'_eq_toRat_of, sig_eq_and_ex_eq_of_toRat_eq,
+      = isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero]
+    have : x.sig = y.sig := by grind only [= toExtRat'_eq_toRat_of, sig_eq_and_ex_eq_of_toRat_eq,
+      = isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero]
+    have : x = y := by
+      ext
+      · grind only
+      · grind only
+      · grind only
+    subst this
+    grind only [ne_of_lt]
+  apply ExtRat.lt_of_not_le
+  · grind only [= isNaN_iff_toExtRat'_eq_NaN]
+  · grind only [= isNaN_iff_toExtRat'_eq_NaN]
+  · grind only
+
+/--
+info: 'PackedFloat.toExtRat'_lt_toExtRat'_of_lt' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms toExtRat'_lt_toExtRat'_of_lt
+
 /--
 Two packed floats that are ordered by `≤` are ordered by `toRat`, if they are numbers.
 TODO: can we drop `isZero`?
@@ -1539,58 +1574,119 @@ theorem le_of_toExtRat'_le_toExtRat'
     (he : 0 < e)
     (hs : 0 < s) (x y : PackedFloat e s)
     (hx : ¬ x.isNaN) (hy : ¬ y.isNaN)
-    -- (hzero : y.isZero → x.isZero → y.sign = true → x.sign = true) -- if 'y = -0', then 'x = -0'.
-    (hxzero : ¬ x.isZero)
-    (hyzero : ¬ y.isZero)
+    -- x:+-0 ≤ -0 => x = -0
+    (hzeroy : y.isZero → x.isZero → y.sign = true → x.sign = true)
+    -- x:+0 ≤ y:+-0 => y = +0
+    (hzerox : y.isZero → x.isZero → x.sign = false → y.sign = false)
     (hxy : x.toExtRat' ≤ y.toExtRat') : x ≤ y := by
-  by_cases hxsign : x.sign
-  · -- x -ve
-    by_cases hysign : y.sign
-    · -- -ve
-      suffices - y ≤ - x by
-        grind only [= le_neg_iff_le_neg, = neg_neg']
-      apply le_of_toExtRat'_le_toExtRat'_of_nonneg_of_nonneg
-      · grind only
-      · grind only
-      · simp; grind only
-      · simp; grind only
-      · simp; grind only
-      · simp; grind only
-      · simp; grind only
-      · simp; grind only
-      · simp; grind only [= ExtRat.neg_le_iff_neg_le, = ExtRat.neg_neg]
-    · -- +ve
-      grind only [le_of_nonneg_of_neg]
-  · -- x +ve
-    by_cases hysign : y.sign
-    · -- y -ve
-      simp only [Bool.not_eq_true] at hx hxsign
-      have := toExtRat'_le_toExtRat'_of_neg_of_nonneg  y x
-        (by grind only) (by grind only) (by grind only) (by grind only)
-      have : x.toExtRat' = y.toExtRat' := by grind only
-      have : x = y := by
-        apply eq_of_toExtRat'_eq
-        · grind only
-        · grind only
-        · grind only
-        · grind only
-        · grind only
-      subst this
-      simp
-    · apply le_of_toExtRat'_le_toExtRat'_of_nonneg_of_nonneg
-      · grind only
-      · grind only
-      · grind only
-      · grind only
-      · grind only
-      · grind only
-      · grind only
-      · grind only
-      · grind only
+  by_cases hxzero : x.isZero
+  · simp [hxzero] at hxy
+    by_cases hy : y.isZero
+    · simp [hy] at hxy
+      grind only [not_eq_of_not_le, → not_isInfinite_of_isNaN, → eq_mkZero_of_isZero,
+        eq_getInfinity_iff_isInfinity, !toExtRat'_getInfinity, !isInfinite_getInfinity,
+        = toExtRat'_eq_Infinity_of_isInfinite, = sign_getZero, eq_mkZero_of_isZero',
+        getZero_le_of_nonneg, #d3f8, #f757]
+    · grind only [le_of_lt, isZero_lt_of_nonneg_of_not_isZero]
+  · by_cases hyzero : y.isZero
+    · simp [hyzero, hxzero] at hxy
+      grind only [→ eq_mkZero_of_isZero, le_eq_of_sign_eq_false_of_sign_eq_false,
+        le_eq_of_sign_eq_true_of_sign_eq_true, le_of_nonneg_of_neg, ex_eq_of_isZero,
+        = BitVec.toNat_zero, = sig_getZero, = BitVec.ofNat_eq_ofNat, #d3f8, #2af0]
+    · by_cases hxsign : x.sign
+      · -- x -ve
+        by_cases hysign : y.sign
+        · -- -ve
+          suffices - y ≤ - x by
+            grind only [= le_neg_iff_le_neg, = neg_neg']
+          apply le_of_toExtRat'_le_toExtRat'_of_nonneg_of_nonneg
+          · grind only
+          · grind only
+          · simp; grind only
+          · simp; grind only
+          · simp; grind only
+          · simp; grind only
+          · simp; grind only
+          · simp; grind only
+          · simp; grind only [= ExtRat.neg_le_iff_neg_le, = ExtRat.neg_neg]
+        · -- +ve
+          grind only [le_of_nonneg_of_neg]
+      · -- x +ve
+        by_cases hysign : y.sign
+        · -- y -ve
+          simp only [Bool.not_eq_true] at hx hxsign
+          have := toExtRat'_le_toExtRat'_of_neg_of_nonneg  y x
+            (by grind only) (by grind only) (by grind only) (by grind only)
+          have : x.toExtRat' = y.toExtRat' := by grind only
+          have : x = y := by
+            apply eq_of_toExtRat'_eq
+            · grind only
+            · grind only
+            · grind only
+            · grind only
+            · grind only
+          subst this
+          simp
+        · apply le_of_toExtRat'_le_toExtRat'_of_nonneg_of_nonneg
+          · grind only
+          · grind only
+          · grind only
+          · grind only
+          · grind only
+          · grind only
+          · grind only
+          · grind only
+          · grind only
 
 /--
 info: 'PackedFloat.le_of_toExtRat'_le_toExtRat'' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in #print axioms le_of_toExtRat'_le_toExtRat'
+
+theorem lt_of_toExtRat'_lt_toExtRat' (he : 0 < e) (hs : 0 < s) (x y : PackedFloat e s)
+    (hx : ¬ x.isNaN) (hy : ¬ y.isNaN)
+    -- x:+-0 ≤ -0 => x = -0
+    (hzeroy : y.isZero → x.isZero → y.sign = true → x.sign = true)
+    -- x:+0 ≤ y:+-0 => y = +0
+    (hzerox : y.isZero → x.isZero → x.sign = false → y.sign = false)
+    (hxy : x.toExtRat' < y.toExtRat') : x < y := by
+  apply lt_of_le_of_ne
+  · apply le_of_toExtRat'_le_toExtRat' <;> grind only [ExtRat.le_of_lt]
+  · apply Classical.byContradiction
+    intros hcontra
+    simp only [ne_eq, Decidable.not_not] at hcontra
+    subst hcontra
+    grind only [ExtRat.ne_of_lt]
+
+
+/--
+Key theorem, says that for non-NaN packed floats, the ordering of the packed floats is consistent with the ordering of the extended rationals.
+-/
+theorem lt_iff_toExtRat'_lt_toExtRat' (he : 0 < e) (hs : 0 < s) (x y : PackedFloat e s)
+    (hx : ¬ x.isNaN) (hy : ¬ y.isNaN)
+    -- x:+-0 ≤ -0 => x = -0
+    (hzeroy : y.isZero → x.isZero → y.sign = true → x.sign = true)
+    -- x:+0 ≤ y:+-0 => y = +0
+    (hzerox : y.isZero → x.isZero → x.sign = false → y.sign = false) :
+    x < y ↔ x.toExtRat' < y.toExtRat' := by
+  constructor
+  · intros hxy
+    apply toExtRat'_lt_toExtRat'_of_lt
+    · grind only
+    · grind only
+    · sorry
+    · sorry
+    · sorry
+    · sorry
+    · sorry
+    · sorry
+    · grind only
+  · intros hlt
+    exact lt_of_toExtRat'_lt_toExtRat' he hs x y hx hy hzeroy hzerox hlt
+
+/--
+info: 'PackedFloat.lt_iff_toExtRat'_lt_toExtRat'' depends on axioms: [propext, sorryAx, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms lt_iff_toExtRat'_lt_toExtRat'
 
 end PackedFloat
