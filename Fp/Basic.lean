@@ -1762,13 +1762,13 @@ theorem mul_NaN (x : ExtRat) : (x * .NaN) = .NaN := by
   unfold ExtRat.mul
   grind [ExtRat]
 
-@[simp]
+@[simp, grind =]
 theorem le_NaN (x : ExtRat) : ExtRat.NaN ≤ x ↔ x = ExtRat.NaN := by
   rw [← ExtRat.le_def]
   unfold ExtRat.le
   grind
 
-@[simp]
+@[simp, grind =]
 theorem NaN_le (x : ExtRat) : x ≤ ExtRat.NaN ↔ x = ExtRat.NaN := by
   rw [← ExtRat.le_def]
   unfold ExtRat.le
@@ -2071,6 +2071,9 @@ theorem neg_le_neg {x y : ExtRat} (h : x ≤ y) : -y ≤ -x :=
 def isNaN (r : ExtRat) : Bool :=
   r = .NaN
 
+@[simp]
+theorem isNaN_iff (r : ExtRat) : isNaN r = decide (r = .NaN) := by
+  simp [isNaN]
 @[simp] theorem isNaN_NaN : isNaN ExtRat.NaN = true := rfl
 @[simp] theorem isNaN_infinity (s : Bool) : isNaN (.Infinity s) = false := rfl
 @[simp] theorem isNaN_number (r : Rat) : isNaN (.Number r) = false := rfl

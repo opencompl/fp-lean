@@ -98,16 +98,6 @@ def enumerateNonNanPackedFloatList (e s : Nat) :
     grind only
   ⟩
 
--- /-- enumerate only numbers -/
--- def enumerateNumberPackedFloatArray (e s : Nat) :
---     {xs : Array (PackedFloat e s) // ∀ (x : PackedFloat e s), x ∈ xs ↔ ¬ x.isNaN ∧ ¬ x.isInfinite} :=
---   let arr := enumeratePackedFloatArray e s
---   let xs := arr.val.filter (fun pf => ¬ pf.isNaN && ¬ pf.isInfinite)
---   ⟨xs, by
---     intros x
---     simp [xs]
---     grind only [#ca5c]
---   ⟩
 
 def lowerList (e s : Nat) (r : ExtRat) (hr : r ≠ .NaN) :
     { xs : List (PackedFloat e s) // ∀ (x : PackedFloat e s), x ∈ xs ↔ (¬ x.isNaN ∧ x.toExtRat ≤ r) } :=
@@ -226,6 +216,13 @@ theorem maxFloatNonNaN_mem (xs : List (PackedFloat e s))
     case isFalse h =>
       simp
 
+theorem ExtRat.not_isNaN_of_le_of_not_isNaN (r1 r2 : ExtRat)
+  (hr1 : r1 ≤ r2) (hr2 : r2 ≠ .NaN) : r1 ≠ .NaN := by
+  intros hcontra
+  simp at hr2
+  apply hr2
+  simp [hcontra] at hr1
+  grind only
 /--
 lower is computable for all arguments.
 -/
@@ -237,6 +234,18 @@ def lower (e s : Nat) (he : 0 < e) (hs : 0 < s) (r : ExtRat) :
   if hr : r = .NaN then
     ⟨PackedFloat.getNaN e s, by
       simp [hr, hs, IsLawfulLower]⟩
+  else if h0 : r = .Number 0 then
+    ⟨PackedFloat.getZero e s false, by
+      simp [h0, hr, hs, IsLawfulLower]
+      constructor
+      · grind
+      · intros lower hnan
+        intros hlower
+        rcases hlower with hlower | hlower
+        · simp [hlower, he, hs]
+        · grind only [PackedFloat.le_of_nonneg_of_neg, !PackedFloat.toExtRat'_getZero,
+          = PackedFloat.isNaN_iff_toExtRat'_eq_NaN, = PackedFloat.sign_getZero]
+    ⟩
   else
     let arr := lowerList e s r (by simp [hr])
     let max := maxPackedFloatNonNaN arr.val (by simp; grind only [#1a7c]) he hs
@@ -257,11 +266,24 @@ def lower (e s : Nat) (he : 0 < e) (hs : 0 < s) (r : ExtRat) :
         apply PackedFloat.le_of_toExtRat'_le_toExtRat'
         · grind only
         · grind only
-        · sorry
+        · intros hcontra
+          simp [hcontra] at hlower
+          grind only
         · grind only
+        · intros hmax hlowerzero hmaxsign
+          simp [hlowerzero, hmaxsign] at hlower
+          sorry
         · sorry
-        · sorry
-        · sorry
+        · apply this
+          rw [arr.property lower]
+          simp only [Bool.not_eq_true, PackedFloat.toExtRat_eq_toExtRat']
+          constructor
+          · apply Classical.byContradiction
+            intro hcontra
+            simp at hcontra
+            simp [hcontra] at hlower
+            grind only
+          · grind only
     ⟩
 
 structure PackedFloatEnumeration (e : Nat) (s : Nat) where ofEnumeration ::
@@ -284,18 +306,20 @@ def PackedFloatEnumeration.mk (e s : Nat) : PackedFloatEnumeration e s where
     arr.qsort (fun a b => a ≤ b)
 
 def PackedFloatEnumeration.minNumber (enum : PackedFloatEnumeration e s) : PackedFloat e s × Rat :=
-  enum.enumeration[0]!
+  let num := enum.enumeration[0]!
+  (num, num.toRat)
 
 def PackedFloatEnumeration.maxNumber (enum : PackedFloatEnumeration e s) : PackedFloat e s × Rat :=
-  enum.enumeration[enum.enumeration.size - 1]!
-
+  let num := enum.enumeration[enum.enumeration.size - 1]!
+  (num, num.toRat)
 
 def PackedFloatEnumeration.greatestLowerBound (enum : PackedFloatEnumeration e s)
     (r : Rat) : Option (PackedFloat e s × Rat) := Id.run do
   let arr := enum.enumeration
   let mut glb? := none
   for hi : i in [:arr.size] do
-    let (curPf, curRat) := arr[i]
+    let curPf := arr[i]
+    let curRat := curPf.toRat
     if curRat <= r then
         -- is a lower bound
         glb? :=
@@ -315,7 +339,8 @@ def PackedFloatEnumeration.leastUpperBound (
   let arr := enum.enumeration
   let mut lub? := none
   for hi : i in [0:arr.size] do
-    let (curPf, curRat) := arr[i]
+    let curPf := arr[i]
+    let curRat := curPf.toRat
     if curRat >= r then
         -- is an upper bound
         lub? :=
