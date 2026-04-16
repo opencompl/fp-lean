@@ -2237,14 +2237,6 @@ instance {x y : PackedFloat e s} : Decidable (x ≤ y) := by
     simp only [← PackedFloat.le_def]
     infer_instance
 
-/--
-The successor is the least *strict* upper bound.
-This is used to show that the ordering on 'PackedFloat' is a discrete ordering,
-with adjacent elements having a gap of at least '2^-s'
--/
-def IsSuccessor (p q : PackedFloat e s) : Prop :=
-  p < q ∧ (∀ (r : PackedFloat e s), p < r → q ≤ r)
-
 instance {x y : PackedFloat e s} : Decidable (x < y) := by
   simp only [← PackedFloat.lt_def, PackedFloat.lt]
   infer_instance
@@ -4408,6 +4400,31 @@ theorem UnpackedFloat.toRat_normalize_eq {uf : UnpackedFloat e s}
     grind only [two_pow_mul_two_pow_neg_intCast_eq_one]
 
 end UnpackedFloat
+
+namespace PackedFloat
+
+/--
+Get the next packed float away from zero, i.e.
+the smallest packed float that is greater than `x` if `x` is positive,
+and the largest packed float that is smaller than `x` if `x` is negative.
+-/
+def successorAwayFromZero (x : PackedFloat e s) : PackedFloat e s :=
+  if x.isNaN
+  then x
+  else if x.isInfinite
+  then PackedFloat.getInfinity e s x.sign
+  else
+    let sig := x.sig
+    let ex := x.ex
+    if sig ≠ BitVec.allOnes _
+    then ⟨x.sign, ex, sig + 1#_⟩
+    else
+      if ex = BitVec.allOnes _
+      then PackedFloat.getInfinity e s x.sign
+      else
+        ⟨x.sign, ex + 1#_, 0#_⟩
+
+end PackedFloat
 
 -- Constants
 
