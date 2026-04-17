@@ -376,7 +376,7 @@ theorem toNat_successorAwayFromZero_exp_eq_lt_or_toNat_successorAwayFromZero_sig
     (he : 1 < e)
     (hxnan : ¬ x.isNaN)
     (hxinf : ¬ x.isInfinite) :
-    (x.ex.toNat + 1 = (successorAwayFromZero x).ex.toNat ∧ x.sig = BitVec.allOnes s) ∨
+    ((successorAwayFromZero x).ex.toNat = x.ex.toNat + 1 ∧ x.sig = BitVec.allOnes s ∧ (successorAwayFromZero x).sig.toNat = 0) ∨
       ((successorAwayFromZero x).ex.toNat = x.ex.toNat ∧ (x.sig.toNat + 1 = (successorAwayFromZero x).sig.toNat)) := by
   simp only [successorAwayFromZero, ne_eq, ite_not]
   simp only [hxnan, Bool.false_eq_true, ↓reduceIte, hxinf]
@@ -568,8 +568,7 @@ theorem lt_iff_le_successorAwayFromZero (he : 1 < e) (hs : 0 < s)
     (hxsign : x.sign = false) (hysign : y.sign = false)
     (hxnan : ¬ x.isNaN)
     (hynan : ¬ y.isNaN)
-    (hxinf : ¬ x.isInfinite)
-    (hyinf : ¬ y.isInfinite) :
+    (hxinf : ¬ x.isInfinite) :
     (x < y) ↔ x.successorAwayFromZero ≤ y := by
   constructor
   · intros hx
@@ -584,9 +583,17 @@ theorem lt_iff_le_successorAwayFromZero (he : 1 < e) (hs : 0 < s)
     have hxsucc := toNat_successorAwayFromZero_exp_eq_lt_or_toNat_successorAwayFromZero_sig_lt
       (x := x) (he := he) (hxnan := hxnan) (hxinf := hxinf)
     apply le_of_ex_le_ex_or_sig_le_sig_of_nonneg_of_nonneg .. |>.mpr
-    · rcases hxsucc with hxsucc | hxsucc
-      · sorry -- TODO
-      · sorry -- TODO
+    · rcases hxlt with hxlt | hxlt
+      · rcases hxsucc with ⟨hxsuccex, hxsuccsig⟩ | ⟨hxsuccex, hxsuccsig⟩
+        · grind only
+        · grind only
+      · rcases hxsucc with ⟨hxsuccex, hxsuccsig⟩ | ⟨hxsuccex, hxsuccsig⟩
+        · -- contradiction, x.sig = allOnes, cannot be strictly less than another BV.
+          have hysig : y.sig.toNat < 2^s := by grind only [usr BitVec.isLt]
+          have hxsig : x.sig.toNat = 2^s - 1 := by grind only [BitVec.eq_allOnes_iff_toNat_eq, usr BitVec.isLt]
+          have hxysig : x.sig.toNat < y.sig.toNat := by grind only
+          grind only [!Nat.two_pow_pos]
+        · grind only
     · simp [hxsign]
     · grind only [isNaN_successorAwayFromZero]
     · simp [hxnan, hs]
@@ -597,6 +604,11 @@ theorem lt_iff_le_successorAwayFromZero (he : 1 < e) (hs : 0 < s)
     · grind only
     · grind only [self_lt_successorAwayFromZero]
     · grind only
+
+/--
+info: 'PackedFloat.lt_iff_le_successorAwayFromZero' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms lt_iff_le_successorAwayFromZero
 
 /--
 Any number between 'x' and its successor (inclusive) must be 'x' or the successor.
@@ -628,15 +640,25 @@ theorem eq_self_or_successor_of_le_of_le
       apply self_le_successorAwayFromZero <;> grind only
 
 /--
+info: 'PackedFloat.eq_self_or_successor_of_le_of_le' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms eq_self_or_successor_of_le_of_le
+
+/--
 A number cannot be strictly between 'x' and its successor.
 -/
 theorem elim_self_lt_lt_successor (he : 1 < e) (hs : 0 < s)
     (x : PackedFloat e s) (y : PackedFloat e s)
     (hxsign : x.sign = false) (hysign : y.sign = false)
     (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN)
-    (hxinf : ¬ x.isInfinite) (hyinf : ¬ y.isInfinite)
+    (hxinf : ¬ x.isInfinite)
     (hlt : x < y)
     (hltsucc:  y < x.successorAwayFromZero) : False := by
   have : x.successorAwayFromZero ≤ y := by
     rw [← lt_iff_le_successorAwayFromZero] <;> grind only
   grind only [ne_of_lt, = lt_iff_ne_and_isNaN_of_isNaN', le_antisymm_of_ne_NaN, le_of_lt]
+
+/--
+info: 'PackedFloat.eq_self_or_successor_of_le_of_le' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms eq_self_or_successor_of_le_of_le
