@@ -846,6 +846,10 @@ theorem toNat_ex_eq_of_isNonzeroSubnorm {pf : PackedFloat e s}
 def isNorm {e s} (pf : PackedFloat e s) : Bool :=
   pf.ex != .allOnes e && pf.ex != .zero e
 
+@[grind ., simp ←]
+theorem isNorm_iff_ex_ne_allOnes_and_ex_ne_zero {pf : PackedFloat e s} :
+    pf.isNorm ↔ (pf.ex ≠ .allOnes e ∧ pf.ex ≠ .zero e) := by
+  simp [isNorm]
 
 @[grind .]
 theorem ex_ne_zero_if_isNorm {pf : PackedFloat e s} (h : pf.isNorm := by solve | simp | grind) :
@@ -4487,16 +4491,12 @@ def successorAwayFromZero (x : PackedFloat e s) : PackedFloat e s :=
   then PackedFloat.getInfinity e s x.sign
   else
     let sig := x.sig
-    let ex := x.ex
-    if sig ≠ BitVec.allOnes _
+    if sig ≠ BitVec.allOnes s
     then sigSucc
-    else
-      if ex ≥ BitVec.allOnes _ - 1#_ -- exponent is at the largest normal exponent
-      then PackedFloat.getInfinity e s x.sign
-      else exSucc
+    else exSucc
   where
-    sigSucc : PackedFloat e s := ⟨x.sign, x.ex, x.sig + 1#_⟩
-    exSucc : PackedFloat e s := ⟨x.sign, x.ex + 1#_, 0#_⟩
+    sigSucc : PackedFloat e s := ⟨x.sign, x.ex, x.sig + 1#s⟩
+    exSucc : PackedFloat e s := ⟨x.sign, x.ex + 1#e, 0#s⟩
 end PackedFloat
 
 -- Constants
