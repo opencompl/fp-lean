@@ -722,6 +722,12 @@ def isInfinite (pf : PackedFloat e s) : Bool :=
   -- Prioritize `Infinity` over `0`. This is somewhat arbitrary.
   pf.ex == .allOnes e && (s != 0 && pf.sig == .zero s)
 
+@[grind =>]
+theorem isInfinite_iff_ex_eq_sig_eq (pf : PackedFloat e s) (hs : 0 < s) :
+    pf.isInfinite ↔ (pf.ex = .allOnes e ∧ pf.sig = 0#s) := by
+  simp [isInfinite]
+  grind
+
 @[simp, grind →]
 theorem eq_mkInfinity_of_isInfinite {pf : PackedFloat e s} :
     pf.isInfinite →  ∃ (sign : Bool), pf = PackedFloat.getInfinity e s sign := by
