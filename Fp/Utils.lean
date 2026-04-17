@@ -215,7 +215,8 @@ theorem Rat.le_add_of_le_of_nonneg {a b c : Rat} (hab : a ≤ b) (hc : 0 ≤ c) 
 
 
 @[simp]
-theorem Rat.mul_cancel_left {x y z : Rat} (hx : x ≠ 0) : x * y = x * z ↔ y = z := by
+theorem
+Rat.mul_cancel_left {x y z : Rat} (hx : x ≠ 0) : x * y = x * z ↔ y = z := by
   grind
 
 
@@ -850,3 +851,31 @@ protected theorem BitVec.eq_zero_iff_toNat_eq (x : BitVec w) :
   · intros h
     apply BitVec.toNat_inj.mp
     simp [h]
+
+@[simp]
+theorem BitVec.toNat_allOnes_sub_one_eq_twoPow_sub_two (n : Nat) (hn : 0 < n) :
+    BitVec.toNat (BitVec.allOnes n - 1#n) = 2 ^ n - 2 := by
+  rw [BitVec.toNat_sub_of_le]
+  · simp [hn]
+    grind
+  · rw [BitVec.le_def]
+    simp [hn]
+    grind
+
+@[simp]
+theorem BitVec.one_le_allOnes (n : Nat) : 1#n ≤ BitVec.allOnes n := by
+  rw [BitVec.le_def]
+  simp
+  grind
+
+@[simp]
+theorem BitVec.sub_le_iff_le_add (a b c : BitVec n)
+    (hle' : c ≤ a)
+    (hbc : b.toNat + c.toNat < 2^n) : a - c ≤ b ↔ a ≤ b + c := by
+  rw [BitVec.le_def]
+  rw [BitVec.le_def]
+  rw [BitVec.toNat_sub_of_le]
+  · rw [BitVec.toNat_add_of_lt]
+    · grind
+    · grind
+  · grind
