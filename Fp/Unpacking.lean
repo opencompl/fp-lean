@@ -103,14 +103,14 @@ def EUnpackedFloat.pack (uf : EUnpackedFloat (exponentWidth e s) (s + 1))
   -- min normal <= exp
   let inNormalRange := (BitVec.ofInt _ (minNormalExp e)).sle uf.exp
   {
-    sign := uf.sign
+    sign := bif uf.isNaN then false else uf.sign
     ex := bif uf.isNaN || uf.isInfinite then
             BitVec.allOnes e
           else if uf.isZero || !inNormalRange then
             0#e
           else -- bif uf.isNorm then
             -- Truncate msbs used to normalize subnormals
-            (uf.exp + BitVec.ofNat _ (bias e)).truncate _
+            (uf.exp + BitVec.ofNat _ (bias e)).signExtend _
     sig := bif uf.isNaN then
             BitVec.intMin s
            else bif uf.isInfinite || uf.isZero then
@@ -124,6 +124,127 @@ def EUnpackedFloat.pack (uf : EUnpackedFloat (exponentWidth e s) (s + 1))
             (uf.sig >>> shift).truncate s
   }
 
+/--
+Alternative definition of `EUnpackedFloat.pack`
+that isolates the number conversion.
+-/
+def EUnpackedFloat.packNumber' (sign : Bool) (sig : BitVec (s + 1)) (exp : BitVec (exponentWidth e s)) : PackedFloat e s :=
+  {
+    sign := sign
+    ex := exPacked
+    sig := sigPacked
+   } where
+      inNormalRange := (BitVec.ofInt _ (minNormalExp e)).sle exp
+      shift := BitVec.ofInt _ (minNormalExp e) - exp
+      exPacked := if !inNormalRange then 0#e else (exp + BitVec.ofNat _ (bias e)).signExtend e
+      sigPacked := if inNormalRange then sig.truncate s else (sig >>> shift).truncate s
+
+
+/--
+we are in the normal range iff the exponent is greater than or equal to the minimum normal exponent.
+Note that the minimum normal exponent is negative, so this is really saying that the exponent is "not too small". This is a useful fact to have when we want to rewrite using `minNormalExp` in the context of `packNumber'`.
+-/
+@[simp]
+theorem EUnpackedFloat.packNumber'.inNormalRange_iff
+    (he : 1 < e) (hs : 0 < s)
+    (exp : BitVec (exponentWidth e s)) :
+    EUnpackedFloat.packNumber'.inNormalRange exp ↔ ((minNormalExp e) ≤ exp.toInt) := by
+  simp [EUnpackedFloat.packNumber'.inNormalRange]
+  constructor
+  · intros h
+    rw [BitVec.sle_eq_decide] at h
+    rw [toInt_ofInt_minNormalExp_eq_minNormalExp he hs] at h
+    grind only
+  · intros h
+    rw [BitVec.sle_eq_decide]
+    rw [toInt_ofInt_minNormalExp_eq_minNormalExp he hs]
+    grind only
+
+
+/--
+we never produce an 'allOnes' exponent,
+since that would be reserved for NaN and infinity, and we only use `packNumber'` for normal/subnormal numbers.
+-/
+theorem EUnpackedFloat.packNumber'.exPacked_ne_allOnes
+    (hs : 0 < s)
+    (he : 1 < e)
+    (sign : Bool)
+    (exp : BitVec (exponentWidth e s))
+    (hexp : exp.toInt ≤ maxNormalExp e) :
+    EUnpackedFloat.packNumber'.exPacked exp ≠ BitVec.allOnes e := by
+  simp [exPacked]
+  by_cases hrange : inNormalRange exp
+  · simp [hrange]
+    apply BitVec.toInt_ne .. |>.mp
+    rw [BitVec.toInt_signExtend]
+    simp only [BitVec.toInt_add, BitVec.toInt_allOnes, show 0 < e by grind only, ↓reduceIte,
+      Int.reduceNeg, ne_eq]
+    rw [toInt_ofNat_bias_eq_bias he hs]
+    have he : e < exponentWidth e s := by
+      exact self_lt_exponentWidth e s he hs
+    simp only [show min e (exponentWidth e s) = e by grind, Int.reduceNeg, ne_eq]
+    rw [Int.bmod_bmod_of_dvd]
+    · simp [maxNormalExp, bias] at hexp ⊢
+      have : 0 < 2 ^ (e - 1) := by grind only [!Nat.two_pow_pos]
+      sorry
+    · refine (Nat.pow_dvd_pow_iff_le_right ?_).mpr ?_
+      · decide
+      · grind only
+
+  · simp [hrange]
+    grind only
+
+@[simp, grind =]
+theorem EUnpackedFloat.not_isNaN_packNumber'  (hs : 0 < s) (he : 1 < e)
+    (sign : Bool) (sig : BitVec (s + 1)) (exp : BitVec (exponentWidth e s)) :
+    (EUnpackedFloat.packNumber' sign sig exp).isNaN = false := by
+  simp [EUnpackedFloat.packNumber', PackedFloat.isNaN]
+  intros hexp
+  simp [show ¬ s = 0 by grind only]
+  have := EUnpackedFloat.packNumber'.exPacked_ne_allOnes hs he sign sig exp hexp
+  grind only
+
+/--
+Alternative definition of `EUnpackedFloat.pack`
+that isolates the cases for NaN, infinity, and zero.
+-/
+def EUnpackedFloat.pack' (uf : EUnpackedFloat (exponentWidth e s) (s + 1)) : PackedFloat e s :=
+  if uf.isNaN then
+    PackedFloat.getNaN e s
+  else if uf.isInfinite then
+    PackedFloat.getInfinity e s uf.sign
+  else if uf.isZero then
+    PackedFloat.getZero e s uf.sign
+  else EUnpackedFloat.packNumber' uf.sign uf.sig uf.exp
+
+/-
+`BitVec.ushiftRight_eq'` unfolds stuff into 'toNat' that then cascades
+into an annoying set of rewrites, so we just disable this simp-lemma
+entirely.
+-/
+attribute [- simp] BitVec.ushiftRight_eq'
+
+@[simp]
+theorem EUnpackedFloat.pack_eq_pack' (euf : EUnpackedFloat (exponentWidth e s) (s + 1)) :
+    euf.pack = EUnpackedFloat.pack' euf := by
+  simp? [EUnpackedFloat.pack, EUnpackedFloat.pack']
+  by_cases hnan : euf.isNaN
+  · simp [hnan]
+    simp [PackedFloat.getNaN]
+  · simp [hnan]
+    by_cases hinf : euf.isInfinite
+    · simp [hinf]
+      simp [PackedFloat.getInfinity]
+    · simp [hinf]
+      by_cases hzero : euf.isZero
+      · simp [hzero]
+        simp [PackedFloat.getZero]
+      · simp only [hzero, Bool.false_eq_true, false_or, cond_false, ↓reduceIte]
+        simp only [packNumber']
+        apply PackedFloat.ext
+        · simp
+        · simp [packNumber'.exPacked, packNumber'.inNormalRange]
+        · simp [packNumber'.sigPacked, packNumber'.inNormalRange, packNumber'.shift]
 
 attribute [bv_normalize] BitVec.zero
 

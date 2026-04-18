@@ -212,7 +212,16 @@ theorem toNat_ofInt_bias_eq_bias (he : 1 < e) (hs : 0 < s) :
     · have := self_lt_exponentWidth e s he hs
       grind only
 
-
+@[simp, grind =]
+theorem toInt_ofNat_bias_eq_bias (he : 1 < e) (hs : 0 < s) :
+    (BitVec.ofNat (exponentWidth e s) (bias e)).toInt = bias e := by
+  rw [BitVec.toInt_eq_toNat_of_lt]
+  · rw [toNat_ofNat_bias_eq_bias he hs]
+  · rw [toNat_ofNat_bias_eq_bias he hs]
+    rw [bias, exponentWidth]
+    have := Nat.log2_eq_exists (n := 2 ^ (e - 1) + s - 1) (by grind only [!Nat.two_pow_pos, #5690])
+    obtain ⟨log, hlogeq, hloglt, hlogle⟩ := this
+    grind only [!Nat.two_pow_pos, #569066451790c837]
 /--
 The bound between bias and the exponent width: `bias e + 1 < 2 ^ (exponentWidth e s - 1)`.
 This is tight.
@@ -312,6 +321,21 @@ theorem toInt_ofInt_minSubnormalExp_eq_minSubnormalExp (he : 1 < e) (hs : 0 < s)
   · rw [minSubnormalExp, subnormalExp, minNormalExp]
     simp
     grind only
+
+/--
+The max normal exponent plus the bias fit into a bitvector of size 'exponentWidth'
+-/
+theorem maxNormalExp_plus_bias_lt_two_pow_exponentWidth (hs : 0 < s) :
+    maxNormalExp e + bias e < 2 ^ exponentWidth e s := by
+  simp [maxNormalExp, bias, exponentWidth]
+  have : 0 < 2 ^ (e - 1) := by grind only [!Nat.two_pow_pos]
+  have : 0 < s := hs
+  have : 0 < 2 ^ (e - 1) + s - 1 := by grind only [!Nat.two_pow_pos, #5690]
+  have hlog2 := Nat.log2_eq_exists (2 ^ (e - 1) + s - 1) (by grind only [!Nat.two_pow_pos, #569066451790c837])
+  obtain ⟨log, hlogeq, hloglt, hlogle⟩ := hlog2
+  simp [hlogeq]
+  grind only [#569066451790c837]
+
 
 /-!
 ## Packed Floating Point Numbers

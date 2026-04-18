@@ -446,7 +446,6 @@ theorem unpackNum_toRat_eq_toRat {pf : PackedFloat e s}
   simp at hunpack
   exact hunpack
 
-
 end PackedFloat
 
 
@@ -454,10 +453,10 @@ namespace EUnpackedFloat
 
 /-- Packing a NaN gives a NaN PackedFloat. -/
 @[simp]
-theorem isNaN_pack_of_isNaN
+theorem isNaN_pack'_of_isNaN
     (uf : EUnpackedFloat (exponentWidth e s) (s + 1)) (huf : uf.isNaN) :
-    uf.pack.isNaN = true := by
-  simp [pack, PackedFloat.isNaN, huf]
+    uf.pack'.isNaN = true := by
+  simp [pack', PackedFloat.isNaN, huf]
   grind
 
 /-
@@ -506,8 +505,8 @@ theorem isNaN_of_isNaN_pack (he : 1 < e) (hs : 0 < s)
 @[simp, grind .]
 theorem pack_isNaN_eq_isNaN (he : 1 < e) (hs : 0 < s)
     (uf : EUnpackedFloat (exponentWidth e s) (s + 1)) :
-    uf.pack.isNaN = uf.isNaN := by
-  have h1 := isNaN_pack_of_isNaN uf
+    uf.pack'.isNaN = uf.isNaN := by
+  have h1 := isNaN_pack'_of_isNaN uf
   have h2 := isNaN_of_isNaN_pack he hs uf
   grind only [= PackedFloat.isNaN_iff_toExtRat'_eq_NaN, #9c18]
 -/
@@ -518,39 +517,22 @@ Packing an infinity gives an infinite PackedFloat. Requires `0 < s` because with
 the PackedFloat infinity encoding aliases NaN.
 -/
 @[simp, grind .]
-theorem isInfinite_pack_of_isInfinite
+theorem isInfinite_pack'_of_isInfinite
     (uf : EUnpackedFloat (exponentWidth e s) (s + 1)) (huf : uf.isInfinite) (hs : 0 < s) :
-    uf.pack.isInfinite = true := by
+    uf.pack'.isInfinite = true := by
   have hnan : uf.isNaN = false := by
     simp [isNaN, isInfinite] at huf ⊢
     grind
-  simp [pack, PackedFloat.isInfinite, huf, hnan]
+  simp [pack', PackedFloat.isInfinite, huf, hnan]
   grind
 
-theorem isInfinite_of_isInfinite_pack (he : 1 < e) (hs : 0 < s)
+theorem isInfinite_of_isInfinite_pack' (he : 1 < e) (hs : 0 < s)
     (uf : EUnpackedFloat (exponentWidth e s) (s + 1))
-    (huf : uf.pack.isInfinite):
+    (huf : uf.pack'.isInfinite) :
     uf.isInfinite = true := by
-  simp [pack, PackedFloat.isInfinite] at huf ⊢
-  by_cases hinf : uf.isInfinite
-  · simp [hinf]
-  · simp [hinf] at huf
-    by_cases hnan : uf.isNaN
-    · simp [hnan] at huf
-    · simp [hnan] at huf
-      by_cases hzero : uf.isZero
-      · simp [hzero] at huf
-        grind only
-      · simp [hzero] at huf
-        split at huf
-        case neg.isTrue hle =>
-          simp [hle] at huf
-          grind
-        case neg.isFalse hle =>
-          -- simp at hle
-          simp [hle] at huf
-          obtain ⟨huf1, huf2⟩ := huf
-          sorry
+  simp [pack'] at huf ⊢
+  simp [show ¬ uf.isNaN by grind] at huf ⊢
+
 
 @[simp, grind .]
 theorem pack_isInfinite_eq_isInfinite (he : 1 < e) (hs : 0 < s)
@@ -560,13 +542,12 @@ theorem pack_isInfinite_eq_isInfinite (he : 1 < e) (hs : 0 < s)
   have h2 := isInfinite_of_isInfinite_pack he hs uf
   grind only [PackedFloat.eq_getInfinity_iff_isInfinity, #050c]
 
-/-- Packing always preserves the sign. -/
+/-- Packing preseves the sign of non-NaN variables. -/
 @[simp, grind .]
 theorem sign_pack
     (uf : EUnpackedFloat (exponentWidth e s) (s + 1)) :
-    uf.pack.sign = uf.sign := by
+    uf.pack.sign = if uf.isNaN then false else uf.sign := by
   simp [pack, EUnpackedFloat.sign]
-
 /--
 Packing then unpacking an infinity recovers `mkInfinity` with the same sign.
 -/
@@ -575,8 +556,9 @@ theorem unpack_pack_of_isInfinite
     (uf : EUnpackedFloat (exponentWidth e s) (s + 1))
     (huf : uf.isInfinite) (hs : 0 < s) :
     uf.pack.unpack = EUnpackedFloat.mkInfinity uf.sign := by
-  have hInf : uf.pack.isInfinite = true := isInfinite_pack_of_isInfinite uf huf hs
-  have hNaN : uf.pack.isNaN = false := by
+  have hInf : uf.pack'.isInfinite = true :=
+    isInfinite_pack_of_isInfinite uf huf hs
+  have hNaN : uf.pack'.isNaN = false := by
     have := PackedFloat.not_isNaN_of_isInfinite (pf := uf.pack) hInf
     grind
   simp [PackedFloat.unpack, hNaN, hInf]
@@ -663,77 +645,35 @@ theorem EUnpackedFloat.isNumber_iff_state_eq
   (uf : EUnpackedFloat e s) :
   uf.isNumber ↔ (uf.state = .Number) := by simp [isNumber]
 
-/--
-The round-trip: packing a normalized Number and unpacking returns the same value.
-
-Hypotheses:
-- `hNum : uf.isNumber` — non-NaN, non-Infinity. (NaN/Infinity are handled by
-  `unpack_pack_of_isNaN` / `unpack_pack_of_isInfinite`; their `num` fields are not preserved,
-  so the round-trip only gives back `mkNaN` / `mkInfinity uf.sign`.)
-- `hnorm : uf.num.normalize = uf.num` — either `uf.num` is canonical zero (ex = intMin, sig = 0)
-  or its significand has msb = 1.
-- `hlo`, `hhi` — the exponent fits in the PackedFloat's representable range.
-- `he`, `hs` — avoid the degenerate `e = 0` / `s = 0` formats.
--/
-theorem unpack_pack_of_isNumber
-    (uf : EUnpackedFloat (exponentWidth e s) (s + 1))
-    (hNum : uf.isNumber)
-    (hnormalize : uf.num.normalize = uf.num)
-    (hlo : minSubnormalExp e s ≤ uf.num.ex.toInt)
-    (hhi : uf.num.ex.toInt ≤ maxNormalExp e)
-    (he : 1 < e) (hs : 0 < s) :
-    uf.pack.unpack = uf := by
-  simp [isNumber] at hNum
-  have hnan : uf.isNaN = false := by grind only [=> EUnpackedFloat.isNaN_iff_state_eq]
-  have hpacknan : uf.pack.isNaN = false := by
-    sorry
-  have hinf : uf.isInfinite = false := by sorry
-  have hpackinf : uf.pack.isInfinite = false := by sorry
-  by_cases hZ : uf.isZero
-  · have : uf.pack.isZero = true := by sorry
-    simp [this]
-    sorry
-  · have hpackzero : uf.pack.isZero = false := by sorry
-    simp [PackedFloat.unpack]
-    simp [hpackinf, hpacknan, hpackzero]
-    simp [PackedFloat.unpackNum]
-    by_cases hnorm : uf.pack.isNorm
-    · simp [hnorm]
-      ext1
-      · simp [hNum]
-      · ext1
-        · simp [EUnpackedFloat.sign]
-        · simp; sorry
-        · simp; sorry
-    · simp [hnorm]
-      ext1
-      · simp [hNum]
-      · ext1
-        · simp [EUnpackedFloat.sign]
-        · simp; sorry
-        · simp; sorry
-
 /-! ### Corollary: `toExtRat` preservation -/
 
-/--
-Packing preserves `toExtRat` when either the value is NaN/Infinity (trivially), or it is a
-sufficiently normalized/bounded Number (via `unpack_pack_of_isNumber`).
--/
-theorem toExtRat_pack_of_isNumber
-    (uf : EUnpackedFloat (exponentWidth e s) (s + 1))
-    (hNum : uf.isNumber)
-    (hnorm : uf.num.normalize = uf.num)
-    (hlo : minSubnormalExp e s ≤ uf.num.ex.toInt)
-    (hhi : uf.num.ex.toInt ≤ maxNormalExp e)
-    (he : 1 < e) (hs : 0 < s) :
-    uf.pack.toExtRat = uf.toExtRat := by
-  rw [← PackedFloat.toExtRat_unpack_eq_toExtRat]
-  rw [unpack_pack_of_isNumber]
-  · grind only
-  · grind only
-  · grind only
-  · grind only
-  · grind only
-  · grind only
+@[simp]
+theorem pack_mkNaN_eq_isNaN :
+    (EUnpackedFloat.mkNaN).pack = PackedFloat.getNaN e s := by
+  simp [pack, PackedFloat.getNaN, mkNaN,
+  EUnpackedFloat.sign, EUnpackedFloat.isNaN]
+
+@[simp]
+theorem pack_mkInfinity_eq_isInfinite {sign : Bool} :
+    (EUnpackedFloat.mkInfinity sign).pack = PackedFloat.getInfinity e s sign := by
+  simp [pack, PackedFloat.getInfinity, mkInfinity, EUnpackedFloat.sign,
+    EUnpackedFloat.isInfinite, isNaN]
+  grind only
+
+@[simp]
+theorem State.beq_eq_decide_eq {x y : State} :
+    (x == y) = decide (x = y) := by
+  grind [State]
+
+theorem toRat_pack_mkNumber_eq_toRat
+    (he : 1 < e) (hs : 0 < s)
+    (uf : UnpackedFloat (exponentWidth e s) (s + 1)) :
+    (EUnpackedFloat.mkNumber uf).pack.toRat = uf.toRat := by
+  simp [pack, mkNumber, sign, isInfinite, isNaN, exp, isZero, isNumber]
+  simp [PackedFloat.toRat]
+
+
+  grind only
+
 
 end EUnpackedFloat
