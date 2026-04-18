@@ -48,23 +48,6 @@ theorem toNat_ofNat_bias_eq_bias (he : 1 < e) (hs : 0 < s) :
     · have := self_lt_exponentWidth e s he hs
       grind only
 
-theorem Int.pow_div_self_eq_sub_one_of_pos (i : Int) (hi : i ≠ 0) (k : Nat) (hk : 0 < k) :
-    (i ^ k) / i = i ^ (k - 1) := by
-  have : ∃ k', k = k' + 1 := by exact Nat.exists_eq_add_one.mpr hk
-  obtain ⟨k', hk'⟩ := this
-  subst hk'
-  simp [Int.pow_add]
-  rw [Int.pow_one]
-  rw [Int.mul_ediv_cancel]
-  grind only
-
-@[simp]
-theorem Int.two_pow_div_two_eq_sub_one_of_pos (k : Nat) (hk : 0 < k) :
-    ((2 : Int) ^ k) / 2 = 2 ^ (k - 1) := by
-  apply Int.pow_div_self_eq_sub_one_of_pos
-  · decide
-  · exact hk
-
 /--
 The bound between bias and the exponent width: `bias e + 1 < 2 ^ (exponentWidth e s - 1)`.
 This is tight.
@@ -79,25 +62,6 @@ theorem bias_plus_one_lt_two_pow_exponentWidth_minus_one (e s: Nat)
     · decide
     · have := self_lt_exponentWidth e s he hs
       grind only
-
-/--
-Adding one and dividing by two for a power of two
-is the same as decreasing the exponent by one.
--/
-@[grind ., simp]
-theorem Nat.two_pow_plus_one_div_two_eq_two_pow (e : Nat) :
-   (2^e + 1) / 2 = 2 ^ (e - 1) := by
-  exact Nat.two_pow_succ_div_two
-
-/--
-Adding one and dividing by two for a power of two
-is the same as decreasing the exponent by one.
--/
-@[simp]
-theorem Int.two_pow_plus_one_div_two_eq_two_pow (e : Nat) :
-   ((2 : Int)^e + 1) / 2 = (2 : Int) ^ (e - 1) := by
-  norm_cast
-  exact Nat.two_pow_succ_div_two
 
 @[simp]
 theorem toInt_ofInt_minNormalExp_eq_minNormalExp (he : 1 < e) (hs : 0 < s) :

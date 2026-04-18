@@ -31,17 +31,6 @@ theorem BitVec.toNat_shiftLeft_clz (x : BitVec w)
   · grind
   · exact Nat.two_pow_pos x.clz.toNat
 
-theorem Nat.pow_pred_div (h : 0 < n) :
-  2 ^ (n - 1) = (2 ^ n) / 2 := by
-  grind [Nat.pow_pred_mul]
-
-theorem Nat.two_pow_succ_div_two {n : Nat} :
-  (2 ^ n + 1) / 2 = 2 ^ (n - 1) := by
-  cases n <;> grind
-
-theorem Int.two_pow_succ_div_two {n : Nat} :
-  (2 ^ n + 1) / 2 = (2 ^ (n - 1) : Int) := by
-  cases n <;> grind
 
 -- TODO: @Sid, help!
 axiom BitVec.toNat_clz_cons (b : Bool) (x : BitVec w)
