@@ -119,16 +119,16 @@ In 8 bits, this value is -127, because it's -126, but start with a `0.xxx`,
 which makes it one smaller than the minimum normal exponent.
 -/
 @[bv_normalize]
-def subnormalExp (e : Nat) : Int :=
+def maxSubnormalExp (e : Nat) : Int :=
   minNormalExp e - 1
 
 /-- info: -127 -/
-#guard_msgs in #eval subnormalExp 8
+#guard_msgs in #eval maxSubnormalExp 8
 
-/-- subnormalExp should be -127. -/
-theorem subnormalExp_eq_neg_bias_plus_one (he : 1 < e) :
-    subnormalExp e = - (bias e)  := by
-  simp [subnormalExp, minNormalExp, bias]
+/-- maxSubnormalExp should be -127. -/
+theorem maxSubnormalExp_eq_neg_bias_plus_one (he : 1 < e) :
+    maxSubnormalExp e = - (bias e)  := by
+  simp [maxSubnormalExp, minNormalExp, bias]
   grind
 
 
@@ -139,7 +139,7 @@ We have (s - 1) bits, since we need one bit for the leading 1.
 -/
 @[bv_normalize]
 def minSubnormalExp (e : Nat) (s : Nat) : Int :=
-  (subnormalExp e) - (s - 1 : Int)
+  (maxSubnormalExp e) - (s - 1 : Int)
 
 /-- info: -149 -/
 #guard_msgs in #eval minSubnormalExp 8 23
@@ -312,17 +312,17 @@ theorem toInt_ofInt_maxNormalExp_eq_maxNormalExp (he : 1 < e) (hs : 0 < s) :
     grind only
 
 @[simp, grind =]
-theorem toInt_ofInt_subnormalExp_eq_subnormalExp (he : 1 < e) (hs : 0 < s) :
-    (BitVec.ofInt (exponentWidth e s) (subnormalExp e)).toInt = (subnormalExp e) := by
+theorem toInt_ofInt_maxSubnormalExp_eq_maxSubnormalExp (he : 1 < e) (hs : 0 < s) :
+    (BitVec.ofInt (exponentWidth e s) (maxSubnormalExp e)).toInt = (maxSubnormalExp e) := by
   simp only [BitVec.toInt_ofInt]
   rw [Int.bmod_eq_of_le]
   · simp
-    rw [subnormalExp, minNormalExp]
+    rw [maxSubnormalExp, minNormalExp]
     have : 0 < bias e := by exact bias_pos_of_one_lt e he
     simp only [ge_iff_le]
     have := bias_plus_one_lt_two_pow_exponentWidth_minus_one e s he hs
     grind only
-  · rw [subnormalExp, minNormalExp]
+  · rw [maxSubnormalExp, minNormalExp]
     simp only [Int.natCast_pow, Int.cast_ofNat_Int, Int.two_pow_plus_one_div_two_eq_two_pow]
     apply Int.lt_of_neg_lt_neg
     have := bias_plus_one_lt_two_pow_exponentWidth_minus_one e s he hs
@@ -336,7 +336,7 @@ theorem toInt_ofInt_minSubnormalExp_eq_minSubnormalExp (he : 1 < e) (hs : 0 < s)
   simp only [BitVec.toInt_ofInt]
   rw [Int.bmod_eq_of_le]
   · simp
-    rw [minSubnormalExp, subnormalExp, minNormalExp]
+    rw [minSubnormalExp, maxSubnormalExp, minNormalExp]
     have : 0 < bias e := by exact bias_pos_of_one_lt e he
     rw [Int.natCast_sub (by grind only)]
     have hbias := bias_plus_one_lt_two_pow_exponentWidth_minus_one e s he hs
@@ -346,7 +346,7 @@ theorem toInt_ofInt_minSubnormalExp_eq_minSubnormalExp (he : 1 < e) (hs : 0 < s)
       #569066451790c837])
     obtain ⟨log, hlogeq, hloglt, hlogle⟩ := hlog -- log2 value.
     grind only [!Nat.two_pow_pos, #569066451790c837]
-  · rw [minSubnormalExp, subnormalExp, minNormalExp]
+  · rw [minSubnormalExp, maxSubnormalExp, minNormalExp]
     simp
     have := bias_plus_one_lt_two_pow_exponentWidth_minus_one e s he hs
     grind only

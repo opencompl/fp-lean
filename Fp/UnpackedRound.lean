@@ -490,7 +490,7 @@ def UnpackedFloat.debugRound {expWidth sigWidth : Nat} {targetExponentWidth targ
   let lateOverflow : Bool :=
     maxNormalExpBV.slt roundedExpExtended
   let out := out ++ s!"\nlate overflow: {lateOverflow} = roundedExpExtended({roundedExpExtended.toBitsStr}=int:{roundedExpExtended.toInt}) > maxNormalExpBV({maxNormalExpBV.toBitsStr}=int:{maxNormalExpBV.toInt})"
-  -- let subnormalExpBV : BitVec (expWidth) := BitVec.ofInt (expWidth) (subnormalExp targetExponentWidth)
+  -- let maxSubnormalExpBV : BitVec (expWidth) := BitVec.ofInt (expWidth) (maxSubnormalExp targetExponentWidth)
   -- let minSubnormalExpMinusOneBV : BitVec (expWidth + 1) :=
   --   BitVec.ofInt (expWidth + 1) (minSubnormalExp targetExponentWidth targetSignificandWidth - 1)
   let minSubnormalExpBV : BitVec (expWidth + 1) :=
@@ -500,7 +500,7 @@ def UnpackedFloat.debugRound {expWidth sigWidth : Nat} {targetExponentWidth targ
     -- (roundedExpExtended = minSubnormalExpMinusOneBV) && !shouldRoundUp
   let out := out ++ s!"\nlateUnderflow: {lateUnderflow} = roundedExpExtended({roundedExpExtended.toBitsStr}=int:{roundedExpExtended.toInt}) < minSubnormalExpBV: {minSubnormalExpBV.toBitsStr} = int:{minSubnormalExpBV.toInt}"
   -- let out := out ++ s!"\nlateUnderflow: {lateUnderflow} = (roundedExpExtended({roundedExpExtended.toBitsStr}=int:{roundedExpExtended.toInt}) = minSubnormalExpMinusOneBV({minSubnormalExpMinusOneBV.toBitsStr}=int:{minSubnormalExpMinusOneBV.toInt}) - 1) && !shouldRoundUp({shouldRoundUp})"
-  -- let out := out ++ s!"\nlate underflow: {lateUnderflow} = roundedExp({roundedExp.toBitsStr}=int:{roundedExp.toInt}) < subnormalExpBV({subnormalExpBV.toBitsStr}=int:{subnormalExpBV.toInt})"
+  -- let out := out ++ s!"\nlate underflow: {lateUnderflow} = roundedExp({roundedExp.toBitsStr}=int:{roundedExp.toInt}) < maxSubnormalExpBV({maxSubnormalExpBV.toBitsStr}=int:{maxSubnormalExpBV.toInt})"
   let underflow : Bool := lateUnderflow || earlyUnderflow
   let out := out ++ s!"\nunderflow: {underflow} = lateUnderflow({lateUnderflow}) || earlyUnderflow({earlyUnderflow})"
   let overflow : Bool := lateOverflow || earlyOverflow
