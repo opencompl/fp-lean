@@ -460,11 +460,14 @@ theorem isNaN_pack_of_isNaN
   simp [pack, PackedFloat.isNaN, huf]
   grind
 
-
+/-
 @[simp]
 theorem isNaN_of_isNaN_pack (he : 1 < e) (hs : 0 < s)
     (uf : EUnpackedFloat (exponentWidth e s) (s + 1))
-    (huf : uf.pack.isNaN):
+    (huf : uf.normalize = uf)
+    (hexp1 : uf.exp.toInt ≤ maxNormalExp e)
+    (hexp2 : minSubnormalExp e s ≤ uf.exp.toInt) -- recall that we want normalzed ufs.
+    (huf : uf.pack.isNaN) :
     uf.isNaN = true := by
   simp [pack, PackedFloat.isNaN] at huf ⊢
   by_cases hnan : uf.isNaN
@@ -490,13 +493,15 @@ theorem isNaN_of_isNaN_pack (he : 1 < e) (hs : 0 < s)
           rcases huf2 with huf2 | huf2
           · grind only
           · rw [BitVec.sle_eq_decide] at hle
+            rw [toInt_ofInt_minNormalExp_eq_minNormalExp he hs] at hle
             simp at hle
-            rw [Int.bmod_eq_of_le] at hle
-            · sorry
-            · norm_cast
-              simp only [Int.natCast_ediv, Int.natCast_pow, Int.cast_ofNat_Int]
-              sorry
-            · sorry
+            obtain huf1 := BitVec.toInt_inj .. |>.mpr huf1
+            simp only [BitVec.toInt_setWidth] at huf1
+            rw [BitVec.toNat_add] at huf1
+            rw [toNat_ofNat_bias_eq_bias he hs] at huf1
+            rw [BitVec.toInt_allOnes] at huf1
+            simp [show 0 < e by grind only] at huf1
+
 
 @[simp, grind .]
 theorem pack_isNaN_eq_isNaN (he : 1 < e) (hs : 0 < s)
@@ -505,6 +510,7 @@ theorem pack_isNaN_eq_isNaN (he : 1 < e) (hs : 0 < s)
   have h1 := isNaN_pack_of_isNaN uf
   have h2 := isNaN_of_isNaN_pack he hs uf
   grind only [= PackedFloat.isNaN_iff_toExtRat'_eq_NaN, #9c18]
+-/
 
 
 /--
