@@ -136,10 +136,40 @@ theorem maxSubnormalExp_eq_neg_bias_plus_one (he : 1 < e) :
 which can "steal" bits from the significand to be smaller than minNormalExp.
 We have (s - 1) bits, since we need one bit for the leading 1.
 (i.e., we include the hidden bit.)
+
+### `s = 1` (IEEE, so `s=1` is one bit after the decimal point.
+
+With 2 significand bits [minimum for the concept to make sense]:
+
+```
+2^emin * 1.0 -> minNormalExp
+2^emin * 0.1 -> maxSubnormalExp = minNormalExp - 1
+2^emin * 0.1 -> also minSubnormalExp! = minNormalExp - 1
+```
+
+### `s = 2` (IEEE, so `s=1` is one bit after the decimal point.
+
+```
+2^emin * 1.00 -> minNormalExp
+2^emin * 0.10 -> maxSubnormalExp = minNormalExp - 1
+2^emin * 0.01 -> minSubnormalExp = minNormalExp - 2
+```
+
+### `s = 3` (IEEE, so `s=1` is one bit after the decimal point.
+
+```
+2^emin * 1.000 -> minNormalExp
+2^emin * 0.100 -> maxSubnormalExp = minNormalExp - 1
+2^emin * 0.010                    = minNormalExp - 2
+2^emin * 0.001 -> minSubnormalExp = minNormalExp - 3
+```
+
+In general, we get `(s - 2)` values,
+which are `minNormalExp - 1`, `minNormalExp - 2`, ..., `minNormalExp - (s - 1)`
 -/
 @[bv_normalize]
 def minSubnormalExp (e : Nat) (s : Nat) : Int :=
-  (maxSubnormalExp e) - (s - 1 : Int)
+  (minNormalExp e) - s
 
 /-- info: -149 -/
 #guard_msgs in #eval minSubnormalExp 8 23
