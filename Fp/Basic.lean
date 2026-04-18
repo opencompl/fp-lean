@@ -3,9 +3,16 @@ import Fp.ForLean.Dyadic
 import Fp.Grind
 import Fp.ForLean.Rat
 
+/--
+In 8 bit exponent, this value is 2^7 - 1 = 127.
+The exponent's value is [e.toNat] - bias = [e.toNat] - 127.
+-/
 @[bv_normalize]
 def bias (e : Nat) : Nat :=
   2 ^ (e - 1) - 1
+
+/-- info: 127 -/
+#guard_msgs in #eval bias 8
 
 /--
 Adding the bias to itself equals '2^e - 2', which is the
@@ -96,22 +103,46 @@ def Nat.ceilLog2 (n : Nat) : Nat :=
 def minNormalExp (e : Nat) : Int :=
   -(bias e - 1 : Nat)
 
+/-- info: -126 -/
+#guard_msgs in #eval minNormalExp 8
+
 /-- The max value the exponent can take when unbiased. -/
 @[bv_normalize]
 def maxNormalExp (e : Nat) : Int := (bias e)
 
+/-- info: 127 -/
+#guard_msgs in #eval maxNormalExp 8
 
-/-- The value the subnormal exponent can take. -/
+/--
+The value the subnormal exponent can take.
+In 8 bits, this value is -127, because it's -126, but start with a `0.xxx`,
+which makes it one smaller than the minimum normal exponent.
+-/
 @[bv_normalize]
 def subnormalExp (e : Nat) : Int :=
   minNormalExp e - 1
 
+/-- info: -127 -/
+#guard_msgs in #eval subnormalExp 8
+
+/-- subnormalExp should be -127. -/
+theorem subnormalExp_eq_neg_bias_plus_one (he : 1 < e) :
+    subnormalExp e = - (bias e)  := by
+  simp [subnormalExp, minNormalExp, bias]
+  grind
+
+
 /-- For unpacked floats, the *minimum* the subnormal exponent can take,
-which can "steal" bits from the significand to be smaller than minNormalExp. -/
+which can "steal" bits from the significand to be smaller than minNormalExp.
+We have (s - 1) bits, since we need one bit for the leading 1.
+(i.e., we include the hidden bit.)
+-/
 @[bv_normalize]
 def minSubnormalExp (e : Nat) (s : Nat) : Int :=
   (subnormalExp e) - (s - 1 : Int)
 
+/-- info: -149 -/
+#guard_msgs in #eval minSubnormalExp 8 23
 /--
 This is a simpler (but less tight) bound than `exponentWidth`.
 It's logarithmically larger.
@@ -287,9 +318,6 @@ theorem toInt_ofInt_subnormalExp_eq_subnormalExp (he : 1 < e) (hs : 0 < s) :
   rw [Int.bmod_eq_of_le]
   · simp
     rw [subnormalExp, minNormalExp]
-    rw [← Int.neg_sub]
-    rw [Int.neg_le_neg_iff]
-    simp only [Int.sub_neg]
     have : 0 < bias e := by exact bias_pos_of_one_lt e he
     simp only [ge_iff_le]
     have := bias_plus_one_lt_two_pow_exponentWidth_minus_one e s he hs
@@ -297,7 +325,7 @@ theorem toInt_ofInt_subnormalExp_eq_subnormalExp (he : 1 < e) (hs : 0 < s) :
   · rw [subnormalExp, minNormalExp]
     simp only [Int.natCast_pow, Int.cast_ofNat_Int, Int.two_pow_plus_one_div_two_eq_two_pow]
     apply Int.lt_of_neg_lt_neg
-    simp
+    have := bias_plus_one_lt_two_pow_exponentWidth_minus_one e s he hs
     grind only
 
 grind_pattern Nat.log2_eq_exists => n.log2
@@ -320,6 +348,7 @@ theorem toInt_ofInt_minSubnormalExp_eq_minSubnormalExp (he : 1 < e) (hs : 0 < s)
     grind only [!Nat.two_pow_pos, #569066451790c837]
   · rw [minSubnormalExp, subnormalExp, minNormalExp]
     simp
+    have := bias_plus_one_lt_two_pow_exponentWidth_minus_one e s he hs
     grind only
 
 /--

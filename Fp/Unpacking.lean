@@ -196,12 +196,14 @@ theorem EUnpackedFloat.packNumber'.exPacked_ne_allOnes
 
 @[simp, grind =]
 theorem EUnpackedFloat.not_isNaN_packNumber'  (hs : 0 < s) (he : 1 < e)
-    (sign : Bool) (sig : BitVec (s + 1)) (exp : BitVec (exponentWidth e s)) :
+    (sign : Bool) (sig : BitVec (s + 1))
+    (exp : BitVec (exponentWidth e s))
+    (hexplt : exp.toInt ≤ maxNormalExp e) :
     (EUnpackedFloat.packNumber' sign sig exp).isNaN = false := by
   simp [EUnpackedFloat.packNumber', PackedFloat.isNaN]
   intros hexp
   simp [show ¬ s = 0 by grind only]
-  have := EUnpackedFloat.packNumber'.exPacked_ne_allOnes hs he sign sig exp hexp
+  have := EUnpackedFloat.packNumber'.exPacked_ne_allOnes hs he sign exp hexplt
   grind only
 
 /--
