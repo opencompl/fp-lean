@@ -879,3 +879,87 @@ theorem BitVec.sub_le_iff_le_add (a b c : BitVec n)
     · grind
     · grind
   · grind
+
+
+theorem Nat.log2_eq_exists (n : Nat) (hn : n ≠ 0) :
+  ∃ k, n.log2 = k ∧ 2 ^ k ≤ n ∧ n < 2 ^ (k + 1) := by
+  let k := n.log2
+  exists k
+  simp [k]
+  apply Nat.log2_eq_iff .. |>.mp <;> grind
+
+grind_pattern Nat.log2_eq_exists => n.log2
+
+theorem Nat.log2_le_log2_of_le {a b : Nat} (h : a ≤ b) : a.log2 ≤ b.log2 := by
+  induction a using Nat.div2Induction generalizing b with
+  | ind a ih =>
+    match ha : a with
+    | 0 => simp
+    | 1 => simp
+    | a' + 2 =>
+      match hb : b with
+      | 0 => simp_all
+      | 1 => simp_all
+      | b' + 2 =>
+        simp only [succ_eq_add_one] at ha hb
+        simp only [← ha, ← hb] at ⊢ h ih
+        replace ih := ih (ha ▸ Nat.zero_lt_succ _) (Nat.div_le_div_right h)
+        rewrite [Nat.log2_def a, Nat.log2_def b]
+        simp only [ha, le_add_left, ↓reduceIte, hb, Nat.add_le_add_iff_right, ge_iff_le]
+        simp [← ha, ← hb, ih]
+
+grind_pattern Nat.log2_le_log2_of_le => 2^a ≤ 2^b
+
+
+theorem Nat.log2_le_log2_add {a b : Nat} : a.log2 ≤ (a + b).log2 := by
+  apply Nat.log2_le_log2_of_le
+  apply Nat.le_add_right
+
+
+theorem Int.pow_div_self_eq_sub_one_of_pos (i : Int) (hi : i ≠ 0) (k : Nat) (hk : 0 < k) :
+    (i ^ k) / i = i ^ (k - 1) := by
+  have : ∃ k', k = k' + 1 := by exact Nat.exists_eq_add_one.mpr hk
+  obtain ⟨k', hk'⟩ := this
+  subst hk'
+  simp [Int.pow_add]
+  rw [Int.pow_one]
+  rw [Int.mul_ediv_cancel]
+  grind only
+
+@[simp]
+theorem Int.two_pow_div_two_eq_sub_one_of_pos (k : Nat) (hk : 0 < k) :
+    ((2 : Int) ^ k) / 2 = 2 ^ (k - 1) := by
+  apply Int.pow_div_self_eq_sub_one_of_pos
+  · decide
+  · exact hk
+
+theorem Nat.pow_pred_div (h : 0 < n) :
+  2 ^ (n - 1) = (2 ^ n) / 2 := by
+  grind [Nat.pow_pred_mul]
+
+theorem Nat.two_pow_succ_div_two {n : Nat} :
+  (2 ^ n + 1) / 2 = 2 ^ (n - 1) := by
+  cases n <;> grind
+
+theorem Int.two_pow_succ_div_two {n : Nat} :
+  (2 ^ n + 1) / 2 = (2 ^ (n - 1) : Int) := by
+  cases n <;> grind
+
+/--
+Adding one and dividing by two for a power of two
+is the same as decreasing the exponent by one.
+-/
+@[grind ., simp]
+theorem Nat.two_pow_plus_one_div_two_eq_two_pow (e : Nat) :
+   (2^e + 1) / 2 = 2 ^ (e - 1) := by
+  exact Nat.two_pow_succ_div_two
+
+/--
+Adding one and dividing by two for a power of two
+is the same as decreasing the exponent by one.
+-/
+@[simp]
+theorem Int.two_pow_plus_one_div_two_eq_two_pow (e : Nat) :
+   ((2 : Int)^e + 1) / 2 = (2 : Int) ^ (e - 1) := by
+  norm_cast
+  exact Nat.two_pow_succ_div_two
