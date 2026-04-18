@@ -41,7 +41,7 @@ theorem PackedFloat.sign_unpackNormOrNonzeroSubnorm_eq_sign (pf : PackedFloat e 
 
 @[bv_normalize]
 def PackedFloat.unpack (pf : PackedFloat e s)
-  : EUnpackedFloat (exponentWidth e s) (s + 1) :=
+  : EUnpackedFloat (exponentWidth e s) s :=
   bif pf.isNaN then
     EUnpackedFloat.mkNaN
   else bif pf.isInfinite then
@@ -98,7 +98,7 @@ theorem PackedFloat.msb_unpackNum_eq_true {pf : PackedFloat e s}
 
 
 @[bv_normalize]
-def EUnpackedFloat.pack (uf : EUnpackedFloat (exponentWidth e s) (s + 1))
+def EUnpackedFloat.pack (uf : EUnpackedFloat (exponentWidth e s) s)
   : PackedFloat e s :=
   -- min normal <= exp
   let inNormalRange := (BitVec.ofInt _ (minNormalExp e)).sle uf.exp
@@ -128,7 +128,7 @@ def EUnpackedFloat.pack (uf : EUnpackedFloat (exponentWidth e s) (s + 1))
 Alternative definition of `EUnpackedFloat.pack`
 that isolates the number conversion.
 -/
-def EUnpackedFloat.packNumber' (sign : Bool) (sig : BitVec (s + 1)) (exp : BitVec (exponentWidth e s)) : PackedFloat e s :=
+def EUnpackedFloat.packNumber' (sign : Bool) (sig : BitVec s) (exp : BitVec (exponentWidth e s)) : PackedFloat e s :=
   {
     sign := sign
     ex := exPacked
@@ -196,7 +196,7 @@ theorem EUnpackedFloat.packNumber'.exPacked_ne_allOnes
 
 @[simp, grind =]
 theorem EUnpackedFloat.not_isNaN_packNumber'  (hs : 0 < s) (he : 1 < e)
-    (sign : Bool) (sig : BitVec (s + 1))
+    (sign : Bool) (sig : BitVec s)
     (exp : BitVec (exponentWidth e s))
     (hexplt : exp.toInt ≤ maxNormalExp e) :
     (EUnpackedFloat.packNumber' sign sig exp).isNaN = false := by
@@ -210,7 +210,7 @@ theorem EUnpackedFloat.not_isNaN_packNumber'  (hs : 0 < s) (he : 1 < e)
 Alternative definition of `EUnpackedFloat.pack`
 that isolates the cases for NaN, infinity, and zero.
 -/
-def EUnpackedFloat.pack' (uf : EUnpackedFloat (exponentWidth e s) (s + 1)) : PackedFloat e s :=
+def EUnpackedFloat.pack' (uf : EUnpackedFloat (exponentWidth e s) s) : PackedFloat e s :=
   if uf.isNaN then
     PackedFloat.getNaN e s
   else if uf.isInfinite then
@@ -227,7 +227,8 @@ entirely.
 attribute [- simp] BitVec.ushiftRight_eq'
 
 @[simp]
-theorem EUnpackedFloat.pack_eq_pack' (euf : EUnpackedFloat (exponentWidth e s) (s + 1)) :
+theorem EUnpackedFloat.pack_eq_pack' (euf : EUnpackedFloat (exponentWidth e s) s)
+       :
     euf.pack = EUnpackedFloat.pack' euf := by
   simp? [EUnpackedFloat.pack, EUnpackedFloat.pack']
   by_cases hnan : euf.isNaN

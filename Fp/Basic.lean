@@ -136,13 +136,50 @@ theorem maxSubnormalExp_eq_neg_bias_plus_one (he : 1 < e) :
 which can "steal" bits from the significand to be smaller than minNormalExp.
 We have (s - 1) bits, since we need one bit for the leading 1.
 (i.e., we include the hidden bit.)
+
+With 2 significand bits [minimum for the concept to make sense]:
+
+```
+2^emin * 1.0 -> minNormalExp
+2^emin * 0.1 -> maxSubnormalExp = minNormalExp - 1
+2^emin * 0.1 -> also minSubnormalExp! = minNormalExp - 1
+```
+
+With 3 significand bits:
+
+```
+2^emin * 1.00 -> minNormalExp
+2^emin * 0.10 -> maxSubnormalExp = minNormalExp - 1
+2^emin * 0.01 -> minSubnormalExp = minNormalExp - 2
+```
+
+With 4 significand bits:
+
+```
+2^emin * 1.000 -> minNormalExp
+2^emin * 0.100 -> maxSubnormalExp = minNormalExp - 1
+2^emin * 0.010                    = minNormalExp - 2
+2^emin * 0.001 -> minSubnormalExp = minNormalExp - 3
+```
+
+In general, we get `(s - 2)` values,
+which are `minNormalExp - 1`, `minNormalExp - 2`, ..., `minNormalExp - (s - 1)`.
+
 -/
 @[bv_normalize]
 def minSubnormalExp (e : Nat) (s : Nat) : Int :=
-  (maxSubnormalExp e) - (s - 1 : Int)
+  (minNormalExp e) - (s - 1 : Int)
 
-/-- info: -149 -/
-#guard_msgs in #eval minSubnormalExp 8 23
+/-- info: -127 -/
+#guard_msgs in #eval maxSubnormalExp 8
+
+/-- info: -127 -/
+#guard_msgs in #eval minSubnormalExp 8 2
+
+/-- info: -128 -/
+#guard_msgs in #eval minSubnormalExp 8 3
+
+
 /--
 This is a simpler (but less tight) bound than `exponentWidth`.
 It's logarithmically larger.
@@ -336,7 +373,7 @@ theorem toInt_ofInt_minSubnormalExp_eq_minSubnormalExp (he : 1 < e) (hs : 0 < s)
   simp only [BitVec.toInt_ofInt]
   rw [Int.bmod_eq_of_le]
   · simp
-    rw [minSubnormalExp, maxSubnormalExp, minNormalExp]
+    rw [minSubnormalExp, minNormalExp]
     have : 0 < bias e := by exact bias_pos_of_one_lt e he
     rw [Int.natCast_sub (by grind only)]
     have hbias := bias_plus_one_lt_two_pow_exponentWidth_minus_one e s he hs
@@ -346,7 +383,7 @@ theorem toInt_ofInt_minSubnormalExp_eq_minSubnormalExp (he : 1 < e) (hs : 0 < s)
       #569066451790c837])
     obtain ⟨log, hlogeq, hloglt, hlogle⟩ := hlog -- log2 value.
     grind only [!Nat.two_pow_pos, #569066451790c837]
-  · rw [minSubnormalExp, maxSubnormalExp, minNormalExp]
+  · rw [minSubnormalExp, minNormalExp]
     simp
     have := bias_plus_one_lt_two_pow_exponentWidth_minus_one e s he hs
     grind only
