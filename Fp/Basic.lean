@@ -3,6 +3,8 @@ import Fp.ForLean.Dyadic
 import Fp.Grind
 import Fp.ForLean.Rat
 
+-- https://en.wikipedia.org/wiki/Single-precision_floating-point_format
+
 /--
 In 8 bit exponent, this value is 2^7 - 1 = 127.
 The exponent's value is [e.toNat] - bias = [e.toNat] - 127.
@@ -171,6 +173,23 @@ which are `minNormalExp - 1`, `minNormalExp - 2`, ..., `minNormalExp - (s - 1)`
 def minSubnormalExp (e : Nat) (s : Nat) : Int :=
   (minNormalExp e) - s
 
+/--
+The minimum subnormal exponent can have `(s - 1)`
+extra negative values, taken from the significand.
+-/
+theorem minSubnormalExp_eq_neg_bias_minus_s_minus_one (he : 1 < e) :
+    minSubnormalExp e s = - (bias e) - (s - 1) := by
+  simp [minSubnormalExp, minNormalExp, bias]
+  grind
+
+/-- info: -126 -/
+#guard_msgs in #eval minNormalExp 8
+
+/-#
+
+The value is `-149` wrt [wikipedia](https://en.wikipedia.org/wiki/Single-precision_floating-point_format):
+> ... the minimum positive (subnormal) value is 2^(-149).
+-/
 /-- info: -149 -/
 #guard_msgs in #eval minSubnormalExp 8 23
 /--
@@ -366,7 +385,7 @@ theorem toInt_ofInt_minSubnormalExp_eq_minSubnormalExp (he : 1 < e) (hs : 0 < s)
   simp only [BitVec.toInt_ofInt]
   rw [Int.bmod_eq_of_le]
   · simp
-    rw [minSubnormalExp, maxSubnormalExp, minNormalExp]
+    rw [minSubnormalExp, minNormalExp]
     have : 0 < bias e := by exact bias_pos_of_one_lt e he
     rw [Int.natCast_sub (by grind only)]
     have hbias := bias_plus_one_lt_two_pow_exponentWidth_minus_one e s he hs
@@ -376,7 +395,7 @@ theorem toInt_ofInt_minSubnormalExp_eq_minSubnormalExp (he : 1 < e) (hs : 0 < s)
       #569066451790c837])
     obtain ⟨log, hlogeq, hloglt, hlogle⟩ := hlog -- log2 value.
     grind only [!Nat.two_pow_pos, #569066451790c837]
-  · rw [minSubnormalExp, maxSubnormalExp, minNormalExp]
+  · rw [minSubnormalExp, minNormalExp]
     simp
     have := bias_plus_one_lt_two_pow_exponentWidth_minus_one e s he hs
     grind only

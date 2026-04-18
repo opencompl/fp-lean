@@ -101,7 +101,8 @@ theorem PackedFloat.msb_unpackNum_eq_true {pf : PackedFloat e s}
 def EUnpackedFloat.pack (uf : EUnpackedFloat (exponentWidth e s) (s + 1))
   : PackedFloat e s :=
   -- min normal <= exp
-  let inNormalRange := (BitVec.ofInt _ (minNormalExp e)).sle uf.exp
+  let inNormalRange := (BitVec.ofInt _ (minNormalExp e)).sle uf.exp -- minNormalExp ≤s uf.exp
+  let numSubnormalDigits := BitVec.ofInt _ (minNormalExp e) - uf.exp
   {
     sign := bif uf.isNaN then false else uf.sign
     ex := bif uf.isNaN || uf.isInfinite then
@@ -109,19 +110,25 @@ def EUnpackedFloat.pack (uf : EUnpackedFloat (exponentWidth e s) (s + 1))
           else if uf.isZero || !inNormalRange then
             0#e
           else -- bif uf.isNorm then
-            -- Truncate msbs used to normalize subnormals
-            (uf.exp + BitVec.ofNat _ (bias e)).signExtend _
+            if inNormalRange then
+              -- it's at least '00000..1` in the packed format,
+              -- and is larger dependeing on how many more digits we have,
+              (1#_ + (uf.exp - (BitVec.ofInt _ (minNormalExp e)))).zeroExtend _
+            else
+              0#e
     sig := bif uf.isNaN then
             BitVec.intMin s
            else bif uf.isInfinite || uf.isZero then
             0#s
            else bif inNormalRange then
-            uf.sig.truncate s -- drop the leading 1 bit
+            uf.sig.truncate s -- drop the leading 1 bit by taking bits [(s-1)..0].
            else -- bif uf.isSubnorm then
             -- shift right by #of subnormal bits.
-            let shift := BitVec.ofInt _ (minNormalExp e) - uf.exp
+            -- | we only need to shift by the number of subnormal digits minus 1,
+            -- as marking the number as subnormal already gives us one leading zero.
+            -- let shift := numSubnormalDigits
             -- shift, and then truncate to significand width.
-            (uf.sig >>> shift).truncate s
+            (uf.sig >>> (numSubnormalDigits)).truncate s
   }
 
 /--
@@ -246,6 +253,7 @@ theorem EUnpackedFloat.pack_eq_pack' (euf : EUnpackedFloat (exponentWidth e s) (
         apply PackedFloat.ext
         · simp
         · simp [packNumber'.exPacked, packNumber'.inNormalRange]
+          sorry
         · simp [packNumber'.sigPacked, packNumber'.inNormalRange, packNumber'.shift]
 
 attribute [bv_normalize] BitVec.zero
