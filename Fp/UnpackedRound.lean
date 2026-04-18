@@ -542,16 +542,16 @@ def UnpackedFloat.debugRound {eu su : Nat} {tep tsp : Nat}
     rounderHandleOverAndUnderflow roundedUf mode
   let out := out ++ s!"\nresult(EUNum): {result.reprBinary} | (Q): {repr result.toExtRat}"
 
-  let resultNormalized : EUnpackedFloat (exponentWidth tep tsp) (tsp + 1) :=
-    if result.isNumber then
-      let num := result.num
-      EUnpackedFloat.mkNumber num.normalize
-    else result
-  let out := out ++ s!"\nresult normalized: {resultNormalized.reprBinary} | (Q): {repr resultNormalized.toExtRat}"
+  -- let resultNormalized : EUnpackedFloat (exponentWidth tep tsp) (tsp + 1) :=
+  --   if result.isNumber then
+  --     let num := result.num
+  --     EUnpackedFloat.mkNumber num.normalize
+  --   else result
+  -- let out := out ++ s!"\nresult normalized: {resultNormalized.reprBinary} | (Q): {repr resultNormalized.toExtRat}"
 
-  let resultPacked : PackedFloat tep tsp := resultNormalized.pack
+  let resultPacked : PackedFloat tep tsp := result.pack
   let out := out ++ s!"\nresultPacked: {resultPacked.reprBinary} | (Q): {repr resultPacked.toRat}"
-  (resultNormalized, out)
+  (result, out)
 
 /--
 The core rounding function, that rounds an `UnpackedFloat` to the target exponent and significand widths.
@@ -600,7 +600,8 @@ def EUnpackedFloat.round {eu su : Nat} {tep tsp : Nat}
   if inEuf.isNumber then
     let inUf := inEuf.num
     let out := UnpackedFloat.round (tep := tep) (tsp := tsp) inUf mode
-    out.normalize
+    -- out.normalize
+    out
   else if inEuf.isNaN then EUnpackedFloat.mkNaN
   else EUnpackedFloat.mkInfinity inEuf.sign
 
