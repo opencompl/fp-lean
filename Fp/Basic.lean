@@ -3,9 +3,40 @@ import Fp.ForLean.Dyadic
 import Fp.Grind
 import Fp.ForLean.Rat
 
+-- https://en.wikipedia.org/wiki/Single-precision_floating-point_format
+
+/--
+In 8 bit exponent, this value is 2^7 - 1 = 127.
+The exponent's value is [e.toNat] - bias = [e.toNat] - 127.
+-/
 @[bv_normalize]
 def bias (e : Nat) : Nat :=
   2 ^ (e - 1) - 1
+
+/-- info: 127 -/
+#guard_msgs in #eval bias 8
+
+/--
+Adding the bias to itself equals '2^e - 2', which is the
+maximum normal exponent of a packed float.
+-/
+theorem bias_plus_bias_eq_twoPow_minus_two
+  (e : Nat) (he : 1 < e) : bias e + bias e = 2 ^ e - 2 := by
+  simp [bias]
+  have : 2^e = 2 * 2^(e - 1) := by
+    rw [show e = (e - 1) + 1 by grind only]
+    rw [Nat.pow_succ]
+    grind
+  have : 1 ≤ 2 ^ (e - 1) := by exact Nat.one_le_two_pow
+  grind
+
+theorem two_mul_bias_eq_twoPow_minus_two (e : Nat) (he : 1 < e) : 2 * bias e = 2 ^ e - 2 := by
+  have := bias_plus_bias_eq_twoPow_minus_two e he
+  grind
+
+theorem mul_two_bias_eq_twoPow_minus_two (e : Nat) (he : 1 < e) : bias e * 2 = 2 ^ e - 2 := by
+  have := bias_plus_bias_eq_twoPow_minus_two e he
+  grind
 
 @[simp]
 theorem bias_zero_eq : bias 0 = 0 := rfl
@@ -14,7 +45,7 @@ theorem bias_one_eq : bias 1 = 0 := rfl
 @[simp]
 theorem bias_two_eq : bias 2 = 1 := rfl
 
-@[simp]
+@[simp, grind .]
 theorem bias_pos_of_one_lt (e : Nat) (he : 1 < e) : 0 < bias e := by
   simp [bias]
   rcases e with rfl | e
@@ -74,21 +105,90 @@ def Nat.ceilLog2 (n : Nat) : Nat :=
 def minNormalExp (e : Nat) : Int :=
   -(bias e - 1 : Nat)
 
+/-- info: -126 -/
+#guard_msgs in #eval minNormalExp 8
+
 /-- The max value the exponent can take when unbiased. -/
 @[bv_normalize]
 def maxNormalExp (e : Nat) : Int := (bias e)
 
+/-- info: 127 -/
+#guard_msgs in #eval maxNormalExp 8
 
-/-- The value the subnormal exponent can take. -/
+/--
+The value the subnormal exponent can take.
+In 8 bits, this value is -127, because it's -126, but start with a `0.xxx`,
+which makes it one smaller than the minimum normal exponent.
+-/
 @[bv_normalize]
-def subnormalExp (e : Nat) : Int :=
+def maxSubnormalExp (e : Nat) : Int :=
   minNormalExp e - 1
 
+/-- info: -127 -/
+#guard_msgs in #eval maxSubnormalExp 8
+
+/-- maxSubnormalExp should be -127. -/
+theorem maxSubnormalExp_eq_neg_bias_plus_one (he : 1 < e) :
+    maxSubnormalExp e = - (bias e)  := by
+  simp [maxSubnormalExp, minNormalExp, bias]
+  grind
+
+
 /-- For unpacked floats, the *minimum* the subnormal exponent can take,
-which can "steal" bits from the significand to be smaller than minNormalExp. -/
+which can "steal" bits from the significand to be smaller than minNormalExp.
+We have (s - 1) bits, since we need one bit for the leading 1.
+(i.e., we include the hidden bit.)
+
+### `s = 1` (IEEE, so `s=1` is one bit after the decimal point.
+
+With 2 significand bits [minimum for the concept to make sense]:
+
+```
+2^emin * 1.0 -> minNormalExp
+2^emin * 0.1 -> maxSubnormalExp = minNormalExp - 1
+2^emin * 0.1 -> also minSubnormalExp! = minNormalExp - 1
+```
+
+### `s = 2` (IEEE, so `s=1` is one bit after the decimal point.
+
+```
+2^emin * 1.00 -> minNormalExp
+2^emin * 0.10 -> maxSubnormalExp = minNormalExp - 1
+2^emin * 0.01 -> minSubnormalExp = minNormalExp - 2
+```
+
+### `s = 3` (IEEE, so `s=1` is one bit after the decimal point.
+
+```
+2^emin * 1.000 -> minNormalExp
+2^emin * 0.100 -> maxSubnormalExp = minNormalExp - 1
+2^emin * 0.010                    = minNormalExp - 2
+2^emin * 0.001 -> minSubnormalExp = minNormalExp - 3
+```
+
+In general, we get `(s - 2)` values,
+which are `minNormalExp - 1`, `minNormalExp - 2`, ..., `minNormalExp - (s - 1)`
+-/
 @[bv_normalize]
 def minSubnormalExp (e : Nat) (s : Nat) : Int :=
-  (subnormalExp e) - (s : Int)
+  (minNormalExp e) - s
+
+/--
+The minimum subnormal exponent can have `(s - 1)`
+extra negative values, taken from the significand.
+-/
+theorem minSubnormalExp_eq_neg_bias_minus_s_minus_one (he : 1 < e) :
+    minSubnormalExp e s = - (bias e) - (s - 1) := by
+  simp [minSubnormalExp, minNormalExp, bias]
+  grind
+
+/-#
+
+The value is `-149` wrt [wikipedia](https://en.wikipedia.org/wiki/Single-precision_floating-point_format):
+> ... the minimum positive (subnormal) value is 2^(-149).
+-/
+/-- info: -149 -/
+#guard_msgs in #eval minSubnormalExp 8 23
 
 /--
 This is a simpler (but less tight) bound than `exponentWidth`.
@@ -3624,13 +3724,15 @@ def maxNormal (eout sout : Nat) (e _s : Nat) (sign : Bool) :
   }
 
 @[bv_normalize]
-def minSubnormal (eout sout : Nat)
+def minSubnormalForPackedFloat (eout sout : Nat)
   (etarget starget : Nat) (sign : Bool) :
     UnpackedFloat eout sout :=
   {
     sign := sign
     ex := BitVec.ofInt eout (minSubnormalExp etarget starget)
-    sig := (BitVec.leadingOne starget).zeroExtend sout
+    -- | recall that 'startget' is in PackedFloat format, and therefore
+    -- the leading one is implicit. so we need to add one to the significand to get the correct exponent.
+    sig := (BitVec.leadingOne (starget + 1)).zeroExtend sout
   }
 
 instance {P : UnpackedFloat e s → Prop}
