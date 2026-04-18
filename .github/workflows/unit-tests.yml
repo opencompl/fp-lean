@@ -46,3 +46,6 @@ jobs:
 
       - name: Run Rational Div test (xfail)
         run: ./.lake/build/bin/fp-lean divRat --xfail
+
+      - name: Run Round Circuit against SMT-LIB test
+        run: ./.lake/build/bin/fp-lean roundCircuitAgainstSmtLib
