@@ -36,7 +36,7 @@ theorem bias_one_eq : bias 1 = 0 := rfl
 @[simp]
 theorem bias_two_eq : bias 2 = 1 := rfl
 
-@[simp]
+@[simp, grind .]
 theorem bias_pos_of_one_lt (e : Nat) (he : 1 < e) : 0 < bias e := by
   simp [bias]
   rcases e with rfl | e
