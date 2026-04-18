@@ -120,7 +120,7 @@ def rounderSpecialCaseUnderflow
   if returnZero then
     EUnpackedFloat.mkZero sign
   else
-    EUnpackedFloat.mkNumber <| UnpackedFloat.minSubnormal _ _ tep tsp sign
+    EUnpackedFloat.mkNumber <| .minSubnormalForPackedFloat _ _ tep tsp sign
 
 /--
 Truncate the exponent of an `UnpackedFloat` to the target format width,
@@ -347,7 +347,7 @@ def UnpackedFloat.reprBinary {eu su : Nat} (uf : UnpackedFloat eu su) : String :
   let signStr := if uf.sign then "-" else "+"
   let exStr := s!"{uf.ex.toBitsStr}=int:{uf.ex.toInt}"
   let sigStr := s!"{uf.sig.toBitsStr}=nat:{uf.sig.toNat}"
-  s!"{signStr} 1.{sigStr} * 2^({exStr} - {su - 1})"
+  s!"{signStr} {sigStr} * 2^({exStr} - {su - 1})"
 
 def PackedFloat.reprBinary {ep sp : Nat} (pf : PackedFloat ep sp) : String :=
   let signStr := if pf.sign then "-" else "+"
@@ -363,212 +363,6 @@ def EUnpackedFloat.reprBinary {eu su : Nat} (euf : EUnpackedFloat eu su) : Strin
     "EUENaN"
   else
     s!"EUNum({euf.num.reprBinary})"
-
-/--
-Preconditions for rounding to succeed:
-
-(hs : su >= tsp + 1 + 2)
-(he : eu >= tep)
-(hs' : su >= 1) :
--/
-@[bv_normalize]
-def UnpackedFloat.debugRound {eu su : Nat} {tep tsp : Nat}
-  (inUf : UnpackedFloat eu su)
-  (mode : RoundingMode) :
-  (EUnpackedFloat (exponentWidth tep tsp) (tsp + 1) × String) :=
-  let out := ""
-  -- round a normalized, normal float.
-  let out := out ++ s!"\n--- rounding: {repr inUf} ---"
-  let out := out ++ s!"\n  val (Q): {inUf.toRat} = sig({inUf.sig.toBitsStr}=nat:{inUf.sig.toNat})) * 2 ** exp:([{inUf.ex.toBitsStr}=int:{inUf.ex.toInt}] - ({su - 1}))"
-  let exp : BitVec eu := inUf.ex
-
-  let targetMinNormalExp : BitVec eu :=
-    BitVec.ofInt eu (minNormalExp tep)
-  let out := out ++ s!"\nexp: {exp.toBitsStr} = int:{exp.toInt}"
-  let out := out ++ s!"\ntargetMinNormalExp: {targetMinNormalExp.toBitsStr} = int:{targetMinNormalExp.toInt}"
-  let out := if targetMinNormalExp.toInt != minNormalExp tep then
-    out ++ "\nERROR: targetMinNormalExp.toInt != minNormalExp tep"
-  else
-    out
-
-  let out := out ++ s!"\nmaxNormalExp: {maxNormalExp tep}"
-  -- let earlyOverflow : Bool := exp.sgt (BitVec.ofInt eu (maxNormalExp tep))
-  -- let out := out ++ s!"\nearlyOverflow: {earlyOverflow}"
-  let out := out ++ s!"\nminSubnormalExp: {minSubnormalExp tep tsp}"
-  -- early underflow:
-  -- let earlyUnderflow : Bool := exp.slt (BitVec.ofInt eu (minSubnormalExp tep tsp))
-  -- let out := out ++ s!"\nearlyUnderflow: {earlyUnderflow}"
-
-  -- force exponent to be at least min normal exponent.
-  let expGeMin :=
-    if exp.slt targetMinNormalExp then
-      targetMinNormalExp
-    else
-      exp
-  let out := out ++ s!"\nexpGeMin: {expGeMin.toBitsStr} = int:{expGeMin.toInt}"
-
-  -- how much to shift 'sig' by.
-  let shiftAmtPositive := expGeMin - exp
-  let out := out ++ s!"\nshiftAmtPositive: {shiftAmtPositive.toBitsStr} = int:{shiftAmtPositive.toInt} = nat:{shiftAmtPositive.toNat}"
-  -- have : shiftAmtPositive.toInt ≥ 0 := AxRoundNormal
-  -- have : shiftAmtPositive.toNat = shiftAmtPositive.toInt := AxRoundNormal
-  -- have : exp.toInt + shiftAmtPositive.toInt = expGeMin.toInt := AxRoundNormal
-
-  let sigWithHidden : BitVec su := inUf.sig
-  let out := out ++ s!"\nsigWithHidden: {sigWithHidden.toBitsStr} = nat:{sigWithHidden.toNat}"
-
-  -- in inf precision, we want to take:
-  --                ↓ guard
-  --  1 . a b c d e f g h ... * 2^exp
-  --  ============↑ (6 bits of precision)
-  -- suppose we exceed by 3 bits, so shiftAmt = 3.
-
-  -- and convert to target precision:
-  --                  ↓ guard
-  --  0 . 0 0 0 1 a b c d e f g h * 2^exp + 2^shiftAmt | to make 'exp + shiftAmt >= minNormalExp'.
-  --  ==============↑ (6 bits of precision)
-  -- (su - 1) - (tsp - 1) -
-  -- let targetSigWithHidden : BitVec (tsp + 1) :=
-  --   sigWithHidden.extractMsb' 0 (tsp + 1)
-  -- to grab the bit *after* w bits, it's the bit x[w].
-  -- we want the bit *after* tsp + 1, i.e., bit at index tsp + 1.
-  let out := out ++ s!"\nguardBitIndexFromLsb: (su({su}) - 1)  - (tsp({tsp}) + 1) = {(su - 1) - (tsp + 1)}"
-  let guardBitIndexFromLsb : BitVec su :=
-    BitVec.ofNat su ((su - 1) - (tsp + 1))
-  let out := out ++ s!"\nguardBitIndexFromLsb: {guardBitIndexFromLsb.toBitsStr} = nat:{guardBitIndexFromLsb.toNat}"
-  -- | See that when we call 'shiftAmtPositive.zeroExtend su', there is
-  -- a potential that shiftAmtPositive is wider than su.
-  -- However, when we compute early underflow,
-  let guardBitIndexFromLsbAdjusted : BitVec su :=
-    guardBitIndexFromLsb + shiftAmtPositive.zeroExtend su
-  let out := out ++ s!"\nguardBitIndexFromLsbAdjusted({guardBitIndexFromLsbAdjusted.toBitsStr})nat:{guardBitIndexFromLsbAdjusted.toNat} = guardBitIndexFromLsb({guardBitIndexFromLsb.toBitsStr})nat:{guardBitIndexFromLsb.toNat} + shiftAmtPositive({shiftAmtPositive.toBitsStr})nat:{shiftAmtPositive.toNat}"
-
-  let guardBitMask : BitVec su := BitVec.oneHotBV guardBitIndexFromLsbAdjusted
-  let out := out ++ s!"\nguardBitMask: {guardBitMask.toBitsStr}"
-  let guardBit : Bool := (sigWithHidden &&& guardBitMask) ≠ 0#su
-  let out := out ++ s!"\nguardBit: {guardBit} = {sigWithHidden.toBitsStr} &&& {guardBitMask.toBitsStr}"
-  let stickyBitsMask : BitVec su := (BitVec.orderEncode guardBitIndexFromLsbAdjusted)
-  let out := out ++ s!"\nstickyBitsMask: {stickyBitsMask.toBitsStr}"
-  let stickyBits : BitVec su := (sigWithHidden &&& stickyBitsMask)
-  let out := out ++ s!"\nstickyBits: {stickyBits.toBitsStr}"
-  let stickyBit : Bool := stickyBits ≠ 0#su
-  let out := out ++ s!"\nstickyBit: {stickyBit} = {sigWithHidden.toBitsStr} &&& {stickyBitsMask.toBitsStr}"
-
-  let sigwithHiddenCleared : BitVec su :=
-    sigWithHidden &&& (~~~(guardBitMask ||| stickyBitsMask))
-  let out := out ++ s!"\nsigwithHiddenCleared: {sigwithHiddenCleared.toBitsStr} = {sigWithHidden.toBitsStr} &&& ~({guardBitMask.toBitsStr} ||| {stickyBitsMask.toBitsStr})"
-
-  let lsbMask : BitVec su :=
-     BitVec.oneHotBV (guardBitIndexFromLsbAdjusted + 1#su)
-  let out := out ++ s!"\nlsbMask: {lsbMask.toBitsStr}"
-
-  let isEven : Bool := sigWithHidden &&& lsbMask = 0#su
-  let out := out ++ s!"\nisEven: {isEven} = {sigWithHidden.toBitsStr} &&& {lsbMask.toBitsStr}"
-  let shouldRoundUp := roundingDecision
-    (mode := mode)
-    (sign := inUf.sign)
-    (significandEven := isEven)
-    (guardBit := guardBit)
-    (stickyBit := stickyBit)
-    (_exact := false)
-  let out := out ++ s!"\nshouldRoundUp: {shouldRoundUp}"
-  let out := if shouldRoundUp then
-    out ++ s!"\nroundedTargetSigWithHidden = sigwithHiddenCleared({sigwithHiddenCleared.toBitsStr}) + lsbMask({lsbMask.toBitsStr})"
-  else
-    out ++ s!"\nroundedTargetSigWithHidden = sigwithHiddenCleared({sigwithHiddenCleared.toBitsStr})"
-  let sigDidOverflow_RoundedTargetSigWithHidden : BitVec (su + 1) :=
-    if shouldRoundUp then
-      if sigwithHiddenCleared = 0#su && lsbMask = 0#su then
-        BitVec.oneHotBV (w := su + 1) (su)
-      else
-        sigwithHiddenCleared.zeroExtend (su + 1) + lsbMask.zeroExtend (su + 1)
-    else
-      sigwithHiddenCleared.zeroExtend (su + 1)
-
-  let sigDidOverflow : Bool :=
-    sigDidOverflow_RoundedTargetSigWithHidden.msb
-
-  let roundedTargetSigWithHidden : BitVec su :=
-    sigDidOverflow_RoundedTargetSigWithHidden.setWidth su
-
-  let out := out ++ s!"\nroundedTargetSigWithHidden: {roundedTargetSigWithHidden.toBitsStr} = nat:{roundedTargetSigWithHidden.toNat}"
-  let out := out ++ s!"\nsigDidOverflow: {sigDidOverflow}"
-
-  let roundedTargetSigWithHiddenOverflowAdjusted : BitVec su :=
-    if sigDidOverflow then
-      BitVec.leadingOne su
-    else
-      roundedTargetSigWithHidden
-  let out := out ++ s!"\nroundedTargetSigWithHiddenOverflowAdjusted: {roundedTargetSigWithHiddenOverflowAdjusted.toBitsStr} = nat:{roundedTargetSigWithHiddenOverflowAdjusted.toNat}"
-
-  let roundedExpExtended : BitVec (eu + 1) :=
-    if sigDidOverflow then
-      exp.signExtend (eu + 1) + 1#(eu + 1)
-    else
-      exp.signExtend (eu + 1)
-
-  let out := out ++ s!"\nroundedExpExtended: {roundedExpExtended.toBitsStr} = int:{roundedExpExtended.toInt}"
-  -- I find this width stuff confusing, which width should we use?
-  -- have : eu ≥ exponentWidth tep tsp := by grind
-  let maxNormalExpBV : BitVec (eu + 1) :=
-    BitVec.ofInt (eu + 1) (maxNormalExp tep)
-  let lateOverflow : Bool :=
-    maxNormalExpBV.slt roundedExpExtended
-  let out := out ++ s!"\nlate overflow: {lateOverflow} = roundedExpExtended({roundedExpExtended.toBitsStr}=int:{roundedExpExtended.toInt}) > maxNormalExpBV({maxNormalExpBV.toBitsStr}=int:{maxNormalExpBV.toInt})"
-  -- let maxSubnormalExpBV : BitVec (eu) := BitVec.ofInt (eu) (maxSubnormalExp tep)
-  -- let minSubnormalExpMinusOneBV : BitVec (eu + 1) :=
-  --   BitVec.ofInt (eu + 1) (minSubnormalExp tep tsp - 1)
-  let minSubnormalExpBV : BitVec (eu + 1) :=
-    BitVec.ofInt (eu + 1) (minSubnormalExp tep tsp)
-  let lateUnderflow : Bool :=
-    roundedExpExtended.slt minSubnormalExpBV
-    -- (roundedExpExtended = minSubnormalExpMinusOneBV) && !shouldRoundUp
-  let out := out ++ s!"\nlateUnderflow: {lateUnderflow} = roundedExpExtended({roundedExpExtended.toBitsStr}=int:{roundedExpExtended.toInt}) < minSubnormalExpBV: {minSubnormalExpBV.toBitsStr} = int:{minSubnormalExpBV.toInt}"
-  -- let out := out ++ s!"\nlateUnderflow: {lateUnderflow} = (roundedExpExtended({roundedExpExtended.toBitsStr}=int:{roundedExpExtended.toInt}) = minSubnormalExpMinusOneBV({minSubnormalExpMinusOneBV.toBitsStr}=int:{minSubnormalExpMinusOneBV.toInt}) - 1) && !shouldRoundUp({shouldRoundUp})"
-  -- let out := out ++ s!"\nlate underflow: {lateUnderflow} = roundedExp({roundedExp.toBitsStr}=int:{roundedExp.toInt}) < maxSubnormalExpBV({maxSubnormalExpBV.toBitsStr}=int:{maxSubnormalExpBV.toInt})"
-  let underflow : Bool := lateUnderflow -- || earlyUnderflow
-  let out := out ++ s!"\nunderflow: {underflow} = lateUnderflow({lateUnderflow})" --" || earlyUnderflow({earlyUnderflow})"
-  let overflow : Bool := lateOverflow -- || earlyOverflow
-  -- let out := out ++ s!"\noverflow: {overflow} = lateOverflow({lateOverflow}) || earlyOverflow({earlyOverflow})"
-  let out := out ++ s!"\noverflow: {overflow} = lateOverflow({lateOverflow})" --" || earlyOverflow({earlyOverflow})"
-
-  let roundedClampedExpExtended : BitVec (eu + 1) :=
-    if lateOverflow then
-      BitVec.ofInt (eu + 1) (maxNormalExp tep)
-    else if lateUnderflow then
-      BitVec.ofInt (eu + 1) (minSubnormalExp tep tsp)
-    else
-      roundedExpExtended
-  let out := out ++ s!"\nroundedClampedExpExtended: {roundedClampedExpExtended.toBitsStr} = int:{roundedClampedExpExtended.toInt}"
-  let finalSigTruncated := roundedTargetSigWithHiddenOverflowAdjusted.extractMsb' 0 (tsp + 1)
-  let finalNumber : UnpackedFloat (eu + 1) (tsp + 1) :=
-    { sign := inUf.sign,
-      ex := roundedClampedExpExtended,
-      sig := finalSigTruncated
-    }
-  let finalTruncated := finalNumber.truncateFittingExponent tep tsp
-  let out := out ++ s!"\nfinalExp: {finalTruncated.ex.toBitsStr} = int:{finalTruncated.ex.toInt}"
-  let out := out ++ s!"\nfinalSigTruncated: {finalSigTruncated.toBitsStr} = nat:{finalSigTruncated.toNat}"
-  let out := out ++ s!"\nfinalNumber: {reprBinary finalTruncated} | (Q): {finalTruncated.toRat}"
-  -- | TODO: I don't fully understand the special cases
-  let result  :=
-    if inUf.isZero then
-      EUnpackedFloat.mkZero inUf.sign
-    -- else if earlyOverflow then
-    --   rounderSpecialCaseOverflow mode inUf.sign
-    -- else if earlyUnderflow then
-    --   rounderSpecialCaseUnderflow mode inUf.sign
-    else if lateUnderflow then
-      rounderSpecialCaseUnderflow mode inUf.sign
-    else if lateOverflow then
-      rounderSpecialCaseOverflow mode inUf.sign
-    else
-      EUnpackedFloat.mkNumber finalTruncated
-  let out := out ++ s!"\nresult(EUNum): {result.reprBinary} | (Q): {repr result.toExtRat}"
-
-  let resultPacked : PackedFloat tep tsp := result.pack
-  let out := out ++ s!"\nresultPacked: {resultPacked.reprBinary} | (Q): {repr resultPacked.toRat}"
-  (result, out)
 
 /--
 Clear guard and sticky bits from the significand of an unpacked float,
@@ -677,6 +471,89 @@ def rounderHandleOverAndUnderflow {eu : Nat} {tep tsp : Nat}
     EUnpackedFloat.mkNumber <| roundedResult.truncateFittingExponent tep tsp
 
 /--
+Debug variant of rounding: mirrors `UnpackedFloat.round` step-by-step while logging
+each intermediate value to a string.
+
+Preconditions for rounding to succeed:
+
+(hs : su >= tsp + 1 + 2)
+(he : eu >= tep)
+(hs' : su >= 1) :
+-/
+@[bv_normalize]
+def UnpackedFloat.debugRound {eu su : Nat} {tep tsp : Nat}
+  (inUf : UnpackedFloat eu su)
+  (mode : RoundingMode) :
+  (EUnpackedFloat (exponentWidth tep tsp) (tsp + 1) × String) :=
+  let out := ""
+  let out := out ++ s!"\n--- rounding: {repr inUf} ---"
+  let out := out ++ s!"\n  input: {inUf.reprBinary}"
+  let out := out ++ s!"\n  val (Q): {inUf.toRat} = sig({inUf.sig.toBitsStr}=nat:{inUf.sig.toNat})) * 2 ** exp:([{inUf.ex.toBitsStr}=int:{inUf.ex.toInt}] - ({su - 1}))"
+  let out := out ++ s!"\ntargetMinNormalExp: int:{minNormalExp tep}"
+  let out := out ++ s!"\nmaxNormalExp: {maxNormalExp tep}"
+  let out := out ++ s!"\nminSubnormalExp: {minSubnormalExp tep tsp}"
+  if _hzero : inUf.isZero then
+    let result : EUnpackedFloat (exponentWidth tep tsp) (tsp + 1) :=
+      EUnpackedFloat.mkZero inUf.sign
+    let out := out ++ s!"\nisZero: true → early return mkZero"
+    let out := out ++ s!"\nresult(EUNum): {result.reprBinary} | (Q): {repr result.toExtRat}"
+    let resultPacked : PackedFloat tep tsp := result.pack
+    let out := out ++ s!"\nresultPacked: {resultPacked.reprBinary} | (Q): {repr resultPacked.toRat}"
+    (result, out)
+  else
+  let out := out ++ s!"\nisZero: false"
+
+  let guardBitIdx : BitVec su := inUf.guardBitIndex tep tsp
+  let out := out ++ s!"\nguardBitIndex: {guardBitIdx.toBitsStr} = nat:{guardBitIdx.toNat}"
+  let guardBit : Bool := inUf.extractGuardBit tep tsp
+  let stickyBit : Bool := inUf.extractStickyBit tep tsp
+  let isEven : Bool := inUf.extractIsEven tep tsp
+  let out := out ++ s!"\nguardBit: {guardBit}"
+  let out := out ++ s!"\nstickyBit: {stickyBit}"
+  let out := out ++ s!"\nisEven: {isEven}"
+
+  let shouldRoundUp := roundingDecision
+    (mode := mode)
+    (sign := inUf.sign)
+    (significandEven := isEven)
+    (guardBit := guardBit)
+    (stickyBit := stickyBit)
+    (_exact := false)
+  let out := out ++ s!"\nshouldRoundUp: {shouldRoundUp}"
+
+  let roundedUf : UnpackedFloat (eu + 1) (tsp + 1) :=
+    if shouldRoundUp then
+      inUf.successorAwayFromZero tep tsp
+    else
+      inUf.roundTowardZero tep tsp
+  let out := out ++ s!"\nroundedUf.ex: {roundedUf.ex.toBitsStr} = int:{roundedUf.ex.toInt}"
+  let out := out ++ s!"\nroundedUf.sig: {roundedUf.sig.toBitsStr} = nat:{roundedUf.sig.toNat}"
+
+  let maxNormalExpBV : BitVec (eu + 1) :=
+    BitVec.ofInt (eu + 1) (maxNormalExp tep)
+  let lateOverflow : Bool := maxNormalExpBV.slt roundedUf.ex
+  let minSubnormalExpBV : BitVec (eu + 1) :=
+    BitVec.ofInt (eu + 1) (minSubnormalExp tep tsp)
+  let lateUnderflow : Bool := roundedUf.ex.slt minSubnormalExpBV
+  let out := out ++ s!"\nlateOverflow: {lateOverflow} = roundedUf.ex({roundedUf.ex.toBitsStr}=int:{roundedUf.ex.toInt}) > maxNormalExpBV({maxNormalExpBV.toBitsStr}=int:{maxNormalExpBV.toInt})"
+  let out := out ++ s!"\nlateUnderflow: {lateUnderflow} = roundedUf.ex({roundedUf.ex.toBitsStr}=int:{roundedUf.ex.toInt}) < minSubnormalExpBV({minSubnormalExpBV.toBitsStr}=int:{minSubnormalExpBV.toInt})"
+
+  let result : EUnpackedFloat (exponentWidth tep tsp) (tsp + 1) :=
+    rounderHandleOverAndUnderflow roundedUf mode
+  let out := out ++ s!"\nresult(EUNum): {result.reprBinary} | (Q): {repr result.toExtRat}"
+
+  let resultNormalized : EUnpackedFloat (exponentWidth tep tsp) (tsp + 1) :=
+    if result.isNumber then
+      let num := result.num
+      EUnpackedFloat.mkNumber num.normalize
+    else result
+  let out := out ++ s!"\nresult normalized: {resultNormalized.reprBinary} | (Q): {repr resultNormalized.toExtRat}"
+
+  let resultPacked : PackedFloat tep tsp := resultNormalized.pack
+  let out := out ++ s!"\nresultPacked: {resultPacked.reprBinary} | (Q): {repr resultPacked.toRat}"
+  (resultNormalized, out)
+
+/--
 The core rounding function, that rounds an `UnpackedFloat` to the target exponent and significand widths.
 Computes the shared prefix (guard/sticky bit extraction, significand clearing),
 then dispatches to `roundTowardZero` or `successorAwayFromZero` based on `roundingDecision`,
@@ -722,8 +599,8 @@ def EUnpackedFloat.round {eu su : Nat} {tep tsp : Nat}
   EUnpackedFloat (exponentWidth tep tsp) (tsp + 1) :=
   if inEuf.isNumber then
     let inUf := inEuf.num
-    UnpackedFloat.round (tep := tep) (tsp := tsp)
-      inUf mode
+    let out := UnpackedFloat.round (tep := tep) (tsp := tsp) inUf mode
+    out.normalize
   else if inEuf.isNaN then EUnpackedFloat.mkNaN
   else EUnpackedFloat.mkInfinity inEuf.sign
 
@@ -746,6 +623,17 @@ def checkRoundCorrect (EUnpacked SUnpackedNoHidden : Nat) (EOut SOutNoHidden : N
 
   for originalPacked in mkPackedFloats EUnpacked SUnpackedNoHidden do
     let originalEUnpacked := originalPacked.unpack
+
+    if originalPacked.toExtRat ≠ originalEUnpacked.toExtRat then
+      let err : String := ""
+      let err := err ++ s!"\nFailed unpacking roundtrip ❌ | original {originalEUnpacked.reprBinary}"
+      let err := err ++ s!"\n  original (packed) {originalPacked.reprBinary}"
+      let err := err ++ s!"\n  original (Q) {repr originalPacked.toExtRat}"
+      IO.println err
+      outError := err
+      nfailed := nfailed + 1
+      continue
+
     if ! originalEUnpacked.isNumber then continue
 
     let originalUnpacked := originalEUnpacked.num
@@ -777,17 +665,19 @@ def checkRoundCorrect (EUnpacked SUnpackedNoHidden : Nat) (EOut SOutNoHidden : N
       nsucceeded := nsucceeded + 1
     else
       let err : String := ""
-      let err := err ++ s!"\nFailed ❌ | original {repr originalEUnpacked}"
-      let err := err ++ s!"\n  original (packed) {repr originalPacked}"
+      let err := err ++ s!"\nFailed ❌ | original {originalEUnpacked.reprBinary}"
+      let err := err ++ s!"\n  original (packed) {originalPacked.reprBinary}"
       let err := err ++ s!"\n  original (Q) {repr originalPacked.toRat?}"
+      let err := err ++ s!"\n  original (eunpacked) {repr originalEUnpacked.reprBinary}"
       let err := err ++ s!"\n  --"
-      let err := err ++ s!"\n  output rounded (packed) {repr outputRoundedPacked}"
-      let err := err ++ s!"\n  output rounded (eunpacked) {repr outputRoundedEUnpacked}"
-      let err := err ++ s!"\n  output rounded (Q) {repr outputRoundedEUnpacked.toExtRat}"
+      let err := err ++ s!"\n  output rounded (eunpacked) {outputRoundedEUnpacked.reprBinary}"
+      let err := err ++ s!"\n  output rounded (eunpacked.Q) {repr outputRoundedEUnpacked.toExtRat}"
+      let err := err ++ s!"\n  output rounded (packed) {outputRoundedPacked.reprBinary}"
+      let err := err ++ s!"\n  output rounded (packed.Q) {repr outputRoundedPacked.toExtRat}"
       let err := err ++ s!"\n  --"
-      let err := err ++ s!"\n  expected (packed) {repr expectedPacked}"
+      let err := err ++ s!"\n  expected (packed) {expectedPacked.reprBinary}"
       let err := err ++ s!"\n  expected (Q) {repr expectedPacked.toExtRat}"
-      let err := err ++ s!"\n  expected (eunpacked) {repr expectedEUnpacked}"
+      let err := err ++ s!"\n  expected (eunpacked) {expectedEUnpacked.reprBinary}"
       let err := err ++ s!"\n\n{log}"
       IO.println err
       outError := err
@@ -812,165 +702,6 @@ def checkRoundCorrect (EUnpacked SUnpackedNoHidden : Nat) (EOut SOutNoHidden : N
 #guard_msgs(check error, drop info) in #eval checkRoundCorrect 4 5 4 2 .RTZ
 #guard_msgs(check error, drop info) in #eval checkRoundCorrect 4 5 4 2 .RTZ
 
-/--
-error: (383 succeeded / 384 total) (99.739583% succeeded) (1 failures) ❌
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0xa#4, sig := 0x40#7 } }
-  original (packed) { sign := +, ex := 0x0#2, sig := 0x01#6 }
-  original (Q) some (1 : Rat)/64
-  --
-  output rounded (packed) { sign := +, ex := 0x0#2, sig := 0x0#4 }
-  output rounded (eunpacked) { state := num, num := { sign := false, ex := 0xc#4, sig := 0x08#5 } }
-  output rounded (Q) ExtRat.Number (1 : Rat)/32
-  --
-  expected (packed) { sign := +, ex := 0x0#2, sig := 0x1#4 }
-  expected (Q) ExtRat.Number (1 : Rat)/16
-  expected (eunpacked) { state := num, num := { sign := false, ex := 0xc#4, sig := 0x10#5 } }
-
-
---- rounding: { sign := false, ex := 0xa#4, sig := 0x40#7 } ---
-  val (Q): 1/64 = sig(0b1000000=nat:64)) * 2 ** exp:([0b1010=int:-6] - (6))
-exp: 0b1010 = int:-6
-targetMinNormalExp: 0b0000 = int:0
-maxNormalExp: 1
-minSubnormalExp: -4
-expGeMin: 0b0000 = int:0
-shiftAmtPositive: 0b0110 = int:6 = nat:6
-sigWithHidden: 0b1000000 = nat:64
-guardBitIndexFromLsb: (su(7) - 1)  - (tsp(4) + 1) = 1
-guardBitIndexFromLsb: 0b0000001 = nat:1
-guardBitIndexFromLsbAdjusted(0b0000111)nat:7 = guardBitIndexFromLsb(0b0000001)nat:1 + shiftAmtPositive(0b0110)nat:6
-guardBitMask: 0b0000000
-guardBit: false = 0b1000000 &&& 0b0000000
-stickyBitsMask: 0b1111111
-stickyBits: 0b1000000
-stickyBit: true = 0b1000000 &&& 0b1111111
-sigwithHiddenCleared: 0b0000000 = 0b1000000 &&& ~(0b0000000 ||| 0b1111111)
-lsbMask: 0b0000000
-isEven: true = 0b1000000 &&& 0b0000000
-shouldRoundUp: true
-roundedTargetSigWithHidden = sigwithHiddenCleared(0b0000000) + lsbMask(0b0000000)
-roundedTargetSigWithHidden: 0b0000000 = nat:0
-sigDidOverflow: true
-roundedTargetSigWithHiddenOverflowAdjusted: 0b1000000 = nat:64
-roundedExpExtended: 0b11011 = int:-5
-late overflow: false = roundedExpExtended(0b11011=int:-5) > maxNormalExpBV(0b00001=int:1)
-lateUnderflow: true = roundedExpExtended(0b11011=int:-5) < minSubnormalExpBV: 0b11100 = int:-4
-underflow: true = lateUnderflow(true)
-overflow: false = lateOverflow(false)
-roundedClampedExpExtended: 0b11100 = int:-4
-finalExp: 0b1100 = int:-4
-finalSigTruncated: 0b10000 = nat:16
-finalNumber: + 1.0b10000=nat:16 * 2^(0b1100=int:-4 - 4) | (Q): 1/16
-result(EUNum): EUNum(+ 1.0b01000=nat:8 * 2^(0b1100=int:-4 - 4)) | (Q): ExtRat.Number (1 : Rat)/32
-resultPacked: + (subnorm:false) sig:0b0000=nat:0 ex:0b00=nat:0 bias:1 expval:-1 = (some 0) | (Q): 0
--/
 #guard_msgs(check error, drop info) in #eval checkRoundCorrect 2 6 2 4 .RTP
-/--
-error: (957 succeeded / 960 total) (99.687500% succeeded) (3 failures) ❌
-
-Failed ❌ | original { state := num, num := { sign := false, ex := 0x16#5, sig := 0x30#6 } }
-  original (packed) { sign := +, ex := 0x0#4, sig := 0x03#5 }
-  original (Q) some (3 : Rat)/2048
-  --
-  output rounded (packed) { sign := +, ex := 0x0#4, sig := 0x0#2 }
-  output rounded (eunpacked) { state := num, num := { sign := false, ex := 0x18#5, sig := 0x2#3 } }
-  output rounded (Q) ExtRat.Number (1 : Rat)/512
-  --
-  expected (packed) { sign := +, ex := 0x0#4, sig := 0x1#2 }
-  expected (Q) ExtRat.Number (1 : Rat)/256
-  expected (eunpacked) { state := num, num := { sign := false, ex := 0x18#5, sig := 0x4#3 } }
-
-
---- rounding: { sign := false, ex := 0x16#5, sig := 0x30#6 } ---
-  val (Q): 3/2048 = sig(0b110000=nat:48)) * 2 ** exp:([0b10110=int:-10] - (5))
-exp: 0b10110 = int:-10
-targetMinNormalExp: 0b11010 = int:-6
-maxNormalExp: 7
-minSubnormalExp: -8
-expGeMin: 0b11010 = int:-6
-shiftAmtPositive: 0b00100 = int:4 = nat:4
-sigWithHidden: 0b110000 = nat:48
-guardBitIndexFromLsb: (su(6) - 1)  - (tsp(2) + 1) = 2
-guardBitIndexFromLsb: 0b000010 = nat:2
-guardBitIndexFromLsbAdjusted(0b000110)nat:6 = guardBitIndexFromLsb(0b000010)nat:2 + shiftAmtPositive(0b00100)nat:4
-guardBitMask: 0b000000
-guardBit: false = 0b110000 &&& 0b000000
-stickyBitsMask: 0b111111
-stickyBits: 0b110000
-stickyBit: true = 0b110000 &&& 0b111111
-sigwithHiddenCleared: 0b000000 = 0b110000 &&& ~(0b000000 ||| 0b111111)
-lsbMask: 0b000000
-isEven: true = 0b110000 &&& 0b000000
-shouldRoundUp: true
-roundedTargetSigWithHidden = sigwithHiddenCleared(0b000000) + lsbMask(0b000000)
-roundedTargetSigWithHidden: 0b000000 = nat:0
-sigDidOverflow: true
-roundedTargetSigWithHiddenOverflowAdjusted: 0b100000 = nat:32
-roundedExpExtended: 0b110111 = int:-9
-late overflow: false = roundedExpExtended(0b110111=int:-9) > maxNormalExpBV(0b000111=int:7)
-lateUnderflow: true = roundedExpExtended(0b110111=int:-9) < minSubnormalExpBV: 0b111000 = int:-8
-underflow: true = lateUnderflow(true)
-overflow: false = lateOverflow(false)
-roundedClampedExpExtended: 0b111000 = int:-8
-finalExp: 0b11000 = int:-8
-finalSigTruncated: 0b100 = nat:4
-finalNumber: + 1.0b100=nat:4 * 2^(0b11000=int:-8 - 2) | (Q): 1/256
-result(EUNum): EUNum(+ 1.0b010=nat:2 * 2^(0b11000=int:-8 - 2)) | (Q): ExtRat.Number (1 : Rat)/512
-resultPacked: + (subnorm:false) sig:0b00=nat:0 ex:0b0000=nat:0 bias:7 expval:-7 = (some 0) | (Q): 0
--/
 #guard_msgs(check error, drop info) in #eval checkRoundCorrect 4 5 4 2 .RTP
-/--
-error: (957 succeeded / 960 total) (99.687500% succeeded) (3 failures) ❌
-
-Failed ❌ | original { state := num, num := { sign := true, ex := 0x16#5, sig := 0x30#6 } }
-  original (packed) { sign := -, ex := 0x0#4, sig := 0x03#5 }
-  original (Q) some (-3 : Rat)/2048
-  --
-  output rounded (packed) { sign := -, ex := 0x0#4, sig := 0x0#2 }
-  output rounded (eunpacked) { state := num, num := { sign := true, ex := 0x18#5, sig := 0x2#3 } }
-  output rounded (Q) ExtRat.Number (-1 : Rat)/512
-  --
-  expected (packed) { sign := -, ex := 0x0#4, sig := 0x1#2 }
-  expected (Q) ExtRat.Number (-1 : Rat)/256
-  expected (eunpacked) { state := num, num := { sign := true, ex := 0x18#5, sig := 0x4#3 } }
-
-
---- rounding: { sign := true, ex := 0x16#5, sig := 0x30#6 } ---
-  val (Q): -3/2048 = sig(0b110000=nat:48)) * 2 ** exp:([0b10110=int:-10] - (5))
-exp: 0b10110 = int:-10
-targetMinNormalExp: 0b11010 = int:-6
-maxNormalExp: 7
-minSubnormalExp: -8
-expGeMin: 0b11010 = int:-6
-shiftAmtPositive: 0b00100 = int:4 = nat:4
-sigWithHidden: 0b110000 = nat:48
-guardBitIndexFromLsb: (su(6) - 1)  - (tsp(2) + 1) = 2
-guardBitIndexFromLsb: 0b000010 = nat:2
-guardBitIndexFromLsbAdjusted(0b000110)nat:6 = guardBitIndexFromLsb(0b000010)nat:2 + shiftAmtPositive(0b00100)nat:4
-guardBitMask: 0b000000
-guardBit: false = 0b110000 &&& 0b000000
-stickyBitsMask: 0b111111
-stickyBits: 0b110000
-stickyBit: true = 0b110000 &&& 0b111111
-sigwithHiddenCleared: 0b000000 = 0b110000 &&& ~(0b000000 ||| 0b111111)
-lsbMask: 0b000000
-isEven: true = 0b110000 &&& 0b000000
-shouldRoundUp: true
-roundedTargetSigWithHidden = sigwithHiddenCleared(0b000000) + lsbMask(0b000000)
-roundedTargetSigWithHidden: 0b000000 = nat:0
-sigDidOverflow: true
-roundedTargetSigWithHiddenOverflowAdjusted: 0b100000 = nat:32
-roundedExpExtended: 0b110111 = int:-9
-late overflow: false = roundedExpExtended(0b110111=int:-9) > maxNormalExpBV(0b000111=int:7)
-lateUnderflow: true = roundedExpExtended(0b110111=int:-9) < minSubnormalExpBV: 0b111000 = int:-8
-underflow: true = lateUnderflow(true)
-overflow: false = lateOverflow(false)
-roundedClampedExpExtended: 0b111000 = int:-8
-finalExp: 0b11000 = int:-8
-finalSigTruncated: 0b100 = nat:4
-finalNumber: - 1.0b100=nat:4 * 2^(0b11000=int:-8 - 2) | (Q): -1/256
-result(EUNum): EUNum(- 1.0b010=nat:2 * 2^(0b11000=int:-8 - 2)) | (Q): ExtRat.Number (-1 : Rat)/512
-resultPacked: - (subnorm:false) sig:0b00=nat:0 ex:0b0000=nat:0 bias:7 expval:-7 = (some 0) | (Q): 0
--/
 #guard_msgs(check error, drop info) in #eval checkRoundCorrect 4 5 4 2 .RTN

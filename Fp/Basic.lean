@@ -3916,13 +3916,15 @@ def maxNormal (eout sout : Nat) (e _s : Nat) (sign : Bool) :
   }
 
 @[bv_normalize]
-def minSubnormal (eout sout : Nat)
+def minSubnormalForPackedFloat (eout sout : Nat)
   (etarget starget : Nat) (sign : Bool) :
     UnpackedFloat eout sout :=
   {
     sign := sign
     ex := BitVec.ofInt eout (minSubnormalExp etarget starget)
-    sig := (BitVec.leadingOne starget).zeroExtend sout
+    -- | recall that 'startget' is in PackedFloat format, and therefore
+    -- the leading one is implicit. so we need to add one to the significand to get the correct exponent.
+    sig := (BitVec.leadingOne (starget + 1)).zeroExtend sout
   }
 
 instance {P : UnpackedFloat e s → Prop}
