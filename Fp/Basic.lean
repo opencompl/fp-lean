@@ -123,6 +123,18 @@ theorem one_lt_exponentWidth : 1 < exponentWidth e s  := by
   simp [exponentWidth]
 
 
+theorem self_lt_exponentWidth (e s : Nat) (he : 1 < e) (hs : 0 < s) :
+  e < exponentWidth e s := by
+  simp [exponentWidth]
+  have : 0 < 2 ^ (e - 1) + s - 1 := by grind?
+  have : e - 1 ≤ (2 ^ (e - 1) + s - 1).log2 := by
+    -- e - 1 ≤ e - 1
+    sorry
+  rw [Nat.add_sub_assoc (by grind only)]
+
+  grind only
+
+
 /-!
 ## Packed Floating Point Numbers
 
