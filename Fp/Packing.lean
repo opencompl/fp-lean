@@ -8,7 +8,9 @@ namespace EUnpackedFloat
 @[simp]
 theorem isNaN_pack_of_isNaN
     (uf : EUnpackedFloat (exponentWidth e s) (s + 1)) (huf : uf.isNaN) :
-    uf.pack.isNaN = true := by sorry
+    uf.pack.isNaN = true := by
+  simp [pack, PackedFloat.isNaN, huf]
+  grind
 
 /--
 Packing an infinity gives an infinite PackedFloat. Requires `0 < s` because with no sig bits,
