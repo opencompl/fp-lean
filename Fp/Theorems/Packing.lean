@@ -713,10 +713,6 @@ theorem unpack_pack_of_isNumber
         · simp; sorry
         · simp; sorry
 
-
-
-
-
 /-! ### Corollary: `toExtRat` preservation -/
 
 /--
