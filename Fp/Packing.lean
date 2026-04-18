@@ -19,13 +19,34 @@ the PackedFloat infinity encoding aliases NaN.
 @[simp]
 theorem isInfinite_pack_of_isInfinite
     (uf : EUnpackedFloat (exponentWidth e s) (s + 1)) (huf : uf.isInfinite) (hs : 0 < s) :
-    uf.pack.isInfinite = true := by sorry
+    uf.pack.isInfinite = true := by
+  have hnan : uf.isNaN = false := by
+    simp [isNaN, isInfinite] at huf ⊢
+    grind
+  simp [pack, PackedFloat.isInfinite, huf, hnan]
+  grind
 
-/-- Packing an infinity preserves the sign. -/
+/-- Packing always preserves the sign. -/
 @[simp]
-theorem sign_pack_of_isInfinite
-    (uf : EUnpackedFloat (exponentWidth e s) (s + 1)) (huf : uf.isInfinite) :
-    uf.pack.sign = uf.sign := by sorry
+theorem sign_pack
+    (uf : EUnpackedFloat (exponentWidth e s) (s + 1)) :
+    uf.pack.sign = uf.sign := by
+  simp [pack, EUnpackedFloat.sign]
+
+/--
+Packing then unpacking an infinity recovers `mkInfinity` with the same sign.
+Corollary of `isInfinite_pack_of_isInfinite` + `sign_pack`: once we know `uf.pack` is infinite
+and not NaN, `PackedFloat.unpack` normalizes it to `mkInfinity uf.pack.sign = mkInfinity uf.sign`.
+-/
+theorem unpack_pack_of_isInfinite
+    (uf : EUnpackedFloat (exponentWidth e s) (s + 1))
+    (huf : uf.isInfinite) (hs : 0 < s) :
+    uf.pack.unpack = EUnpackedFloat.mkInfinity uf.sign := by
+  have hInf : uf.pack.isInfinite = true := isInfinite_pack_of_isInfinite uf huf hs
+  have hNaN : uf.pack.isNaN = false := by
+    have := PackedFloat.not_isNaN_of_isInfinite (pf := uf.pack) hInf
+    grind
+  simp [PackedFloat.unpack, hNaN, hInf]
 
 /--
 The round-trip: packing a *normalized* EUnpackedFloat and then unpacking returns the same value.
