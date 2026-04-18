@@ -158,6 +158,105 @@ theorem self_lt_exponentWidth (e s : Nat) (he : 1 < e) (hs : 0 < s) :
     grind only
   grind only
 
+
+
+
+@[grind ., simp]
+theorem two_pow_e_lt_two_pow_exponentWidth (he : 1 < e) (hs : 0 < s) :
+    2 ^ e < 2 ^ exponentWidth e s := by
+  apply Nat.pow_lt_pow_of_lt
+  · decide
+  · exact self_lt_exponentWidth e s he hs
+
+/--
+The bias is less than `2 ^ (e - 1)`.
+-/
+@[grind ., simp]
+theorem bias_lt_two_pow_exponent_sub_one (e : Nat) :
+    bias e < 2 ^ (e - 1) := by
+  simp [bias]
+  apply Nat.lt_of_lt_of_le (m := 2 ^ (e - 1))
+  · grind
+  · apply Nat.pow_le_pow_of_le
+    · decide
+    · grind only
+
+/--
+The bias, when converted to a BitVec of the exponent width fits properly.
+-/
+@[simp, grind =]
+theorem toNat_ofNat_bias_eq_bias (he : 1 < e) (hs : 0 < s) :
+    (BitVec.ofNat (exponentWidth e s) (bias e)).toNat = bias e := by
+  simp
+  rw [Nat.mod_eq_of_lt]
+  apply Nat.lt_of_lt_of_le (m := 2 ^ (e - 1))
+  · have := bias_lt_two_pow_exponent_sub_one e
+    grind only
+  · apply Nat.pow_le_pow_of_le
+    · decide
+    · have := self_lt_exponentWidth e s he hs
+      grind only
+
+/-
+The bias, when converted to a BitVec of the exponent width fits properly.
+-/
+@[simp, grind =]
+theorem toNat_ofInt_bias_eq_bias (he : 1 < e) (hs : 0 < s) :
+    (BitVec.ofInt (exponentWidth e s) (bias e)).toNat = bias e := by
+  simp
+  rw [Nat.mod_eq_of_lt]
+  apply Nat.lt_of_lt_of_le (m := 2 ^ (e - 1))
+  · have := bias_lt_two_pow_exponent_sub_one e
+    grind only
+  · apply Nat.pow_le_pow_of_le
+    · decide
+    · have := self_lt_exponentWidth e s he hs
+      grind only
+
+
+/--
+The bound between bias and the exponent width: `bias e + 1 < 2 ^ (exponentWidth e s - 1)`.
+This is tight.
+-/
+theorem bias_plus_one_lt_two_pow_exponentWidth_minus_one (e s: Nat)
+    (he : 1 < e) (hs : 0 < s) :
+    bias e + 1 < 2 ^ (exponentWidth e s - 1) := by
+  have := bias_lt_two_pow_exponent_sub_one e
+  apply Nat.lt_of_le_of_lt (m := 2 ^ (e - 1))
+  · grind only
+  · apply Nat.pow_lt_pow_of_lt
+    · decide
+    · have := self_lt_exponentWidth e s he hs
+      grind only
+
+/--
+minNormalExp, when converted to a BitVec of the exponent width, fits properly.
+-/
+@[simp, grind =]
+theorem toInt_ofInt_minNormalExp_eq_minNormalExp (he : 1 < e) (hs : 0 < s) :
+    (BitVec.ofInt (exponentWidth e s) (minNormalExp e)).toInt = (minNormalExp e) := by
+  simp only [BitVec.toInt_ofInt]
+  rw [Int.bmod_eq_of_le]
+  · simp
+    rw [minNormalExp]
+    simp only [Int.neg_le_neg_iff]
+    have : 0 < bias e := by exact bias_pos_of_one_lt e he
+    rw [Int.natCast_sub (by grind only)]
+    simp
+    have := bias_plus_one_lt_two_pow_exponentWidth_minus_one e s he hs
+    grind
+  · rw [minNormalExp]
+    simp only [Int.natCast_pow, Int.cast_ofNat_Int, Int.two_pow_plus_one_div_two_eq_two_pow]
+    apply Int.lt_of_neg_lt_neg
+    simp only [Int.neg_neg]
+    have : 0 < bias e := by exact bias_pos_of_one_lt e he
+    rw [Int.natCast_sub (by grind only)]
+    simp only [Int.cast_ofNat_Int, gt_iff_lt]
+    have := bias_plus_one_lt_two_pow_exponentWidth_minus_one e s he hs
+    norm_cast
+    simp only [Int.natCast_pow, Int.cast_ofNat_Int, gt_iff_lt]
+    grind only
+
 /-!
 ## Packed Floating Point Numbers
 
