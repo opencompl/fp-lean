@@ -7,6 +7,28 @@ import Fp.ForLean.Rat
 def bias (e : Nat) : Nat :=
   2 ^ (e - 1) - 1
 
+/--
+Adding the bias to itself equals '2^e - 2', which is the
+maximum normal exponent of a packed float.
+-/
+theorem bias_plus_bias_eq_twoPow_minus_two
+  (e : Nat) (he : 1 < e) : bias e + bias e = 2 ^ e - 2 := by
+  simp [bias]
+  have : 2^e = 2 * 2^(e - 1) := by
+    rw [show e = (e - 1) + 1 by grind only]
+    rw [Nat.pow_succ]
+    grind
+  have : 1 ≤ 2 ^ (e - 1) := by exact Nat.one_le_two_pow
+  grind
+
+theorem two_mul_bias_eq_twoPow_minus_two (e : Nat) (he : 1 < e) : 2 * bias e = 2 ^ e - 2 := by
+  have := bias_plus_bias_eq_twoPow_minus_two e he
+  grind
+
+theorem mul_two_bias_eq_twoPow_minus_two (e : Nat) (he : 1 < e) : bias e * 2 = 2 ^ e - 2 := by
+  have := bias_plus_bias_eq_twoPow_minus_two e he
+  grind
+
 @[simp]
 theorem bias_zero_eq : bias 0 = 0 := rfl
 @[simp]
@@ -122,18 +144,19 @@ theorem zero_lt_exponentWidth : 0 < exponentWidth e s  := by
 theorem one_lt_exponentWidth : 1 < exponentWidth e s  := by
   simp [exponentWidth]
 
-
+/--
+the exponentWidth is strictly larger than the exponent itself.
+-/
 theorem self_lt_exponentWidth (e s : Nat) (he : 1 < e) (hs : 0 < s) :
   e < exponentWidth e s := by
   simp [exponentWidth]
-  have : 0 < 2 ^ (e - 1) + s - 1 := by grind?
-  have : e - 1 ≤ (2 ^ (e - 1) + s - 1).log2 := by
-    -- e - 1 ≤ e - 1
-    sorry
-  rw [Nat.add_sub_assoc (by grind only)]
-
+  have : 0 < 2 ^ (e - 1) + s - 1 := by grind only [!Nat.two_pow_pos, #5690]
+  have : e - 1 = (2 ^ (e - 1)).log2 := by
+    exact Eq.symm Nat.log2_two_pow
+  have : (2 ^ (e - 1)).log2 ≤ (2 ^ (e - 1) + s - 1).log2 := by
+    apply Nat.log2_le_log2_of_le
+    grind only
   grind only
-
 
 /-!
 ## Packed Floating Point Numbers
