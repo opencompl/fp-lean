@@ -35,7 +35,7 @@ Available test names:
 
 - `Fp/Basic.lean` — Core types: `PackedFloat` (sign, exponent bitvec, significand bitvec parameterized by widths), `FixedPoint`, `UnpackedFloat`
 - `Fp/Rounding.lean` — `RoundingMode` (RNA, RNE, RTN, RTP, RTZ) and rounding logic
-- `Fp/Packing.lean` — Pack/unpack between `PackedFloat` and `UnpackedFloat`
+- `Fp/Unpacking.lean` — Pack/unpack between `PackedFloat` and `UnpackedFloat`
 - `Fp/SmtLibSemantics.lean` — Formal semantics following BTRW15, defines `ExtendedNumber` typeclass
 - `Fp/UnpackedRound.lean` — Rounding on unpacked floats
 - `Fp/Addition.lean` — Floating point addition circuit

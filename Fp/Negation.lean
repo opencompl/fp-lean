@@ -1,5 +1,5 @@
 import Fp.Basic
-import Fp.Packing
+import Fp.Unpacking
 
 @[bv_normalize]
 def EUnpackedFloat.neg (x : EUnpackedFloat (exponentWidth e s) (s + 1))
