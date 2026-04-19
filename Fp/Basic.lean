@@ -3,6 +3,8 @@ import Fp.ForLean.Dyadic
 import Fp.Grind
 import Fp.ForLean.Rat
 
+-- https://en.wikipedia.org/wiki/Single-precision_floating-point_format
+
 /--
 In 8 bit exponent, this value is 2^7 - 1 = 127.
 The exponent's value is [e.toNat] - bias = [e.toNat] - 127.
@@ -171,6 +173,20 @@ which are `minNormalExp - 1`, `minNormalExp - 2`, ..., `minNormalExp - (s - 1)`
 def minSubnormalExp (e : Nat) (s : Nat) : Int :=
   (maxSubnormalExp e) - (s - 1 : Int)
 
+/--
+The minimum subnormal exponent can have `(s - 1)`
+extra negative values, taken from the significand.
+-/
+theorem minSubnormalExp_eq_neg_bias_minus_s_minus_one (he : 1 < e) :
+    minSubnormalExp e s = - (bias e) - (s - 1) := by
+  simp [minSubnormalExp, maxSubnormalExp, minNormalExp, bias]
+  grind
+
+/-#
+
+The value is `-149` wrt [wikipedia](https://en.wikipedia.org/wiki/Single-precision_floating-point_format):
+> ... the minimum positive (subnormal) value is 2^(-149).
+-/
 /-- info: -149 -/
 #guard_msgs in #eval minSubnormalExp 8 23
 /--
@@ -217,9 +233,6 @@ theorem self_lt_exponentWidth (e s : Nat) (he : 1 < e) (hs : 0 < s) :
     apply Nat.log2_le_log2_of_le
     grind only
   grind only
-
-
-
 
 @[grind ., simp]
 theorem two_pow_e_lt_two_pow_exponentWidth (he : 1 < e) (hs : 0 < s) :
@@ -357,8 +370,6 @@ theorem toInt_ofInt_maxSubnormalExp_eq_maxSubnormalExp (he : 1 < e) (hs : 0 < s)
     apply Int.lt_of_neg_lt_neg
     have := bias_plus_one_lt_two_pow_exponentWidth_minus_one e s he hs
     grind only
-
-grind_pattern Nat.log2_eq_exists => n.log2
 
 @[simp, grind =]
 theorem toInt_ofInt_minSubnormalExp_eq_minSubnormalExp (he : 1 < e) (hs : 0 < s) :
@@ -3897,12 +3908,14 @@ def maxNormal (eout sout : Nat) (e _s : Nat) (sign : Bool) :
   }
 
 @[bv_normalize]
-def minSubnormal (eout sout : Nat)
+def minSubnormalForPackedFloat (eout sout : Nat)
   (etarget starget : Nat) (sign : Bool) :
     UnpackedFloat eout sout :=
   {
     sign := sign
     ex := BitVec.ofInt eout (minSubnormalExp etarget starget)
+    -- | recall that 'startget' is in PackedFloat format, and therefore
+    -- the leading one is implicit. so we need to add one to the significand to get the correct exponent.
     sig := (BitVec.leadingOne (starget + 1)).zeroExtend sout
   }
 

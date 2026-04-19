@@ -31,11 +31,9 @@ theorem BitVec.toNat_shiftLeft_clz (x : BitVec w)
   · grind
   · exact Nat.two_pow_pos x.clz.toNat
 
-
 -- TODO: @Sid, help!
 axiom BitVec.toNat_clz_cons (b : Bool) (x : BitVec w)
   : (BitVec.cons b x).clz.toNat = if b then 0 else x.clz.toNat + 1 -- := by
-
 
 namespace UnpackedFloat
 

@@ -888,8 +888,8 @@ theorem Nat.log2_eq_exists (n : Nat) (hn : n ≠ 0) :
   simp [k]
   apply Nat.log2_eq_iff .. |>.mp <;> grind
 
+grind_pattern Nat.log2_eq_exists => n.log2
 
--- @[grind →]
 theorem Nat.log2_le_log2_of_le {a b : Nat} (h : a ≤ b) : a.log2 ≤ b.log2 := by
   induction a using Nat.div2Induction generalizing b with
   | ind a ih =>
