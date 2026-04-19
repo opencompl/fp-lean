@@ -169,7 +169,7 @@ which are `minNormalExp - 1`, `minNormalExp - 2`, ..., `minNormalExp - (s - 1)`
 -/
 @[bv_normalize]
 def minSubnormalExp (e : Nat) (s : Nat) : Int :=
-  (minNormalExp e) - s
+  (maxSubnormalExp e) - (s - 1 : Int)
 
 /-- info: -149 -/
 #guard_msgs in #eval minSubnormalExp 8 23
@@ -3903,7 +3903,7 @@ def minSubnormal (eout sout : Nat)
   {
     sign := sign
     ex := BitVec.ofInt eout (minSubnormalExp etarget starget)
-    sig := (BitVec.leadingOne starget).zeroExtend sout
+    sig := (BitVec.leadingOne (starget + 1)).zeroExtend sout
   }
 
 instance {P : UnpackedFloat e s → Prop}

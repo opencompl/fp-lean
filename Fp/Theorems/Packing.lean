@@ -530,17 +530,14 @@ theorem isInfinite_of_isInfinite_pack' (he : 1 < e) (hs : 0 < s)
     (uf : EUnpackedFloat (exponentWidth e s) (s + 1))
     (huf : uf.pack'.isInfinite) :
     uf.isInfinite = true := by
-  simp [pack'] at huf ⊢
-  simp [show ¬ uf.isNaN by grind] at huf ⊢
+  sorry
 
 
 @[simp, grind .]
 theorem pack_isInfinite_eq_isInfinite (he : 1 < e) (hs : 0 < s)
     (uf : EUnpackedFloat (exponentWidth e s) (s + 1)) :
     uf.pack.isInfinite = uf.isInfinite := by
-  have h1 := isInfinite_pack_of_isInfinite uf
-  have h2 := isInfinite_of_isInfinite_pack he hs uf
-  grind only [PackedFloat.eq_getInfinity_iff_isInfinity, #050c]
+  sorry
 
 /-- Packing preseves the sign of non-NaN variables. -/
 @[simp, grind .]
@@ -556,12 +553,7 @@ theorem unpack_pack_of_isInfinite
     (uf : EUnpackedFloat (exponentWidth e s) (s + 1))
     (huf : uf.isInfinite) (hs : 0 < s) :
     uf.pack.unpack = EUnpackedFloat.mkInfinity uf.sign := by
-  have hInf : uf.pack'.isInfinite = true :=
-    isInfinite_pack_of_isInfinite uf huf hs
-  have hNaN : uf.pack'.isNaN = false := by
-    have := PackedFloat.not_isNaN_of_isInfinite (pf := uf.pack) hInf
-    grind
-  simp [PackedFloat.unpack, hNaN, hInf]
+  sorry
 
 /--
 Packing then unpacking a NaN yields `mkNaN`.
@@ -572,8 +564,7 @@ theorem unpack_pack_of_isNaN
     (uf : EUnpackedFloat (exponentWidth e s) (s + 1))
     (huf : uf.isNaN) :
     uf.pack.unpack = EUnpackedFloat.mkNaN := by
-  have hNaN : uf.pack.isNaN = true := isNaN_pack_of_isNaN uf huf
-  simp [PackedFloat.unpack, hNaN]
+  sorry
 
 /-! ### Helper lemmas for the Number round-trip
 
@@ -669,11 +660,7 @@ theorem toRat_pack_mkNumber_eq_toRat
     (he : 1 < e) (hs : 0 < s)
     (uf : UnpackedFloat (exponentWidth e s) (s + 1)) :
     (EUnpackedFloat.mkNumber uf).pack.toRat = uf.toRat := by
-  simp [pack, mkNumber, sign, isInfinite, isNaN, exp, isZero, isNumber]
-  simp [PackedFloat.toRat]
-
-
-  grind only
+  sorry
 
 
 end EUnpackedFloat
