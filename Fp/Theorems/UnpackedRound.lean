@@ -1433,25 +1433,60 @@ theorem clearSignificand_ex (uf : UnpackedFloat e s)
   simp [UnpackedFloat.clearSignificand]
 
 /-- Clearing guard/sticky bits can only decrease the significand value. -/
-theorem clearSignificand_sig_toNat_le (uf : UnpackedFloat e s)
+theorem UnpackedFloat.clearSignificand_sig_toNat_le (uf : UnpackedFloat e s)
     (targetExponentWidth targetSignificandWidth : Nat) :
     (uf.clearSignificand targetExponentWidth targetSignificandWidth).sig.toNat ≤ uf.sig.toNat := by
-  sorry
+  rw [UnpackedFloat.clearSignificand]
+  simp only [BitVec.toNat_and]
+  grind only [Nat.and_le_left]
+
+
 
 /-- For a nonnegative unpacked float, clearing guard/sticky bits yields a nonnegative result. -/
-theorem clearSignificand_toRat_nonneg_of_nonneg (uf : UnpackedFloat e s)
+theorem UnpackedFloat.clearSignificand_toRat_nonneg_of_sign_eq_false (uf : UnpackedFloat e s)
     (targetExponentWidth targetSignificandWidth : Nat)
-    (h : 0 ≤ uf.toRat) :
+    (h : uf.sign = false) :
     0 ≤ (uf.clearSignificand targetExponentWidth targetSignificandWidth).toRat := by
-  sorry
+  simp [UnpackedFloat.toRat_eq_toRat']
+  rw [UnpackedFloat.toRat']
+  generalize hcleared : uf.clearSignificand targetExponentWidth targetSignificandWidth = cleared
+  have : 0 < (2 : Rat) ^ cleared.toExpInt := by grind only [Rat.two_pow_pos]
+  have hsign : cleared.sign = false := by
+    simp [← hcleared, UnpackedFloat.clearSignificand, h]
+  simp [hsign]
+  grind only [Rat.mul_nonneg]
+
+
+
 
 /-- For a nonnegative unpacked float, clearing guard/sticky bits rounds toward zero:
     the cleared value is at most the original value. -/
-theorem clearSignificand_toRat_le_of_nonneg (uf : UnpackedFloat e s)
+theorem UnpackedFloat.clearSignificand_toRat_le_of_nonneg (uf : UnpackedFloat e s)
     (targetExponentWidth targetSignificandWidth : Nat)
-    (h : 0 ≤ uf.toRat) :
+    (hufsign : uf.sign = false) :
     (uf.clearSignificand targetExponentWidth targetSignificandWidth).toRat ≤ uf.toRat := by
-  sorry
+  simp only [UnpackedFloat.toRat_eq_toRat']
+  rw [UnpackedFloat.toRat' , UnpackedFloat.toRat']
+  generalize hcleared : uf.clearSignificand targetExponentWidth targetSignificandWidth = cleared
+  have hsign : cleared.sign = false := by
+    simp only [← hcleared, UnpackedFloat.clearSignificand, hufsign,
+      BitVec.orderEncode_eq_shiftRight_allOnes]
+  simp [hsign, hufsign]
+  have hexp : cleared.toExpInt = uf.toExpInt := by
+    simp only [UnpackedFloat.toExpInt, ← hcleared, UnpackedFloat.clearSignificand,
+      BitVec.orderEncode_eq_shiftRight_allOnes]
+  simp only [hexp, ge_iff_le]
+  have : cleared.sig.toNat ≤ uf.sig.toNat := by
+    rw [← hcleared]
+    apply UnpackedFloat.clearSignificand_sig_toNat_le
+  suffices (cleared.sig.toNat : Rat) ≤ (uf.sig.toNat : Rat) by
+    apply Rat.mul_le_mul_of_nonneg_right
+    · simp only [PackedFloat.Rat.natCast_le_natCast_iff_le]; grind only
+    · grind only [Rat.le_of_lt, Rat.two_pow_pos]
+  simp only [PackedFloat.Rat.natCast_le_natCast_iff_le]
+  grind only
+
+
 
 /-- For a nonnegative unpacked float, the error from clearing guard/sticky bits is bounded by
     2^(guardBitIdx + 1) ULPs at the significand level, i.e.,
