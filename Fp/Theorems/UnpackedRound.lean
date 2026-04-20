@@ -1569,13 +1569,58 @@ theorem UnpackedFloat.extractGuardBit_eq_lowerHalf_of_neg (x : UnpackedFloat e s
   sorry
 
 @[simp]
+theorem BitVec.and_allOnes_eq_self (bv : BitVec n) :
+    bv &&& (BitVec.allOnes n) = bv := by
+  ext i hi
+  simp
+
+@[simp]
+theorem BitVec.allOnes_and_eq_self (bv : BitVec n) :
+    (BitVec.allOnes n) &&& bv = bv := by
+  ext i hi
+  simp
+
+theorem UnpackedFloat.toNat_guardBitIndex_eq (hep : 1 < ep) (hsp : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (hsu : sp + 2 ≤ su)
+    (heusu : eu ≤ su)
+    (x : UnpackedFloat eu su) :
+    (x.guardBitIndex ep sp).toNat = 1 := by
+  rw [UnpackedFloat.guardBitIndex]
+  split
+  case isTrue h =>
+    rw [BitVec.slt_eq_decide] at h
+    simp only [decide_eq_true_eq] at h
+    rw [toInt_ofInt_minNormalExp_eq_minNormalExp_of_le (e := ep) (s := sp) (w := eu)
+      (by grind only) (by grind only)] at h
+    rw [show su - 1  - (sp + 1) = su - (sp + 2) by grind only]
+    rw [BitVec.zeroExtend_eq_setWidth]
+    rw [BitVec.toNat_add_of_lt]
+    · rw [BitVec.toNat_setWidth_of_le]
+      · sorry
+      · exact heusu
+    · sorry
+    · sorry
+  case isFalse h =>
+    sorry
+
+theorem extractStickyBit_eq_false_iff (x : UnpackedFloat e s) :
+  x.extractStickyBit e s = false ↔
+      ∀ (i : Nat), x.sig.getLsbD i = 0 := by
+  simp [UnpackedFloat.extractStickyBit]
+
+
+@[simp]
 theorem UnpackedFloat.extractStickyBit_eq_not_tieBreak_of_nonneg_of_guardBit (x : UnpackedFloat e s)
     (hx : x.sign = false)
     (hguard : x.extractGuardBit e s = true) :
     x.extractStickyBit e s = ! (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) e s SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).tieBreak (ExtRat.Number x.toRat) := by
   simp [UnpackedFloat.extractStickyBit]
   simp [SmtLibSemantics.smtLibRoundMethod]
-  sorry
+  constructor
+  · intros h
+    sorry
+  · sorry
 
 
 

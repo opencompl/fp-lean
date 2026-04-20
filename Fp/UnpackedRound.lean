@@ -30,6 +30,82 @@ def roundingDecision (mode : RoundingMode) (sign : Bool) (significandEven : Bool
       false
 
 /--
+Return the distance of 'x' from 'base' if 'x ≥s base' (as signed numbers),
+and return '0' otherwise.
+-/
+def BitVec.distanceFromNonneg (base : BitVec w) (x : BitVec w) : BitVec w :=
+  if x.slt base then 0 else x - base
+
+/-
+BitVec.toNat_sub causes agressive unfolding when I don't want it to,
+so I remove it from the simp-set.
+-/
+attribute [-simp] BitVec.toNat_sub
+
+/--
+The 'distanceFromNonneg', when interpreted as an signed numbers,
+correctly keeps track of the distance from 'base' when 'x' is greater than or equal to 'base',
+and returns zero when 'x' is less than 'base'.
+-/
+theorem BitVec.toInt_distanceFromNonneg {w : Nat} (hw : 0 < w) (base x : BitVec w)
+    (hle : - 2 ^ (w - 1) ≤ x.toInt - base.toInt)
+    (hlt : x.toInt - base.toInt < 2 ^ (w - 1)) :
+    (BitVec.distanceFromNonneg base x).toInt =
+      if x.toInt < base.toInt then 0 else x.toInt - base.toInt := by
+  simp [distanceFromNonneg]
+  by_cases h : x.slt base
+  · simp [h]
+    rw [BitVec.slt_eq_decide] at h
+    simp at h
+    grind only
+  · simp only [h]
+    simp only [Bool.false_eq_true, ↓reduceIte]
+    rw [BitVec.slt_eq_decide] at h
+    simp only [decide_eq_true_eq, Int.not_lt] at h
+    simp only [show ¬x.toInt < base.toInt by grind, ↓reduceIte]
+    rw [BitVec.toInt_sub]
+    apply Int.bmod_eq_of_le
+    · simp only [Int.natCast_pow, Int.cast_ofNat_Int, hw, Int.two_pow_div_two_eq_sub_one_of_pos]
+      grind only
+    · simp; grind only
+
+/--
+The output of 'distanceFromNonneg' is always nonnegative.
+-/
+theorem BitVec.nonneg_toInt_distanceFromNonneg {w : Nat} (hw : 0 < w) (base x : BitVec w)
+    (hle : - 2 ^ (w - 1) ≤ x.toInt - base.toInt)
+    (hlt : x.toInt - base.toInt < 2 ^ (w - 1)) :
+    0 ≤ (BitVec.distanceFromNonneg base x).toInt := by
+  rw [BitVec.toInt_distanceFromNonneg hw base x hle hlt]
+  split <;> grind only
+
+/--
+If the integer interpretation is nonnegative, then the 'toInt' value equals to 'toNat' value.
+-/
+theorem BitVec.toInt_eq_toNat_of_toInt_nonneg {w : Nat}
+    (x : BitVec w) (hle : 0 ≤ x.toInt) :
+    x.toInt = x.toNat := by
+  rw [BitVec.toInt_eq_toNat_of_msb]
+  rw [BitVec.msb_eq_toInt]
+  grind only
+
+/--
+The value of 'distanceFromNonneg' when interpreted as a natural
+number equals what you'd expect, which interprets its arguments
+as integers.
+-/
+theorem BitVec.toNat_distanceFromNonneg_eq
+   (hw : 0 < w) (base x : BitVec w)
+    (hle : - 2 ^ (w - 1) ≤ x.toInt - base.toInt)
+    (hlt : x.toInt - base.toInt < 2 ^ (w - 1)) :
+    (BitVec.distanceFromNonneg base x).toNat =
+      if x.toInt < base.toInt then 0 else (x.toInt - base.toInt) := by
+  rw [← BitVec.toInt_eq_toNat_of_toInt_nonneg (base.distanceFromNonneg x)]
+  · rw [BitVec.toInt_distanceFromNonneg hw base x hle hlt]
+  · apply BitVec.nonneg_toInt_distanceFromNonneg hw base x hle hlt
+
+
+/--
 Compute the guard bit index (from LSB) adjusted for subnormal shifting.
 This is the position in the significand where the guard bit falls when
 rounding to `tsp` precision with the given target exponent format.
@@ -42,9 +118,9 @@ def UnpackedFloat.guardBitIndex {eu su : Nat}
     BitVec.ofNat su ((su - 1) - (tsp + 1))
   let targetMinNormalExp : BitVec eu :=
     BitVec.ofInt eu (minNormalExp tep)
-  let expGeMin :=
-    if uf.ex.slt targetMinNormalExp then targetMinNormalExp else uf.ex
-  let shiftAmtPositive := expGeMin - uf.ex
+  -- let expGeMin :=
+  --   if uf.ex.slt targetMinNormalExp then targetMinNormalExp else uf.ex
+  let shiftAmtPositive := BitVec.distanceFromNonneg targetMinNormalExp uf.ex
   guardBitIndexFromLsb + shiftAmtPositive.zeroExtend su
 
 /-- Extract the guard bit from an unpacked float at the target precision. -/
