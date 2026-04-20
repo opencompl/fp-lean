@@ -1658,12 +1658,21 @@ theorem extractGuardBit_eq_getLsbD
   have := extractGuardBit_eq_true_iff hep hsp heu hsu x
   grind only [#0e2e4e0bb1f1e395]
 
+-- TODO: 'toRatSig' lemma about what the guardBit tracks.
+
+theorem SmtLibSemantics.smtLibRoundMethod.lowerHalf_eq_decide (r : Rat) :
+    (smtLibRoundMethod e s smtLibV smtLibV).lowerHalf (ExtRat.Number r) =
+    (r - ((smtLibRoundMethod e s smtLibV smtLibV).lower (ExtRat.Number r)).toRat ≤ 2^e) := by
+  -- TODO: this is what I need to prove now.
+  sorry
+
+-- theorem le_toRatSig_of_extractGuardBit
 
 @[simp]
 theorem UnpackedFloat.extractGuardBit_eq_not_lowerHalf_of_nonneg (x : UnpackedFloat e s)
     (hx : x.sign = false) :
     x.extractGuardBit e s = ! (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) e s SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat) := by
-  simp [SmtLibSemantics.smtLibRoundMethod]
+  -- simp [SmtLibSemantics.smtLibRoundMethod]
   sorry
 
 @[simp]
