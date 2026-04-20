@@ -1599,51 +1599,164 @@ theorem BitVec.toNat_zeroExtend_of_lt {n m : Nat} (bv : BitVec n) (h : bv.toNat 
   rw [Nat.mod_eq_of_lt]
   grind only
 
+@[simp]
+theorem Int.sub_toNat_eq_zero_of_le {a b : Int} (h : a ≤ b) :
+    (a - b).toNat = 0 := by
+  simp
+  grind only
 
 
-
+/--
+The guard bit index when interpreted as a natural number
+gives us the location of the guard bit inside the unpaked float.
+sorry
+-/
 theorem UnpackedFloat.toNat_guardBitIndex_eq (hep : 1 < ep) (hsp : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu)
     (hsu : sp + 2 ≤ su)
-    (heusu : eu ≤ su)
+    -- (heusu : eu ≤ su)
     (x : UnpackedFloat eu su) :
-    (x.guardBitIndex ep sp).toNat = 1 := by
+    (x.guardBitIndex ep sp).toNat =
+    (su - 1 - (sp + 1) + (minNormalExp ep - x.ex.toInt).toNat) := by
+  have := @one_lt_exponentWidth ep sp
+  have hminNormal : (BitVec.ofInt eu (minNormalExp ep)).toInt = minNormalExp ep := by
+    rw [toInt_ofInt_minNormalExp_eq_minNormalExp_of_le (s := sp)]
+    · grind only
+    · grind only
+    · grind only
+
   rw [UnpackedFloat.guardBitIndex]
-  split
-  case isTrue h =>
-    rw [BitVec.slt_eq_decide] at h
-    simp only [decide_eq_true_eq] at h
-    rw [toInt_ofInt_minNormalExp_eq_minNormalExp_of_le (e := ep) (s := sp) (w := eu)
-      (by grind only) (by grind only)] at h
-    rw [show su - 1  - (sp + 1) = su - (sp + 2) by grind only]
-    rw [BitVec.zeroExtend_eq_setWidth]
-    rw [BitVec.toNat_add_of_lt]
-    · rw [BitVec.toNat_setWidth_of_le]
-      · sorry
-      · exact heusu
-    · sorry
-    · sorry
-  case isFalse h =>
-    sorry
-
-theorem extractStickyBit_eq_false_iff (x : UnpackedFloat e s) :
-  x.extractStickyBit e s = false ↔
-      ∀ (i : Nat), x.sig.getLsbD i = 0 := by
-  simp [UnpackedFloat.extractStickyBit]
-
-
-@[simp]
-theorem UnpackedFloat.extractStickyBit_eq_not_tieBreak_of_nonneg_of_guardBit (x : UnpackedFloat e s)
-    (hx : x.sign = false)
-    (hguard : x.extractGuardBit e s = true) :
-    x.extractStickyBit e s = ! (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) e s SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).tieBreak (ExtRat.Number x.toRat) := by
-  simp [UnpackedFloat.extractStickyBit]
-  simp [SmtLibSemantics.smtLibRoundMethod]
-  constructor
-  · intros h
-    sorry
+  rw [BitVec.toNat_add]
+  simp
+  rw [BitVec.toNat_subSaturatingZero_eq_ite_toNat]
+  · simp only [hminNormal]
+    split
+    case isTrue h =>
+      simp
+      rw [Int.sub_toNat_eq_zero_of_le]
+      · simp
+        rw [Nat.mod_eq_of_lt]
+        · sorry
+      · grind only
+    case isFalse h =>
+      simp at h
+      rw [Nat.mod_eq_of_lt]
+      sorry
+  · grind only
+  · sorry
   · sorry
 
+theorem BitVec.eq_iff_getLsbD_eq (a b : BitVec w) : a = b ↔
+    (∀ (i : Nat), a.getLsbD i = b.getLsbD i) := by
+  constructor
+  · intros h
+    subst h
+    grind only
+  · intros h
+    ext i hi
+    simp only [← BitVec.getLsbD_eq_getElem]
+    grind only [#0a30]
 
+
+/--
+`p iff q` iff `not p iff not q`.
+-/
+theorem iff_iff_not_iff_not {p q : Prop} :
+    (p ↔ q) ↔ (¬ p ↔ ¬ q) := by
+  grind
+
+theorem extractStickyBit_eq_true_iff
+  (hep : 1 < ep) (hsp : 0 < sp)
+  (heu : exponentWidth ep sp ≤ eu)
+  (hsu : sp + 2 ≤ su)
+  (x : UnpackedFloat eu su) :
+  x.extractStickyBit ep sp = true ↔
+    -- This makes sense,
+    -- Consider when `su = sp + 2`.
+    -- Then we're saying that some bit
+    -- after the guard bit is nonzero.
+     (∃ (i : Nat),
+      i < su - (sp + 2) + (minNormalExp ep - x.ex.toInt).toNat ∧
+      x.sig.getLsbD i = true) := by
+  simp [UnpackedFloat.extractStickyBit]
+  rw [UnpackedFloat.toNat_guardBitIndex_eq]
+  rw [show (su - 1 - (sp + 1)) = su - (sp + 2) by grind only]
+  rw [show su - (sp + 2) + (minNormalExp ep - x.ex.toInt).toNat =
+       ((su + (minNormalExp ep - x.ex.toInt).toNat)) - (sp + 2) by grind only]
+  · rw [show (su - (su + (minNormalExp ep - x.ex.toInt).toNat - (sp + 2))) =
+        (sp + 2 - (minNormalExp ep - x.ex.toInt).toNat) by grind only]
+    constructor
+    · intros heq
+      rw [BitVec.eq_iff_getLsbD_eq] at heq
+      simp at heq
+      obtain ⟨i, hi⟩ := heq
+      exists i
+      grind only
+    · intros h
+      simp at h
+      intros hcontra
+      rw [BitVec.eq_iff_getLsbD_eq] at hcontra
+      simp at hcontra
+      obtain ⟨i, hi⟩ := h
+      specialize hcontra i (by grind)
+      obtain ⟨hi1, hi2⟩ := hi
+      grind
+  · grind only
+  · grind only
+  · grind only
+  · grind only
+
+theorem extractStickyBit_eq_false_iff
+  (hep : 1 < ep) (hsp : 0 < sp)
+  (heu : exponentWidth ep sp ≤ eu)
+  (hsu : sp + 2 ≤ su)
+  (x : UnpackedFloat eu su) :
+  x.extractStickyBit ep sp = false ↔
+    -- This makes sense,
+    -- This says that all the lower bits are false.
+     (∀ (i : Nat),
+      i < su - (sp + 2) + (minNormalExp ep - x.ex.toInt).toNat →
+      x.sig.getLsbD i = false) := by
+  have htrue := extractStickyBit_eq_true_iff hep hsp heu hsu x
+  rw [iff_iff_not_iff_not] at htrue
+  grind only [#c179, #0b53, #b326]
+
+/--
+The sticky bit tracks whether there is a bit
+below the guard bit that is 1.
+This is equivalent to saying that there exists some bit below the guard bit that is 1.
+-/
+theorem extractStickyBit_eq_decide
+  (hep : 1 < ep) (hsp : 0 < sp)
+  (heu : exponentWidth ep sp ≤ eu)
+  (hsu : sp + 2 ≤ su)
+  (x : UnpackedFloat eu su) :
+  x.extractStickyBit ep sp = decide (∃ (i : Nat),
+      i < su - (sp + 2) + (minNormalExp ep - x.ex.toInt).toNat ∧
+      x.sig.getLsbD i = true) := by
+  by_cases hextract : x.extractStickyBit ep sp = true
+  · have := extractStickyBit_eq_true_iff hep hsp heu hsu x
+    grind only [#46e5, #0b53]
+  · have := extractStickyBit_eq_true_iff hep hsp heu hsu x
+    simp at this
+    grind only [#46e5, #0b53]
+
+@[simp]
+theorem UnpackedFloat.extractStickyBit_eq_not_tieBreak_of_nonneg_of_guardBit
+    (he : 1 < ep)
+    (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su)
+    (hx : x.sign = false)
+    (hguard : x.extractGuardBit ep sp = true) :
+    x.extractStickyBit ep sp = ! (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).tieBreak (ExtRat.Number x.toRat) := by
+  simp [SmtLibSemantics.smtLibRoundMethod]
+  rw [extractStickyBit_eq_decide]
+  · sorry
+  · grind only
+  · grind only
+  · grind only
+  · grind only
 
 end Fp

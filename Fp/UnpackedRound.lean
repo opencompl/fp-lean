@@ -87,12 +87,13 @@ theorem BitVec.toInt_eq_toNat_of_toInt_nonneg {w : Nat}
     x.toInt = x.toNat := by
   rw [BitVec.toInt_eq_toNat_of_msb]
   rw [BitVec.msb_eq_toInt]
-  grind only/--
+  grind only
+
+/--
 The value of 'subSaturatingZero' when interpreted as a natural
-number equals what you'd expect, which interprets its arguments
-as integers.
+number and then casted to an integer equals saturating subtraction.
 -/
-theorem BitVec.toNat_subSaturatingZero_eq_ite
+theorem BitVec.natCast_toNat_subSaturatingZero_eq_ite
    (hw : 0 < w) (x base : BitVec w)
     (hle : - 2 ^ (w - 1) ≤ x.toInt - base.toInt)
     (hlt : x.toInt - base.toInt < 2 ^ (w - 1)) :
@@ -100,16 +101,21 @@ theorem BitVec.toNat_subSaturatingZero_eq_ite
       if x.toInt < base.toInt then 0 else (x.toInt - base.toInt) := by
   rw [← BitVec.toInt_eq_toNat_of_toInt_nonneg (x.subSaturatingZero base)]
   · rw [BitVec.toInt_subSaturatingZero_eq_ite hw x base hle hlt]
-  · apply BitVec.nonneg_toInt_subSaturatingZeZerow x base hle hlt
+  · apply BitVec.nonneg_toInt_subSaturatingZero hw x base hle hlt
 
-
-theorem BitVec.toNat_subSaturatingZero_max
+/--
+The value of 'subSaturatingZero' when interpreted as a natural
+number equals  saturating subtraction.
+-/
+theorem BitVec.toNat_subSaturatingZero_eq_ite_toNat
    (hw : 0 < w) (x base : BitVec w)
     (hle : - 2 ^ (w - 1) ≤ x.toInt - base.toInt)
     (hlt : x.toInt - base.toInt < 2 ^ (w - 1)) :
     (BitVec.subSaturatingZero x base).toNat =
-      max 0 (x.toInt - base.toInt) := by
-  rw [BitVec.toNat_subSaturatingZero_eq_ite hw x base hle hlt]
+      if x.toInt < base.toInt then 0 else (x.toInt - base.toInt).toNat := by
+  have := BitVec.natCast_toNat_subSaturatingZero_eq_ite hw x base hle hlt
+  split <;> grind only
+
 
 
 /--
