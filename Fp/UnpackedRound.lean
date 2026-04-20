@@ -117,9 +117,7 @@ def UnpackedFloat.guardBitIndex {eu su : Nat}
     BitVec.ofNat su ((su - 1) - (tsp + 1))
   let targetMinNormalExp : BitVec eu :=
     BitVec.ofInt eu (minNormalExp tep)
-  -- let expGeMin :=
-  --   if uf.ex.slt targetMinNormalExp then targetMinNormalExp else uf.ex
-  let shiftAmtPositive := BitVec.subSaturatingZero uf.ex targetMinNormalExp
+  let shiftAmtPositive := BitVec.subSaturatingZero  targetMinNormalExp uf.ex
   guardBitIndexFromLsb + shiftAmtPositive.zeroExtend su
 
 /-- Extract the guard bit from an unpacked float at the target precision. -/
@@ -769,9 +767,9 @@ def checkRoundCorrect (EUnpacked SUnpackedNoHidden : Nat) (EOut SOutNoHidden : N
 -- TODO: these are expensive checks, so move them into a separate file.
 -- All of these should succeed with zero failures (the ExtRat round matches
 -- the bitblasted UnpackedFloat round for every input).
-#eval checkRoundCorrect 4 5 4 2 .RNA
-#eval checkRoundCorrect 4 5 4 2 .RNE
-#eval checkRoundCorrect 4 5 4 2 .RTZ
-#eval checkRoundCorrect 2 6 2 4 .RTP
-#eval checkRoundCorrect 4 5 4 2 .RTP
-#eval checkRoundCorrect 4 5 4 2 .RTN
+#guard_msgs(error) in #eval checkRoundCorrect 4 5 4 2 .RNA
+#guard_msgs(error) in #eval checkRoundCorrect 4 5 4 2 .RNE
+#guard_msgs(error) in #eval checkRoundCorrect 4 5 4 2 .RTZ
+#guard_msgs(error) in #eval checkRoundCorrect 2 6 2 4 .RTP
+#guard_msgs(error) in #eval checkRoundCorrect 4 5 4 2 .RTP
+#guard_msgs(error) in #eval checkRoundCorrect 4 5 4 2 .RTN
