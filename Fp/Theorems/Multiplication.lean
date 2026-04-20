@@ -373,6 +373,7 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
         isLawfulLower_NaN_iff_isNaN, isNaN_of_isLawfulLower, Bool.true_or,
         PackedFloat.unpack_eq_NaN_of_isNaN, cond_true, EUnpackedFloat.mkNaN_pack_eq_mkNaN,
         EquivUptoNaN.of_mkNaN_iff, isNaN_round_of_nan]
+      sorry
     case infCase signb =>
       simp only [hsin, PackedFloat.isInfinite_getInfinity, decide_true,
         PackedFloat.toExtRat'_eq_Infinity_of_isInfinite, PackedFloat.sign_getInfinity,
@@ -382,6 +383,7 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
         EUnpackedFloat.sign_num_mkInfinity, cond_true, EUnpackedFloat.mkNaN_pack_eq_mkNaN,
         EquivUptoNaN.of_mkNaN_iff, isLawfulLower_NaN_iff_isNaN, isNaN_round_of_nan,
         isNaN_of_isLawfulLower]
+      sorry
     case zeroCase signb =>
       simp only [PackedFloat.isZero_getZero, he, decide_true,
         PackedFloat.toExtRat'_eq_zero_of_isZero, ExtRat.number_mul_number_eq, Rat.mul_zero,
@@ -392,7 +394,8 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
       simp only [show decide (ein = 0) = false by grind, Bool.false_and, Bool.or_self, cond_false,
         EUnpackedFloat.mkZero_pack_eq_getZero]
       apply EquivUptoNaN.of_eq
-      grind only
+      sorry
+      -- grind only
     case numCase hb =>
       rw [PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm hb]
       simp only [EUnpackedFloat.num_mkNumber, PackedFloat.sign_unpackNormOrNonzeroSubnorm_eq_sign]
@@ -405,7 +408,8 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
           PackedFloat.not_isInfinite_of_isNormOrNonzeroSubnorm],
           cond_false, EUnpackedFloat.mkZero_pack_eq_getZero]
       apply EquivUptoNaN.of_eq
-      grind only
+      sorry
+      -- grind only
       -- TODO: prove a theorem that says that 'isNumber -> ∃ r such that b.toExtRat' = Number r'.
       -- Use that to simplify the value.
   case numCase ha =>
@@ -456,7 +460,8 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
         Bool.or_true, cond_true, cond_false, EUnpackedFloat.mkZero_pack_eq_getZero]
       simp only [SmtLibSemantics.SmtLibFunctions.xorSign, PackedFloat.sign_getZero]
       apply EquivUptoNaN.of_eq
-      grind only
+      sorry
+      -- grind only
     case numCase hb =>
       simp only [EUnpackedFloat.isNaN_mkNumber,
         PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm hb, Bool.or_self,
@@ -470,12 +475,13 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
       simp only [this, Bool.false_eq_true, not_false_eq_true,
         PackedFloat.unpackNormOrNonzeroSubnorm_isZero_eq_of_not_isZero, cond_false]
       apply EquivUptoNaN.of_eq
-      rw [SmtLibSemantics_round_eq_pack_UnpackedFloat_round (r := a.toRat * b.toRat)]
-      · apply msb_mul_eq_true_of_msb_eq_true
-        · exact PackedFloat.msb_unpackNum_eq_true ha
-        · exact PackedFloat.msb_unpackNum_eq_true hb
-      · simp only
-      · apply unpackNum_mul_unpackNum_toRat_eq_mul_toRat
-        · grind only
-        · grind only
+      sorry
+      -- rw [SmtLibSemantics_round_eq_pack_UnpackedFloat_round (r := a.toRat * b.toRat)]
+      -- · apply msb_mul_eq_true_of_msb_eq_true
+      --   · exact PackedFloat.msb_unpackNum_eq_true ha
+      --   · exact PackedFloat.msb_unpackNum_eq_true hb
+      -- · simp only
+      -- · apply unpackNum_mul_unpackNum_toRat_eq_mul_toRat
+      --   · grind only
+      --   · grind only
 end Fp

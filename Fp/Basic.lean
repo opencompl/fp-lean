@@ -171,7 +171,7 @@ which are `minNormalExp - 1`, `minNormalExp - 2`, ..., `minNormalExp - (s - 1)`
 -/
 @[bv_normalize]
 def minSubnormalExp (e : Nat) (s : Nat) : Int :=
-  (minNormalExp e) - s
+  (maxSubnormalExp e) - (s - 1 : Int)
 
 /--
 The minimum subnormal exponent can have `(s - 1)`
@@ -179,7 +179,7 @@ extra negative values, taken from the significand.
 -/
 theorem minSubnormalExp_eq_neg_bias_minus_s_minus_one (he : 1 < e) :
     minSubnormalExp e s = - (bias e) - (s - 1) := by
-  simp [minSubnormalExp, minNormalExp, bias]
+  simp [minSubnormalExp, maxSubnormalExp, minNormalExp, bias]
   grind
 
 /-#
@@ -189,7 +189,6 @@ The value is `-149` wrt [wikipedia](https://en.wikipedia.org/wiki/Single-precisi
 -/
 /-- info: -149 -/
 #guard_msgs in #eval minSubnormalExp 8 23
-
 /--
 This is a simpler (but less tight) bound than `exponentWidth`.
 It's logarithmically larger.
@@ -212,7 +211,6 @@ does not overflow when its width is set to `exponentWidth 1 s` (where
 @[bv_normalize]
 def exponentWidth (e s : Nat) : Nat :=
   (2 ^ (e - 1) + s - 1).log2 + 2
-
 
 @[simp]
 theorem zero_lt_exponentWidth : 0 < exponentWidth e s  := by
@@ -272,7 +270,7 @@ theorem toNat_ofNat_bias_eq_bias (he : 1 < e) (hs : 0 < s) :
     · have := self_lt_exponentWidth e s he hs
       grind only
 
-/--
+/-
 The bias, when converted to a BitVec of the exponent width fits properly.
 -/
 @[simp, grind =]
@@ -298,7 +296,6 @@ theorem toInt_ofNat_bias_eq_bias (he : 1 < e) (hs : 0 < s) :
     have := Nat.log2_eq_exists (n := 2 ^ (e - 1) + s - 1) (by grind only [!Nat.two_pow_pos, #5690])
     obtain ⟨log, hlogeq, hloglt, hlogle⟩ := this
     grind only [!Nat.two_pow_pos, #569066451790c837]
-
 /--
 The bound between bias and the exponent width: `bias e + 1 < 2 ^ (exponentWidth e s - 1)`.
 This is tight.
@@ -380,7 +377,7 @@ theorem toInt_ofInt_minSubnormalExp_eq_minSubnormalExp (he : 1 < e) (hs : 0 < s)
   simp only [BitVec.toInt_ofInt]
   rw [Int.bmod_eq_of_le]
   · simp
-    rw [minSubnormalExp, minNormalExp]
+    rw [minSubnormalExp, maxSubnormalExp, minNormalExp]
     have : 0 < bias e := by exact bias_pos_of_one_lt e he
     rw [Int.natCast_sub (by grind only)]
     have hbias := bias_plus_one_lt_two_pow_exponentWidth_minus_one e s he hs
@@ -390,7 +387,7 @@ theorem toInt_ofInt_minSubnormalExp_eq_minSubnormalExp (he : 1 < e) (hs : 0 < s)
       #569066451790c837])
     obtain ⟨log, hlogeq, hloglt, hlogle⟩ := hlog -- log2 value.
     grind only [!Nat.two_pow_pos, #569066451790c837]
-  · rw [minSubnormalExp, minNormalExp]
+  · rw [minSubnormalExp, maxSubnormalExp, minNormalExp]
     simp
     have := bias_plus_one_lt_two_pow_exponentWidth_minus_one e s he hs
     grind only
