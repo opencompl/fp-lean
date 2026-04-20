@@ -1044,6 +1044,41 @@ theorem eq_of_IsLawfulUpper_of_IsLawfulUpper
   grind only [PackedFloat.le_antisymm_of_ne_NaN]
 
 
+theorem IsLawfulUpper_eq_NaN_of_isNaN (e s : Nat) (r : ExtRat) (x : PackedFloat e s)
+    (hupper : SmtLibSemantics.IsLawfulUpper r x) :
+    x.isNaN = true → r = .NaN := by
+  intros hnan
+  have hupper1 := hupper.1
+  simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
+    ExtRat.ge_eq_le_symm] at hupper1
+  simp [hnan] at hupper1
+  grind only
+
+/--
+The result of 'IsLawfulLower' is unique and must be equal to the 'lower' computation.
+-/
+@[simp]
+theorem eq_upper_of_IsLawfulUpper (e s : Nat) (he : 0 < e) (hs : 0 < s)
+    (r : ExtRat)
+    (x : PackedFloat e s)
+    (hrnan : r ≠ .NaN)
+    (hupper : SmtLibSemantics.IsLawfulUpper r x) :
+    x = upper e s he hs r := by
+  apply eq_of_IsLawfulUpper_of_IsLawfulUpper
+  · intros hcontra
+    apply hrnan
+    apply IsLawfulUpper_eq_NaN_of_isNaN
+    · exact hupper
+    · grind only
+  · apply Classical.byContradiction
+    intros hcontra
+    apply hrnan
+    grind [ExtRat, upper]
+  · apply hupper
+  · exact IsLawfulUpper_upper e s he hs r
+
+
+
 /--
 two lawful lowers are equal to each other.
 -/
@@ -1058,6 +1093,41 @@ theorem eq_of_IsLawfulLower_of_IsLawfulLower
   have rlex' := hlowerx.2 y rley
   have rley' := hlowery.2 x rlex
   grind only [PackedFloat.le_antisymm_of_ne_NaN]
+
+theorem IsLawfulLower_eq_NaN_of_isNaN (e s : Nat) (r : ExtRat) (x : PackedFloat e s)
+    (hlower : SmtLibSemantics.IsLawfulLower r x) :
+    x.isNaN = true → r = .NaN := by
+  intros hnan
+  have hlower1 := hlower.1
+  simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
+    ExtRat.ge_eq_le_symm] at hlower1
+  simp [hnan] at hlower1
+  grind
+
+/--
+The result of 'IsLawfulLower' is unique and must be equal to the 'lower' computation.
+-/
+@[simp]
+theorem eq_lower_of_IsLawfulLower (e s : Nat) (he : 0 < e) (hs : 0 < s)
+    (r : ExtRat)
+    (x : PackedFloat e s)
+    (hrnan : r ≠ .NaN)
+    (hlower : SmtLibSemantics.IsLawfulLower r x) :
+    x = lower e s he hs r := by
+  apply eq_of_IsLawfulLower_of_IsLawfulLower
+  · intros hcontra
+    apply hrnan
+    apply IsLawfulLower_eq_NaN_of_isNaN
+    · exact hlower
+    · grind only
+  · apply Classical.byContradiction
+    intros hcontra
+    apply hrnan
+    grind [ExtRat, lower]
+  · apply hlower
+  · exact IsLawfulLower_lower e s he hs r
+
+
 
 @[simp]
 theorem embed_neg_eq_neg_embed {e s : Nat} (x : PackedFloat e s) :
@@ -1809,5 +1879,19 @@ theorem UnpackedFloat.extractStickyBit_eq_not_tieBreak_of_nonneg_of_guardBit
   · grind only
   · grind only
   · grind only
+
+
+theorem UnpackedFloat.toExtRat_round
+    (he : 1 < ep)
+    (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) :
+    (x.round rm (tep := ep) (tsp := sp) : EUnpackedFloat (exponentWidth ep sp) (sp + 1)).toExtRat =
+    ((SmtLibSemantics.smtLibRoundMethod (R := ExtRat) ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round rm x.sign (ExtRat.Number x.toRat)).toExtRat := by
+  simp
+  rw [UnpackedFloat.round]
+
+  sorry
 
 end Fp
