@@ -1612,6 +1612,7 @@ gives us the location of the guard bit inside the unpaked float.
 sorry
 -/
 theorem UnpackedFloat.toNat_guardBitIndex_eq (hep : 1 < ep) (hsp : 0 < sp)
+    -- TODO: I need a bound on `x.ex` to be at most `maxNormalExp` I guess.
     (heu : exponentWidth ep sp ≤ eu)
     (hsu : sp + 2 ≤ su)
     -- (heusu : eu ≤ su)
@@ -1636,11 +1637,13 @@ theorem UnpackedFloat.toNat_guardBitIndex_eq (hep : 1 < ep) (hsp : 0 < sp)
       rw [Int.sub_toNat_eq_zero_of_le]
       · simp
         rw [Nat.mod_eq_of_lt]
-        · sorry
+        · have : su < 2 ^ su := by exact Nat.lt_two_pow_self
+          grind only
       · grind only
     case isFalse h =>
       simp at h
       rw [Nat.mod_eq_of_lt]
+      have : su < 2 ^ su := by exact Nat.lt_two_pow_self
       sorry
   · grind only
   · sorry
