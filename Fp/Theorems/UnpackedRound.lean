@@ -1612,7 +1612,8 @@ gives us the location of the guard bit inside the unpaked float.
 sorry
 -/
 theorem UnpackedFloat.toNat_guardBitIndex_eq (hep : 1 < ep) (hsp : 0 < sp)
-    -- TODO: I need a bound on `x.ex` to be at most `maxNormalExp` I guess.
+    -- TODO: I need a bound on `x.ex` to be at most `maxNormalExp`.
+    -- TODO: I need a bound on `x.ex` to be at least `minSubnormalExp`.
     (heu : exponentWidth ep sp ≤ eu)
     (hsu : sp + 2 ≤ su)
     -- (heusu : eu ≤ su)
@@ -1646,8 +1647,16 @@ theorem UnpackedFloat.toNat_guardBitIndex_eq (hep : 1 < ep) (hsp : 0 < sp)
       have : su < 2 ^ su := by exact Nat.lt_two_pow_self
       sorry
   · grind only
-  · sorry
-  · sorry
+  · have := neg_two_pow_le_minNormalExp hep hsp heu
+    rw [toInt_ofInt_minNormalExp_eq_minNormalExp_of_le hep hsp heu]
+    -- | This needs bounds on `minSubnormalExp ≤ x.ex.toInt` to prove this.
+    -- ⊢ -2 ^ (eu - 1) ≤ minNormalExp ep - x.ex.toInt
+    sorry
+  · have := minNormalExp_lt_two_pow hep hsp heu
+    rw [toInt_ofInt_minNormalExp_eq_minNormalExp_of_le hep hsp heu]
+    --  This needs bounds on `x.ex.toInt ≤ maxNormalExp` to prove this.
+    -- ⊢ minNormalExp ep - x.ex.toInt < 2 ^ (eu - 1)
+    sorry
 
 theorem BitVec.eq_iff_getLsbD_eq (a b : BitVec w) : a = b ↔
     (∀ (i : Nat), a.getLsbD i = b.getLsbD i) := by
