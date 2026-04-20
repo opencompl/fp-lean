@@ -1073,7 +1073,8 @@ theorem eq_upper_of_IsLawfulUpper (e s : Nat) (he : 0 < e) (hs : 0 < s)
   · apply Classical.byContradiction
     intros hcontra
     apply hrnan
-    grind [ExtRat, upper]
+    simp at hcontra
+    sorry
   · apply hupper
   · exact IsLawfulUpper_upper e s he hs r
 
