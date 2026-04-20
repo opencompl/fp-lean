@@ -1486,126 +1486,6 @@ theorem UnpackedFloat.clearSignificand_toRat_le_of_nonneg (uf : UnpackedFloat e 
   simp only [PackedFloat.Rat.natCast_le_natCast_iff_le]
   grind only
 
-
-
-/-- For a nonnegative unpacked float, the error from clearing guard/sticky bits is bounded by
-    2^(guardBitIdx + 1) ULPs at the significand level, i.e.,
-    `x.toRat - cleared.toRat < 2^(guardBitIdx + 1) * 2^(x.toExpInt)`.
-    This is the ULP of the target precision. -/
-theorem clearSignificand_toRat_sub_lt (uf : UnpackedFloat e s)
-    (targetExponentWidth targetSignificandWidth : Nat)
-    (h : 0 ≤ uf.toRat) :
-    uf.toRat - (uf.clearSignificand targetExponentWidth targetSignificandWidth).toRat <
-      (2 : Rat) ^ ((uf.guardBitIndex targetExponentWidth targetSignificandWidth).toNat + 1) *
-      (2 : Rat) ^ uf.toExpInt := by
-  sorry
-
-/--
-The result of 'clearSignificand' results in an unpacked float
-that can be represented in the target format, and has the same rational value as some `PackedFloat`.
--/
-theorem exists_packedFloat_toRat_eq_clearSignificand_toRat (uf : UnpackedFloat e s)
-    (targetExponentWidth targetSignificandWidth : Nat) :
-    ∃ (pf : PackedFloat targetExponentWidth targetSignificandWidth),
-      pf.toRat = (uf.clearSignificand targetExponentWidth targetSignificandWidth).toRat := by
-  sorry
-
-
-
-theorem toExtRat_ufCleared_eq_lower_of_nonneg (x : UnpackedFloat e s)
-    (hx : 0 ≤ x.toRat) :
-    (ExtRat.Number (x.roundTowardZero targetExponentWidth targetSignificandWidth).toRat) =
-    SmtLibSemantics.RoundableEmbed.embed (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat) : PackedFloat targetExponentWidth targetSignificandWidth)
-      := by
-  sorry
-
-theorem toExtRat_ufCleared_eq_upper_of_neg (x : UnpackedFloat e s)
-    (hx : x.toRat < 0 ) :
-    (ExtRat.Number (x.roundTowardZero targetExponentWidth targetSignificandWidth).toRat) =
-    SmtLibSemantics.RoundableEmbed.embed (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat) : PackedFloat targetExponentWidth targetSignificandWidth)
-      := by
-  sorry
-
-theorem toExtRat_successorAwayFromZero_eq_lower_of_neg (x : UnpackedFloat e s)
-    (hx : x.toRat < 0) :
-    (ExtRat.Number (x.successorAwayFromZero targetExponentWidth targetSignificandWidth).toRat) =
-    SmtLibSemantics.RoundableEmbed.embed (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat) : PackedFloat targetExponentWidth targetSignificandWidth)
-      := by
-  sorry
-
-
-@[simp]
-theorem UnpackedFloat.extractIsEven_eq_isEven_lower_of_nonneg (x : UnpackedFloat e s)
-    (hx : x.sign = false) :
-    x.extractIsEven e s = (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) e s SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).isEven
-          (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat)) := by
-  simp [UnpackedFloat.extractIsEven]
-  simp [SmtLibSemantics.smtLibRoundMethod]
-  sorry
-
-@[simp]
-theorem UnpackedFloat.extractIsEven_eq_isEven_upper_of_neg (x : UnpackedFloat e s)
-    (hx : x.sign = true) :
-    x.extractIsEven e s = (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) e s SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).isEven
-          (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat)) := by
-  simp [UnpackedFloat.extractIsEven]
-  simp [SmtLibSemantics.smtLibRoundMethod]
-  sorry
-
-@[simp]
-theorem UnpackedFloat.extractGuardBit_eq_not_lowerHalf_of_nonneg (x : UnpackedFloat e s)
-    (hx : x.sign = false) :
-    x.extractGuardBit e s = ! (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) e s SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat) := by
-  simp [UnpackedFloat.extractGuardBit]
-  simp [SmtLibSemantics.smtLibRoundMethod]
-  sorry
-
-@[simp]
-theorem UnpackedFloat.extractGuardBit_eq_lowerHalf_of_neg (x : UnpackedFloat e s)
-    (hx : x.sign = true) :
-    x.extractGuardBit e s = (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) e s SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat) := by
-  simp [UnpackedFloat.extractGuardBit]
-  simp [SmtLibSemantics.smtLibRoundMethod]
-  sorry
-
-@[simp]
-theorem BitVec.and_allOnes_eq_self (bv : BitVec n) :
-    bv &&& (BitVec.allOnes n) = bv := by
-  ext i hi
-  simp
-
-@[simp]
-theorem BitVec.allOnes_and_eq_self (bv : BitVec n) :
-    (BitVec.allOnes n) &&& bv = bv := by
-  ext i hi
-  simp
-
-/--
-Zero extension to a larger width does not change the value.
--/
-theorem BitVec.toNat_zeroExtend_of_le {n m : Nat} (bv : BitVec n) (h : n ≤ m) :
-    (bv.zeroExtend m).toNat = bv.toNat := by
-  rw [BitVec.zeroExtend_eq_setWidth, BitVec.toNat_setWidth_of_le]
-  grind only
-
-/--
-Zero extension to a smaller width does not change the value
-if the value fits in the smaller size.
--/
-theorem BitVec.toNat_zeroExtend_of_lt {n m : Nat} (bv : BitVec n) (h : bv.toNat  < 2 ^ m) :
-    (bv.zeroExtend m).toNat = bv.toNat := by
-  rw [BitVec.zeroExtend_eq_setWidth]
-  simp only [BitVec.toNat_setWidth]
-  rw [Nat.mod_eq_of_lt]
-  grind only
-
-@[simp]
-theorem Int.sub_toNat_eq_zero_of_le {a b : Int} (h : a ≤ b) :
-    (a - b).toNat = 0 := by
-  simp
-  grind only
-
-
 /--
 The guard bit index when interpreted as a natural number
 gives us the location of the guard bit inside the unpaked float.
@@ -1676,6 +1556,156 @@ theorem BitVec.eq_iff_getLsbD_eq (a b : BitVec w) : a = b ↔
 theorem iff_iff_not_iff_not {p q : Prop} :
     (p ↔ q) ↔ (¬ p ↔ ¬ q) := by
   grind
+
+
+/-- For a nonnegative unpacked float, the error from clearing guard/sticky bits is bounded by
+    2^(guardBitIdx + 1) ULPs at the significand level, i.e.,
+    `x.toRat - cleared.toRat < 2^(guardBitIdx + 1) * 2^(x.toExpInt)`.
+    This is the ULP of the target precision. -/
+theorem clearSignificand_toRat_sub_lt (uf : UnpackedFloat e s)
+    (targetExponentWidth targetSignificandWidth : Nat)
+    (h : 0 ≤ uf.toRat) :
+    uf.toRat - (uf.clearSignificand targetExponentWidth targetSignificandWidth).toRat <
+      (2 : Rat) ^ ((uf.guardBitIndex targetExponentWidth targetSignificandWidth).toNat + 1) *
+      (2 : Rat) ^ uf.toExpInt := by
+  sorry
+
+/--
+The result of 'clearSignificand' results in an unpacked float
+that can be represented in the target format, and has the same rational value as some `PackedFloat`.
+-/
+theorem exists_packedFloat_toRat_eq_clearSignificand_toRat (uf : UnpackedFloat e s)
+    (targetExponentWidth targetSignificandWidth : Nat) :
+    ∃ (pf : PackedFloat targetExponentWidth targetSignificandWidth),
+      pf.toRat = (uf.clearSignificand targetExponentWidth targetSignificandWidth).toRat := by
+  sorry
+
+
+
+theorem toExtRat_ufCleared_eq_lower_of_nonneg (x : UnpackedFloat e s)
+    (hx : 0 ≤ x.toRat) :
+    (ExtRat.Number (x.roundTowardZero targetExponentWidth targetSignificandWidth).toRat) =
+    SmtLibSemantics.RoundableEmbed.embed (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat) : PackedFloat targetExponentWidth targetSignificandWidth)
+      := by
+  sorry
+
+theorem toExtRat_ufCleared_eq_upper_of_neg (x : UnpackedFloat e s)
+    (hx : x.toRat < 0 ) :
+    (ExtRat.Number (x.roundTowardZero targetExponentWidth targetSignificandWidth).toRat) =
+    SmtLibSemantics.RoundableEmbed.embed (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat) : PackedFloat targetExponentWidth targetSignificandWidth)
+      := by
+  sorry
+
+theorem toExtRat_successorAwayFromZero_eq_lower_of_neg (x : UnpackedFloat e s)
+    (hx : x.toRat < 0) :
+    (ExtRat.Number (x.successorAwayFromZero targetExponentWidth targetSignificandWidth).toRat) =
+    SmtLibSemantics.RoundableEmbed.embed (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat) : PackedFloat targetExponentWidth targetSignificandWidth)
+      := by
+  sorry
+
+
+@[simp]
+theorem UnpackedFloat.extractIsEven_eq_isEven_lower_of_nonneg (x : UnpackedFloat e s)
+    (hx : x.sign = false) :
+    x.extractIsEven e s = (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) e s SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).isEven
+          (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat)) := by
+  simp [UnpackedFloat.extractIsEven]
+  simp [SmtLibSemantics.smtLibRoundMethod]
+  sorry
+
+@[simp]
+theorem UnpackedFloat.extractIsEven_eq_isEven_upper_of_neg (x : UnpackedFloat e s)
+    (hx : x.sign = true) :
+    x.extractIsEven e s = (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) e s SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).isEven
+          (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat)) := by
+  simp [UnpackedFloat.extractIsEven]
+  simp [SmtLibSemantics.smtLibRoundMethod]
+  sorry
+
+
+theorem extractGuardBit_eq_true_iff
+    (hep : 1 < ep) (hsp : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) :
+    x.extractGuardBit ep sp = true ↔ x.sig.getLsbD (su - (sp + 2) + (minNormalExp ep - x.ex.toInt).toNat) := by
+  simp [UnpackedFloat.extractGuardBit]
+  constructor
+  · intros h
+    obtain h := BitVec.ne_iff_getLsbD_ne .. |>.mp h
+    obtain ⟨i, hi⟩ := h
+    simp at hi
+    rw [UnpackedFloat.toNat_guardBitIndex_eq hep hsp heu hsu] at hi
+    grind only
+  · intros h
+    intros hcontra
+    obtain hcontra := BitVec.eq_iff_getLsbD_eq .. |>.mp hcontra
+    simp at hcontra
+    specialize hcontra _ h (by grind)
+    rw [UnpackedFloat.toNat_guardBitIndex_eq hep hsp heu hsu] at hcontra
+    grind only
+
+/--
+The guard bit is the bit at the lower index at '2' (when `su = sp + 2`),
+plus the offset from the exponent difference, which accounts for shifts when we are subnormal.
+-/
+theorem extractGuardBit_eq_getLsbD
+    (hep : 1 < ep) (hsp : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) :
+    x.extractGuardBit ep sp =  x.sig.getLsbD (su - (sp + 2) + (minNormalExp ep - x.ex.toInt).toNat)  := by
+  have := extractGuardBit_eq_true_iff hep hsp heu hsu x
+  grind only [#0e2e4e0bb1f1e395]
+
+
+@[simp]
+theorem UnpackedFloat.extractGuardBit_eq_not_lowerHalf_of_nonneg (x : UnpackedFloat e s)
+    (hx : x.sign = false) :
+    x.extractGuardBit e s = ! (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) e s SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat) := by
+  simp [SmtLibSemantics.smtLibRoundMethod]
+  sorry
+
+@[simp]
+theorem UnpackedFloat.extractGuardBit_eq_lowerHalf_of_neg (x : UnpackedFloat e s)
+    (hx : x.sign = true) :
+    x.extractGuardBit e s = (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) e s SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat) := by
+  simp [UnpackedFloat.extractGuardBit]
+  simp [SmtLibSemantics.smtLibRoundMethod]
+  sorry
+
+@[simp]
+theorem BitVec.and_allOnes_eq_self (bv : BitVec n) :
+    bv &&& (BitVec.allOnes n) = bv := by
+  ext i hi
+  simp
+
+@[simp]
+theorem BitVec.allOnes_and_eq_self (bv : BitVec n) :
+    (BitVec.allOnes n) &&& bv = bv := by
+  ext i hi
+  simp
+
+/--
+Zero extension to a larger width does not change the value.
+-/
+theorem BitVec.toNat_zeroExtend_of_le {n m : Nat} (bv : BitVec n) (h : n ≤ m) :
+    (bv.zeroExtend m).toNat = bv.toNat := by
+  rw [BitVec.zeroExtend_eq_setWidth, BitVec.toNat_setWidth_of_le]
+  grind only
+
+/--
+Zero extension to a smaller width does not change the value
+if the value fits in the smaller size.
+-/
+theorem BitVec.toNat_zeroExtend_of_lt {n m : Nat} (bv : BitVec n) (h : bv.toNat  < 2 ^ m) :
+    (bv.zeroExtend m).toNat = bv.toNat := by
+  rw [BitVec.zeroExtend_eq_setWidth]
+  simp only [BitVec.toNat_setWidth]
+  rw [Nat.mod_eq_of_lt]
+  grind only
+
+
 
 theorem extractStickyBit_eq_true_iff
   (hep : 1 < ep) (hsp : 0 < sp)
