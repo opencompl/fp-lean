@@ -30,10 +30,10 @@ def roundingDecision (mode : RoundingMode) (sign : Bool) (significandEven : Bool
       false
 
 /--
-Return the distance of 'x' from 'base' if 'x ≥s base' (as signed numbers),
-and return '0' otherwise.
+Return 'x - base', but if 'x' is less than 'base', return zero instead of a negative number.
 -/
-def BitVec.distanceFromNonneg (base : BitVec w) (x : BitVec w) : BitVec w :=
+@[bv_normalize]
+def BitVec.subSaturatingZero (x : BitVec w) (base : BitVec w) : BitVec w :=
   if x.slt base then 0 else x - base
 
 /-
@@ -43,16 +43,16 @@ so I remove it from the simp-set.
 attribute [-simp] BitVec.toNat_sub
 
 /--
-The 'distanceFromNonneg', when interpreted as an signed numbers,
+The 'subSaturatingZero', when interpreted as an signed numbers,
 correctly keeps track of the distance from 'base' when 'x' is greater than or equal to 'base',
 and returns zero when 'x' is less than 'base'.
 -/
-theorem BitVec.toInt_distanceFromNonneg {w : Nat} (hw : 0 < w) (base x : BitVec w)
+theorem BitVec.toInt_subSaturatingZero {w : Nat} (hw : 0 < w) (x base : BitVec w)
     (hle : - 2 ^ (w - 1) ≤ x.toInt - base.toInt)
     (hlt : x.toInt - base.toInt < 2 ^ (w - 1)) :
-    (BitVec.distanceFromNonneg base x).toInt =
+    (BitVec.subSaturatingZero x base).toInt =
       if x.toInt < base.toInt then 0 else x.toInt - base.toInt := by
-  simp [distanceFromNonneg]
+  simp [subSaturatingZero]
   by_cases h : x.slt base
   · simp [h]
     rw [BitVec.slt_eq_decide] at h
@@ -70,13 +70,13 @@ theorem BitVec.toInt_distanceFromNonneg {w : Nat} (hw : 0 < w) (base x : BitVec 
     · simp; grind only
 
 /--
-The output of 'distanceFromNonneg' is always nonnegative.
+The output of 'subSaturatingZero' is always nonnegative.
 -/
-theorem BitVec.nonneg_toInt_distanceFromNonneg {w : Nat} (hw : 0 < w) (base x : BitVec w)
+theorem BitVec.nonneg_toInt_subSaturatingZero {w : Nat} (hw : 0 < w) (x base : BitVec w)
     (hle : - 2 ^ (w - 1) ≤ x.toInt - base.toInt)
     (hlt : x.toInt - base.toInt < 2 ^ (w - 1)) :
-    0 ≤ (BitVec.distanceFromNonneg base x).toInt := by
-  rw [BitVec.toInt_distanceFromNonneg hw base x hle hlt]
+    0 ≤ (BitVec.subSaturatingZero x base).toInt := by
+  rw [BitVec.toInt_subSaturatingZero hw x base hle hlt]
   split <;> grind only
 
 /--
@@ -90,20 +90,19 @@ theorem BitVec.toInt_eq_toNat_of_toInt_nonneg {w : Nat}
   grind only
 
 /--
-The value of 'distanceFromNonneg' when interpreted as a natural
+The value of 'subSaturatingZero' when interpreted as a natural
 number equals what you'd expect, which interprets its arguments
 as integers.
 -/
-theorem BitVec.toNat_distanceFromNonneg_eq
-   (hw : 0 < w) (base x : BitVec w)
+theorem BitVec.toNat_subSaturatingZero_eq
+   (hw : 0 < w) (x base : BitVec w)
     (hle : - 2 ^ (w - 1) ≤ x.toInt - base.toInt)
     (hlt : x.toInt - base.toInt < 2 ^ (w - 1)) :
-    (BitVec.distanceFromNonneg base x).toNat =
+    (BitVec.subSaturatingZero x base).toNat =
       if x.toInt < base.toInt then 0 else (x.toInt - base.toInt) := by
-  rw [← BitVec.toInt_eq_toNat_of_toInt_nonneg (base.distanceFromNonneg x)]
-  · rw [BitVec.toInt_distanceFromNonneg hw base x hle hlt]
-  · apply BitVec.nonneg_toInt_distanceFromNonneg hw base x hle hlt
-
+  rw [← BitVec.toInt_eq_toNat_of_toInt_nonneg (x.subSaturatingZero base)]
+  · rw [BitVec.toInt_subSaturatingZero hw x base hle hlt]
+  · apply BitVec.nonneg_toInt_subSaturatingZero hw x base hle hlt
 
 /--
 Compute the guard bit index (from LSB) adjusted for subnormal shifting.
@@ -120,7 +119,7 @@ def UnpackedFloat.guardBitIndex {eu su : Nat}
     BitVec.ofInt eu (minNormalExp tep)
   -- let expGeMin :=
   --   if uf.ex.slt targetMinNormalExp then targetMinNormalExp else uf.ex
-  let shiftAmtPositive := BitVec.distanceFromNonneg targetMinNormalExp uf.ex
+  let shiftAmtPositive := BitVec.subSaturatingZero uf.ex targetMinNormalExp
   guardBitIndexFromLsb + shiftAmtPositive.zeroExtend su
 
 /-- Extract the guard bit from an unpacked float at the target precision. -/
