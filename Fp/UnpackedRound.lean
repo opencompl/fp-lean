@@ -47,7 +47,7 @@ The 'subSaturatingZero', when interpreted as an signed numbers,
 correctly keeps track of the distance from 'base' when 'x' is greater than or equal to 'base',
 and returns zero when 'x' is less than 'base'.
 -/
-theorem BitVec.toInt_subSaturatingZero {w : Nat} (hw : 0 < w) (x base : BitVec w)
+theorem BitVec.toInt_subSaturatingZero_eq_ite {w : Nat} (hw : 0 < w) (x base : BitVec w)
     (hle : - 2 ^ (w - 1) ≤ x.toInt - base.toInt)
     (hlt : x.toInt - base.toInt < 2 ^ (w - 1)) :
     (BitVec.subSaturatingZero x base).toInt =
@@ -76,7 +76,7 @@ theorem BitVec.nonneg_toInt_subSaturatingZero {w : Nat} (hw : 0 < w) (x base : B
     (hle : - 2 ^ (w - 1) ≤ x.toInt - base.toInt)
     (hlt : x.toInt - base.toInt < 2 ^ (w - 1)) :
     0 ≤ (BitVec.subSaturatingZero x base).toInt := by
-  rw [BitVec.toInt_subSaturatingZero hw x base hle hlt]
+  rw [BitVec.toInt_subSaturatingZero_eq_ite hw x base hle hlt]
   split <;> grind only
 
 /--
@@ -87,22 +87,30 @@ theorem BitVec.toInt_eq_toNat_of_toInt_nonneg {w : Nat}
     x.toInt = x.toNat := by
   rw [BitVec.toInt_eq_toNat_of_msb]
   rw [BitVec.msb_eq_toInt]
-  grind only
-
-/--
+  grind only/--
 The value of 'subSaturatingZero' when interpreted as a natural
 number equals what you'd expect, which interprets its arguments
 as integers.
 -/
-theorem BitVec.toNat_subSaturatingZero_eq
+theorem BitVec.toNat_subSaturatingZero_eq_ite
    (hw : 0 < w) (x base : BitVec w)
     (hle : - 2 ^ (w - 1) ≤ x.toInt - base.toInt)
     (hlt : x.toInt - base.toInt < 2 ^ (w - 1)) :
     (BitVec.subSaturatingZero x base).toNat =
       if x.toInt < base.toInt then 0 else (x.toInt - base.toInt) := by
   rw [← BitVec.toInt_eq_toNat_of_toInt_nonneg (x.subSaturatingZero base)]
-  · rw [BitVec.toInt_subSaturatingZero hw x base hle hlt]
-  · apply BitVec.nonneg_toInt_subSaturatingZero hw x base hle hlt
+  · rw [BitVec.toInt_subSaturatingZero_eq_ite hw x base hle hlt]
+  · apply BitVec.nonneg_toInt_subSaturatingZeZerow x base hle hlt
+
+
+theorem BitVec.toNat_subSaturatingZero_max
+   (hw : 0 < w) (x base : BitVec w)
+    (hle : - 2 ^ (w - 1) ≤ x.toInt - base.toInt)
+    (hlt : x.toInt - base.toInt < 2 ^ (w - 1)) :
+    (BitVec.subSaturatingZero x base).toNat =
+      max 0 (x.toInt - base.toInt) := by
+  rw [BitVec.toNat_subSaturatingZero_eq_ite hw x base hle hlt]
+
 
 /--
 Compute the guard bit index (from LSB) adjusted for subnormal shifting.

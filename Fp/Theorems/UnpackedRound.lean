@@ -1580,6 +1580,28 @@ theorem BitVec.allOnes_and_eq_self (bv : BitVec n) :
   ext i hi
   simp
 
+/--
+Zero extension to a larger width does not change the value.
+-/
+theorem BitVec.toNat_zeroExtend_of_le {n m : Nat} (bv : BitVec n) (h : n ≤ m) :
+    (bv.zeroExtend m).toNat = bv.toNat := by
+  rw [BitVec.zeroExtend_eq_setWidth, BitVec.toNat_setWidth_of_le]
+  grind only
+
+/--
+Zero extension to a smaller width does not change the value
+if the value fits in the smaller size.
+-/
+theorem BitVec.toNat_zeroExtend_of_lt {n m : Nat} (bv : BitVec n) (h : bv.toNat  < 2 ^ m) :
+    (bv.zeroExtend m).toNat = bv.toNat := by
+  rw [BitVec.zeroExtend_eq_setWidth]
+  simp only [BitVec.toNat_setWidth]
+  rw [Nat.mod_eq_of_lt]
+  grind only
+
+
+
+
 theorem UnpackedFloat.toNat_guardBitIndex_eq (hep : 1 < ep) (hsp : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu)
     (hsu : sp + 2 ≤ su)
