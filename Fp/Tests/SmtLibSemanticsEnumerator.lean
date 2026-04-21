@@ -6,7 +6,7 @@ import Fp.Tests.PackedFloatEnumeration
 namespace Fp
 open SmtLibSemantics
 
-namespace SmtLibSemanticsComputable
+namespace SmtLibSemanticsEnumerator
 
 def mkZero (sign : Bool) (e s : Nat) : PackedFloat e s :=
   EUnpackedFloat.mkNumber (UnpackedFloat.mkZero sign) |>.pack
@@ -275,6 +275,6 @@ def testFpSmtLibEqRel (e s : Nat) : IO (BinaryRelTestSummary e s) :=
 def testFpIeeeEqRel (e s : Nat) : IO (BinaryRelTestSummary e s) :=
   testBinaryRel e s "FpIeeeEqRel (ieeeBeq)" PackedFloat.ieeeBeq FpIeeeEqRel
 
-end SmtLibSemanticsComputable
+end SmtLibSemanticsEnumerator
 
 end Fp

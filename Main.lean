@@ -264,7 +264,7 @@ def test_roundCircuitAgainstSmtlib (ein sin eout sout : Nat) : IO ExitCode := do
     for x in [0:2^e2m4.nbits] do
       let pf := e2m4.packedFloatOfNat x
       if pf.isNaN then continue
-      let roundSmt : PackedFloat e2m2.e e2m2.m := Fp.SmtLibSemanticsComputable.computableSmtLibRound rm pf.sign pf.unpack.toExtRat
+      let roundSmt : PackedFloat e2m2.e e2m2.m := Fp.SmtLibSemanticsEnumerator.computableSmtLibRound rm pf.sign pf.unpack.toExtRat
       let roundCircuit : PackedFloat e2m2.e e2m2.m := (pf.unpack |>.round rm (tep := e2m2.e) (tsp := e2m2.m)).pack
 
       if roundSmt.equal_denotation roundCircuit then
@@ -334,53 +334,53 @@ def get_long_operation (args : List String) : IO ExitCode := do
       let exit3 ← test_roundCircuitAgainstSmtlib (ein := 3) (sin := 6) (eout := 3) (sout := 4)
       return exit1 &&& exit2 &&& exit3
   | ["fpMaxRel"] =>
-      let result ← Fp.SmtLibSemanticsComputable.testFpMaxRel 3 4
+      let result ← Fp.SmtLibSemanticsEnumerator.testFpMaxRel 3 4
       IO.println result.toFormat
       return .ofFailures result.failures
   | ["fpMinRel"] =>
-      let result ← Fp.SmtLibSemanticsComputable.testFpMinRel 3 4
+      let result ← Fp.SmtLibSemanticsEnumerator.testFpMinRel 3 4
       IO.println result.toFormat
       return .ofFailures result.failures
   | ["fpLtRel"] =>
-      let result ← Fp.SmtLibSemanticsComputable.testFpLtRel 3 4
+      let result ← Fp.SmtLibSemanticsEnumerator.testFpLtRel 3 4
       IO.println result.toFormat
       return .ofFailures result.failures
   | ["fpLeqRel"] =>
-      let result ← Fp.SmtLibSemanticsComputable.testFpLeqRel 3 4
+      let result ← Fp.SmtLibSemanticsEnumerator.testFpLeqRel 3 4
       IO.println result.toFormat
       return .ofFailures result.failures
   | ["fpGtRel"] =>
-      let result ← Fp.SmtLibSemanticsComputable.testFpGtRel 3 4
+      let result ← Fp.SmtLibSemanticsEnumerator.testFpGtRel 3 4
       IO.println result.toFormat
       return .ofFailures result.failures
   | ["fpGeqRel"] =>
-      let result ← Fp.SmtLibSemanticsComputable.testFpGeqRel 3 4
+      let result ← Fp.SmtLibSemanticsEnumerator.testFpGeqRel 3 4
       IO.println result.toFormat
       return .ofFailures result.failures
   | ["fpSmtLibEqRel"] =>
-      let result ← Fp.SmtLibSemanticsComputable.testFpSmtLibEqRel 3 4
+      let result ← Fp.SmtLibSemanticsEnumerator.testFpSmtLibEqRel 3 4
       IO.println result.toFormat
       return .ofFailures result.failures
   | ["fpIeeeEqRel"] =>
-      let result ← Fp.SmtLibSemanticsComputable.testFpIeeeEqRel 3 4
+      let result ← Fp.SmtLibSemanticsEnumerator.testFpIeeeEqRel 3 4
       IO.println result.toFormat
       return .ofFailures result.failures
   | ["fpAllRels"] =>
-      let r1 ← Fp.SmtLibSemanticsComputable.testFpLtRel 3 4
+      let r1 ← Fp.SmtLibSemanticsEnumerator.testFpLtRel 3 4
       IO.println r1.toFormat
-      let r2 ← Fp.SmtLibSemanticsComputable.testFpLeqRel 3 4
+      let r2 ← Fp.SmtLibSemanticsEnumerator.testFpLeqRel 3 4
       IO.println r2.toFormat
-      let r3 ← Fp.SmtLibSemanticsComputable.testFpGtRel 3 4
+      let r3 ← Fp.SmtLibSemanticsEnumerator.testFpGtRel 3 4
       IO.println r3.toFormat
-      let r4 ← Fp.SmtLibSemanticsComputable.testFpGeqRel 3 4
+      let r4 ← Fp.SmtLibSemanticsEnumerator.testFpGeqRel 3 4
       IO.println r4.toFormat
-      let r5 ← Fp.SmtLibSemanticsComputable.testFpSmtLibEqRel 3 4
+      let r5 ← Fp.SmtLibSemanticsEnumerator.testFpSmtLibEqRel 3 4
       IO.println r5.toFormat
-      let r6 ← Fp.SmtLibSemanticsComputable.testFpIeeeEqRel 3 4
+      let r6 ← Fp.SmtLibSemanticsEnumerator.testFpIeeeEqRel 3 4
       IO.println r6.toFormat
-      let r7 ← Fp.SmtLibSemanticsComputable.testFpMaxRel 3 4
+      let r7 ← Fp.SmtLibSemanticsEnumerator.testFpMaxRel 3 4
       IO.println r7.toFormat
-      let r8 ← Fp.SmtLibSemanticsComputable.testFpMinRel 3 4
+      let r8 ← Fp.SmtLibSemanticsEnumerator.testFpMinRel 3 4
       IO.println r8.toFormat
       return .ofFailures (r1.failures + r2.failures + r3.failures + r4.failures + r5.failures + r6.failures + r7.failures + r8.failures)
   | _ => return .Success

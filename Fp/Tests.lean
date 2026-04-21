@@ -1,2 +1,2 @@
-import Fp.Tests.SmtLibSemanticsComputable
+import Fp.Tests.SmtLibSemanticsEnumerator
 import Fp.Tests.ExhaustiveEnumerationRat
