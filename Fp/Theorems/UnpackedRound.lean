@@ -454,6 +454,8 @@ theorem UnpackedFloat.extractStickyBit_eq_not_tieBreak_of_nonneg_of_guardBit
 /--
 The final theorem: That our implementation of 'round' matches the SMT-LIB
 definition of rounding. But this should be defined carefully.
+
+This is what I'm working on right now.
 -/
 theorem UnpackedFloat.toExtRat_round_eq_smtLibRound
     (he : 1 < ep)

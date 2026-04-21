@@ -527,9 +527,13 @@ def UnpackedFloat.successorAwayFromZero {eu su : Nat}
     else
       ufCleared.ex.signExtend (eu + 1)
 
-  { sign := ufCleared.sign,
-    ex := roundedExpExtended,
-    sig := roundedTargetSigWithHiddenOverflowAdjusted.extractMsb' 0 (tsp + 1) }
+
+  let out :=
+    { sign := ufCleared.sign,
+      ex := roundedExpExtended,
+      sig := roundedTargetSigWithHiddenOverflowAdjusted.extractMsb' 0 (tsp + 1) }
+
+  out
 
 /--
 Handle overflow and underflow for a rounded result, producing the final `EUnpackedFloat`.
