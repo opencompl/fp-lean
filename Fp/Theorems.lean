@@ -4,5 +4,7 @@ import Fp.Theorems.ToExtRat
 import Fp.Theorems.Packing
 import Fp.Theorems.Ordering
 import Fp.Theorems.SmtLibSemanticsQ
+import Fp.Theorems.LowerUpperRound
 import Fp.Theorems.UnpackedRound
+import Fp.Theorems.LowerUpperRoundFunctional
 import Fp.Theorems.Multiplication
