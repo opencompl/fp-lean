@@ -30,6 +30,95 @@ def roundingDecision (mode : RoundingMode) (sign : Bool) (significandEven : Bool
       false
 
 /--
+Return 'x - base', but if 'x' is less than 'base', return zero instead of a negative number.
+-/
+@[bv_normalize]
+def BitVec.subSaturatingZero (x : BitVec w) (base : BitVec w) : BitVec w :=
+  if x.slt base then 0 else x - base
+
+/-
+BitVec.toNat_sub causes agressive unfolding when I don't want it to,
+so I remove it from the simp-set.
+-/
+attribute [-simp] BitVec.toNat_sub
+
+/--
+The 'subSaturatingZero', when interpreted as an signed numbers,
+correctly keeps track of the distance from 'base' when 'x' is greater than or equal to 'base',
+and returns zero when 'x' is less than 'base'.
+-/
+theorem BitVec.toInt_subSaturatingZero_eq_ite {w : Nat} (hw : 0 < w) (x base : BitVec w)
+    (hle : - 2 ^ (w - 1) ≤ x.toInt - base.toInt)
+    (hlt : x.toInt - base.toInt < 2 ^ (w - 1)) :
+    (BitVec.subSaturatingZero x base).toInt =
+      if x.toInt < base.toInt then 0 else x.toInt - base.toInt := by
+  simp [subSaturatingZero]
+  by_cases h : x.slt base
+  · simp [h]
+    rw [BitVec.slt_eq_decide] at h
+    simp at h
+    grind only
+  · simp only [h]
+    simp only [Bool.false_eq_true, ↓reduceIte]
+    rw [BitVec.slt_eq_decide] at h
+    simp only [decide_eq_true_eq, Int.not_lt] at h
+    simp only [show ¬x.toInt < base.toInt by grind, ↓reduceIte]
+    rw [BitVec.toInt_sub]
+    apply Int.bmod_eq_of_le
+    · simp only [Int.natCast_pow, Int.cast_ofNat_Int, hw, Int.two_pow_div_two_eq_sub_one_of_pos]
+      grind only
+    · simp; grind only
+
+/--
+The output of 'subSaturatingZero' is always nonnegative.
+-/
+theorem BitVec.nonneg_toInt_subSaturatingZero {w : Nat} (hw : 0 < w) (x base : BitVec w)
+    (hle : - 2 ^ (w - 1) ≤ x.toInt - base.toInt)
+    (hlt : x.toInt - base.toInt < 2 ^ (w - 1)) :
+    0 ≤ (BitVec.subSaturatingZero x base).toInt := by
+  rw [BitVec.toInt_subSaturatingZero_eq_ite hw x base hle hlt]
+  split <;> grind only
+
+/--
+If the integer interpretation is nonnegative, then the 'toInt' value equals to 'toNat' value.
+-/
+theorem BitVec.toInt_eq_toNat_of_toInt_nonneg {w : Nat}
+    (x : BitVec w) (hle : 0 ≤ x.toInt) :
+    x.toInt = x.toNat := by
+  rw [BitVec.toInt_eq_toNat_of_msb]
+  rw [BitVec.msb_eq_toInt]
+  grind only
+
+/--
+The value of 'subSaturatingZero' when interpreted as a natural
+number and then casted to an integer equals saturating subtraction.
+-/
+theorem BitVec.natCast_toNat_subSaturatingZero_eq_ite
+   (hw : 0 < w) (x base : BitVec w)
+    (hle : - 2 ^ (w - 1) ≤ x.toInt - base.toInt)
+    (hlt : x.toInt - base.toInt < 2 ^ (w - 1)) :
+    (BitVec.subSaturatingZero x base).toNat =
+      if x.toInt < base.toInt then 0 else (x.toInt - base.toInt) := by
+  rw [← BitVec.toInt_eq_toNat_of_toInt_nonneg (x.subSaturatingZero base)]
+  · rw [BitVec.toInt_subSaturatingZero_eq_ite hw x base hle hlt]
+  · apply BitVec.nonneg_toInt_subSaturatingZero hw x base hle hlt
+
+/--
+The value of 'subSaturatingZero' when interpreted as a natural
+number equals  saturating subtraction.
+-/
+theorem BitVec.toNat_subSaturatingZero_eq_ite_toNat
+   (hw : 0 < w) (x base : BitVec w)
+    (hle : - 2 ^ (w - 1) ≤ x.toInt - base.toInt)
+    (hlt : x.toInt - base.toInt < 2 ^ (w - 1)) :
+    (BitVec.subSaturatingZero x base).toNat =
+      if x.toInt < base.toInt then 0 else (x.toInt - base.toInt).toNat := by
+  have := BitVec.natCast_toNat_subSaturatingZero_eq_ite hw x base hle hlt
+  split <;> grind only
+
+
+
+/--
 Compute the guard bit index (from LSB) adjusted for subnormal shifting.
 This is the position in the significand where the guard bit falls when
 rounding to `tsp` precision with the given target exponent format.
@@ -42,9 +131,7 @@ def UnpackedFloat.guardBitIndex {eu su : Nat}
     BitVec.ofNat su ((su - 1) - (tsp + 1))
   let targetMinNormalExp : BitVec eu :=
     BitVec.ofInt eu (minNormalExp tep)
-  let expGeMin :=
-    if uf.ex.slt targetMinNormalExp then targetMinNormalExp else uf.ex
-  let shiftAmtPositive := expGeMin - uf.ex
+  let shiftAmtPositive := BitVec.subSaturatingZero  targetMinNormalExp uf.ex
   guardBitIndexFromLsb + shiftAmtPositive.zeroExtend su
 
 /-- Extract the guard bit from an unpacked float at the target precision. -/
@@ -694,9 +781,9 @@ def checkRoundCorrect (EUnpacked SUnpackedNoHidden : Nat) (EOut SOutNoHidden : N
 -- TODO: these are expensive checks, so move them into a separate file.
 -- All of these should succeed with zero failures (the ExtRat round matches
 -- the bitblasted UnpackedFloat round for every input).
-#eval checkRoundCorrect 4 5 4 2 .RNA
-#eval checkRoundCorrect 4 5 4 2 .RNE
-#eval checkRoundCorrect 4 5 4 2 .RTZ
-#eval checkRoundCorrect 2 6 2 4 .RTP
-#eval checkRoundCorrect 4 5 4 2 .RTP
-#eval checkRoundCorrect 4 5 4 2 .RTN
+#guard_msgs(error) in #eval checkRoundCorrect 4 5 4 2 .RNA
+#guard_msgs(error) in #eval checkRoundCorrect 4 5 4 2 .RNE
+#guard_msgs(error) in #eval checkRoundCorrect 4 5 4 2 .RTZ
+#guard_msgs(error) in #eval checkRoundCorrect 2 6 2 4 .RTP
+#guard_msgs(error) in #eval checkRoundCorrect 4 5 4 2 .RTP
+#guard_msgs(error) in #eval checkRoundCorrect 4 5 4 2 .RTN

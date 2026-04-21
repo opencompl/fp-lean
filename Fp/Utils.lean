@@ -549,17 +549,18 @@ theorem BitVec.shiftLeft_one_ne_self_iff (x : BitVec w) :
   have := BitVec.shiftLeft_one_eq_self_iff_eq_zero x
   grind
 
-theorem BitVec.ne_iff_getLsbD_ne (x y : BitVec w) : x ≠ y ↔ (x.getLsbD ≠ y.getLsbD) := by
+theorem BitVec.ne_iff_getLsbD_ne (x y : BitVec w) : x ≠ y ↔ (∃ (i : Nat), x.getLsbD i ≠ y.getLsbD i) := by
   constructor
+  · intros hxy
+    apply Classical.byContradiction
+    intros hcontra
+    simp at hcontra
+    apply hxy
+    ext i
+    apply hcontra i
   · intros h1 h2
-    apply h1
-    apply BitVec.eq_of_getLsbD_eq
-    intros i hi
-    rw [h2]
-  · intros h1 h2
-    apply h1
     subst h2
-    simp only
+    grind only
 
 
 /--
@@ -963,3 +964,9 @@ theorem Int.two_pow_plus_one_div_two_eq_two_pow (e : Nat) :
    ((2 : Int)^e + 1) / 2 = (2 : Int) ^ (e - 1) := by
   norm_cast
   exact Nat.two_pow_succ_div_two
+
+@[simp]
+theorem Int.sub_toNat_eq_zero_of_le {a b : Int} (h : a ≤ b) :
+    (a - b).toNat = 0 := by
+  simp
+  grind only

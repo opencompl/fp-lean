@@ -67,6 +67,8 @@ theorem isLawfulLower_NaN_iff_isNaN (x : PackedFloat e s) :
   intros lower hlower
   simp [hx, hlower]
 
+
+
 @[elab_as_elim]
 theorem Classical.epsilon_elim {α : Sort u} {p q : α → Prop} (y : α) (hy : p y)
    (hpq : ∀ x, p x → q x) :
@@ -107,6 +109,7 @@ theorem isNaN_lower_NaN (e s : Nat) :
   · simp
   · intros x hx
     simp [hx]
+
 
 @[simp]
 theorem roundRNA_mkNaN (eout sout : Nat) (sign : Bool) :
@@ -756,6 +759,13 @@ def maxPackedFloatNonNaN
               · grind only [usr Subtype.property, = PackedFloat.isNaN_iff_toExtRat'_eq_NaN]
 ⟩
 
+@[simp]
+theorem not_isNaN_maxPackedFloatNaN (xs : List (PackedFloat e s))
+    (hxs : ∀ x ∈ xs, ¬ x.isNaN) (he : 0 < e) (hs : 0 < s) :
+    ¬ (maxPackedFloatNonNaN xs hxs he hs).val.isNaN := by
+  have := (maxPackedFloatNonNaN xs hxs he hs).property
+  simp [this]
+
 /--
 the result of 'maxPackedFloatNonNaN' is actually in the list when the list is nonempty.
 -/
@@ -852,6 +862,28 @@ else
   let max := maxPackedFloatNonNaN arr.val (by simp; grind only [#1a7c]) he hs
   max.val
 
+
+/--
+The result of 'lower' is NaN iff the input is NaN.
+-/
+theorem isNaN_lower_iff_eq_NaN (e s : Nat) (he : 0 < e) (hs : 0 < s) (r : ExtRat):
+    (lower e s he hs r).isNaN ↔ r = .NaN := by
+  simp [lower]
+  split
+  case isTrue h =>
+    simp [h]
+  case isFalse h =>
+    simp [h]
+    by_cases hr : r = ExtRat.Number 0
+    · simp [hr]
+      grind
+    · simp [hr]
+
+
+
+/-- info: 'Fp.isNaN_lower_iff_eq_NaN' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms isNaN_lower_iff_eq_NaN
+
 /--
 the 'lower' function indeed computes a lawful lower bound for every ExtRat.
 This shows that lawful lower bounds exist for all rationals.
@@ -934,6 +966,12 @@ theorem IsLawfulUpper_upper (e s : Nat) (he : 0 < e) (hs : 0 < s) (r : ExtRat) :
   apply IsLawfulUpper_iff_IsLawfulLower_neg_neg .. |>.mpr
   simp
 
+@[simp]
+theorem isNaN_upper_iff_eq_NaN (e s : Nat) (he : 0 < e) (hs : 0 < s) (r : ExtRat):
+    (upper e s he hs r).isNaN ↔ r = .NaN := by
+  simp [upper]
+  simp [isNaN_lower_iff_eq_NaN]
+
 /-- info: 'Fp.IsLawfulUpper_upper' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms IsLawfulUpper_upper
 
@@ -960,73 +998,106 @@ theorem isEven_upper_eq_not_isEven_lower (eout sout : Nat) (r : Rat) :
   have := isEven_lower_eq_not_isEven_upper eout sout r
   grind only [#9ad2]
 
-axiom embed_lower_le_self {e s : Nat} (r : ExtRat) :
-    SmtLibSemantics.RoundableEmbed.embed
-      (SmtLibSemantics.smtLibLower.lower r : PackedFloat e s) ≤ r -- := by
+/-# IsLawfulLower, smtLibLower, and computable lower
 
-axiom le_lower_of_embed_le
-    {e s : Nat} (r : ExtRat) (lower' : PackedFloat e s)
-    (hlower' : SmtLibSemantics.RoundableEmbed.embed lower' ≤ r) :
-    lower' ≤ SmtLibSemantics.smtLibLower.lower r
+We show that `smtLibLower` can always be replaced with `lower`
+-/
 
+/-### Lower bounds -/
 
-theorem isLawfulLower_lower (e s : Nat) (r : ExtRat) :
+theorem lsLawfulLower_smtLibLower (e s : Nat) (he : 0 < e) (hs : 0 < s) (r : ExtRat) :
     SmtLibSemantics.IsLawfulLower r (SmtLibSemantics.smtLibLower.lower r : PackedFloat e s) := by
-  constructor
-  · apply embed_lower_le_self <;> grind only
-  · intros lower' hlower'
-    apply le_lower_of_embed_le <;> grind only
+  simp [SmtLibSemantics.smtLibLower]
+  apply Classical.epsilon_spec
+  have := IsLawfulLower_lower e s he hs r
+  grind only [#de43]
+
+/--
+two lawful lowers are equal to each other.
+-/
+theorem eq_of_IsLawfulLower_of_IsLawfulLower
+    (e s : Nat) (r : ExtRat) (x y : PackedFloat e s)
+    (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN)
+    (hlowerx : SmtLibSemantics.IsLawfulLower r x)
+    (hlowery : SmtLibSemantics.IsLawfulLower r y) :
+    x = y := by
+  have rlex := hlowerx.1
+  have rley := hlowery.1
+  have rlex' := hlowerx.2 y rley
+  have rley' := hlowery.2 x rlex
+  grind only [PackedFloat.le_antisymm_of_ne_NaN]
 
 
+theorem IsLawfulLower_eq_NaN_of_isNaN (e s : Nat) (r : ExtRat) (x : PackedFloat e s)
+    (hlower : SmtLibSemantics.IsLawfulLower r x) :
+    x.isNaN = true → r = .NaN := by
+  intros hnan
+  have hlower1 := hlower.1
+  simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
+    ExtRat.ge_eq_le_symm] at hlower1
+  simp [hnan] at hlower1
+  grind
+
+/--
+The result of 'IsLawfulLower' is unique and must be equal to the 'lower' computation.
+If the value is a 'NaN', then we may have different 'NaNs, but we may not get
+equality on the nose.
+-/
 @[simp]
-theorem not_isNaN_lower_of_ne_NaN (e s : Nat) (r : ExtRat) (hr : r ≠ .NaN) :
-    (SmtLibSemantics.smtLibLower.lower r : PackedFloat e s).isNaN = false := by
-  by_cases hnan : (SmtLibSemantics.smtLibLower.lower r : PackedFloat e s).isNaN
-  · exfalso
-    have hembed := embed_lower_le_self (e := e) (s := s) r
-    simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat'] at hembed
-    rw [PackedFloat.toExtRat'_eq_NaN_of_isNaN _ hnan] at hembed
-    have := (ExtRat.le_NaN _).mp hembed
-    exact hr this
-  · simp [hnan]
+theorem eq_lower_of_IsLawfulLower (e s : Nat) (he : 0 < e) (hs : 0 < s)
+    (r : ExtRat)
+    (x : PackedFloat e s)
+    (hrnan : r ≠ .NaN)
+    (hlower : SmtLibSemantics.IsLawfulLower r x) :
+    x = lower e s he hs r := by
+  apply eq_of_IsLawfulLower_of_IsLawfulLower
+  · intros hcontra
+    apply hrnan
+    apply IsLawfulLower_eq_NaN_of_isNaN
+    · exact hlower
+    · grind only
+  · apply Classical.byContradiction
+    intros hcontra
+    apply hrnan
+    grind [ExtRat, lower]
+  · apply hlower
+  · exact IsLawfulLower_lower e s he hs r
 
+/--
+info: 'Fp.eq_lower_of_IsLawfulLower' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms eq_lower_of_IsLawfulLower
 
+/--
+the value of smtLibLower equals that of 'lower' on all non-NaN rationals.
+-/
 @[simp]
-theorem not_isNaN_lower_neg_of_ne_NaN (e s : Nat) (r : ExtRat) (hr : r ≠ .NaN) :
-    (SmtLibSemantics.smtLibLower.lower (-r) : PackedFloat e s).isNaN = false := by
-  apply not_isNaN_lower_of_ne_NaN
-  simp [ExtRat.neg_eq_NaN_iff, hr]
-
-axiom self_le_embed_upper {e s : Nat} (r : ExtRat) :
-    r ≤ SmtLibSemantics.RoundableEmbed.embed
-      (SmtLibSemantics.smtLibUpper.upper r : PackedFloat e s) -- := by
-  -- sorry
-
-axiom le_upper_of_self_le_embed
-    {e s : Nat} (r : ExtRat) (upper' : PackedFloat e s)
-    (hupper' : r ≤ SmtLibSemantics.RoundableEmbed.embed upper') :
-    SmtLibSemantics.smtLibUpper.upper r ≤ upper' -- := by
-  -- sorry
-
-
-@[simp]
-theorem not_isNaN_upper_of_ne_NaN (e s : Nat) (r : ExtRat) (hr : r ≠ .NaN) :
-    (SmtLibSemantics.smtLibUpper.upper r : PackedFloat e s).isNaN = false := by
-  by_cases hnan : (SmtLibSemantics.smtLibUpper.upper r : PackedFloat e s).isNaN
-  · exfalso
-    have hembed := self_le_embed_upper (e := e) (s := s) r
-    simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat'] at hembed
-    rw [PackedFloat.toExtRat'_eq_NaN_of_isNaN _ hnan] at hembed
-    simp at hembed
+theorem smtLibLower_eq_lower (e s : Nat) (he : 0 < e) (hs : 0 < s) (r : ExtRat) (hr : r ≠ .NaN) :
+    SmtLibSemantics.smtLibLower.lower r = lower e s he hs r := by
+  apply eq_of_IsLawfulLower_of_IsLawfulLower (r := r)
+  · intros hcontra
+    have := eq_lower_of_IsLawfulLower e s he hs r (SmtLibSemantics.smtLibLower.lower r) hr
+    specialize this (by exact lsLawfulLower_smtLibLower e s he hs r)
+    rw [this] at hcontra
+    have := isNaN_lower_iff_eq_NaN e s he hs r
     grind only
-  · simp [hnan]
+  · intros hcontra
+    apply hr
+    grind only [→ PackedFloat.not_isZero_of_isNaN, lower, PackedFloat.isZero_getZero, #2962, #90ed]
+  · exact lsLawfulLower_smtLibLower e s he hs r
+  · exact IsLawfulLower_lower e s he hs r
 
-theorem isLawfulUpper_upper (e s : Nat) (r : ExtRat) :
+/-- info: 'Fp.smtLibLower_eq_lower' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms smtLibLower_eq_lower
+
+/-### Upper bounds -/
+
+theorem isLawfulUpper_smtLibUpper (e s : Nat) (he : 0 < e)  (hs : 0 < s) (r : ExtRat) :
     SmtLibSemantics.IsLawfulUpper r (SmtLibSemantics.smtLibUpper.upper r : PackedFloat e s) := by
-  constructor
-  · apply self_le_embed_upper <;> grind only
-  · intros upper' hupper'
-    apply le_upper_of_self_le_embed <;> grind only
+  simp [SmtLibSemantics.smtLibUpper]
+  apply Classical.epsilon_spec
+  have := IsLawfulUpper_upper e s he hs r
+  grind only [#c7e1]
 
 /--
 two lawful uppers are equal to each other.
@@ -1044,20 +1115,111 @@ theorem eq_of_IsLawfulUpper_of_IsLawfulUpper
   grind only [PackedFloat.le_antisymm_of_ne_NaN]
 
 
+theorem IsLawfulUpper_eq_NaN_of_isNaN (e s : Nat) (r : ExtRat) (x : PackedFloat e s)
+    (hupper : SmtLibSemantics.IsLawfulUpper r x) :
+    x.isNaN = true → r = .NaN := by
+  intros hnan
+  have hupper1 := hupper.1
+  simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
+    ExtRat.ge_eq_le_symm] at hupper1
+  simp [hnan] at hupper1
+  grind only
+
 /--
-two lawful lowers are equal to each other.
+The result of 'IsLawfulLower' is unique and must be equal to the 'lower' computation.
 -/
-theorem eq_of_IsLawfulLower_of_IsLawfulLower
-    (e s : Nat) (r : ExtRat) (x y : PackedFloat e s)
-    (hxnan : ¬ x.isNaN) (hynan : ¬ y.isNaN)
-    (hlowerx : SmtLibSemantics.IsLawfulLower r x)
-    (hlowery : SmtLibSemantics.IsLawfulLower r y) :
-    x = y := by
-  have rlex := hlowerx.1
-  have rley := hlowery.1
-  have rlex' := hlowerx.2 y rley
-  have rley' := hlowery.2 x rlex
-  grind only [PackedFloat.le_antisymm_of_ne_NaN]
+@[simp]
+theorem eq_upper_of_IsLawfulUpper (e s : Nat) (he : 0 < e) (hs : 0 < s)
+    (r : ExtRat)
+    (x : PackedFloat e s)
+    (hrnan : r ≠ .NaN)
+    (hupper : SmtLibSemantics.IsLawfulUpper r x) :
+    x = upper e s he hs r := by
+  apply eq_of_IsLawfulUpper_of_IsLawfulUpper
+  · intros hcontra
+    apply hrnan
+    apply IsLawfulUpper_eq_NaN_of_isNaN
+    · exact hupper
+    · grind only
+  · apply Classical.byContradiction
+    intros hcontra
+    apply hrnan
+    simp at hcontra
+    grind only
+  · apply hupper
+  · exact IsLawfulUpper_upper e s he hs r
+
+/--
+info: 'Fp.eq_upper_of_IsLawfulUpper' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms eq_upper_of_IsLawfulUpper
+
+@[simp]
+theorem smtLibUpper_eq_upper (e s : Nat) (he : 0 < e) (hs : 0 < s) (r : ExtRat) (hr : r ≠ .NaN) :
+    SmtLibSemantics.smtLibUpper.upper r = upper e s he hs r := by
+  apply eq_of_IsLawfulUpper_of_IsLawfulUpper (r := r)
+  · intros hcontra
+    have := eq_upper_of_IsLawfulUpper e s he hs r (SmtLibSemantics.smtLibUpper.upper r) hr
+    rw [this] at hcontra
+    · have := isNaN_upper_iff_eq_NaN e s he hs r
+      grind only
+    · exact isLawfulUpper_smtLibUpper e s he hs r
+  · intros hcontra
+    apply hr
+    have := isNaN_upper_iff_eq_NaN e s he hs r
+    grind only
+  · exact isLawfulUpper_smtLibUpper e s he hs r
+  · exact IsLawfulUpper_upper e s he hs r
+
+/-- info: 'Fp.smtLibUpper_eq_upper' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms smtLibUpper_eq_upper
+
+
+@[simp]
+theorem not_isNaN_lower_of_ne_NaN (e s : Nat) (he : 0 < e) (hs : 0 < s) (r : ExtRat) (hr : r ≠ .NaN) :
+    (SmtLibSemantics.smtLibLower.lower r : PackedFloat e s).isNaN = false := by
+  rw [smtLibLower_eq_lower e s he hs r hr]
+  grind only [lower, → PackedFloat.not_isZero_of_isNaN, PackedFloat.isZero_getZero, #2962, #90ed]
+
+/--
+info: 'Fp.not_isNaN_lower_of_ne_NaN' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms not_isNaN_lower_of_ne_NaN
+
+@[simp]
+theorem not_isNaN_lower_neg_of_ne_NaN (e s : Nat) (he : 0 < e) (hs : 0 < s) (r : ExtRat) (hr : r ≠ .NaN) :
+    (SmtLibSemantics.smtLibLower.lower (-r) : PackedFloat e s).isNaN = false := by
+  apply not_isNaN_lower_of_ne_NaN e s he hs
+  simp [ExtRat.neg_eq_NaN_iff, hr]
+
+
+
+@[simp]
+theorem not_isNaN_upper_of_ne_NaN (e s : Nat) (he : 0 < e) (hs : 0 < s) (r : ExtRat) (hr : r ≠ .NaN) :
+    (SmtLibSemantics.smtLibUpper.upper r : PackedFloat e s).isNaN = false := by
+  by_cases hnan : (SmtLibSemantics.smtLibUpper.upper r : PackedFloat e s).isNaN
+  · exfalso
+    rw [smtLibUpper_eq_upper e s he hs r hr] at hnan
+    have := isNaN_upper_iff_eq_NaN e s he hs r
+    grind only
+  · simp [hnan]
+
+/--
+info: 'Fp.not_isNaN_upper_of_ne_NaN' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms not_isNaN_upper_of_ne_NaN
+
+theorem isLawfulUpper_upper (e s : Nat) (he : 0 < e) (hs : 0 < s) (r : ExtRat) :
+    SmtLibSemantics.IsLawfulUpper r (SmtLibSemantics.smtLibUpper.upper r : PackedFloat e s) := by
+  by_cases hr : r = .NaN
+  · simp [hr]
+  · have := smtLibUpper_eq_upper e s he hs r hr
+    rw [this]
+    exact IsLawfulUpper_upper e s he hs r
+
+/-- info: 'Fp.IsLawfulUpper_upper' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms IsLawfulUpper_upper
+
 
 @[simp]
 theorem embed_neg_eq_neg_embed {e s : Nat} (x : PackedFloat e s) :
@@ -1066,92 +1228,37 @@ theorem embed_neg_eq_neg_embed {e s : Nat} (x : PackedFloat e s) :
 
 -- lower(-x) = - upper x
 @[simp]
-theorem lower_neg_eq_neg_upper {e s : Nat} (r : ExtRat) (hr : r ≠ .NaN) :
+theorem smtLibLower_neg_eq_neg_smtLibUpper {e s : Nat} (he : 0 < e) (hs : 0 < s) (r : ExtRat) (hr : r ≠ .NaN) :
     (SmtLibSemantics.smtLibLower.lower (-r) : PackedFloat e s) = - (SmtLibSemantics.smtLibUpper.upper r) := by
-  have hlower := isLawfulLower_lower e s (-r)
-  have hlower1 := hlower.1
-  simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
-    ExtRat.ge_eq_le_symm] at hlower1
-  have hlower2 := hlower.2
-  simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
-    ExtRat.ge_eq_le_symm] at hlower2
-
-  have hupper := isLawfulUpper_upper e s r
-  have hupper1 := hupper.1
-  simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
-    ExtRat.ge_eq_le_symm] at hupper1
-  have hupper2 := hupper.2
-  simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
-    ExtRat.ge_eq_le_symm] at hupper2
-  suffices SmtLibSemantics.IsLawfulLower (-r) (- (SmtLibSemantics.smtLibUpper.upper r : PackedFloat e s)) by
-    apply eq_of_IsLawfulLower_of_IsLawfulLower
+  rw [smtLibLower_eq_lower e s he hs]
+  · rw [smtLibUpper_eq_upper e s he hs]
+    · simp [upper]
     · simp [hr]
-    · simp [hr]
-    · apply hlower
-    · apply this
-  constructor
-  · -- TODO: need a theorem that says that 'embed_neg_eq_neg_embed'
-    simp only [embed_neg_eq_neg_embed, SmtLibSemantics.smtLibV_embed_eq,
-      PackedFloat.toExtRat_eq_toExtRat', ExtRat.ge_eq_le_symm]
-    grind only [= ExtRat.le_neg_iff_le_neg, = ExtRat.neg_neg]
-  · intros low' hlow'
-    refine PackedFloat.le_neg_iff_le_neg.mp ?_
-    apply hupper2
-    simp at hlow'
-    apply ExtRat.le_iff_neg_le_neg.mpr
-    simp
-    grind only
+  · simp [hr]
 
 -- upper(-x) = - lower x
 @[simp]
-theorem upper_neg_eq_neg_lower {e s : Nat} (r : ExtRat) (hr : r ≠ .NaN) :
+theorem smtLibUpper_neg_eq_neg_smtLibLower {e s : Nat} (r : ExtRat) (hr : r ≠ .NaN) (he : 0 < e )(hs : 0 < s) :
     (SmtLibSemantics.smtLibUpper.upper (-r) : PackedFloat e s) = - (SmtLibSemantics.smtLibLower.lower r) := by
-  have hupper := isLawfulUpper_upper e s (-r)
-  have hupper1 := hupper.1
-  simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
-    ExtRat.ge_eq_le_symm] at hupper1
-  have hupper2 := hupper.2
-  simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
-    ExtRat.ge_eq_le_symm] at hupper2
-
-  have hlower := isLawfulLower_lower e s r
-  have hlower1 := hlower.1
-  simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
-    ExtRat.ge_eq_le_symm] at hlower1
-  have hlower2 := hlower.2
-  simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
-    ExtRat.ge_eq_le_symm] at hlower2
-  suffices SmtLibSemantics.IsLawfulUpper (-r) (- (SmtLibSemantics.smtLibLower.lower r : PackedFloat e s)) by
-    apply eq_of_IsLawfulUpper_of_IsLawfulUpper
-    · simp [ExtRat.neg_eq_NaN_iff, hr]
+  rw [smtLibUpper_eq_upper e s he hs]
+  · rw [smtLibLower_eq_lower e s he hs]
+    · simp [upper]
     · simp [hr]
-    · apply hupper
-    · apply this
-  constructor
-  · simp only [embed_neg_eq_neg_embed, SmtLibSemantics.smtLibV_embed_eq,
-      PackedFloat.toExtRat_eq_toExtRat', ExtRat.ge_eq_le_symm]
-    grind only [= ExtRat.neg_le_iff_neg_le, = ExtRat.neg_neg]
-  · intros up' hup'
-    refine PackedFloat.neg_le_iff_neg_le.mp ?_
-    apply hlower2
-    simp at hup'
-    apply ExtRat.le_iff_neg_le_neg.mpr
-    simp
-    grind only
+  · simp [hr]
 
 /--
 This tells us that `PackedFloat`s are perfectly approximated,
 and that calling `lower` on a rational that represents a `PackedFloat`
 gives us the same `PackedFloat` back, as long as it's not NaN.
 -/
-theorem lower_eq_self_of_eq_toExtRat_of_not_isNaN
+theorem smtLibLower_eq_self_of_eq_toExtRat_of_not_isNaN
   (he : 0 < e) (hs : 0 < s)
   (x : PackedFloat e s) (r : ExtRat)
   (hnum : ¬ x.isNaN)
   (hzero : ¬ x.isZero)
   (h : x.toExtRat = r) :
   (SmtLibSemantics.smtLibLower.lower r : PackedFloat e s) = x := by
-  have hlower := isLawfulLower_lower e s r
+  have hlower := lsLawfulLower_smtLibLower e s he hs r
   have hlower1 := hlower.1
   simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
     ExtRat.ge_eq_le_symm] at hlower1
@@ -1179,66 +1286,44 @@ theorem lower_eq_self_of_eq_toExtRat_of_not_isNaN
   grind only [PackedFloat.le_antisymm_of_ne_NaN, PackedFloat.le_iff_eq_of_isNaN']
 
   /--
-info: 'Fp.lower_eq_self_of_eq_toExtRat_of_not_isNaN' depends on axioms: [propext,
- Classical.choice,
- Fp.embed_lower_le_self,
- Fp.le_lower_of_embed_le,
- Quot.sound]
+info: 'Fp.smtLibLower_eq_self_of_eq_toExtRat_of_not_isNaN' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
-#guard_msgs in #print axioms lower_eq_self_of_eq_toExtRat_of_not_isNaN
+#guard_msgs in #print axioms smtLibLower_eq_self_of_eq_toExtRat_of_not_isNaN
 
 /--
 upper perfectly approximates PackedFloats, and calling `upper` on a rational that represents a `PackedFloat`
 gives us the same `PackedFloat` back, as long as it's not NaN.
 -/
-theorem upper_eq_self_of_eq_toExtRat_of_not_isNaN
+theorem smtLibUpper_eq_self_of_eq_toExtRat_of_not_isNaN
   (he : 0 < e) (hs : 0 < s)
   (x : PackedFloat e s) (r : ExtRat)
   (hnum : ¬ x.isNaN)
   (hzero : ¬ x.isZero)
   (h : x.toExtRat = r) :
   (SmtLibSemantics.smtLibUpper.upper r : PackedFloat e s) = x := by
-  have hupper := isLawfulUpper_upper e s r
-  have hupper1 := hupper.1
-  simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
-    ExtRat.ge_eq_le_symm] at hupper1
-  have hupper2 := hupper.2
-  subst h
-  specialize (hupper2 x)
-  simp only [PackedFloat.toExtRat_eq_toExtRat', SmtLibSemantics.smtLibV_embed_eq,
-    ExtRat.ExtRat.le_refl, forall_const] at hupper2
-  have : x ≤ SmtLibSemantics.smtLibUpper.upper x.toExtRat' := by
-    apply PackedFloat.le_of_toExtRat'_le_toExtRat'
-    · simp [he]
-    · simp [hs]
+  rw [show r = - (- r) by grind only [= ExtRat.neg_neg]]
+  rw [smtLibUpper_neg_eq_neg_smtLibLower]
+  · rw [smtLibLower_eq_self_of_eq_toExtRat_of_not_isNaN he hs (- x)]
     · simp
-      grind only [PackedFloat.le_iff_eq_of_isNaN']
-    · simp
-      grind only [PackedFloat.le_iff_eq_of_isNaN]
-    · simp only [PackedFloat.toExtRat_eq_toExtRat'] at hupper1
+    · simp [hnum]
+    · simp [hzero]
+    · simp [he, hs]
+      simp only [PackedFloat.toExtRat_eq_toExtRat'] at h
       grind only
-    · intros hUpperZero hXZero hXSign
-      grind only
-    · simp only [PackedFloat.toExtRat_eq_toExtRat'] at hupper1
-      grind only
-  simp only [PackedFloat.toExtRat_eq_toExtRat']
-  grind only [PackedFloat.le_antisymm_of_ne_NaN, PackedFloat.le_iff_eq_of_isNaN']
+  · simp at h
+    simp; grind only [= PackedFloat.isNaN_iff_toExtRat'_eq_NaN]
+  · simp [he]
+  · simp [hs]
 
 /--
-info: 'Fp.upper_eq_self_of_eq_toExtRat_of_not_isNaN' depends on axioms: [propext,
- Classical.choice,
- Fp.le_upper_of_self_le_embed,
- Fp.self_le_embed_upper,
- Quot.sound]
+info: 'Fp.smtLibUpper_eq_self_of_eq_toExtRat_of_not_isNaN' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
-#guard_msgs in #print axioms upper_eq_self_of_eq_toExtRat_of_not_isNaN
+#guard_msgs in #print axioms smtLibUpper_eq_self_of_eq_toExtRat_of_not_isNaN
 
--- /--
--- The abstract version of 'shouldRoundUp' that only depends on the rounding mode and the bits,
--- which matches the definition of `roundingDecision`.
--- -/
--- #check roundingDecision
--- def shouldRoundUp (rm : RoundingMode) (sign : Bool) (isEven : Bool) (guard : Bool) (sticky : Bool) : Bool :=
+/-# Rounding decision in terms of computable definitions -/
+
+
+-- TDOO: add a 'computableRoundingDecision.
 
 theorem round_eq_ite_roundingDecision_of_Number_of_nonneg {eout sout : Nat} (rm : RoundingMode)
     (sign : Bool)
@@ -1418,7 +1503,7 @@ theorem round_eq_ite_roundingDecision_of_Number_of_neg {eout sout : Nat} (rm : R
     intros hr
     grind only
 
-/-! ### clearSignificand theorems -/
+/-! # clearSignificand -/
 
 @[simp]
 theorem clearSignificand_sign (uf : UnpackedFloat e s)
@@ -1433,25 +1518,58 @@ theorem clearSignificand_ex (uf : UnpackedFloat e s)
   simp [UnpackedFloat.clearSignificand]
 
 /-- Clearing guard/sticky bits can only decrease the significand value. -/
-theorem clearSignificand_sig_toNat_le (uf : UnpackedFloat e s)
+theorem UnpackedFloat.clearSignificand_sig_toNat_le (uf : UnpackedFloat e s)
     (targetExponentWidth targetSignificandWidth : Nat) :
     (uf.clearSignificand targetExponentWidth targetSignificandWidth).sig.toNat ≤ uf.sig.toNat := by
-  sorry
+  rw [UnpackedFloat.clearSignificand]
+  simp only [BitVec.toNat_and]
+  grind only [Nat.and_le_left]
+
+
 
 /-- For a nonnegative unpacked float, clearing guard/sticky bits yields a nonnegative result. -/
-theorem clearSignificand_toRat_nonneg_of_nonneg (uf : UnpackedFloat e s)
+theorem UnpackedFloat.clearSignificand_toRat_nonneg_of_sign_eq_false (uf : UnpackedFloat e s)
     (targetExponentWidth targetSignificandWidth : Nat)
-    (h : 0 ≤ uf.toRat) :
+    (h : uf.sign = false) :
     0 ≤ (uf.clearSignificand targetExponentWidth targetSignificandWidth).toRat := by
-  sorry
+  simp [UnpackedFloat.toRat_eq_toRat']
+  rw [UnpackedFloat.toRat']
+  generalize hcleared : uf.clearSignificand targetExponentWidth targetSignificandWidth = cleared
+  have : 0 < (2 : Rat) ^ cleared.toExpInt := by grind only [Rat.two_pow_pos]
+  have hsign : cleared.sign = false := by
+    simp [← hcleared, UnpackedFloat.clearSignificand, h]
+  simp [hsign]
+  grind only [Rat.mul_nonneg]
+
+
+
 
 /-- For a nonnegative unpacked float, clearing guard/sticky bits rounds toward zero:
     the cleared value is at most the original value. -/
-theorem clearSignificand_toRat_le_of_nonneg (uf : UnpackedFloat e s)
+theorem UnpackedFloat.clearSignificand_toRat_le_of_nonneg (uf : UnpackedFloat e s)
     (targetExponentWidth targetSignificandWidth : Nat)
-    (h : 0 ≤ uf.toRat) :
+    (hufsign : uf.sign = false) :
     (uf.clearSignificand targetExponentWidth targetSignificandWidth).toRat ≤ uf.toRat := by
-  sorry
+  simp only [UnpackedFloat.toRat_eq_toRat']
+  rw [UnpackedFloat.toRat' , UnpackedFloat.toRat']
+  generalize hcleared : uf.clearSignificand targetExponentWidth targetSignificandWidth = cleared
+  have hsign : cleared.sign = false := by
+    simp only [← hcleared, UnpackedFloat.clearSignificand, hufsign,
+      BitVec.orderEncode_eq_shiftRight_allOnes]
+  simp [hsign, hufsign]
+  have hexp : cleared.toExpInt = uf.toExpInt := by
+    simp only [UnpackedFloat.toExpInt, ← hcleared, UnpackedFloat.clearSignificand,
+      BitVec.orderEncode_eq_shiftRight_allOnes]
+  simp only [hexp, ge_iff_le]
+  have : cleared.sig.toNat ≤ uf.sig.toNat := by
+    rw [← hcleared]
+    apply UnpackedFloat.clearSignificand_sig_toNat_le
+  suffices (cleared.sig.toNat : Rat) ≤ (uf.sig.toNat : Rat) by
+    apply Rat.mul_le_mul_of_nonneg_right
+    · simp only [PackedFloat.Rat.natCast_le_natCast_iff_le]; grind only
+    · grind only [Rat.le_of_lt, Rat.two_pow_pos]
+  simp only [PackedFloat.Rat.natCast_le_natCast_iff_le]
+  grind only
 
 /-- For a nonnegative unpacked float, the error from clearing guard/sticky bits is bounded by
     2^(guardBitIdx + 1) ULPs at the significand level, i.e.,
@@ -1477,27 +1595,114 @@ theorem exists_packedFloat_toRat_eq_clearSignificand_toRat (uf : UnpackedFloat e
 
 
 
-theorem toExtRat_ufCleared_eq_lower_of_nonneg (x : UnpackedFloat e s)
+/-! # guardBitIndex -/
+
+/--
+The guard bit index when interpreted as a natural number
+gives us the location of the guard bit inside the unpaked float.
+sorry
+-/
+theorem UnpackedFloat.toNat_guardBitIndex_eq (hep : 1 < ep) (hsp : 0 < sp)
+    -- TODO: I need a bound on `x.ex` to be at most `maxNormalExp`.
+    -- TODO: I need a bound on `x.ex` to be at least `minSubnormalExp`.
+    (heu : exponentWidth ep sp ≤ eu)
+    (hsu : sp + 2 ≤ su)
+    -- (heusu : eu ≤ su)
+    (x : UnpackedFloat eu su) :
+    (x.guardBitIndex ep sp).toNat =
+    (su - 1 - (sp + 1) + (minNormalExp ep - x.ex.toInt).toNat) := by
+  have := @one_lt_exponentWidth ep sp
+  have hminNormal : (BitVec.ofInt eu (minNormalExp ep)).toInt = minNormalExp ep := by
+    rw [toInt_ofInt_minNormalExp_eq_minNormalExp_of_le (s := sp)]
+    · grind only
+    · grind only
+    · grind only
+
+  rw [UnpackedFloat.guardBitIndex]
+  rw [BitVec.toNat_add]
+  simp
+  rw [BitVec.toNat_subSaturatingZero_eq_ite_toNat]
+  · simp only [hminNormal]
+    split
+    case isTrue h =>
+      simp
+      rw [Int.sub_toNat_eq_zero_of_le]
+      · simp
+        rw [Nat.mod_eq_of_lt]
+        · have : su < 2 ^ su := by exact Nat.lt_two_pow_self
+          grind only
+      · grind only
+    case isFalse h =>
+      simp at h
+      rw [Nat.mod_eq_of_lt]
+      have : su < 2 ^ su := by exact Nat.lt_two_pow_self
+      sorry
+  · grind only
+  · have := neg_two_pow_le_minNormalExp hep hsp heu
+    rw [toInt_ofInt_minNormalExp_eq_minNormalExp_of_le hep hsp heu]
+    -- | This needs bounds on `minSubnormalExp ≤ x.ex.toInt` to prove this.
+    -- ⊢ -2 ^ (eu - 1) ≤ minNormalExp ep - x.ex.toInt
+    sorry
+  · have := minNormalExp_lt_two_pow hep hsp heu
+    rw [toInt_ofInt_minNormalExp_eq_minNormalExp_of_le hep hsp heu]
+    --  This needs bounds on `x.ex.toInt ≤ maxNormalExp` to prove this.
+    -- ⊢ minNormalExp ep - x.ex.toInt < 2 ^ (eu - 1)
+    sorry
+
+theorem BitVec.eq_iff_getLsbD_eq (a b : BitVec w) : a = b ↔
+    (∀ (i : Nat), a.getLsbD i = b.getLsbD i) := by
+  constructor
+  · intros h
+    subst h
+    grind only
+  · intros h
+    ext i hi
+    simp only [← BitVec.getLsbD_eq_getElem]
+    grind only [#0a30]
+
+
+/--
+`p iff q` iff `not p iff not q`.
+-/
+theorem iff_iff_not_iff_not {p q : Prop} :
+    (p ↔ q) ↔ (¬ p ↔ ¬ q) := by
+  grind
+
+
+/-! # roundTowardZero -/
+
+theorem toRat_roundTowardZero_eq_lower_of_nonneg (x : UnpackedFloat e s)
     (hx : 0 ≤ x.toRat) :
-    (ExtRat.Number (x.roundTowardZero targetExponentWidth targetSignificandWidth).toRat) =
-    SmtLibSemantics.RoundableEmbed.embed (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat) : PackedFloat targetExponentWidth targetSignificandWidth)
+    (x.roundTowardZero targetExponentWidth targetSignificandWidth).toRat =
+    (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat) : PackedFloat targetExponentWidth targetSignificandWidth).toRat
       := by
   sorry
 
-theorem toExtRat_ufCleared_eq_upper_of_neg (x : UnpackedFloat e s)
-    (hx : x.toRat < 0 ) :
-    (ExtRat.Number (x.roundTowardZero targetExponentWidth targetSignificandWidth).toRat) =
-    SmtLibSemantics.RoundableEmbed.embed (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat) : PackedFloat targetExponentWidth targetSignificandWidth)
-      := by
-  sorry
-
-theorem toExtRat_successorAwayFromZero_eq_lower_of_neg (x : UnpackedFloat e s)
+theorem toRat_roundTowardZero_eq_upper_of_neg (x : UnpackedFloat e s)
     (hx : x.toRat < 0) :
-    (ExtRat.Number (x.successorAwayFromZero targetExponentWidth targetSignificandWidth).toRat) =
-    SmtLibSemantics.RoundableEmbed.embed (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat) : PackedFloat targetExponentWidth targetSignificandWidth)
+    (x.roundTowardZero targetExponentWidth targetSignificandWidth).toRat =
+    (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat) : PackedFloat targetExponentWidth targetSignificandWidth).toRat
       := by
   sorry
 
+
+/-# successorAwayFromZero -/
+
+theorem toRat_successorAwayFromZero_eq_upper_of_nonneg (x : UnpackedFloat e s)
+    (hx : 0 ≤ x.toRat) :
+    (x.successorAwayFromZero targetExponentWidth targetSignificandWidth).toRat =
+    (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat) : PackedFloat targetExponentWidth targetSignificandWidth).toRat
+      := by
+  sorry
+
+theorem toRat_successorAwayFromZero_eq_upper_of_neg (x : UnpackedFloat e s)
+    (hx : x.toRat < 0) :
+    (x.successorAwayFromZero targetExponentWidth targetSignificandWidth).toRat =
+    (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat) : PackedFloat targetExponentWidth targetSignificandWidth).toRat
+      := by
+  sorry
+
+/-! # extractIsEven -/
 
 @[simp]
 theorem UnpackedFloat.extractIsEven_eq_isEven_lower_of_nonneg (x : UnpackedFloat e s)
@@ -1517,12 +1722,59 @@ theorem UnpackedFloat.extractIsEven_eq_isEven_upper_of_neg (x : UnpackedFloat e 
   simp [SmtLibSemantics.smtLibRoundMethod]
   sorry
 
+
+/-! # extractGuardBit -/
+
+theorem UnpackedFloat.extractGuardBit_eq_true_iff
+    (hep : 1 < ep) (hsp : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) :
+    x.extractGuardBit ep sp = true ↔ x.sig.getLsbD (su - (sp + 2) + (minNormalExp ep - x.ex.toInt).toNat) := by
+  simp [UnpackedFloat.extractGuardBit]
+  constructor
+  · intros h
+    obtain h := BitVec.ne_iff_getLsbD_ne .. |>.mp h
+    obtain ⟨i, hi⟩ := h
+    simp at hi
+    rw [UnpackedFloat.toNat_guardBitIndex_eq hep hsp heu hsu] at hi
+    grind only
+  · intros h
+    intros hcontra
+    obtain hcontra := BitVec.eq_iff_getLsbD_eq .. |>.mp hcontra
+    simp at hcontra
+    specialize hcontra _ h (by grind)
+    rw [UnpackedFloat.toNat_guardBitIndex_eq hep hsp heu hsu] at hcontra
+    grind only
+
+/--
+The guard bit is the bit at the lower index at '2' (when `su = sp + 2`),
+plus the offset from the exponent difference, which accounts for shifts when we are subnormal.
+-/
+theorem UnpackedFloat.extractGuardBit_eq_getLsbD
+    (hep : 1 < ep) (hsp : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) :
+    x.extractGuardBit ep sp =  x.sig.getLsbD (su - (sp + 2) + (minNormalExp ep - x.ex.toInt).toNat)  := by
+  have := UnpackedFloat.extractGuardBit_eq_true_iff hep hsp heu hsu x
+  grind only [#0e2e4e0bb1f1e395]
+
+-- TODO: 'toRatSig' lemma about what the guardBit tracks.
+
+theorem SmtLibSemantics.smtLibRoundMethod.lowerHalf_eq_decide (r : Rat) :
+    (smtLibRoundMethod e s smtLibV smtLibV).lowerHalf (ExtRat.Number r) =
+    (r - ((smtLibRoundMethod e s smtLibV smtLibV).lower (ExtRat.Number r)).toRat ≤ 2^e) := by
+  -- TODO: this is what I need to prove now.
+  sorry
+
+-- theorem le_toRatSig_of_extractGuardBit
+
 @[simp]
 theorem UnpackedFloat.extractGuardBit_eq_not_lowerHalf_of_nonneg (x : UnpackedFloat e s)
     (hx : x.sign = false) :
     x.extractGuardBit e s = ! (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) e s SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat) := by
-  simp [UnpackedFloat.extractGuardBit]
-  simp [SmtLibSemantics.smtLibRoundMethod]
+  -- simp [SmtLibSemantics.smtLibRoundMethod]
   sorry
 
 @[simp]
@@ -1534,14 +1786,151 @@ theorem UnpackedFloat.extractGuardBit_eq_lowerHalf_of_neg (x : UnpackedFloat e s
   sorry
 
 @[simp]
-theorem UnpackedFloat.extractStickyBit_eq_not_tieBreak_of_nonneg_of_guardBit (x : UnpackedFloat e s)
-    (hx : x.sign = false)
-    (hguard : x.extractGuardBit e s = true) :
-    x.extractStickyBit e s = ! (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) e s SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).tieBreak (ExtRat.Number x.toRat) := by
+theorem BitVec.and_allOnes_eq_self (bv : BitVec n) :
+    bv &&& (BitVec.allOnes n) = bv := by
+  ext i hi
+  simp
+
+@[simp]
+theorem BitVec.allOnes_and_eq_self (bv : BitVec n) :
+    (BitVec.allOnes n) &&& bv = bv := by
+  ext i hi
+  simp
+
+/--
+Zero extension to a larger width does not change the value.
+-/
+theorem BitVec.toNat_zeroExtend_of_le {n m : Nat} (bv : BitVec n) (h : n ≤ m) :
+    (bv.zeroExtend m).toNat = bv.toNat := by
+  rw [BitVec.zeroExtend_eq_setWidth, BitVec.toNat_setWidth_of_le]
+  grind only
+
+/--
+Zero extension to a smaller width does not change the value
+if the value fits in the smaller size.
+-/
+theorem BitVec.toNat_zeroExtend_of_lt {n m : Nat} (bv : BitVec n) (h : bv.toNat  < 2 ^ m) :
+    (bv.zeroExtend m).toNat = bv.toNat := by
+  rw [BitVec.zeroExtend_eq_setWidth]
+  simp only [BitVec.toNat_setWidth]
+  rw [Nat.mod_eq_of_lt]
+  grind only
+
+
+
+theorem extractStickyBit_eq_true_iff
+  (hep : 1 < ep) (hsp : 0 < sp)
+  (heu : exponentWidth ep sp ≤ eu)
+  (hsu : sp + 2 ≤ su)
+  (x : UnpackedFloat eu su) :
+  x.extractStickyBit ep sp = true ↔
+    -- This makes sense,
+    -- Consider when `su = sp + 2`.
+    -- Then we're saying that some bit
+    -- after the guard bit is nonzero.
+     (∃ (i : Nat),
+      i < su - (sp + 2) + (minNormalExp ep - x.ex.toInt).toNat ∧
+      x.sig.getLsbD i = true) := by
   simp [UnpackedFloat.extractStickyBit]
+  rw [UnpackedFloat.toNat_guardBitIndex_eq]
+  rw [show (su - 1 - (sp + 1)) = su - (sp + 2) by grind only]
+  rw [show su - (sp + 2) + (minNormalExp ep - x.ex.toInt).toNat =
+       ((su + (minNormalExp ep - x.ex.toInt).toNat)) - (sp + 2) by grind only]
+  · rw [show (su - (su + (minNormalExp ep - x.ex.toInt).toNat - (sp + 2))) =
+        (sp + 2 - (minNormalExp ep - x.ex.toInt).toNat) by grind only]
+    constructor
+    · intros heq
+      rw [BitVec.eq_iff_getLsbD_eq] at heq
+      simp at heq
+      obtain ⟨i, hi⟩ := heq
+      exists i
+      grind only
+    · intros h
+      simp at h
+      intros hcontra
+      rw [BitVec.eq_iff_getLsbD_eq] at hcontra
+      simp at hcontra
+      obtain ⟨i, hi⟩ := h
+      specialize hcontra i (by grind)
+      obtain ⟨hi1, hi2⟩ := hi
+      grind
+  · grind only
+  · grind only
+  · grind only
+  · grind only
+
+theorem extractStickyBit_eq_false_iff
+  (hep : 1 < ep) (hsp : 0 < sp)
+  (heu : exponentWidth ep sp ≤ eu)
+  (hsu : sp + 2 ≤ su)
+  (x : UnpackedFloat eu su) :
+  x.extractStickyBit ep sp = false ↔
+    -- This makes sense,
+    -- This says that all the lower bits are false.
+     (∀ (i : Nat),
+      i < su - (sp + 2) + (minNormalExp ep - x.ex.toInt).toNat →
+      x.sig.getLsbD i = false) := by
+  have htrue := extractStickyBit_eq_true_iff hep hsp heu hsu x
+  rw [iff_iff_not_iff_not] at htrue
+  grind only [#c179, #0b53, #b326]
+
+/--
+The sticky bit tracks whether there is a bit
+below the guard bit that is 1.
+This is equivalent to saying that there exists some bit below the guard bit that is 1.
+-/
+theorem extractStickyBit_eq_decide
+  (hep : 1 < ep) (hsp : 0 < sp)
+  (heu : exponentWidth ep sp ≤ eu)
+  (hsu : sp + 2 ≤ su)
+  (x : UnpackedFloat eu su) :
+  x.extractStickyBit ep sp = decide (∃ (i : Nat),
+      i < su - (sp + 2) + (minNormalExp ep - x.ex.toInt).toNat ∧
+      x.sig.getLsbD i = true) := by
+  by_cases hextract : x.extractStickyBit ep sp = true
+  · have := extractStickyBit_eq_true_iff hep hsp heu hsu x
+    grind only [#46e5, #0b53]
+  · have := extractStickyBit_eq_true_iff hep hsp heu hsu x
+    simp at this
+    grind only [#46e5, #0b53]
+
+@[simp]
+theorem UnpackedFloat.extractStickyBit_eq_not_tieBreak_of_nonneg_of_guardBit
+    (he : 1 < ep)
+    (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su)
+    (hx : x.sign = false)
+    (hguard : x.extractGuardBit ep sp = true) :
+    x.extractStickyBit ep sp = ! (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).tieBreak (ExtRat.Number x.toRat) := by
   simp [SmtLibSemantics.smtLibRoundMethod]
+  rw [extractStickyBit_eq_decide]
+  · sorry
+  · grind only
+  · grind only
+  · grind only
+  · grind only
+
+/--
+The final theorem: That our implementation of 'round' matches the SMT-LIB
+definition of rounding. But this should be defined carefully.
+-/
+theorem UnpackedFloat.toExtRat_round_eq_smtLibRound
+    (he : 1 < ep)
+    (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su)
+    (rstar : Rat) -- rational number we are modelling.
+    (hx : (rstar - hx).abs < (2 : Rat) ^ (-((sp + 1) : Int))) -- the rational is within 0.5 ulp of the unpacked float.
+    -- | The sticky bitt tracks whether 'r' is exactly representable.
+    -- (hsticky : (∃ (pf : PackedFloat ep sp), pf.toRat = rstar)  x.extractStickyBit ep sp = false)
+      :
+    (x.round rm (tep := ep) (tsp := sp) : EUnpackedFloat (exponentWidth ep sp) (sp + 1)).toExtRat =
+    ((SmtLibSemantics.smtLibRoundMethod (R := ExtRat) ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round rm x.sign (ExtRat.Number x.toRat)).toExtRat := by
+  simp
+  rw [UnpackedFloat.round]
   sorry
-
-
 
 end Fp
