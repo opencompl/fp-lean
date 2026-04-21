@@ -68,7 +68,7 @@ theorem UnpackedFloat.blastClearSignificand_toRat_nonneg_of_sign_eq_false (uf : 
 
 /-- For a nonnegative unpacked float, clearing guard/sticky bits rounds toward zero:
     the cleared value is at most the original value. -/
-theorem UnpaUnpackedFloat.blastClearSignificandignificand_toRat_le_of_nonneg (uf : UnpackedFloat e s)
+theorem UnpackedFloat.blastClearSignificand_toRat_le_of_nonneg (uf : UnpackedFloat e s)
     (targetExponentWidth targetSignificandWidth : Nat)
     (hufsign : uf.sign = false) :
     (uf.blastClearSignificand targetExponentWidth targetSignificandWidth).toRat ≤ uf.toRat := by
