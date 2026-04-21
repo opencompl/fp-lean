@@ -210,14 +210,14 @@ theorem iff_iff_not_iff_not {p q : Prop} :
 
 /-! # roundTowardZero -/
 
-theorem toRat_roundTowardZero_eq_lower_of_nonneg (x : UnpackedFloat e s)
+theorem toRat_roundTowardZero_eq_smtLibLower_of_nonneg (x : UnpackedFloat e s)
     (hx : 0 ≤ x.toRat) :
     (x.roundTowardZero targetExponentWidth targetSignificandWidth).toRat =
     (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat) : PackedFloat targetExponentWidth targetSignificandWidth).toRat
       := by
   sorry
 
-theorem toRat_roundTowardZero_eq_upper_of_neg (x : UnpackedFloat e s)
+theorem toRat_roundTowardZero_eq_smtLibUpper_of_neg (x : UnpackedFloat e s)
     (hx : x.toRat < 0) :
     (x.roundTowardZero targetExponentWidth targetSignificandWidth).toRat =
     (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat) : PackedFloat targetExponentWidth targetSignificandWidth).toRat
@@ -227,14 +227,14 @@ theorem toRat_roundTowardZero_eq_upper_of_neg (x : UnpackedFloat e s)
 
 /-# successorAwayFromZero -/
 
-theorem toRat_successorAwayFromZero_eq_upper_of_nonneg (x : UnpackedFloat e s)
+theorem toRat_successorAwayFromZero_eq_smtLibUpper_of_nonneg (x : UnpackedFloat e s)
     (hx : 0 ≤ x.toRat) :
     (x.successorAwayFromZero targetExponentWidth targetSignificandWidth).toRat =
     (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat) : PackedFloat targetExponentWidth targetSignificandWidth).toRat
       := by
   sorry
 
-theorem toRat_successorAwayFromZero_eq_upper_of_neg (x : UnpackedFloat e s)
+theorem toRat_successorAwayFromZero_eq_smtLibLower_of_neg (x : UnpackedFloat e s)
     (hx : x.toRat < 0) :
     (x.successorAwayFromZero targetExponentWidth targetSignificandWidth).toRat =
     (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat) : PackedFloat targetExponentWidth targetSignificandWidth).toRat
@@ -317,7 +317,7 @@ theorem UnpackedFloat.extractGuardBit_eq_not_lowerHalf_of_nonneg (x : UnpackedFl
   sorry
 
 @[simp]
-theorem UnpackedFloat.extractGuardBit_eq_lowerHalf_of_neg (x : UnpackedFloat e s)
+theorem UnpackedFloat.extractGuardBit_eq_smtLibLowerHalf_of_neg (x : UnpackedFloat e s)
     (hx : x.sign = true) :
     x.extractGuardBit e s = (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) e s SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat) := by
   simp [UnpackedFloat.extractGuardBit]
@@ -466,10 +466,17 @@ theorem UnpackedFloat.toExtRat_round_eq_smtLibRound
     -- | The sticky bitt tracks whether 'r' is exactly representable.
     -- (hsticky : (∃ (pf : PackedFloat ep sp), pf.toRat = rstar)  x.extractStickyBit ep sp = false)
       :
-    (x.round rm (tep := ep) (tsp := sp) : EUnpackedFloat (exponentWidth ep sp) (sp + 1)).toExtRat =
-    ((SmtLibSemantics.smtLibRoundMethod (R := ExtRat) ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round rm x.sign (ExtRat.Number x.toRat)).toExtRat := by
-  simp
+    (x.round rm (tep := ep) (tsp := sp) : EUnpackedFloat (exponentWidth ep sp) (sp + 1)) =
+    ((SmtLibSemantics.smtLibRoundMethod (R := ExtRat) ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round rm x.sign (ExtRat.Number x.toRat)).unpack := by
   rw [UnpackedFloat.round]
-  sorry
+  by_cases hzero : x.isZero
+  · simp [hzero, he, hs]
+    rw [UnpackedFloat.toRat_eq_toRat']
+    have : x.toRat' = 0 := by sorry
+    sorry
+  · simp [hzero]
+    rw [round_eq_ite_roundingDecision_of_Number_of_nonneg]
+    repeat sorry
+    -- TODO: can we change the definition of 'lower' so that we fold the over/underflow cases into the 'lower' and 'upper'?
 
 end Fp
