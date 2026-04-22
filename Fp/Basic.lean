@@ -1708,6 +1708,11 @@ deriving Repr
 
 attribute [bv_normalize] EUnpackedFloat.ext_iff
 
+/--
+negate the number in an EUnpackedFloat.
+-/
+def EUnpackedFloat.neg (x : EUnpackedFloat e s) : EUnpackedFloat e s :=
+  { x with num := x.num.neg }
 
 inductive ExtDyadic where
   | NaN : ExtDyadic

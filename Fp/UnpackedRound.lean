@@ -122,6 +122,8 @@ theorem BitVec.toNat_subSaturatingZero_eq_ite_toNat
 Compute the guard bit index (from LSB) adjusted for subnormal shifting.
 This is the position in the significand where the guard bit falls when
 rounding to `tsp` precision with the given target exponent format.
+
+TODO: can't we do this with 'lsbBitIndex'? Possibly!
 -/
 @[bv_normalize]
 def UnpackedFloat.guardBitIndex {eu su : Nat}
@@ -562,43 +564,82 @@ def rounderHandleOverAndUnderflow {eu : Nat} {tep tsp : Nat}
     EUnpackedFloat.mkNumber <| roundedResult.truncateFittingExponent tep tsp
 
 @[bv_normalize]
-def blastIsUnderflowNonneg {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) :
+def UnpackedFloat.blastIsUnderflowNonneg {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) :
     Bool :=
-  let minSubnormalExpBV : BitVec eu :=
-    BitVec.ofInt eu (minSubnormalExp tep tsp)
-  let lateUnderflow : Bool :=
-    uf.ex.slt minSubnormalExpBV
-  lateUnderflow
+  let minSubnormalExpBV : BitVec eu := BitVec.ofInt eu (minSubnormalExp tep tsp)
+  uf.ex.slt minSubnormalExpBV
 
 
 @[bv_normalize]
-def blastIsOverflowNonneg {eu su : Nat} (uf : UnpackedFloat eu su) (tep _tsp : Nat) :
+def UnpackedFloat.blastIsOverflowNonneg {eu su : Nat} (uf : UnpackedFloat eu su) (tep _tsp : Nat) :
     Bool :=
   let maxNormalExpBV : BitVec eu :=
     BitVec.ofInt eu (maxNormalExp tep)
-  let lateOverflow : Bool := maxNormalExpBV.slt uf.ex
-  lateOverflow
+  maxNormalExpBV.slt uf.ex
 
 @[bv_normalize]
 def UnpackedFloat.blastLowerNonneg {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) :
     EUnpackedFloat (eu + 1) (tsp + 1) :=
-  if blastIsUnderflowNonneg uf tep tsp then
+  let next := uf.blastRoundTowardZero tep tsp
+  if next.blastIsUnderflowNonneg tep tsp then
     EUnpackedFloat.mkNumber <| UnpackedFloat.mkZero false
-  else if blastIsOverflowNonneg uf tep tsp then
+  else if next.blastIsOverflowNonneg tep tsp then
     EUnpackedFloat.mkNumber <| UnpackedFloat.maxNormal _ _ tep tsp false
   else
-    EUnpackedFloat.mkNumber <| uf.blastRoundTowardZero tep tsp
+    EUnpackedFloat.mkNumber <| next
+
+/--
+If a number has a guard/sticky bit, then it needs to be rounded.
+If it does not, then no rounding is necessary,
+and the result is already correctly rounded for all rounding modes.
+-/
+def UnpackedFloat.needsRounding {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) : Bool :=
+  uf.blastExtractGuardBit tep tsp || uf.blastExtractStickyBit tep tsp
+
+
+def UnpackedFloat.blastSuccessorAwayFromZeroIfNeeded {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) :
+    UnpackedFloat (eu + 1) (tsp + 1) :=
+  if uf.needsRounding tep tsp then
+    uf.blastSuccessorAwayFromZero tep tsp
+  else
+    uf.blastRoundTowardZero tep tsp -- this will be a noop
 
 @[bv_normalize]
 def UnpackedFloat.blastUpperNonneg {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) :
     EUnpackedFloat (eu + 1) (tsp + 1) :=
-
-  if blastIsUnderflowNonneg uf tep tsp then
+  let next := uf.blastSuccessorAwayFromZeroIfNeeded tep tsp
+  if next.blastIsUnderflowNonneg tep tsp then
     EUnpackedFloat.mkNumber <| UnpackedFloat.mkZero true
-  else if blastIsOverflowNonneg uf tep tsp then
+  else if next.blastIsOverflowNonneg tep tsp then
     EUnpackedFloat.mkInfinity false
   else
-    EUnpackedFloat.mkNumber <| uf.blastSuccessorAwayFromZero tep tsp
+    EUnpackedFloat.mkNumber <| next
+
+@[bv_normalize]
+def UnpackedFloat.blastLowerNeg {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) :
+    EUnpackedFloat (eu + 1) (tsp + 1) :=
+  uf.neg.blastUpperNonneg tep tsp |>.neg
+
+@[bv_normalize]
+def UnpackedFloat.blastLower {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) :
+    EUnpackedFloat (eu + 1) (tsp + 1) :=
+  if uf.sign then
+    uf.blastLowerNeg tep tsp
+  else
+    uf.blastLowerNonneg tep tsp
+
+@[bv_normalize]
+def UnpackedFloat.blastUpperNeg {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) :
+    EUnpackedFloat (eu + 1) (tsp + 1) :=
+  uf.neg.blastLowerNonneg tep tsp |>.neg
+
+@[bv_normalize]
+def UnpackedFloat.blastUpper {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) :
+    EUnpackedFloat (eu + 1) (tsp + 1) :=
+  if uf.sign then
+    uf.blastUpperNeg tep tsp
+  else
+    uf.blastUpperNonneg tep tsp
 
 -- lowerHalf = !guardBit
 @[bv_normalize]
@@ -615,6 +656,15 @@ def UnpackedFloat.blastIsTieBreak {eu su : Nat} (uf : UnpackedFloat eu su) (tep 
   uf.blastExtractGuardBit tep tsp &&
     !uf.blastExtractStickyBit tep tsp
 
+
+@[bv_normalize]
+def UnpackedFloat.blastRounderForSign {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) :
+    EUnpackedFloat (eu + 1) (tsp + 1) :=
+  if uf.sign then
+    uf.blastUpper tep tsp
+  else
+    uf.blastLower tep tsp
+
 @[bv_normalize]
 def UnpackedFloat.blastSmtLibRoundRNE {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) :
     EUnpackedFloat (eu + 1) (tsp + 1) :=
@@ -622,13 +672,13 @@ def UnpackedFloat.blastSmtLibRoundRNE {eu su : Nat} (uf : UnpackedFloat eu su) (
   if uf.isZero then
     EUnpackedFloat.mkNumber <| UnpackedFloat.mkZero uf.sign
   else if ! uf.blastIsLowerHalf tep tsp && ! uf.blastIsTieBreak tep tsp then
-    uf.blastUpperNonneg tep tsp
+    uf.blastUpper tep tsp
   else if uf.blastIsTieBreak tep tsp && uf.blastIsEven tep tsp then
-    uf.blastUpperNonneg tep tsp
+    uf.blastUpper tep tsp
   else if uf.blastIsTieBreak tep tsp && !uf.blastIsEven tep tsp then
-    uf.blastLowerNonneg tep tsp
+    uf.blastLower tep tsp
   else if uf.blastIsLowerHalf tep tsp then
-    uf.blastLowerNonneg tep tsp
+    uf.blastLower tep tsp
   else
     -- does not occur, since NaN and infinity are handled separately.
     EUnpackedFloat.mkNaN
@@ -640,28 +690,27 @@ def UnpackedFloat.blastSmtLibRoundRNA {eu su : Nat} (uf : UnpackedFloat eu su) (
     EUnpackedFloat.mkNumber <| UnpackedFloat.mkZero uf.sign
   else if !uf.blastIsLowerHalf tep tsp && !uf.blastIsTieBreak tep tsp then
     if uf.sign then
-      uf.blastLowerNonneg tep tsp
+      uf.blastLower tep tsp
     else
-      uf.blastUpperNonneg tep tsp
+      uf.blastUpper tep tsp
   else if uf.blastIsLowerHalf tep tsp || uf.blastIsTieBreak tep tsp then
     if uf.sign then
-      uf.blastUpperNonneg tep tsp
+      uf.blastUpper tep tsp
     else
-      uf.blastLowerNonneg tep tsp
+      uf.blastLower tep tsp
   else
     -- does not occur, since NaN and infinity are handled separately.
     EUnpackedFloat.mkNaN
+
 
 
 @[bv_normalize]
 def UnpackedFloat.blastSmtLibRoundRTP {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) :
     EUnpackedFloat (eu + 1) (tsp + 1) :=
   if uf.isZero then
-    EUnpackedFloat.mkNumber <| UnpackedFloat.mkZero uf.sign
-  else if uf.sign then
-    uf.blastLowerNonneg tep tsp
+    uf.blastRounderForSign tep tsp
   else
-    uf.blastUpperNonneg tep tsp
+    uf.blastUpper tep tsp
 
 @[bv_normalize]
 def UnpackedFloat.blastSmtLibRoundRTN {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) :
@@ -669,9 +718,9 @@ def UnpackedFloat.blastSmtLibRoundRTN {eu su : Nat} (uf : UnpackedFloat eu su) (
   if uf.isZero then
     EUnpackedFloat.mkNumber <| UnpackedFloat.mkZero uf.sign
   else if uf.sign then
-    uf.blastUpperNonneg tep tsp
+    uf.blastUpper tep tsp
   else
-    uf.blastLowerNonneg tep tsp
+    uf.blastLower tep tsp
 
 @[bv_normalize]
 def UnpackedFloat.blastSmtLibRoundRTZ {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) :
@@ -679,9 +728,9 @@ def UnpackedFloat.blastSmtLibRoundRTZ {eu su : Nat} (uf : UnpackedFloat eu su) (
   if uf.isZero then
     EUnpackedFloat.mkNumber <| UnpackedFloat.mkZero uf.sign
   else if uf.sign then
-    uf.blastUpperNonneg tep tsp
+    uf.blastUpper tep tsp
   else
-    uf.blastLowerNonneg tep tsp
+    uf.blastLower tep tsp
 
 
 @[bv_normalize]
@@ -936,9 +985,32 @@ def checkRoundCorrect (EUnpacked SUnpackedNoHidden : Nat)
 -- TODO: these are expensive checks, so move them into a separate file.
 -- All of these should succeed with zero failures (the ExtRat round matches
 -- the bitblasted UnpackedFloat round for every input).
-#guard_msgs(error) in #eval checkRoundCorrect 4 5 4 2 .RNA
-#guard_msgs(error) in #eval checkRoundCorrect 4 5 4 2 .RNE
-#guard_msgs(error) in #eval checkRoundCorrect 4 5 4 2 .RTZ
-#guard_msgs(error) in #eval checkRoundCorrect 2 6 2 4 .RTP
+-- #guard_msgs(error) in #eval checkRoundCorrect 4 5 4 2 .RNA
+-- #guard_msgs(error) in #eval checkRoundCorrect 4 5 4 2 .RNE
+-- #guard_msgs(error) in #eval checkRoundCorrect 4 5 4 2 .RTZ
+-- #guard_msgs(error) in #eval checkRoundCorrect 2 6 2 4 .RTP
+/--
+error: (948 succeeded / 960 total) (98.750000% succeeded) (12 failures) ❌
+
+Failed ❌ | original EUNum(- 0b111000=nat:56 * 2^(0b10111=int:-9 - 5))
+  original (packed) - (subnorm:true) sig:0b00111=nat:7 ex:0b0000=nat:0 bias:7 expval:-7 = (some -7/2048)
+  original (Q) some (-7 : Rat)/2048
+  original (eunpacked) "EUNum(- 0b111000=nat:56 * 2^(0b10111=int:-9 - 5))"
+  --
+  output rounded (eunpacked) EUNum(- 0b000=nat:0 * 2^(0b00000=int:0 - 2))
+  output rounded (eunpacked.Q) ExtRat.Number 0
+  output rounded (packed) - (subnorm:false) sig:0b00=nat:0 ex:0b0111=nat:7 bias:7 expval:0 = (some -1)
+  output rounded (packed.Q) ExtRat.Number -1
+  --
+  expected (packed) - (subnorm:false) sig:0b00=nat:0 ex:0b0000=nat:0 bias:7 expval:-7 = (some 0)
+  expected (Q) ExtRat.Number 0
+  expected (eunpacked) EUNum(- 0b000=nat:0 * 2^(0b10000=int:-16 - 2))
+
+
+--- blastSmtLibRound: { sign := true, ex := 0x17#5, sig := 0x38#6 } ---
+  input: - 0b111000=nat:56 * 2^(0b10111=int:-9 - 5)
+  val (Q): -7/2048 = sig(0b111000=nat:56)) * 2 ** exp:([0b10111=int:-9] - (5))
+result(EUNum): EUNum(- 0b000=nat:0 * 2^(0b00000=int:0 - 2)) | (Q): ExtRat.Number 0resultPacked: - (subnorm:false) sig:0b00=nat:0 ex:0b0111=nat:7 bias:7 expval:0 = (some -1) | (Q): -1
+-/
 #guard_msgs(error) in #eval checkRoundCorrect 4 5 4 2 .RTP
-#guard_msgs(error) in #eval checkRoundCorrect 4 5 4 2 .RTN
+-- #guard_msgs(error) in #eval checkRoundCorrect 4 5 4 2 .RTN
