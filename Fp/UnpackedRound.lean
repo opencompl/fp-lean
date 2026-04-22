@@ -582,6 +582,7 @@ def UnpackedFloat.blastLowerNonneg {eu su : Nat} (uf : UnpackedFloat eu su) (tep
     EUnpackedFloat (eu + 1) (tsp + 1) :=
   let next := uf.blastRoundTowardZero tep tsp
   if next.blastIsUnderflowNonneg tep tsp then
+    -- greatest lower bound of 0 is +0
     EUnpackedFloat.mkNumber <| UnpackedFloat.mkZero false
   else if next.blastIsOverflowNonneg tep tsp then
     EUnpackedFloat.mkNumber <| UnpackedFloat.maxNormal _ _ tep tsp false
@@ -608,8 +609,11 @@ def UnpackedFloat.blastSuccessorAwayFromZeroIfNeeded {eu su : Nat} (uf : Unpacke
 def UnpackedFloat.blastUpperNonneg {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) :
     EUnpackedFloat (eu + 1) (tsp + 1) :=
   let next := uf.blastSuccessorAwayFromZeroIfNeeded tep tsp
-  if next.blastIsUnderflowNonneg tep tsp then
-    EUnpackedFloat.mkNumber <| UnpackedFloat.mkZero true
+  if next.isZero then
+    -- least upper bound of 0 is -0
+    EUnpackedFloat.mkZero true
+  else if next.blastIsUnderflowNonneg tep tsp then
+    EUnpackedFloat.mkNumber <| UnpackedFloat.minSubnormalForPackedFloat _ _ tep tsp false
   else if next.blastIsOverflowNonneg tep tsp then
     EUnpackedFloat.mkInfinity false
   else
@@ -670,7 +674,7 @@ def UnpackedFloat.blastSmtLibRoundRNE {eu su : Nat} (uf : UnpackedFloat eu su) (
     EUnpackedFloat (eu + 1) (tsp + 1) :=
   -- NaN, infinity is handled separately, so this only handles the other cases.
   if uf.isZero then
-    EUnpackedFloat.mkNumber <| UnpackedFloat.mkZero uf.sign
+    uf.blastRounderForSign tep tsp
   else if ! uf.blastIsLowerHalf tep tsp && ! uf.blastIsTieBreak tep tsp then
     uf.blastUpper tep tsp
   else if uf.blastIsTieBreak tep tsp && uf.blastIsEven tep tsp then
@@ -687,7 +691,7 @@ def UnpackedFloat.blastSmtLibRoundRNE {eu su : Nat} (uf : UnpackedFloat eu su) (
 def UnpackedFloat.blastSmtLibRoundRNA {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) :
     EUnpackedFloat (eu + 1) (tsp + 1) :=
   if uf.isZero then
-    EUnpackedFloat.mkNumber <| UnpackedFloat.mkZero uf.sign
+    uf.blastRounderForSign tep tsp
   else if !uf.blastIsLowerHalf tep tsp && !uf.blastIsTieBreak tep tsp then
     if uf.sign then
       uf.blastLower tep tsp
@@ -716,9 +720,7 @@ def UnpackedFloat.blastSmtLibRoundRTP {eu su : Nat} (uf : UnpackedFloat eu su) (
 def UnpackedFloat.blastSmtLibRoundRTN {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) :
     EUnpackedFloat (eu + 1) (tsp + 1) :=
   if uf.isZero then
-    EUnpackedFloat.mkNumber <| UnpackedFloat.mkZero uf.sign
-  else if uf.sign then
-    uf.blastUpper tep tsp
+    uf.blastRounderForSign tep tsp
   else
     uf.blastLower tep tsp
 
@@ -759,8 +761,10 @@ def UnpackedFloat.blastSmtLibRound {eu su : Nat}
     (uf : UnpackedFloat eu su) (tep tsp : Nat) (mode : RoundingMode) :
     EUnpackedFloat (exponentWidth tep tsp) (tsp + 1) :=
   let rounded := uf.blastSmtLibRoundAux tep tsp mode
-  rounded.truncateFittingExponent
-
+  let rounded := rounded.truncateFittingExponent
+  -- | TODO: re-establish the normalized exponent.
+  let rounded := rounded.normalize
+  rounded
 
 def UnpackedFloat.debugBlastSmtLibRound {eu su : Nat}
     (uf : UnpackedFloat eu su) (tep tsp : Nat) (mode : RoundingMode) :
@@ -812,7 +816,7 @@ def EUnpackedFloat.blastRoundSymFPU {eu su : Nat} {tep tsp : Nat}
   if inEuf.isNumber then
     let inUf := inEuf.num
     let out := UnpackedFloat.roundSymFPU (tep := tep) (tsp := tsp) inUf mode
-    -- out.normalize
+    -- let out := out.normalize
     out
   else if inEuf.isNaN then EUnpackedFloat.mkNaN
   else EUnpackedFloat.mkInfinity inEuf.sign
@@ -989,28 +993,5 @@ def checkRoundCorrect (EUnpacked SUnpackedNoHidden : Nat)
 -- #guard_msgs(error) in #eval checkRoundCorrect 4 5 4 2 .RNE
 -- #guard_msgs(error) in #eval checkRoundCorrect 4 5 4 2 .RTZ
 -- #guard_msgs(error) in #eval checkRoundCorrect 2 6 2 4 .RTP
-/--
-error: (948 succeeded / 960 total) (98.750000% succeeded) (12 failures) ❌
-
-Failed ❌ | original EUNum(- 0b111000=nat:56 * 2^(0b10111=int:-9 - 5))
-  original (packed) - (subnorm:true) sig:0b00111=nat:7 ex:0b0000=nat:0 bias:7 expval:-7 = (some -7/2048)
-  original (Q) some (-7 : Rat)/2048
-  original (eunpacked) "EUNum(- 0b111000=nat:56 * 2^(0b10111=int:-9 - 5))"
-  --
-  output rounded (eunpacked) EUNum(- 0b000=nat:0 * 2^(0b00000=int:0 - 2))
-  output rounded (eunpacked.Q) ExtRat.Number 0
-  output rounded (packed) - (subnorm:false) sig:0b00=nat:0 ex:0b0111=nat:7 bias:7 expval:0 = (some -1)
-  output rounded (packed.Q) ExtRat.Number -1
-  --
-  expected (packed) - (subnorm:false) sig:0b00=nat:0 ex:0b0000=nat:0 bias:7 expval:-7 = (some 0)
-  expected (Q) ExtRat.Number 0
-  expected (eunpacked) EUNum(- 0b000=nat:0 * 2^(0b10000=int:-16 - 2))
-
-
---- blastSmtLibRound: { sign := true, ex := 0x17#5, sig := 0x38#6 } ---
-  input: - 0b111000=nat:56 * 2^(0b10111=int:-9 - 5)
-  val (Q): -7/2048 = sig(0b111000=nat:56)) * 2 ** exp:([0b10111=int:-9] - (5))
-result(EUNum): EUNum(- 0b000=nat:0 * 2^(0b00000=int:0 - 2)) | (Q): ExtRat.Number 0resultPacked: - (subnorm:false) sig:0b00=nat:0 ex:0b0111=nat:7 bias:7 expval:0 = (some -1) | (Q): -1
--/
 #guard_msgs(error) in #eval checkRoundCorrect 4 5 4 2 .RTP
--- #guard_msgs(error) in #eval checkRoundCorrect 4 5 4 2 .RTN
+#guard_msgs(error) in #eval checkRoundCorrect 4 5 4 2 .RTN
