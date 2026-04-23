@@ -37,7 +37,7 @@ def EUnpackedFloat.div (m : RoundingMode) (x y : EUnpackedFloat (exponentWidth e
   else bif x.isZero || y.isInfinite then
     mkZero (x.num.sign ^^ y.num.sign)
   else
-    UnpackedFloat.round (.div x.num y.num) m
+    (UnpackedFloat.div x.num y.num) |>.blastSmtLibRound e s m
 
 namespace PackedFloat
 

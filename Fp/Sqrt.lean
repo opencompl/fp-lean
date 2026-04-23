@@ -84,7 +84,7 @@ def sqrt (x : PackedFloat e s) (m : RoundingMode) : PackedFloat e s :=
   if x.isZero then x
   else if (x.sign && !x.isZero) || x.isNaN then PackedFloat.getNaN e s
   else if (x.isInfinite && !x.sign) then PackedFloat.getInfinity e s false
-  else (UnpackedFloat.sqrt x.unpack.num) |> UnpackedFloat.round (mode := m) |>.pack
+  else (UnpackedFloat.sqrt x.unpack.num) |> UnpackedFloat.blastSmtLibRound (mode := m) e s |>.pack
 
 theorem square_sqrt_is_id (x : BitVec 3)
   : bit_sqrt (x.setWidth 6 * x.setWidth _) = x.setWidth _ <<< 1 := by
