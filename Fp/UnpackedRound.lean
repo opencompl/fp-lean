@@ -1017,9 +1017,9 @@ def checkRoundCorrect (EUnpacked SUnpackedNoHidden : Nat)
 -- TODO: these are expensive checks, so move them into a separate file.
 -- All of these should succeed with zero failures (the ExtRat round matches
 -- the bitblasted UnpackedFloat round for every input).
-#guard_msgs(error) in #eval checkRoundCorrect 4 5 4 2 .RNA
-#guard_msgs(error) in #eval checkRoundCorrect 4 5 4 2 .RNE
-#guard_msgs(error) in #eval checkRoundCorrect 4 5 4 2 .RTZ
-#guard_msgs(error) in #eval checkRoundCorrect 2 6 2 4 .RTP
-#guard_msgs(error) in #eval checkRoundCorrect 4 5 4 2 .RTP
-#guard_msgs(error) in #eval checkRoundCorrect 4 5 4 2 .RTN
+#guard_msgs(error, drop info) in #eval checkRoundCorrect 4 5 4 2 .RNA
+#guard_msgs(error, drop info) in #eval checkRoundCorrect 4 5 4 2 .RNE
+#guard_msgs(error, drop info) in #eval checkRoundCorrect 4 5 4 2 .RTZ
+#guard_msgs(error, drop info) in #eval checkRoundCorrect 2 6 2 4 .RTP
+#guard_msgs(error, drop info) in #eval checkRoundCorrect 4 5 4 2 .RTP
+#guard_msgs(error, drop info) in #eval checkRoundCorrect 4 5 4 2 .RTN
