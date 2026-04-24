@@ -655,17 +655,9 @@ theorem UnpackedFloat.toExtRat_round_eq_smtLibRound
     -- | The sticky bitt tracks whether 'r' is exactly representable.
     -- (hsticky : (∃ (pf : PackedFloat ep sp), pf.toRat = rstar)  x.extractStickyBit ep sp = false)
       :
-    (x.round rm (tep := ep) (tsp := sp) : EUnpackedFloat (exponentWidth ep sp) (sp + 1)) =
+    (x.blastSmtLibRound ep sp rm  : EUnpackedFloat (exponentWidth ep sp) (sp + 1)) =
     ((SmtLibSemantics.smtLibRoundMethod (R := ExtRat) ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round rm x.sign (ExtRat.Number x.toRat)).unpack := by
-  rw [UnpackedFloat.round]
-  by_cases hzero : x.isZero
-  · simp [hzero, he, hs]
-    rw [UnpackedFloat.toRat_eq_toRat']
-    have : x.toRat' = 0 := by sorry
-    sorry
-  · simp [hzero]
-    rw [round_eq_ite_roundingDecision_of_Number_of_nonneg]
-    repeat sorry
-    -- TODO: can we change the definition of 'lower' so that we fold the over/underflow cases into the 'lower' and 'upper'?
+  rw [UnpackedFloat.blastSmtLibRound]
+  sorry
 
 end Fp

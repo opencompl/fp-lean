@@ -64,8 +64,7 @@ def EUnpackedFloat.add (m : RoundingMode) (x y : EUnpackedFloat (exponentWidth e
   else bif y.isZero then
     x
   else
-    UnpackedFloat.round (.add x.num y.num) m
-
+    (UnpackedFloat.add x.num y.num) |>.blastSmtLibRound e s m
 namespace PackedFloat
 
 @[bv_normalize]

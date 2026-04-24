@@ -19,7 +19,7 @@ def EUnpackedFloat.setWidths (m : RoundingMode) (e' s')
     -- Promotion: no rounding needed!
     { euf with num := { euf.num with ex := euf.num.ex.signExtend _, sig := euf.num.sig.setWidth _ <<< (s' - s) } }
   else
-    euf.num.round m
+    euf.num |>.blastSmtLibRound e' s' m
 
 def PackedFloat.setWidths (m : RoundingMode) (e' s') (pf : PackedFloat e s) : PackedFloat e' s' :=
   (pf.unpack.setWidths m e' s').pack

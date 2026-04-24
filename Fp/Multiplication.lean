@@ -33,7 +33,7 @@ def EUnpackedFloat.mul (m : RoundingMode) (x y : EUnpackedFloat (exponentWidth e
   else bif x.isZero || y.isZero then
     mkZero (x.num.sign ^^ y.num.sign)
   else
-    UnpackedFloat.round (.mul x.num y.num) m
+    (UnpackedFloat.mul x.num y.num) |>.blastSmtLibRound e s m
 
 namespace PackedFloat
 

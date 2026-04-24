@@ -2,11 +2,6 @@ import Fp.Basic
 import Fp.Unpacking
 
 @[bv_normalize]
-def EUnpackedFloat.neg (x : EUnpackedFloat (exponentWidth e s) (s + 1))
-  : EUnpackedFloat (exponentWidth e s) (s + 1) :=
-  { x with num := x.num.neg }
-
-@[bv_normalize]
 def EUnpackedFloat.abs (x : EUnpackedFloat (exponentWidth e s) (s + 1))
   : EUnpackedFloat (exponentWidth e s) (s + 1) :=
   { x with num := x.num.abs }

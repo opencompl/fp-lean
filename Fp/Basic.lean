@@ -467,14 +467,6 @@ theorem maxNormalExp_plus_bias_lt_two_pow_exponentWidth (hs : 0 < s) :
 
 /-!
 ## Packed Floating Point Numbers
-
-This is a test module description
--/
-/-
-inductive Sign : Type
-| Positive : Sign
-| Negative : Sign
-deriving DecidableEq, Repr
 -/
 
 /--
@@ -1601,6 +1593,7 @@ uniform and easy to express using bitvector operations.
 Mathematically, an `UnpackedFloat e s` represents the real value
 
   (-1)^sign · sig · 2^(ex - (s - 1))
+  = (-1)^sign · (sig.toNat / 2 ^ (s - 1)) · 2^(ex.toInt)
 
 where:
 * `sign : Bool` is the sign bit,
@@ -1708,6 +1701,11 @@ deriving Repr
 
 attribute [bv_normalize] EUnpackedFloat.ext_iff
 
+/--
+negate the number in an EUnpackedFloat.
+-/
+def EUnpackedFloat.neg (x : EUnpackedFloat e s) : EUnpackedFloat e s :=
+  { x with num := x.num.neg }
 
 inductive ExtDyadic where
   | NaN : ExtDyadic
