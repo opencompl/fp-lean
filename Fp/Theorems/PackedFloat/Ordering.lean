@@ -1,6 +1,6 @@
-import Fp.Theorems.Packing
+import Fp.Theorems.PackedFloat.Packing
 import Fp.Utils
-import Fp.Theorems.Negation
+import Fp.Theorems.PackedFloat.Negation
 
 namespace PackedFloat
 
