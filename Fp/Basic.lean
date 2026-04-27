@@ -464,7 +464,6 @@ theorem maxNormalExp_plus_bias_lt_two_pow_exponentWidth (hs : 0 < s) :
   simp [hlogeq]
   grind only [#569066451790c837]
 
-
 /-!
 ## Packed Floating Point Numbers
 -/
@@ -2900,9 +2899,10 @@ theorem toRatSig_lt_two {e s} (pf : PackedFloat e s) :
 
 def toRatExp {e s} (pf : PackedFloat e s) : Int :=
   if pf.isNorm then
-    pf.ex.toNat - bias e
+    -- ex ≠ 0
+    pf.ex.toNat - bias e -- smallest: 1 - bias e
   else
-    -(bias e - 1 : Nat)
+    -(bias e - 1 : Nat) -- (1 - bias e)
 
 /--
 Amongst packed floats

@@ -1,10 +1,10 @@
 import Fp.Theorems.Basic
-import Fp.Theorems.Negation
-import Fp.Theorems.ToExtRat
-import Fp.Theorems.Packing
-import Fp.Theorems.Ordering
+import Fp.Theorems.PackedFloat.Negation
+import Fp.Theorems.PackedFloat.ToExtRat
+import Fp.Theorems.PackedFloat.Packing
+import Fp.Theorems.PackedFloat.Ordering
 import Fp.Theorems.SmtLibSemanticsQ
 import Fp.Theorems.LowerUpperRound
-import Fp.Theorems.UnpackedRound
+import Fp.Theorems.UnpackedFloat.Round
 import Fp.Theorems.LowerUpperRoundFunctional
 import Fp.Theorems.Multiplication

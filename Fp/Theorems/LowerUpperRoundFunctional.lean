@@ -1,5 +1,5 @@
-import Fp.Theorems.UnpackedRound
-import Fp.Theorems.Successor
+import Fp.Theorems.UnpackedFloat.Round
+import Fp.Theorems.PackedFloat.Successor
 
 namespace Fp
 

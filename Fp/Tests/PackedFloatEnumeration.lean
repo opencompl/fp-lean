@@ -1,10 +1,9 @@
 import Fp.Rounding
 import Fp.SmtLibSemantics
 import Fp.Theorems.Basic
-import Fp.Theorems.Packing
-import Fp.Theorems.Packing
-import Fp.Theorems.Ordering
-import Fp.Theorems.UnpackedRound
+import Fp.Theorems.PackedFloat.Packing
+import Fp.Theorems.PackedFloat.Ordering
+import Fp.Theorems.UnpackedFloat.Round
 
 namespace Fp
 open SmtLibSemantics

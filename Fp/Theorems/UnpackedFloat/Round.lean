@@ -1,9 +1,9 @@
 import Fp.UnpackedRound
 import Fp.SmtLibSemantics
 import Fp.Theorems.SmtLibSemanticsQ
-import Fp.Theorems.Packing
-import Fp.Theorems.Negation
-import Fp.Theorems.Ordering
+import Fp.Theorems.PackedFloat.Packing
+import Fp.Theorems.PackedFloat.Negation
+import Fp.Theorems.PackedFloat.Ordering
 import Fp.Theorems.LowerUpperRound
 
 namespace Fp

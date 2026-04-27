@@ -1,6 +1,6 @@
 import Fp.Basic
 import Fp.Unpacking
-import Fp.Theorems.ToExtRat
+import Fp.Theorems.PackedFloat.ToExtRat
 
 -- TODO: upstream
 theorem BitVec.toNat_clz_le {x : BitVec w} : x.clz.toNat ≤ w := by
