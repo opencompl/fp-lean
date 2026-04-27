@@ -84,7 +84,6 @@ theorem Rat.mkRat_eq_iff_numerator {n₁ n₂ : Int} {d : Nat} (hd : d ≠ 0):
     subst heq
     rfl
 
-
 theorem Rat.mul_ne_zero_iff {x y : Rat} : (¬ (x * y = 0)) ↔ x ≠ 0 ∧ y ≠ 0 := by
   grind
 
@@ -324,7 +323,6 @@ theorem Rat.mul_self_zpow_eq_zpow_succ {a : Rat} {n : Int}
   rw [Rat.zpow_add]
   · simp
   · simp [ha]
-
 
 @[simp]
 theorem Rat.ne_zero_of_one_le {a : Rat} (h : 1 ≤ a) : a ≠ 0 := by

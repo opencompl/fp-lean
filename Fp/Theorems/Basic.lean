@@ -1,7 +1,7 @@
 import Init.Data.Dyadic
 import Fp.Addition
-import Fp.ForLean.Dyadic
-import Fp.ForLean.Rat
+import Fp.Utils.Dyadic
+import Fp.Utils.Rat
 
 /-- Show that a dyadic number corresponds to a fixed-point number. -/
 structure FixedPointEqualsDyadic (f : FixedPoint m e) (d : Dyadic) where

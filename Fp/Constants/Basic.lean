@@ -1,7 +1,76 @@
 import Fp.Utils
-import Fp.ForLean.Dyadic
+import Fp.Utils.Dyadic
 import Fp.Grind
-import Fp.ForLean.Rat
+import Fp.Utils.Rat
+
+/--
+The "state" of an extended fixed-point number: either NaN, infinity, or a
+number.
+-/
+@[grind]
+inductive State : Type
+| NaN : State
+| Infinity : State
+| Number : State
+deriving DecidableEq
+
+instance {P : State → Prop} [∀ (s : State), Decidable (P s)] :
+    Decidable (∀ (s : State), P s) :=
+  if hnan : P .NaN then
+    if hinf : P .Infinity then
+      if hnum : P .Number then
+        isTrue (by grind only [#0000])
+      else
+        isFalse (by grind only [#b4e6])
+    else
+      isFalse (by grind only [#b4e6])
+  else
+    isFalse (by grind only [#b4e6])
+
+instance {P : State → Prop} [∀ (s : State), Decidable (P s)] :
+    Decidable (∃ (s : State), P s) :=
+  if hnan : P .NaN then
+    isTrue (by grind only [#5c30])
+  else
+    if hinf : P .Infinity then
+      isTrue (by grind only [#5c30])
+    else
+      if hnum : P .Number then
+        isTrue (by grind only [#5c30])
+      else
+        isFalse (by grind only [#0000])
+
+attribute [bv_normalize] State.eq_iff_enumToBitVec_eq
+
+@[bv_normalize]
+theorem State.beq_iff_enumToBitVec_beq {x y : State}
+  : (x == y) = (x.enumToBitVec == y.enumToBitVec) := by
+  cases h : (x == y) <;> simp_all [eq_iff_enumToBitVec_eq]
+
+@[bv_normalize]
+theorem State.bne_to_beq {x y : State}
+  : (x != y) = !(x == y) := by
+  cases h : (x != y) <;> simp_all [eq_iff_enumToBitVec_eq]
+
+@[bv_normalize]
+theorem State.NaN_enumToBitVec_eq : enumToBitVec NaN = 0b00#2 := rfl
+@[bv_normalize]
+theorem State.Infinity_enumToBitVec_eq : enumToBitVec Infinity = 0b01#2 := rfl
+@[bv_normalize]
+theorem State.Number_enumToBitVec_eq : enumToBitVec Number = 0b10#2 := rfl
+
+@[bv_normalize]
+theorem State.eq_cond_enumToBitVec {x y : State} :
+  (bif b then x else y).enumToBitVec = bif b then x.enumToBitVec else y.enumToBitVec := by
+  cases b <;> rfl
+
+instance : Repr State where
+  reprPrec s _prec :=
+    match s with
+    | .NaN => "NaN"
+    | .Infinity => "∞"
+    | .Number => "num"
+
 
 -- https://en.wikipedia.org/wiki/Single-precision_floating-point_format
 

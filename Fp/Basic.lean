@@ -1,218 +1,15 @@
 import Fp.Utils
-import Fp.ForLean.Dyadic
+import Fp.Utils.Dyadic
 import Fp.Grind
-import Fp.ForLean.Rat
+import Fp.Utils.Rat
 import Fp.Constants.Basic
 import Fp.Sign.Basic
-
-/-!
-## Packed Floating Point Numbers
--/
-
-/--
-A packed floating point number,
-whose exponent and significand width are encoded at the type level.
--/
-@[ext]
-structure PackedFloat (exWidth sigWidth : Nat) where
-    /-- Sign bit. -/
-    sign : Bool
-    /-- Exponent of the packed float. -/
-    ex : BitVec exWidth
-    /-- Significand (mantissa) of the packed float. -/
-    sig : BitVec sigWidth
-deriving DecidableEq, Repr, Inhabited
-
-attribute [bv_normalize] PackedFloat.ext_iff
-
-@[bv_normalize]
-theorem PackedFloat.ext_iff_beq {x y : PackedFloat exWidth sigWidth}
-  : (x == y) = (x.sign == y.sign && x.ex == y.ex && x.sig == y.sig) := by
-  cases h : (x == y) <;> simp_all [PackedFloat.ext_iff]
-
-@[bv_normalize]
-theorem PackedFloat.bne_to_beq {x y : PackedFloat exWidth sigWidth}
-  : (x != y) = !(x == y) := by
-  cases h : (x != y) <;> simp_all [PackedFloat.ext_iff]
-
-@[bv_normalize]
-theorem PackedFloat.eq_cond_sign {x y : PackedFloat exWidth sigWidth} :
-  (bif b then x else y).sign = bif b then x.sign else y.sign := by
-  cases b <;> rfl
-
-@[bv_normalize]
-theorem PackedFloat.eq_cond_ex {x y : PackedFloat exWidth sigWidth} :
-  (bif b then x else y).ex = bif b then x.ex else y.ex := by
-  cases b <;> rfl
-
-@[bv_normalize]
-theorem PackedFloat.eq_cond_sig {x y : PackedFloat exWidth sigWidth} :
-  (bif b then x else y).sig = bif b then x.sig else y.sig := by
-  cases b <;> rfl
-
-instance : Repr (PackedFloat exWidth sigWidth) where
-  reprPrec x _prec :=
-    f!"\{ sign := {if x.sign then "-" else "+"}, ex := {x.ex}, sig := {x.sig} }"
-
-/--
-A fixed point number with specified exponent offset.
--/
-@[ext]
-structure FixedPoint (width prec : Nat) where
-    sign : Bool
-    val : BitVec width
-    -- | This should not be part of the structure, but a side invariant we keep in mind.
-    hPrec : prec < width
-deriving DecidableEq
-
-attribute [bv_normalize] FixedPoint.ext_iff
-
-@[bv_normalize]
-theorem FixedPoint.ext_iff_beq {x y : FixedPoint width exOffset}
-  : (x == y) = (x.sign == y.sign && x.val == y.val) := by
-  cases h : (x == y) <;> simp_all [FixedPoint.ext_iff]
-
-@[bv_normalize]
-theorem FixedPoint.bne_to_beq {x y : FixedPoint width exOffset}
-  : (x != y) = !(x == y) := by
-  cases h : (x != y) <;> simp_all [FixedPoint.ext_iff]
-
-@[bv_normalize]
-theorem FixedPoint.eq_cond_sign {x y : FixedPoint width exOffset} :
-  (bif b then x else y).sign = bif b then x.sign else y.sign := by
-  cases b <;> rfl
-
-@[bv_normalize]
-theorem FixedPoint.eq_cond_val {x y : FixedPoint width exOffset} :
-  (bif b then x else y).val = bif b then x.val else y.val := by
-  cases b <;> rfl
-
-instance : Repr (FixedPoint width ExOffset) where
-  reprPrec (x : FixedPoint _ _) _prec :=
-    f!"{if x.sign then "-" else "+"} {x.val}"
-
--- Concretely, any enum we have must look like a C enum, so we must flatten
--- all our state into a single enum.
-
-/--
-The "state" of an extended fixed-point number: either NaN, infinity, or a
-number.
--/
-@[grind]
-inductive State : Type
-| NaN : State
-| Infinity : State
-| Number : State
-deriving DecidableEq
-
-instance {P : State → Prop} [∀ (s : State), Decidable (P s)] :
-    Decidable (∀ (s : State), P s) :=
-  if hnan : P .NaN then
-    if hinf : P .Infinity then
-      if hnum : P .Number then
-        isTrue (by grind only [#0000])
-      else
-        isFalse (by grind only [#b4e6])
-    else
-      isFalse (by grind only [#b4e6])
-  else
-    isFalse (by grind only [#b4e6])
-
-instance {P : State → Prop} [∀ (s : State), Decidable (P s)] :
-    Decidable (∃ (s : State), P s) :=
-  if hnan : P .NaN then
-    isTrue (by grind only [#5c30])
-  else
-    if hinf : P .Infinity then
-      isTrue (by grind only [#5c30])
-    else
-      if hnum : P .Number then
-        isTrue (by grind only [#5c30])
-      else
-        isFalse (by grind only [#0000])
-
-attribute [bv_normalize] State.eq_iff_enumToBitVec_eq
-
-@[bv_normalize]
-theorem State.beq_iff_enumToBitVec_beq {x y : State}
-  : (x == y) = (x.enumToBitVec == y.enumToBitVec) := by
-  cases h : (x == y) <;> simp_all [eq_iff_enumToBitVec_eq]
-
-@[bv_normalize]
-theorem State.bne_to_beq {x y : State}
-  : (x != y) = !(x == y) := by
-  cases h : (x != y) <;> simp_all [eq_iff_enumToBitVec_eq]
-
-@[bv_normalize]
-theorem State.NaN_enumToBitVec_eq : enumToBitVec NaN = 0b00#2 := rfl
-@[bv_normalize]
-theorem State.Infinity_enumToBitVec_eq : enumToBitVec Infinity = 0b01#2 := rfl
-@[bv_normalize]
-theorem State.Number_enumToBitVec_eq : enumToBitVec Number = 0b10#2 := rfl
-
-@[bv_normalize]
-theorem State.eq_cond_enumToBitVec {x y : State} :
-  (bif b then x else y).enumToBitVec = bif b then x.enumToBitVec else y.enumToBitVec := by
-  cases b <;> rfl
-
-instance : Repr State where
-  reprPrec s _prec :=
-    match s with
-    | .NaN => "NaN"
-    | .Infinity => "∞"
-    | .Number => "num"
-
-/--
-A fixed point number extended with infinity and NaN.
--/
-@[ext]
-structure EFixedPoint (width prec : Nat) where
-  state : State
-  num : FixedPoint width prec
-deriving DecidableEq, Repr
-
-attribute [bv_normalize] EFixedPoint.ext_iff
-
-@[bv_normalize]
-theorem EFixedPoint.ext_iff_beq {x y : EFixedPoint width exOffset}
-  : (x == y) = (x.state == y.state && x.num == y.num) := by
-  cases h : (x == y) <;> simp_all [EFixedPoint.ext_iff]
-
-@[bv_normalize]
-theorem EFixedPoint.bne_to_beq {x y : EFixedPoint width exOffset}
-  : (x != y) = !(x == y) := by
-  cases h : (x != y) <;> simp_all [EFixedPoint.ext_iff]
-
-@[bv_normalize]
-theorem EFixedPoint.eq_cond_state {x y : EFixedPoint width exOffset} :
-  (bif b then x else y).state = bif b then x.state else y.state := by
-  cases b <;> rfl
-
-@[bv_normalize]
-theorem EFixedPoint.eq_cond_num {x y : EFixedPoint width exOffset} :
-  (bif b then x else y).num = bif b then x.num else y.num := by
-  cases b <;> rfl
-
-class HExOffset (e : Nat) (m : Nat) where
-  h : e < m
-
-instance HExOffsetSucc [hex : HExOffset e m] :
-    HExOffset e (m + 1) where
-  h := by
-    have := hex.h
-    omega
-
-instance HExOffsetAdd [hex : HExOffset e m] (k : Nat) :
-    HExOffset (e + k) (m + k) where
-  h := by
-    have := hex.h
-    omega
-
-instance HExOffsetDouble [hex : HExOffset e m] :
-    HExOffset (e + e) (m + m) where
-  h := by
-    have := hex.h
-    omega
+import Fp.PackedFloat.Basic
+import Fp.EFixedPoint.Basic
+import Fp.UnpackedFloat.Basic
+import Fp.EUnpackedFloat.Basic
+import Fp.ExtDyadic.Basic
+import Fp.ExtRat.Basic
 
 namespace FixedPoint
 
@@ -1121,62 +918,6 @@ theorem abs_neg (x : PackedFloat e s) : (-x).abs = x.abs := by
 
 end PackedFloat
 
-/--
-`UnpackedFloat e s` is the *working* (unpacked) representation of a floating-point
-number with exponent width `e` and significand width `s`.
-
-This representation is intentionally different from the IEEE *packed* format
-(sign bit, biased exponent field, trailing significand field).  It is designed
-to make floating-point algorithms (addition, normalization, rounding, etc.)
-uniform and easy to express using bitvector operations.
-
-Mathematically, an `UnpackedFloat e s` represents the real value
-
-  (-1)^sign · sig · 2^(ex - (s - 1))
-  = (-1)^sign · (sig.toNat / 2 ^ (s - 1)) · 2^(ex.toInt)
-
-where:
-* `sign : Bool` is the sign bit,
-* `sig  : BitVec s` is an **integer significand**,
-* `ex   : BitVec e` is a **signed exponent**.
-
-### Key invariants and design choices
-
-* **Explicit hidden bit**:
-  The significand includes the hidden bit explicitly.
-  For normal numbers, the MSB of `sig` (bit `s-1`) is `1`.
-
-* **Binary point after the MSB**:
-  The binary point is conceptually located immediately after the most
-  significant bit of `sig`.  This means `sig` is treated as an integer, and the
-  scaling by `2^(s-1)` is absorbed into the exponent when interpreting the value.
-
-* **Normalized subnormals**:
-  Subnormal packed numbers are *normalized* during unpacking.
-  This may require additional exponent bits beyond the packed exponent width.
-  The exponent width `e` of `UnpackedFloat` is therefore chosen large enough to
-  represent:
-    - the smallest subnormal exponent after normalization, and
-    - all normal finite exponents.
-
-* **Uniform arithmetic**:
-  By using an integer significand with a fixed MSB position, normalization,
-  alignment, addition, and rounding can be implemented using only:
-    - bit shifts,
-    - integer addition/subtraction,
-    - MSB tests,
-  without fractional arithmetic.
-
-This representation closely follows the `unpackedFloat` design used in `symfpu`
-and in hardware floating-point pipelines.
--/
-@[ext]
-structure UnpackedFloat (e s : Nat) where
-  sign : Bool
-  ex : BitVec e
-  sig : BitVec s
-  deriving Inhabited, Repr
-
 attribute [bv_normalize] UnpackedFloat.ext_iff
 
 namespace UnpackedFloat
@@ -1210,36 +951,6 @@ theorem neg_sig (x : UnpackedFloat e s) : (-x).sig = x.sig := rfl
 
 end UnpackedFloat
 
-/--
-`EUnpackedFloat e s` extends `UnpackedFloat e s` with explicit floating-point
-classification flags.
-
-The `state` field records whether the value is:
-* NaN,
-* ±Infinity,
-* ±Zero,
-* or a finite number.
-
-When `state` indicates a finite number, the `num` field contains a valid
-`UnpackedFloat` satisfying the invariants described in `UnpackedFloat`.
-
-Separating exceptional states from the numeric payload avoids illegal bit-level
-states and simplifies reasoning about floating-point operations, since each
-operation can:
-1. handle NaN/Inf/Zero cases explicitly, and
-2. perform uniform arithmetic on normalized finite numbers.
-
-This mirrors the structure used by `symfpu`, where unpacking converts the packed
-IEEE representation into a uniform working format suitable for algorithmic
-manipulation.
--/
-@[ext]
-structure EUnpackedFloat (e s : Nat) where
-  state : State
-  num   : UnpackedFloat e s
-deriving Repr
-
-attribute [bv_normalize] EUnpackedFloat.ext_iff
 
 /--
 negate the number in an EUnpackedFloat.
@@ -1247,17 +958,6 @@ negate the number in an EUnpackedFloat.
 def EUnpackedFloat.neg (x : EUnpackedFloat e s) : EUnpackedFloat e s :=
   { x with num := x.num.neg }
 
-inductive ExtDyadic where
-  | NaN : ExtDyadic
-  | Infinity : Bool → ExtDyadic
-  | Number : Dyadic → ExtDyadic
-deriving DecidableEq
-
-inductive ExtRat where
-  | NaN : ExtRat
-  | Infinity : Bool → ExtRat
-  | Number : Rat → ExtRat
-deriving DecidableEq, Repr
 
 namespace ExtRat
 

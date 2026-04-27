@@ -2,7 +2,7 @@ import Fp.Basic
 import Fp.Rounding
 import Fp.MulInv
 import Fp.Grind
-import Fp.ForLean.Rat
+import Fp.Utils.Rat
 import Fp.Rounding
 
 /-# Notation
