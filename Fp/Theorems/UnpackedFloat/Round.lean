@@ -641,6 +641,8 @@ theorem round_eq_ite_roundingDecision_of_Number_of_neg {eout sout : Nat} (rm : R
 theorem isBlastOverflowNonneg_iff (x : UnpackedFloat e s) :
   x.blastIsOverflowNonneg ep sp = true ↔ (PackedFloat.maxNormalNumber ep sp false).toRat < x.toRat := by sorry
 
+
+
 /--
 The final theorem: That our implementation of 'round' matches the SMT-LIB
 definition of rounding. But this should be defined carefully.
@@ -667,6 +669,16 @@ theorem UnpackedFloat.toExtRat_round_eq_smtLibRound_of_RNE
     simp [blastRounderSpecialCaseOverflow]
     sorry
   · simp [hover]
-    sorry
+    simp [UnpackedFloat.blastSmtLibRoundAux]
+    simp [SmtLibSemantics.RoundMethod.roundRNE, he, hs]
+    rw [UnpackedFloat.blastSmtLibRoundRNE]
+    by_cases hx0 : x.isZero
+    · simp [hx0]
+      have : x.toRat = 0 := by
+        rw [UnpackedFloat.toRat_eq_toRat']
+        exact UnpackedFloat.toRat'_eq_zero_if_isZero x hx0
+      simp [this]
+      sorry
+    · sorry
 
 end Fp

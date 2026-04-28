@@ -484,3 +484,46 @@ theorem Rat.div_self_eq_one_of_ne_zero {a : Rat} (ha : a ≠ 0) : a / a = 1 := b
 
 theorem Rat.div_self_eq_ite {a : Rat} : a / a = (if a = 0 then 0 else 1) := by
   grind
+
+@[simp]
+theorem Rat.neg_ne_zero_iff_ne_zero {a : Rat} : -a ≠ 0 ↔ a ≠ 0 := by
+  grind
+
+@[simp]
+theorem Rat.neg_eq_zero_iff_eq_zero {a : Rat} : -a = 0 ↔ a = 0 := by
+  grind
+
+
+@[simp, grind =]
+theorem Rat.mul_mul_eq_zero_iff_eq_zero_right {a b c : Rat}
+  (ha : a ≠ 0) (hb : b ≠ 0) :
+  a * b * c = 0 ↔ c = 0 := by grind
+
+@[simp, grind =]
+theorem Rat.mul_mul_eq_zero_iff_eq_zero_left {a b c : Rat}
+  (hb : b ≠ 0) (hc : c ≠ 0) :
+  a * b * c = 0 ↔ a = 0 := by grind
+
+@[simp, grind =]
+theorem Rat.mul_mul_eq_zero_iff_eq_zero_middle {a b c : Rat}
+  (ha : a ≠ 0) (hc : c ≠ 0) :
+  a * b * c = 0 ↔ b = 0 := by grind
+
+@[simp]
+theorem Rat.mul_eq_zero_iff_eq_zero₃ {a b c : Rat} :
+  a * b * c = 0 ↔ a = 0 ∨ b = 0 ∨ c = 0 := by
+  grind
+
+theorem Rat.mul_eq_zero_iff_eq_zero₂ {a b : Rat} :
+  a * b = 0 ↔ a = 0 ∨ b = 0 := by
+  grind
+
+@[simp]
+theorem Rat.mul_ne_zero_iff_ne_zero₂ {a b : Rat} :
+  a * b ≠ 0 ↔ a ≠ 0 ∧ b ≠ 0 := by
+  grind
+
+@[simp]
+theorem Rat.mul_ne_zero_iff_ne_zero₃ {a b c : Rat} :
+  a * b * c ≠ 0 ↔ a ≠ 0 ∧ b ≠ 0 ∧ c ≠ 0 := by
+  grind

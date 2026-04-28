@@ -2290,14 +2290,7 @@ theorem toRat_ne_zero {pf : PackedFloat e s} (h : pf.isNormOrNonzeroSubnorm) :
   have : pf.sign.toSign ≠ 0 := by grind only [Bool.toSign, #26b7]
   have : pf.toRatSig ≠ 0 := by exact toRatSig_ne_zero_of_isNormOrNonzeroSubnorm h
   have : (2 : Rat) ^ (pf.toRatExp) > 0 := by grind only [Fp.Rat.two_pow_pos]
-  rw [Rat.mul_ne_zero_iff]
-  simp only [ne_eq]
-  rw [Rat.mul_ne_zero_iff]
-  constructor
-  · constructor
-    · simp
-    · grind only
-  · grind only
+  grind only
 
 @[simp, grind →, grind =]
 theorem sign_iff_toRat_neg {pf : PackedFloat e s} (h : pf.isNormOrNonzeroSubnorm) :
@@ -3049,8 +3042,11 @@ theorem ex_mkZero (sign : Bool) : (mkZero sign : UnpackedFloat e s).ex = BitVec.
 @[simp]
 theorem sig_mkZero (sign : Bool) : (mkZero sign : UnpackedFloat e s).sig = 0#s := rfl
 
+
 @[bv_normalize]
 def isZero (uf : UnpackedFloat e s) : Bool :=
+  -- | We don't need the exponent to be `intMin`, as the unpacked float
+  -- value is zero iff the significand it zero.
   uf.ex == BitVec.intMin e && uf.sig == 0#s
 
 -- | Why does the 'ex' fit?
@@ -3173,6 +3169,17 @@ theorem toRat_eq_toRat' (uf : UnpackedFloat e s) : uf.toRat = uf.toRat' := by
   rw [toInt_setWidth_succ_eq_toNat (x := uf.sig)]
   simp [toExpInt]
   norm_cast
+
+@[simp]
+theorem toRat'_mkZero (sign : Bool) : (mkZero sign : UnpackedFloat e s).toRat' = 0 := by
+  simp [mkZero, toRat']
+
+@[grind =>, simp]
+theorem toRat'_eq_zero_if_isZero (uf : UnpackedFloat e s) (hz : uf.isZero) :
+    uf.toRat' = 0 := by
+  simp [toRat']
+  simp [UnpackedFloat.isZero] at hz
+  simp [hz]
 
 @[bv_normalize]
 def maxNormal (eout sout : Nat) (e _s : Nat) (sign : Bool) :
@@ -3445,6 +3452,7 @@ theorem toExtRat_mkNan : toExtRat (mkNaN : EUnpackedFloat e s) = .NaN := by
 @[simp]
 theorem toExtRat_mkInfinity (sign : Bool) : toExtRat (mkInfinity sign : EUnpackedFloat e s) = .Infinity sign := by
   simp [toExtRat]
+
 
 @[simp]
 theorem toExtRat_mkZero (sign : Bool) : toExtRat (mkZero sign : EUnpackedFloat e s) = .Number 0 := by

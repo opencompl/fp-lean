@@ -286,7 +286,8 @@ theorem toExtRat_unpack_eq_toExtRat {pf : PackedFloat e s}
           EUnpackedFloat.isNaN_mkNumber, EUnpackedFloat.isInfinite_mkNumber,
           EUnpackedFloat.num_mkNumber, toExtRat', hNaN, hInf, ExtRat.Number.injEq]
           simp only [toRat, PackedFloat.toRatSig, PackedFloat.toRatExp]
-          simp [hNorm]
+          simp only [hNorm, Bool.false_eq_true, ↓reduceIte,
+            Rat.zero_add]
           rewrite [UnpackedFloat.toRat_normalize_eq_toRat UnpackedFloat.sigWidth_lt_exponentWidth_sub_one]
           · simp only [UnpackedFloat.toRat_eq, Rat.mul_assoc]
             congr 1
