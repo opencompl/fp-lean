@@ -642,6 +642,21 @@ theorem isBlastOverflowNonneg_iff (x : UnpackedFloat e s) :
   x.blastIsOverflowNonneg ep sp = true ↔ (PackedFloat.maxNormalNumber ep sp false).toRat < x.toRat := by sorry
 
 
+theorem blastRounderForSign_eq_smtLibRounderForSign (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) :
+  (x.blastRounderForSign ep sp).truncateFittingExponent.normalize =
+    ((SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).rounderForSign x.sign
+        (ExtRat.Number 0)).unpack := by
+  by_cases hsign : x.sign
+  · simp [hsign]
+    sorry
+  · simp [hsign]
+    sorry
+
+
+
 
 /--
 The final theorem: That our implementation of 'round' matches the SMT-LIB
@@ -669,16 +684,21 @@ theorem UnpackedFloat.toExtRat_round_eq_smtLibRound_of_RNE
     simp [blastRounderSpecialCaseOverflow]
     sorry
   · simp [hover]
-    simp [UnpackedFloat.blastSmtLibRoundAux]
-    simp [SmtLibSemantics.RoundMethod.roundRNE, he, hs]
+    simp only [UnpackedFloat.blastSmtLibRoundAux]
+    simp only [SmtLibSemantics.RoundMethod.roundRNE, SmtLibSemantics.instExtendedRat.isNaN_eq,
+      ExtRat.isNaN_iff, ExtRat.ExtRat.NaN_le_iff, decide_eq_true_eq, ExtRat.ExtRat.le_refl,
+      reduceCtorEq, decide_false, Bool.false_eq_true, ↓reduceIte,
+      SmtLibSemantics.instExtendedRat.isZero, ← ExtRat.ExtRat.zero_def, ExtRat.Number.injEq,
+      Bool.not_eq_eq_eq_not, Bool.not_true, decide_eq_false_iff_not, hs,
+      SmtLibSemantics.smtLibRoundMethod.upper_eq, SmtLibSemantics.smtLibV_upper_eq,
+      SmtLibSemantics.smtLibRoundMethod.lower_eq, SmtLibSemantics.smtLibV_lower_eq]
     rw [UnpackedFloat.blastSmtLibRoundRNE]
+    simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true,
+      UnpackedFloat.toRat_eq_toRat']
     by_cases hx0 : x.isZero
-    · simp [hx0]
-      have : x.toRat = 0 := by
-        rw [UnpackedFloat.toRat_eq_toRat']
-        exact UnpackedFloat.toRat'_eq_zero_if_isZero x hx0
-      simp [this]
-      sorry
+    · simp only [hx0, ↓reduceIte, UnpackedFloat.toRat'_eq_zero_if_isZero, not_true_eq_false,
+      false_and]
+      simp [blastRounderForSign_eq_smtLibRounderForSign he hs heu hsu x]
     · sorry
 
 end Fp
