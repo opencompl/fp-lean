@@ -6,5 +6,4 @@ import Fp.Theorems.PackedFloat.Ordering
 import Fp.Theorems.SmtLibSemanticsQ
 import Fp.Theorems.LowerUpperRound
 import Fp.Theorems.UnpackedFloat.Round
-import Fp.Theorems.LowerUpperRoundFunctional
 import Fp.Theorems.Multiplication

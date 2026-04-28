@@ -1,4 +1,4 @@
-import Fp.Theorems.UnpackedFloat.Round
+import Fp.Theorems.LowerUpperRound.Basic
 import Fp.Theorems.PackedFloat.Successor
 
 namespace Fp
@@ -726,9 +726,4 @@ info: 'Fp.smtLibUpper_eq_self_of_eq_toExtRat_of_not_isNaN' depends on axioms: [p
 -/
 #guard_msgs in #print axioms smtLibUpper_eq_self_of_eq_toExtRat_of_not_isNaN
 
-
-/-
-theorem upper_eq_successorAwayFromZero_lower
-theorem upper_eq_successorAwayFromZero_lower
--/
 end Fp
