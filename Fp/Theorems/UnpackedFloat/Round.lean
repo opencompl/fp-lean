@@ -638,13 +638,16 @@ theorem round_eq_ite_roundingDecision_of_Number_of_neg {eout sout : Nat} (rm : R
     intros hr
     grind only
 
+theorem isBlastOverflowNonneg_iff (x : UnpackedFloat e s) :
+  x.blastIsOverflowNonneg ep sp = true ↔ (PackedFloat.maxNormalNumber ep sp false).toRat < x.toRat := by sorry
+
 /--
 The final theorem: That our implementation of 'round' matches the SMT-LIB
 definition of rounding. But this should be defined carefully.
 
 This is what I'm working on right now.
 -/
-theorem UnpackedFloat.toExtRat_round_eq_smtLibRound
+theorem UnpackedFloat.toExtRat_round_eq_smtLibRound_of_RNE
     (he : 1 < ep)
     (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu)
@@ -655,9 +658,15 @@ theorem UnpackedFloat.toExtRat_round_eq_smtLibRound
     -- | The sticky bitt tracks whether 'r' is exactly representable.
     -- (hsticky : (∃ (pf : PackedFloat ep sp), pf.toRat = rstar)  x.extractStickyBit ep sp = false)
       :
-    (x.blastSmtLibRound ep sp rm  : EUnpackedFloat (exponentWidth ep sp) (sp + 1)) =
-    ((SmtLibSemantics.smtLibRoundMethod (R := ExtRat) ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round rm x.sign (ExtRat.Number x.toRat)).unpack := by
+    (x.blastSmtLibRound ep sp .RNE  : EUnpackedFloat (exponentWidth ep sp) (sp + 1)) =
+    ((SmtLibSemantics.smtLibRoundMethod (R := ExtRat) ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round .RNE x.sign (ExtRat.Number x.toRat)).unpack := by
   rw [UnpackedFloat.blastSmtLibRound]
-  sorry
+  by_cases hover : x.blastIsOverflowNonneg ep sp
+  · simp [hover]
+    have := isBlastOverflowNonneg_iff x |>.mp hover
+    simp [blastRounderSpecialCaseOverflow]
+    sorry
+  · simp [hover]
+    sorry
 
 end Fp
