@@ -3047,7 +3047,7 @@ theorem sig_mkZero (sign : Bool) : (mkZero sign : UnpackedFloat e s).sig = 0#s :
 def isZero (uf : UnpackedFloat e s) : Bool :=
   -- | We don't need the exponent to be `intMin`, as the unpacked float
   -- value is zero iff the significand it zero.
-  uf.ex == BitVec.intMin e && uf.sig == 0#s
+  uf.sig == 0#s
 
 -- | Why does the 'ex' fit?
 @[bv_normalize]
@@ -3135,13 +3135,11 @@ theorem toRat_mkZero (sign : Bool) : (mkZero sign : UnpackedFloat e s).toRat = 0
   simp [mkZero, toRat, toDyadic]
 
 def toSigNat (uf : UnpackedFloat e s) : Nat :=
-  let sig : BitVec (s + 1) := uf.sig.setWidth' (Nat.le.step Nat.le.refl)
-  sig.toNat
+  uf.sig.toNat
 
 @[simp]
 theorem toNat_toSigNat_eq (uf : UnpackedFloat e s) :
-    toSigNat uf = uf.sig.toNat := by
-  simp [toSigNat]
+    toSigNat uf = uf.sig.toNat := rfl
 
 @[simp]
 theorem toSigNat_of_sig_eq_zero (uf : UnpackedFloat e s)  (h : uf.sig = 0#s) :

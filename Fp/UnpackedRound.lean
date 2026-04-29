@@ -597,8 +597,11 @@ and the result is already correctly rounded for all rounding modes.
 def UnpackedFloat.needsRounding {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) : Bool :=
   uf.blastExtractGuardBit tep tsp || uf.blastExtractStickyBit tep tsp
 
-
-def UnpackedFloat.blastSuccessorAwayFromZeroIfNeeded {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) :
+/--
+If the number is perfectly represented, then upper = lower,
+otherwise, upper is the successor away from zero of lower.
+-/
+def UnpackedFloat.blastSuccessorAwayFromZeroNonnegAux {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) :
     UnpackedFloat (eu + 1) (tsp + 1) :=
   if uf.needsRounding tep tsp then
     uf.blastSuccessorAwayFromZero tep tsp
@@ -608,11 +611,8 @@ def UnpackedFloat.blastSuccessorAwayFromZeroIfNeeded {eu su : Nat} (uf : Unpacke
 @[bv_normalize]
 def UnpackedFloat.blastUpperNonneg {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) :
     EUnpackedFloat (eu + 1) (tsp + 1) :=
-  let next := uf.blastSuccessorAwayFromZeroIfNeeded tep tsp
-  if next.isZero then
-    -- least upper bound of 0 is -0
-    EUnpackedFloat.mkZero true
-  else if next.blastIsUnderflowNonneg tep tsp then
+  let next := uf.blastSuccessorAwayFromZeroNonnegAux tep tsp
+  if next.blastIsUnderflowNonneg tep tsp then
     EUnpackedFloat.mkNumber <| UnpackedFloat.minSubnormalForPackedFloat _ _ tep tsp false
   else if next.blastIsOverflowNonneg tep tsp then
     EUnpackedFloat.mkInfinity false

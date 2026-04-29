@@ -587,19 +587,6 @@ theorem BitVec.cons_true_setWidth_of_msb {n : Nat}
     = BitVec.getLsbD_eq_getElem]
   · grind only [= BitVec.getElem_cons, = BitVec.getElem_setWidth, = BitVec.getLsbD_eq_getElem]
 
-/--
-Zero case: a Number-state `uf` which is a zero
-must be exactly `mkZero uf.sign`.
--/
-theorem eq_mkZero_of_isNumber_of_isZero
-    (uf : EUnpackedFloat e s)
-    (hNum : uf.isNumber) (hZ : uf.isZero) :
-    uf = EUnpackedFloat.mkZero uf.sign := by
-  rcases uf with ⟨state, sign, ex, sig⟩
-  simp [isNumber] at hNum
-  simp [isZero, isNumber, UnpackedFloat.isZero] at hZ
-  simp [EUnpackedFloat.mkZero, UnpackedFloat.mkZero, EUnpackedFloat.sign]
-  grind
 
 /--
 For a normalized Number-state `uf`, `¬ uf.isZero` implies the significand is nonzero.
