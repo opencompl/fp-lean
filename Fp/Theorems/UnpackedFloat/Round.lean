@@ -642,6 +642,35 @@ theorem isBlastOverflowNonneg_iff (x : UnpackedFloat e s) :
   x.blastIsOverflowNonneg ep sp = true ↔ (PackedFloat.maxNormalNumber ep sp false).toRat < x.toRat := by sorry
 
 
+/-# `blastUpper` matches `upper` -/
+
+theorem UnpackedFloat.blastUpper_zero_eq_smtLibUpper_zero (x : UnpackedFloat e s)
+    (hx : x.isZero) :
+    x.blastUpper ep sp =
+  (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number 0) : PackedFloat ep sp) := by
+  simp [UnpackedFloat.blastUpper, hx]
+  simp [SmtLibSemantics.smtLibUpper.upper, ← ExtRat.ExtRat.zero_def]
+  simp [PackedFloat.zero_def]
+
+/-# `blastLower` matches `lower` -/
+
+
+/-# `blastRounderForSign` matches `rounderForSign`-/
+
+@[simp]
+theorem UnpackedFloat.blastRounderForSign_of_sign_eq_true_eq
+    (x : UnpackedFloat eu su)
+    (hsign : x.sign = true) :
+    x.blastRounderForSign ep sp = x.blastUpper ep sp := by
+  simp [UnpackedFloat.blastRounderForSign, hsign]
+
+theorem UnpackedFloat.blastRounderForSign_of_sign_eq_false_eq
+    (x : UnpackedFloat eu su)
+    (hsign : x.sign = false) :
+    x.blastRounderForSign ep sp = x.blastLower ep sp := by
+  simp [UnpackedFloat.blastRounderForSign, hsign]
+
+
 theorem blastRounderForSign_eq_smtLibRounderForSign (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu)
     (hsu : sp + 2 ≤ su)
@@ -656,7 +685,7 @@ theorem blastRounderForSign_eq_smtLibRounderForSign (he : 1 < ep) (hs : 0 < sp)
     sorry
 
 
-
+/-# `blastSmtLibRound` matches `smtLibRound` for RNE rounding mode. -/
 
 /--
 The final theorem: That our implementation of 'round' matches the SMT-LIB
