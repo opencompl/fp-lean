@@ -3156,13 +3156,18 @@ def toRat' (uf : UnpackedFloat e s) : Rat :=
 theorem toRat'_mkZero (sign : Bool) : (mkZero sign : UnpackedFloat e s).toRat' = 0 := by
   simp [mkZero, toRat']
 
-@[simp]
+@[simp, grind =>]
 theorem toRat'_eq_zero_iff_isZero (uf : UnpackedFloat e s) :
     uf.isZero ↔ uf.toRat' = 0 := by
   simp [toRat']
   simp [UnpackedFloat.isZero]
   grind only [= BitVec.toNat_zero, = BitVec.ofNat_toNat, = BitVec.getElem_zero,
     = BitVec.getElem_setWidth, = BitVec.getLsbD_eq_getElem, #b51e, #2e5b]
+
+@[simp, grind =>]
+theorem toRat'_ne_zero_iff_not_isZero (uf : UnpackedFloat e s) :
+    ¬ uf.isZero ↔ ¬ uf.toRat' = 0 := by
+  simp [toRat']
 
 theorem toInt_setWidth_succ_eq_toNat (x : BitVec w) :
     (x.setWidth (w + 1)).toInt = x.toNat := by
@@ -3180,7 +3185,7 @@ theorem toRat_eq_toRat' (uf : UnpackedFloat e s) : uf.toRat = uf.toRat' := by
   norm_cast
 
 @[grind =>, simp]
-theorem toRat'_eq_zero_if_isZero (uf : UnpackedFloat e s) (hz : uf.isZero) :
+theorem toRat'_eq_zero_of_isZero (uf : UnpackedFloat e s) (hz : uf.isZero) :
     uf.toRat' = 0 := by
   simp [toRat']
   simp [UnpackedFloat.isZero] at hz
