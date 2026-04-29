@@ -655,6 +655,7 @@ theorem UnpackedFloat.blastUpper_zero_Rel
     (hx : x.isZero) :
     (x.blastUpper ep sp).Rel (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number 0) : PackedFloat ep sp) := by
   rw [upper_zero_eq (by grind only)]
+  sorry
 
 
 /-# `blastLower` matches `lower` -/
@@ -698,7 +699,7 @@ definition of rounding. But this should be defined carefully.
 
 This is what I'm working on right now.
 -/
-theorem UnpackedFloat.toExtRat_round_eq_smtLibRound_of_RNE
+theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
     (he : 1 < ep)
     (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu)
@@ -709,8 +710,7 @@ theorem UnpackedFloat.toExtRat_round_eq_smtLibRound_of_RNE
     -- | The sticky bitt tracks whether 'r' is exactly representable.
     -- (hsticky : (∃ (pf : PackedFloat ep sp), pf.toRat = rstar)  x.extractStickyBit ep sp = false)
       :
-    (x.blastSmtLibRound ep sp .RNE  : EUnpackedFloat (exponentWidth ep sp) (sp + 1)) =
-    ((SmtLibSemantics.smtLibRoundMethod (R := ExtRat) ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round .RNE x.sign (ExtRat.Number x.toRat)).unpack := by
+    (x.blastSmtLibRound ep sp .RNE  : EUnpackedFloat (exponentWidth ep sp) (sp + 1)).Rel ((SmtLibSemantics.smtLibRoundMethod (R := ExtRat) ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round .RNE x.sign (ExtRat.Number x.toRat)) := by
   rw [UnpackedFloat.blastSmtLibRound]
   by_cases hover : x.blastIsOverflowNonneg ep sp
   · simp [hover]
@@ -730,9 +730,12 @@ theorem UnpackedFloat.toExtRat_round_eq_smtLibRound_of_RNE
     simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true,
       UnpackedFloat.toRat_eq_toRat']
     by_cases hx0 : x.isZero
-    · simp only [hx0, ↓reduceIte, UnpackedFloat.toRat'_eq_zero_if_isZero, not_true_eq_false,
+    · simp only [hx0, ↓reduceIte, UnpackedFloat.toRat'_eq_zero_of_isZero, not_true_eq_false,
       false_and]
-      simp [blastRounderForSign_eq_smtLibRounderForSign he hs heu hsu x]
-    · sorry
-
+      sorry
+      -- simp [blastRounderForSign_eq_smtLibRounderForSign he hs heu hsu x]
+    · simp [hx0]
+      have hx0' : x.toRat' ≠ 0 := by sorry
+      simp [hx0']
+      sorry
 end Fp
