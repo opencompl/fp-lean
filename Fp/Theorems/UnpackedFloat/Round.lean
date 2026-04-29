@@ -5,6 +5,7 @@ import Fp.Theorems.PackedFloat.Packing
 import Fp.Theorems.PackedFloat.Negation
 import Fp.Theorems.PackedFloat.Ordering
 import Fp.Theorems.LowerUpperRound
+import Fp.Theorems.PackedUnpackedRel
 
 namespace Fp
 
@@ -644,13 +645,17 @@ theorem isBlastOverflowNonneg_iff (x : UnpackedFloat e s) :
 
 /-# `blastUpper` matches `upper` -/
 
-theorem UnpackedFloat.blastUpper_zero_eq_smtLibUpper_zero (x : UnpackedFloat e s)
+/--
+This tells us that `blastUpper` gives an unpacked float
+which represents the same packed float as the SMT-LIB `upper` function on zero.
+-/
+theorem UnpackedFloat.blastUpper_zero_Rel
+    (x : UnpackedFloat e s)
+    (hep : 1 < ep) (hsp : 0 < sp)
     (hx : x.isZero) :
-    x.blastUpper ep sp =
-  (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number 0) : PackedFloat ep sp) := by
-  simp [UnpackedFloat.blastUpper, hx]
-  simp [SmtLibSemantics.smtLibUpper.upper, ← ExtRat.ExtRat.zero_def]
-  simp [PackedFloat.zero_def]
+    (x.blastUpper ep sp).Rel (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number 0) : PackedFloat ep sp) := by
+  rw [upper_zero_eq (by grind only)]
+
 
 /-# `blastLower` matches `lower` -/
 
