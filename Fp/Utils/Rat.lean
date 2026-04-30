@@ -527,3 +527,7 @@ theorem Rat.mul_ne_zero_iff_ne_zero₂ {a b : Rat} :
 theorem Rat.mul_ne_zero_iff_ne_zero₃ {a b c : Rat} :
   a * b * c ≠ 0 ↔ a ≠ 0 ∧ b ≠ 0 ∧ c ≠ 0 := by
   grind
+
+@[simp]
+theorem neg_eq_neg_iff_eq {a b : Rat} : -a = -b ↔ a = b := by
+  grind

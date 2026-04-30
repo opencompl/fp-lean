@@ -622,7 +622,7 @@ def UnpackedFloat.blastUpperNonneg {eu su : Nat} (uf : UnpackedFloat eu su) (tep
 @[bv_normalize]
 def UnpackedFloat.blastLowerNeg {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) :
     EUnpackedFloat (eu + 1) (tsp + 1) :=
-  uf.neg.blastUpperNonneg tep tsp |>.neg
+  -((-uf).blastUpperNonneg tep tsp)
 
 @[bv_normalize]
 def UnpackedFloat.blastLower {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) :
@@ -635,7 +635,7 @@ def UnpackedFloat.blastLower {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp :
 @[bv_normalize]
 def UnpackedFloat.blastUpperNeg {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) :
     EUnpackedFloat (eu + 1) (tsp + 1) :=
-  uf.neg.blastLowerNonneg tep tsp |>.neg
+  -((-uf).blastLowerNonneg tep tsp)
 
 @[bv_normalize]
 def UnpackedFloat.blastUpper {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) :

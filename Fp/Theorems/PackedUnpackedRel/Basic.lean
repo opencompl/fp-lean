@@ -1,8 +1,11 @@
 import Fp.PackedFloat.Basic
+import Fp.Theorems.PackedFloat.Negation
+import Fp.Theorems.PackedFloat.Packing
 import Fp.UnpackedFloat.Basic
 import Fp.Theorems.UnpackedFloat.ToRat
 import Fp.EUnpackedFloat.Basic
 import Fp.Basic
+import Fp.Utils
 
 
 /--
@@ -12,6 +15,18 @@ iff they have the same rational value and the same sign.
 def UnpackedFloat.Rel (uf : UnpackedFloat e s) (pf : PackedFloat ep sp) :=
   uf.toRat' = pf.toRat ∧ uf.sign = pf.sign -- ∧ ¬ pf.isInfinite ∧ ¬ pf.isNaN
 
+
+@[simp, grind .]
+theorem sign_eq_sign_of_Rel (uf : UnpackedFloat e s) (pf : PackedFloat ep sp) (hRel : uf.Rel pf) :
+  uf.sign = pf.sign := by
+  simp only [UnpackedFloat.Rel] at hRel
+  exact hRel.2
+
+@[simp]
+theorem toRat'_eq_toRat_of_Rel (uf : UnpackedFloat e s) (pf : PackedFloat ep sp) (hRel : uf.Rel pf) :
+  uf.toRat' = pf.toRat := by
+  simp only [UnpackedFloat.Rel] at hRel
+  exact hRel.1
 
 @[grind =>]
 theorem UnpackedFloat.Rel_of_toRat_eq_toRat_and_sign (uf : UnpackedFloat ef uf) (pf : PackedFloat ep sp)
@@ -27,6 +42,19 @@ theorem UnpackedFloat.Rel_of_isZero_of_isZero
   UnpackedFloat.Rel uf pf := by
   simp only [UnpackedFloat.Rel]
   simp [hpf, hsign, huf]
+
+@[simp]
+theorem UnpackedFloat.neg_Rel_neg
+  (uf : UnpackedFloat e s) (pf : PackedFloat ep sp)
+  (h : uf.Rel pf) :
+  (- uf).Rel (-pf) := by
+  constructor
+  · simp
+    apply toRat'_eq_toRat_of_Rel uf pf h
+  · simp; grind only [sign_eq_sign_of_Rel]
+
+/-- info: 'UnpackedFloat.neg_Rel_neg' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms UnpackedFloat.neg_Rel_neg
 
 /--
 An extended unpacked float is related to a packed float
@@ -59,3 +87,38 @@ theorem EUnpackedFloat.Rel_of_Rel_of_not_isNaN_of_not_isInfinite (euf : EUnpacke
   EUnpackedFloat.Rel euf pf := by
   simp only [EUnpackedFloat.Rel]
   simp [heuf, heuf', hRel]
+
+
+theorem EUnpackedFloat.neg_Rel_neg
+  (euf : EUnpackedFloat e s) (pf : PackedFloat ep sp)
+  (h : euf.Rel pf) :
+euf.neg.Rel (-pf) := by
+  simp [EUnpackedFloat.Rel]
+  rcases h with h | h | h
+  · have heuf : euf.isNaN = true := by
+      simp [h]
+    have hpf : (pf).isNaN = true := by
+      simp [h]
+    grind only [=> EUnpackedFloat.isNaN_iff_state_eq]
+  · simp at h
+    simp [h]
+  · obtain ⟨hnan, hinf, hnum⟩ := h
+    simp at hnan
+    simp at hinf
+    simp [hnan, hinf]
+    apply UnpackedFloat.neg_Rel_neg _ _ hnum
+
+/-- info: 'EUnpackedFloat.neg_Rel_neg' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms EUnpackedFloat.neg_Rel_neg
+
+/--
+If an extended unpacked float is related to a packed float,
+then packing the extended unpacked float gives back the same packed float.
+-/
+theorem pack_eq_of_Rel (euf : EUnpackedFloat (exponentWidth ep sp) (sp + 1))
+    (pf : PackedFloat ep sp)
+    (hRel : euf.Rel pf) :
+  euf.pack = pf := sorry
+
+-- theorem unpack_eq_of_Rel (euf : EUnpackedFloat ef uf) (pf : PackedFloat (exponentWidth ef uf) (uf + 1)) (hRel : euf.Rel pf) :
+--   pf.unpack = euf := sorry

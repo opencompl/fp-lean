@@ -94,27 +94,6 @@ theorem UnpackedFloat.blastClearSignificand_toRat_le_of_nonneg (uf : UnpackedFlo
   simp only [PackedFloat.Rat.natCast_le_natCast_iff_le]
   grind only [UnpackedFloat.blastClearSignificand]
 
-/-- For a nonnegative unpacked float, the error from clearing guard/sticky bits is bounded by
-    2^(guardBitIdx + 1) ULPs at the significand level, i.e.,
-    `x.toRat - cleared.toRat < 2^(guardBitIdx + 1) UnpackedFloat.blastClearSignificand
-    This is the ULP of the target precision. -/
-theorem clearSignificand_toRat_sub_lt (uf : UnpackedFloat e s)
-    (targetExponentWidth targetSignificandWidth : Nat)
-    (h : 0 ≤ uf.toRat) :
-    uf.toRat - (uf.blastClearSignificand targetExponentWidth targetSignificandWidth).toRat <
-      (2 : Rat) ^ ((uf.guardBitIndex targetExponentWidth targetSignificandWidth).toNat + 1) *
-      (2 : Rat) ^ uf.toExpInt := by
-  sorry
-
-/--
-The result of 'clearSignificand' results in an unpacked float
-that can be represented in the target format, and has the same rational value as some `PackedFloat`.
--/
-theorem exists_packedFloat_toRat_eq_clearSignificand_toRat (uf : UnpackedFloat e s)
-    (targetExponentWidth targetSignificandWidth : Nat) :
-    ∃ (pf : PackedFloat targetExponentWidth targetSignificandWidth),
-      pf.toRat = (uf.blastClearSignificand targetExponentWidth targetSignificandWidth).toRat := by
-  sorry
 
 
 /-! # guardBitIndex -/
@@ -189,40 +168,6 @@ theorem iff_iff_not_iff_not {p q : Prop} :
     (p ↔ q) ↔ (¬ p ↔ ¬ q) := by
   grind
 
-
-/-! # roundTowardZero -/
-
-theorem toRat_blastRoundTowardZero_eq_smtLibLower_of_nonneg (x : UnpackedFloat e s)
-    (hx : 0 ≤ x.toRat) :
-    (x.blastRoundTowardZero targetExponentWidth targetSignificandWidth).toRat =
-    (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat) : PackedFloat targetExponentWidth targetSignificandWidth).toRat
-      := by
-  sorry
-
-theorem toRat_blastRoundTowardZero_eq_smtLibUpper_of_neg (x : UnpackedFloat e s)
-    (hx : x.toRat < 0) :
-    (x.blastRoundTowardZero targetExponentWidth targetSignificandWidth).toRat =
-    (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat) : PackedFloat targetExponentWidth targetSignificandWidth).toRat
-      := by
-  sorry
-
-
-/-# successorAwayFromZero -/
-
-theorem UnpackedFloat.blastRoundTowardZerorAwayFromZero_eq_smtLibUpper_of_nonneg (x : UnpackedFloat e s)
-    (hx : 0 ≤ x.toRat) :
-    (x.blastSuccessorAwayFromZero targetExponentWidth targetSignificandWidth).toRat =
-    (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat) : PackedFloat targetExponentWidth targetSignificandWidth).toRat
-      := by
-  sorry
-
-theorem UnpackedFloat.blastRoundTowardZerorAwayFromZero_eq_smtLibLower_of_neg (x : UnpackedFloat e s)
-    (hx : x.toRat < 0) :
-    (x.blastSuccessorAwayFromZero targetExponentWidth targetSignificandWidth).toRat =
-    (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat) : PackedFloat targetExponentWidth targetSignificandWidth).toRat
-      := by
-  sorry
-
 /-! # extractIsEven -/
 
 @[simp]
@@ -288,29 +233,6 @@ theorem UnpackedFloat.extractGuardBit_eq_getLsbD
   grind only [#65b0223044fbdd80]
 
 -- TODO: 'toRatSig' lemma about what the guardBit tracks.
-
-theorem SmtLibSemantics.smtLibRoundMethod.lowerHalf_eq_decide (r : Rat) :
-    (smtLibRoundMethod e s smtLibV smtLibV).lowerHalf (ExtRat.Number r) =
-    (r - ((smtLibRoundMethod e s smtLibV smtLibV).lower (ExtRat.Number r)).toRat ≤ 2^e) := by
-  -- TODO: this is what I need to prove now.
-  sorry
-
--- theorem le_toRatSig_of_extractGuardBit
-
-@[simp]
-theorem UnpackedFloat.blastExtractGuardBit_eq_not_lowerHalf_of_nonneg (x : UnpackedFloat e s)
-    (hx : x.sign = false) :
-    x.blastExtractGuardBit e s = ! (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) e s SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat) := by
-  -- simp [SmtLibSemantics.smtLibRoundMethod]
-  sorry
-
-@[simp]
-theorem UnpackedFloat.blastExtractGuardBit_eq_smtLibLowerHalf_of_neg (x : UnpackedFloat e s)
-    (hx : x.sign = true) :
-    x.blastExtractGuardBit e s = (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) e s SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat) := by
-  simp [UnpackedFloat.blastExtractGuardBit]
-  simp [SmtLibSemantics.smtLibRoundMethod]
-  sorry
 
 @[simp]
 theorem BitVec.and_allOnes_eq_self (bv : BitVec n) :
@@ -477,21 +399,75 @@ theorem UnpackedFloat.blastExtractStickyBit_eq_decide
     simp at this
     grind only [#46e5, #0b53]
 
+
+/-# `blastLowerNonneg` matches `lower` -/
+
+theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s)
+  (hxsign : x.sign = false) :
+  (x.blastLowerNonneg ep sp).Rel (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
+  simp [UnpackedFloat.blastLowerNonneg]
+  sorry
+
+/-# `blastUpperNonneg` matches `upper` -/
+
+theorem UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s)
+  (hxsign : x.sign = false) :
+  (x.blastUpperNonneg ep sp).Rel (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
+  simp [UnpackedFloat.blastUpperNonneg]
+  sorry
+
+
+/-# `blastLower` matches `lower` -/
+
+theorem UnpackedFloat.blastLower_Rel_smtLibLower (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s) :
+  (x.blastLower ep sp).Rel (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
+  simp [UnpackedFloat.blastLower]
+  by_cases hsign : x.sign
+  · simp [hsign]
+    simp [UnpackedFloat.blastLowerNeg]
+    rw [smtLibLower_eq_neg_smtLibUpper_neg]
+    · apply EUnpackedFloat.neg_Rel_neg
+      simp
+      rw [show - x.toRat' = (-x).toRat' by simp]
+      apply UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper
+      · grind
+      · grind
+      · simp [hsign]
+    · grind only
+    · grind only
+    · grind only
+  · simp [hsign]
+    apply UnpackedFloat.blastLowerNonneg_Rel_smtLibLower
+    · grind only
+    · grind only
+    · simp [hsign]
+
+
 /-# `blastUpper` matches `upper` -/
 
 
 theorem UnpackedFloat.blastUpper_Rel_smtLibUpper (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s) :
   (x.blastUpper ep sp).Rel (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
   simp [UnpackedFloat.blastUpper]
-  sorry
-
-/-# `blastLower` matches `lower` -/
-
-
-theorem UnpackedFloat.blastLower_Rel_smtLibLower (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s) :
-  (x.blastLower ep sp).Rel (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
-  simp [UnpackedFloat.blastLower]
-  sorry
+  by_cases hsign : x.sign
+  · simp [hsign]
+    simp [UnpackedFloat.blastUpperNeg]
+    rw [smtLibUpper_eq_neg_smtLibLower_neg]
+    · apply EUnpackedFloat.neg_Rel_neg
+      simp
+      rw [show - x.toRat' = (-x).toRat' by simp]
+      apply UnpackedFloat.blastLowerNonneg_Rel_smtLibLower
+      · grind
+      · grind
+      · simp [hsign]
+    · grind only
+    · grind only
+    · grind only
+  · simp [hsign]
+    apply UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper
+    · grind only
+    · grind only
+    · simp [hsign]
 
 /-# blastIsEvenUpper, blastIsEvenLower -/
 
@@ -539,6 +515,7 @@ theorem blastTieBreak_iff_smtLibTieBreak (he : 1 < ep) (hs : 0 < sp) (x : Unpack
 
 
 /-# `blastRounderForSign` matches `rounderForSign`-/
+
 
 @[simp]
 theorem UnpackedFloat.blastRounderForSign_of_sign_eq_true_eq
@@ -648,7 +625,6 @@ info: 'Fp.EUnpackedFloat.normalize_Rel_of_Rel' depends on axioms: [propext, Clas
 #guard_msgs in #print axioms EUnpackedFloat.normalize_Rel_of_Rel
 
 
-
 /-# truncateFittingExponent -/
 
 /--
@@ -742,8 +718,6 @@ theorem EUnpackedFloat.truncateFittingExponent_Rel_of_Rel_of_exponent_range
       hlo
       hhi
   · exact h
-
-
 
 
 /-# `blastSmtLibRound` matches `smtLibRound` for RNE rounding mode. -/

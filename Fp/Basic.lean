@@ -523,6 +523,7 @@ theorem toNat_ex_eq_of_isNonzeroSubnorm {pf : PackedFloat e s}
 def isNorm {e s} (pf : PackedFloat e s) : Bool :=
   pf.ex != .allOnes e && pf.ex != .zero e
 
+
 @[grind ., simp ←]
 theorem isNorm_iff_ex_ne_allOnes_and_ex_ne_zero {pf : PackedFloat e s} :
     pf.isNorm ↔ (pf.ex ≠ .allOnes e ∧ pf.ex ≠ .zero e) := by
@@ -893,6 +894,14 @@ theorem neg_ex (x : PackedFloat e s) : (-x).ex = x.ex := rfl
 @[simp]
 theorem neg_sig (x : PackedFloat e s) : (-x).sig = x.sig := rfl
 
+@[simp]
+theorem isNaN_neg_iff_isNaN (pf : PackedFloat e s) : isNaN (-pf) ↔ isNaN pf := by
+  simp [isNaN]
+
+@[simp]
+theorem neg_isInfinite_iff_isInfinite (pf : PackedFloat e s) :
+    isInfinite (-pf) ↔ isInfinite pf := by
+  simp [isInfinite]
 /--
 Raw abs directly on the packedFloat representation.
 -/
@@ -956,8 +965,13 @@ end UnpackedFloat
 negate the number in an EUnpackedFloat.
 -/
 def EUnpackedFloat.neg (x : EUnpackedFloat e s) : EUnpackedFloat e s :=
-  { x with num := x.num.neg }
+  { x with num := - x.num }
 
+instance : Neg (EUnpackedFloat e s) where
+  neg := .neg
+
+@[simp]
+theorem EUnpackedFloat.neg_def (x : EUnpackedFloat e s) : EUnpackedFloat.neg x  = -x := rfl
 
 namespace ExtRat
 
@@ -1817,6 +1831,14 @@ def toRatSig {e s} (pf : PackedFloat e s) : Rat :=
     0 + pf.sig.toNat / 2 ^ s
 
 @[simp]
+theorem isNorm_neg (pf : PackedFloat e s) : (- pf).isNorm = pf.isNorm := by
+  simp [PackedFloat.isNorm]
+
+@[simp]
+theorem toRatSig_neg (pf : PackedFloat e s) : (- pf).toRatSig = pf.toRatSig := by
+  simp [toRatSig]
+
+@[simp]
 theorem Rat.one_lt_two_pow_iff (x : Nat) : 1 < (2 : Rat) ^ x ↔ 1 ≤ x := by
   constructor
   · intros hlt
@@ -2229,6 +2251,17 @@ theorem toRatExp_eq_of_isNorm {e s} {pf : PackedFloat e s} (hnorm : pf.isNorm) :
 -- to be a nicer version of 'toRat'.
 def toRat {e s} (pf : PackedFloat e s) : Rat :=
     pf.sign.toSign * pf.toRatSig * 2 ^ (pf.toRatExp)
+
+@[simp]
+theorem toRatExp_neg {pf : PackedFloat e s} :
+    (- pf).toRatExp = pf.toRatExp := by
+  simp [toRatExp]
+
+@[simp]
+theorem toRat_neg {e s} (pf : PackedFloat e s) :
+    (-pf).toRat = - pf.toRat := by
+  simp [toRat]
+  grind only
 
 @[simp]
 theorem toRatSig_eq_zero_of_isZero {e s} (pf : PackedFloat e s) (hzero : pf.isZero := by grind) :
@@ -3149,6 +3182,11 @@ theorem toSigNat_of_sig_eq_zero (uf : UnpackedFloat e s)  (h : uf.sig = 0#s) :
 def toExpInt {e s} (uf : UnpackedFloat e s) : Int :=
   - ((s - 1 : Nat) - uf.ex.toInt)
 
+@[simp]
+theorem toExpInt_neg (uf : UnpackedFloat e s) :
+  (- uf).toExpInt = uf.toExpInt := by
+  simp [toExpInt]
+
 def toRat' (uf : UnpackedFloat e s) : Rat :=
   uf.sign.toSign * uf.toSigNat * (2 : Rat) ^ uf.toExpInt
 
@@ -3190,6 +3228,12 @@ theorem toRat'_eq_zero_of_isZero (uf : UnpackedFloat e s) (hz : uf.isZero) :
   simp [toRat']
   simp [UnpackedFloat.isZero] at hz
   simp [hz]
+
+@[simp]
+theorem toRat'_neg (uf : UnpackedFloat e s) :
+    (- uf).toRat' = - uf.toRat' := by
+  simp [toRat']
+  grind only
 
 @[bv_normalize]
 def maxNormal (eout sout : Nat) (e _s : Nat) (sign : Bool) :
@@ -3285,9 +3329,19 @@ theorem eq_num_ex {x y : EUnpackedFloat e s} :
 def isNaN (x : EUnpackedFloat e s) : Bool :=
   x.state == .NaN
 
+@[simp]
+theorem isNaN_neg_iff_isNaN (x : EUnpackedFloat e s) : isNaN (- x) ↔ isNaN x := by
+  rw [← EUnpackedFloat.neg_def]
+  simp [isNaN, neg]
+
 @[bv_normalize]
 def isInfinite (x : EUnpackedFloat e s) : Bool :=
   x.state == .Infinity
+
+@[simp]
+theorem isInfinite_neg_iff_isInfinite (x : EUnpackedFloat e s) : isInfinite (- x) ↔ isInfinite x := by
+  rw [← EUnpackedFloat.neg_def]
+  simp [isInfinite, neg]
 
 @[bv_normalize]
 def isNumber (x : EUnpackedFloat e s) : Bool :=
@@ -3300,6 +3354,16 @@ def isZero (x : EUnpackedFloat e s) : Bool :=
 @[bv_normalize]
 def sign (x : EUnpackedFloat e s) : Bool :=
   x.num.sign
+
+@[simp]
+theorem neg_sign (x : EUnpackedFloat e s) : (-x).sign = !x.sign := by
+  rw [← EUnpackedFloat.neg_def]
+  simp [sign, neg]
+
+@[simp]
+theorem neg_state (uf : EUnpackedFloat e s) : (-uf).state = uf.state := by
+  rw [← EUnpackedFloat.neg_def]
+  simp [neg]
 
 @[bv_normalize]
 def exp (x : EUnpackedFloat e s) : BitVec e :=
