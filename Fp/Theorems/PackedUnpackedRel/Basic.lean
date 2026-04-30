@@ -12,6 +12,7 @@ iff they have the same rational value and the same sign.
 def UnpackedFloat.Rel (uf : UnpackedFloat e s) (pf : PackedFloat ep sp) :=
   uf.toRat' = pf.toRat ∧ uf.sign = pf.sign -- ∧ ¬ pf.isInfinite ∧ ¬ pf.isNaN
 
+
 @[grind =>]
 theorem UnpackedFloat.Rel_of_toRat_eq_toRat_and_sign (uf : UnpackedFloat ef uf) (pf : PackedFloat ep sp)
   (hToRat : uf.toRat' = pf.toRat) (hSign : uf.sign = pf.sign) :
