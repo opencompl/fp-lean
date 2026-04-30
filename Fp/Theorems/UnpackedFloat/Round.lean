@@ -431,214 +431,6 @@ theorem UnpackedFloat.blastExtractStickyBit_eq_not_tieBreak_of_nonneg_of_guardBi
   · grind only
   · grind only
 
-/-# IsEven and IsOdd -/
-
-
--- /--UnpackedFloat.blastExtractGuardBit
--- isEvenUnpackedFloat.blastExtractStickyBiteen numbers.
--- -/
--- theorem isEven_lower_eq_not_isEven_upper (eout sout : Nat) (r : Rat) :
---   (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).isEven
---           (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r)) =
---   ! (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).isEven
---           (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r)) := by
---   simp [SmtLibSemantics.smtLibRoundMethod]
-
---   -- ned a precondition that lower != upper
---   sorry
-
--- theorem isEven_upper_eq_not_isEven_lower (eout sout : Nat) (r : Rat) :
---   (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).isEven
---           (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r)) =
---   ! (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).isEven
---           (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r)) := by
---   have := isEven_lower_eq_not_isEven_upper eout sout r
---   grind only [#9ad2]
-
-
-/-# Rounding decision in terms of computable definitions -/
-
-
--- -- TDOO: add a 'computableRoundingDecision.
-
--- theorem round_eq_ite_roundingDecision_of_Number_of_nonneg {eout sout : Nat} (rm : RoundingMode)
---     (sign : Bool)
---     (isEven : Bool)
---     (guard : Bool)
---     (sticky : Bool)
---     (_exact : Bool)
---     (r : Rat)
---     (hguardsticky : guard = false → sticky = false →
---       (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat eout sout) = SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r)
---     )
---     (hguard : (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number r) = (guard = false))
---     (htiebreak : (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).tieBreak (ExtRat.Number r) = (guard = true ∧ sticky = false))
---     (heven : (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).isEven
---           (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r)) = isEven)
---     (hz : r ≠ 0)
---     (hsign : sign = (r < 0))
---     (hr : 0 ≤ r)
---     :
---     ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round rm sign
---     (ExtRat.Number r) : PackedFloat eout sout) =
---     if roundingDecision rm sign isEven guard sticky _exact then
---       (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).upper (ExtRat.Number r)
---     else
---       (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lower  (ExtRat.Number r) := by
---   simp [show ¬ r < 0 by grind only] at hsign
---   subst hsign
---   cases rm <;> simp [roundingDecision]
---   case RNE =>
---     simp only [SmtLibSemantics.RoundMethod.roundRNE]
---     simp [hz]
---     simp [hguard]
---     rcases guard with rfl | rfl
---     · -- guard = false
---       simp only [↓reduceIte, Bool.false_eq_true, false_and]
---       simp at htiebreak
---       simp [htiebreak]
---     · -- guard = true
---       simp only [Bool.true_eq_false, ↓reduceIte, true_and, ite_not]
---       rcases sticky with rfl | rfl
---       · -- tiebreak = false
---         simp [htiebreak]
---         simp [heven]
---         rcases isEven with rfl | rfl
---         · simp
---           -- I need a theorem that says that if lower is not even then upper is.
---           intros hupper
---           -- isEven cannot be both true and false.
---           have hcontra := isEven_upper_eq_not_isEven_lower eout sout r
---           grind only
---         · simp
---           intros heven
---           have hcontra := isEven_upper_eq_not_isEven_lower eout sout r
---           grind only
---       · -- tiebreak = true
---         simp [htiebreak]
---   case RNA =>
---     -- This rounding mode is broken, I seem to have confused lower and upper!
---     simp only [SmtLibSemantics.RoundMethod.roundRNA]
---     simp [hz]
---     simp [hguard]
---     rcases guard with rfl | rfl
---     · -- guard = false
---       simp
---       intros hr
---       have hrlt : r < 0 := by grind only
---       grind only
---     · -- guard = true
---       simp
---       intros hrle
---       grind only
---   case RTP =>
---     simp only [SmtLibSemantics.RoundMethod.roundRTP]
---     simp [hz]
---     intros hguard hsticky
---     rw [hguardsticky]
---     · grind only
---     · grind only
---   case RTN =>
---     simp only [SmtLibSemantics.RoundMethod.roundRTN]
---     simp [hz]
---   case RTZ =>
---     simp only [SmtLibSemantics.RoundMethod.roundRTZ]
---     simp [hz]
---     intros hrlezero
---     have hcontra : r = 0 := by grind only
---     grind only
-
--- /--
--- When negative, the guard, stick, and isEven interpretations change.
--- - isEven tells us when the upper is even.
--- - guard bit tells us when we are in the lower half, since it is 'more negative'.
--- -/
--- theorem round_eq_ite_roundingDecision_of_Number_of_neg {eout sout : Nat} (rm : RoundingMode)
---     (sign : Bool)
---     (isEven : Bool)
---     (guard : Bool)
---     (sticky : Bool)
---     (_exact : Bool)
---     (r : Rat)
---     (hguardsticky : guard = false → sticky = false →
---       (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat eout sout) = SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r)
---     )
---     -- | in the negative case, we are in the lower half when guard is true,
---     -- since we are closer to lower than upp.er
---     (hguard :
---       (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number r) =
---       (guard = true))
---     (htiebreak : (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).tieBreak (ExtRat.Number r) = (guard = true ∧ sticky = false))
---     (heven : (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).isEven
---           (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r)) = isEven)
---     (hz : r ≠ 0)
---     (hsign : sign = (r < 0))
---     (hr : r < 0)
---     :
---     ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round rm sign
---     (ExtRat.Number r) : PackedFloat eout sout) =
---     if roundingDecision rm sign isEven guard sticky _exact then
---       (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lower (ExtRat.Number r)
---     else
---       (SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).upper  (ExtRat.Number r) := by
---   simp [show r < 0 by grind only] at hsign
---   subst hsign
---   cases rm <;> simp [roundingDecision]
---   case RNE =>
---     simp only [SmtLibSemantics.RoundMethod.roundRNE]
---     simp [hz]
---     simp [hguard]
---     rcases guard with rfl | rfl
---     · simp
---       intros htiebreak'
---       simp at htiebreak
---       grind only
---     · simp
---       rcases sticky with rfl | rfl
---       · -- tiebreak = false
---         simp [htiebreak]
---         simp at htiebreak
---         simp at hguard
---         simp at hguardsticky
---         rcases isEven with rfl | rfl
---         · simp
---           intros isEven
---           grind only
---         · simp
---           intros hevenUpper
---           grind only
---       · -- tiebreak = true
---         simp [htiebreak]
---   case RNA =>
---     -- This rounding mode is broken, I seem to have confused lower and upper!
---     simp only [SmtLibSemantics.RoundMethod.roundRNA]
---     simp [hz]
---     simp [hguard]
---     rcases guard with rfl | rfl
---     · simp [show ¬ 0 < r by grind only]
---       simp [hr]
---       intros htiebreak
---       simp [htiebreak]
---       grind only
---     · simp [show ¬ 0 < r by grind only]
---       intros hr
---       grind only
---   case RTP =>
---     simp only [SmtLibSemantics.RoundMethod.roundRTP]
---     simp [hz]
---   case RTN =>
---     simp only [SmtLibSemantics.RoundMethod.roundRTN]
---     simp [hz]
---     intros hguard hsticky
---     apply hguardsticky
---     · grind only
---     · grind only
---   case RTZ =>
---     simp only [SmtLibSemantics.RoundMethod.roundRTZ]
---     simp [hr]
---     intros hr
---     grind only
-
 /-# blastIsOverflowNonneg -/
 theorem blastIsOverflowNonneg_iff  (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s) :
   x.blastIsOverflowNonneg ep sp = true ↔ (PackedFloat.maxNormalNumber ep sp false).toRat < x.toRat := by sorry
@@ -663,32 +455,40 @@ theorem blastTieBreak_iff_smtLibTieBreak (he : 1 < ep) (hs : 0 < sp) (x : Unpack
   simp [SmtLibSemantics.smtLibRoundMethod]
   sorry
 
-/-# blastIsEven -/
+/-# `blastUpper` matches `upper` -/
 
-theorem blastIsEven_iff_smtLibIsEven (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s) :
-  x.blastIsEven ep sp = true ↔
+
+theorem UnpackedFloat.blastUpper_Rel_smtLibUpper (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s) :
+  (x.blastUpper ep sp).Rel (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
+  simp [UnpackedFloat.blastUpper]
+  sorry
+
+/-# `blastLower` matches `lower` -/
+
+
+theorem UnpackedFloat.blastLower_Rel_smtLibLower (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s) :
+  (x.blastLower ep sp).Rel (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
+  simp [UnpackedFloat.blastLower]
+  sorry
+
+/-# blastIsEvenUpper, blastIsEvenLower -/
+
+theorem blastIsEvenUpper_iff_smtLibIsEven_upper (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s) :
+  x.blastIsEvenUpper ep sp = true ↔
     (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).isEven
           (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat')) = true := by
-  simp [UnpackedFloat.blastIsEven]
+  simp [UnpackedFloat.blastIsEvenUpper]
   simp [SmtLibSemantics.smtLibRoundMethod]
   sorry
 
-/-# `blastUpper` matches `upper` -/
-
-/--
-This tells us that `blastUpper` gives an unpacked float
-which represents the same packed float as the SMT-LIB `upper` function on zero.
--/
-theorem UnpackedFloat.blastUpper_zero_Rel
-    (x : UnpackedFloat e s)
-    (hep : 1 < ep) (hsp : 0 < sp)
-    (hx : x.isZero) :
-    (x.blastUpper ep sp).Rel (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number 0) : PackedFloat ep sp) := by
-  rw [upper_zero_eq (by grind only)]
+theorem blastIsEvenLower_iff_smtLibIsEven_lower (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s) :
+  x.blastIsEvenLower ep sp = true ↔
+    (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).isEven
+          (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat')) = true := by
+  simp [UnpackedFloat.blastIsEvenLower]
+  simp [SmtLibSemantics.smtLibRoundMethod]
   sorry
 
-
-/-# `blastLower` matches `lower` -/
 
 
 /-# `blastRounderForSign` matches `rounderForSign`-/
@@ -707,19 +507,55 @@ theorem UnpackedFloat.blastRounderForSign_of_sign_eq_false_eq
   simp [UnpackedFloat.blastRounderForSign, hsign]
 
 
-theorem blastRounderForSign_eq_smtLibRounderForSign (he : 1 < ep) (hs : 0 < sp)
+theorem UnpackedFloat.blastRounderForSign_Rel_rounderForSign_zero (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu)
     (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) :
-  (x.blastRounderForSign ep sp).truncateFittingExponent.normalize =
+  (x.blastRounderForSign ep sp).Rel
     ((SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).rounderForSign x.sign
-        (ExtRat.Number 0)).unpack := by
+        (ExtRat.Number 0)) := by
   by_cases hsign : x.sign
   · simp [hsign]
     sorry
   · simp [hsign]
     sorry
 
+
+/-# normalize -/
+
+theorem UnpackedFloat.normalize_Rel_of_Rel (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (pf : PackedFloat ep sp)
+    (h : x.Rel pf) :
+    (x.normalize sign).Rel pf := by
+  sorry
+
+theorem EUnpackedFloat.normalize_Rel_of_Rel (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (hsu : sp + 2 ≤ su)
+    (x : EUnpackedFloat eu su) (pf : PackedFloat ep sp)
+    (h : x.Rel pf) :
+    (x.normalize).Rel pf := by
+  sorry
+
+/-# truncateFittingExponent -/
+
+theorem UnpackedFloat.truncateFittingExponent_Rel_of_Rel (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (pf : PackedFloat ep sp)
+    (h : x.Rel pf) :
+    (x.truncateFittingExponent ep sp).Rel pf := by
+  sorry
+
+theorem EUnpackedFloat.truncateFittingExponent_Rel_of_Rel (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (hsu : sp + 2 ≤ su)
+    (x : EUnpackedFloat eu su) (pf : PackedFloat ep sp)
+    (h : x.Rel pf) :
+    (x.truncateFittingExponent ep sp).Rel pf := by
+  sorry
 
 /-# `blastSmtLibRound` matches `smtLibRound` for RNE rounding mode. -/
 
@@ -750,10 +586,10 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
   · simp [hover]
     simp only [UnpackedFloat.blastSmtLibRoundAux]
     simp only [SmtLibSemantics.RoundMethod.roundRNE, SmtLibSemantics.instExtendedRat.isNaN_eq,
-      ExtRat.isNaN_iff, ExtRat.ExtRat.NaN_le_iff, decide_eq_true_eq, ExtRat.ExtRat.le_refl,
+      ExtRat.isNaN_iff,
       reduceCtorEq, decide_false, Bool.false_eq_true, ↓reduceIte,
       SmtLibSemantics.instExtendedRat.isZero, ← ExtRat.ExtRat.zero_def, ExtRat.Number.injEq,
-      Bool.not_eq_eq_eq_not, Bool.not_true, decide_eq_false_iff_not, hs,
+      Bool.not_eq_eq_eq_not, Bool.not_true, decide_eq_false_iff_not,
       SmtLibSemantics.smtLibRoundMethod.upper_eq, SmtLibSemantics.smtLibV_upper_eq,
       SmtLibSemantics.smtLibRoundMethod.lower_eq, SmtLibSemantics.smtLibV_lower_eq]
     rw [UnpackedFloat.blastSmtLibRoundRNE]
@@ -762,7 +598,9 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
     by_cases hx0 : x.isZero
     · simp only [hx0, ↓reduceIte, UnpackedFloat.toRat'_eq_zero_of_isZero, not_true_eq_false,
       false_and]
-      sorry
+      apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) (by sorry)
+      apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel (by grind) (by grind) (by grind) (by sorry)
+      apply UnpackedFloat.blastRounderForSign_Rel_rounderForSign_zero (by grind) (by grind) (by grind) (by grind)
       -- simp [blastRounderForSign_eq_smtLibRounderForSign he hs heu hsu x]
     · simp [hx0]
       have hx0' : x.toRat' ≠ 0 := by grind only [=> UnpackedFloat.toRat'_ne_zero_iff_not_isZero]
@@ -772,29 +610,56 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
         simp [hlowerhalf, hlowerHalf']
         by_cases htiebreak : x.blastIsTieBreak ep sp
         · have htiebreak' := blastTieBreak_iff_smtLibTieBreak he hs x |>.mp htiebreak
-          simp [htiebreak']
-          sorry
+          simp [htiebreak, htiebreak']
+          by_cases hevenupper : x.blastIsEvenUpper ep sp
+          · have hevenupper' := blastIsEvenUpper_iff_smtLibIsEven_upper he hs x |>.mp hevenupper
+            simp [hevenupper, hevenupper']
+            sorry
+          · have hevenupper' := blastIsEvenUpper_iff_smtLibIsEven_upper he hs x
+            simp [hevenupper] at hevenupper'
+            simp [hevenupper, hevenupper']
+            apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) (by sorry)
+            apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel (by grind) (by grind) (by grind) (by sorry)
+            apply UnpackedFloat.blastLower_Rel_smtLibLower (by grind) (by grind)
         · have htiebreak' := blastTieBreak_iff_smtLibTieBreak he hs x
           simp [htiebreak] at htiebreak'
           simp [htiebreak, htiebreak']
-          sorry
+          apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) (by sorry)
+          apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel (by grind) (by grind) (by grind) (by sorry)
+          apply UnpackedFloat.blastLower_Rel_smtLibLower (by grind) (by grind)
       · have hlowerHalf' := blastIsLowerHalf_iff_smtLibLowerHalf he hs x
         simp [hlowerhalf] at hlowerHalf'
         simp [hlowerhalf, hlowerHalf']
         by_cases htiebreak : x.blastIsTieBreak ep sp
         · have htiebreak' := blastTieBreak_iff_smtLibTieBreak he hs x |>.mp htiebreak
           simp [htiebreak, htiebreak']
-          by_cases heven : x.blastIsEven ep sp
-          · have heven' := blastIsEven_iff_smtLibIsEven he hs x |>.mp heven
-            simp [heven, heven']
-            sorry
-          · have heven' := blastIsEven_iff_smtLibIsEven he hs x
-            simp [heven] at heven'
-            simp [heven, heven']
-            sorry
+          by_cases hevenupper : x.blastIsEvenUpper ep sp
+          · have hevenupper' := blastIsEvenUpper_iff_smtLibIsEven_upper he hs x |>.mp hevenupper
+            simp [hevenupper, hevenupper']
+            apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) (by sorry)
+            apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel (by grind) (by grind) (by grind) (by sorry)
+            apply UnpackedFloat.blastUpper_Rel_smtLibUpper (by grind) (by grind)
+          · have hevenupper' := blastIsEvenUpper_iff_smtLibIsEven_upper he hs x
+            simp [hevenupper] at hevenupper'
+            simp [hevenupper, hevenupper']
+            by_cases hevenlower : x.blastIsEvenLower ep sp
+            · have hevenlower' := blastIsEvenLower_iff_smtLibIsEven_lower he hs x |>.mp hevenlower
+              simp [hevenlower, hevenlower']
+              apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) (by sorry)
+              apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel (by grind) (by grind) (by grind) (by sorry)
+              apply UnpackedFloat.blastLower_Rel_smtLibLower (by grind) (by grind)
+            · have hevenlower' := blastIsEvenLower_iff_smtLibIsEven_lower he hs x
+              simp [hevenlower] at hevenlower'
+              simp [hevenlower, hevenlower']
+              apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) (by sorry)
+              apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel (by grind) (by grind) (by grind) (by sorry)
+              -- nan relates to nan.
+              sorry
         · have htiebreak' := blastTieBreak_iff_smtLibTieBreak he hs x
           simp [htiebreak] at htiebreak'
           simp [htiebreak, htiebreak']
-          sorry
+          apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) (by sorry)
+          apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel (by grind) (by grind) (by grind) (by sorry)
+          apply UnpackedFloat.blastUpper_Rel_smtLibUpper (by grind) (by grind)
 
 end Fp

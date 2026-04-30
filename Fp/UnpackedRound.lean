@@ -775,8 +775,8 @@ def UnpackedFloat.blastSmtLibRoundAux {eu su : Nat}
     | RoundingMode.RTZ => blastSmtLibRoundRTZ uf tep tsp
 
 @[bv_normalize]
-def EUnpackedFloat.truncateFittingExponent {eu tep su tsp : Nat}
-  (euf : EUnpackedFloat eu su) :
+def EUnpackedFloat.truncateFittingExponent {eu su : Nat}
+  (euf : EUnpackedFloat eu su) (tep tsp : Nat) :
   EUnpackedFloat (exponentWidth tep tsp) su :=
   match euf.state with
   | .Infinity => EUnpackedFloat.mkInfinity euf.sign
@@ -793,7 +793,7 @@ def UnpackedFloat.blastSmtLibRound {eu su : Nat}
   else
     -- if overflow then do overflow else call the rsest of the functions
     let rounded := uf.blastSmtLibRoundAux tep tsp mode
-    let rounded := rounded.truncateFittingExponent
+    let rounded := rounded.truncateFittingExponent tep tsp
     -- | TODO: re-establish the normalized exponent.
     let rounded := rounded.normalize
     rounded
