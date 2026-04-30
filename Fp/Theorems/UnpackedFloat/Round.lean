@@ -713,6 +713,12 @@ theorem EUnpackedFloat.truncateFittingExponent_Rel_of_Rel (he : 1 < ep) (hs : 0 
     · simp [EUnpackedFloat.truncateFittingExponent, EUnpackedFloat.isInfinite]
     · exact UnpackedFloat.truncateFittingExponent_Rel_of_Rel he hs heu num pf (by simpa using htrunc) hnumRel
 
+/--
+info: 'Fp.EUnpackedFloat.truncateFittingExponent_Rel_of_Rel' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms EUnpackedFloat.truncateFittingExponent_Rel_of_Rel
+
+
 theorem UnpackedFloat.truncateFittingExponent_Rel_of_Rel_of_exponent_range
     (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu)
@@ -744,6 +750,7 @@ theorem EUnpackedFloat.truncateFittingExponent_Rel_of_Rel_of_exponent_range
       hlo
       hhi
   · exact h
+
 
 /-# `blastSmtLibRound` matches `smtLibRound` for RNE rounding mode. -/
 
