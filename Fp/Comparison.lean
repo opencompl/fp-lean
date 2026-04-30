@@ -82,7 +82,7 @@ def bleAux (xLEyOnDiffZeros : Bool) (x y : EUnpackedFloat e s) : Bool :=
 def smtBeq (x y : EUnpackedFloat e s) : Bool :=
   x.isNaN && y.isNaN ||
   x.isInfinite && y.isInfinite && x.sign == y.sign ||
-  UnpackedFloat.beq x.num y.num
+  !x.isNaN && !y.isNaN && !x.isInfinite && !y.isInfinite && UnpackedFloat.beq x.num y.num
 
 @[bv_normalize]
 def smtBne (x y : EUnpackedFloat e s) : Bool :=
@@ -92,7 +92,7 @@ def smtBne (x y : EUnpackedFloat e s) : Bool :=
 def ieeeBeq (x y : EUnpackedFloat e s) : Bool :=
   !x.isNaN && !y.isNaN &&
   (x.isInfinite && y.isInfinite && x.sign == y.sign ||
-   UnpackedFloat.beq x.num y.num)
+   !x.isInfinite && !y.isInfinite && UnpackedFloat.beq x.num y.num)
 
 @[bv_normalize]
 def bgeAux (xGEyOnDiffZeros : Bool) (x y : EUnpackedFloat e s) : Bool :=
