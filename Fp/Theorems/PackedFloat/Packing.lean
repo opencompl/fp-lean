@@ -78,12 +78,14 @@ theorem toRat_eq' {uf : UnpackedFloat e s}
 
 theorem toDyadic_eq {uf : UnpackedFloat e s}
   : uf.toDyadic = uf.sign.toSign * uf.sig.toNat * (.ofOdd 1 ((s - 1 : Nat) - uf.ex.toInt) rfl) := by
-  simpa [← Dyadic.toRat_inj, Dyadic.toRat_ofOdd_eq_mul_two_pow, Int.neg_sub] using toRat_eq
+  simpa only [← Dyadic.toRat_inj, Dyadic.toRat_mul, Dyadic.toRat_intCast, Dyadic.toRat_natCast,
+    Dyadic.toRat_ofOdd_eq_mul_two_pow, Rat.intCast_ofNat, Int.neg_sub, Rat.one_mul] using toRat_eq
 
 @[simp]
 theorem toDyadic_mkZero_eq_zero {e s : Nat} {sign : Bool}
   : (@UnpackedFloat.mkZero e s sign).toDyadic = 0 := by
-  simp [toDyadic, mkZero]
+  simp only [toDyadic, mkZero, BitVec.setWidth'_eq, BitVec.setWidth_zero,
+    BitVec.toInt_zero, Int.mul_zero, Dyadic.ofIntWithPrec_zero]
 
 @[simp]
 theorem toDyadic_sig_zero_eq_toDyadic_mkZero {uf : UnpackedFloat e s}
@@ -113,7 +115,7 @@ theorem sigWidth_le_exponentWidth_sub_one : s ≤ 2 ^ (exponentWidth e s - 1) :=
     apply Nat.pow_le_pow_of_le
     · decide
     · grind only [→ Nat.log2_le_log2_of_le]
-  simp at this
+  simp only [Nat.add_one_sub_one] at this
   have := Nat.lt_log2_self (n := s)
   grind only
 
@@ -286,7 +288,8 @@ theorem toExtRat_unpack_eq_toExtRat {pf : PackedFloat e s}
           EUnpackedFloat.isNaN_mkNumber, EUnpackedFloat.isInfinite_mkNumber,
           EUnpackedFloat.num_mkNumber, toExtRat', hNaN, hInf, ExtRat.Number.injEq]
           simp only [toRat, PackedFloat.toRatSig, PackedFloat.toRatExp]
-          simp [hNorm]
+          simp only [hNorm, Bool.false_eq_true, ↓reduceIte,
+            Rat.zero_add]
           rewrite [UnpackedFloat.toRat_normalize_eq_toRat UnpackedFloat.sigWidth_lt_exponentWidth_sub_one]
           · simp only [UnpackedFloat.toRat_eq, Rat.mul_assoc]
             congr 1
@@ -584,19 +587,6 @@ theorem BitVec.cons_true_setWidth_of_msb {n : Nat}
     = BitVec.getLsbD_eq_getElem]
   · grind only [= BitVec.getElem_cons, = BitVec.getElem_setWidth, = BitVec.getLsbD_eq_getElem]
 
-/--
-Zero case: a Number-state `uf` which is a zero
-must be exactly `mkZero uf.sign`.
--/
-theorem eq_mkZero_of_isNumber_of_isZero
-    (uf : EUnpackedFloat e s)
-    (hNum : uf.isNumber) (hZ : uf.isZero) :
-    uf = EUnpackedFloat.mkZero uf.sign := by
-  rcases uf with ⟨state, sign, ex, sig⟩
-  simp [isNumber] at hNum
-  simp [isZero, isNumber, UnpackedFloat.isZero] at hZ
-  simp [EUnpackedFloat.mkZero, UnpackedFloat.mkZero, EUnpackedFloat.sign]
-  grind
 
 /--
 For a normalized Number-state `uf`, `¬ uf.isZero` implies the significand is nonzero.
