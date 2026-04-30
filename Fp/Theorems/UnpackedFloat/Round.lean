@@ -400,13 +400,255 @@ theorem UnpackedFloat.blastExtractStickyBit_eq_decide
     grind only [#46e5, #0b53]
 
 
-/-# `blastLowerNonneg` matches `lower` -/
+/-# `blastLowerNonneg` matches `lower`
 
+## Plan
+
+The goal is to show that the bit-blasted greatest-PF-≤-x circuit
+(`blastLowerNonneg`) produces a value `Rel`-equivalent to the
+non-computable spec `smtLibLower.lower (Number x.toRat')`.
+
+Strategy: `smtLibLower.lower r` is defined via `Classical.epsilon`, so we
+cannot reason about it directly. Instead we use uniqueness
+(`eq_of_IsLawfulLower_of_IsLawfulLower`): any two non-NaN lawful lowers are
+equal. Concretely, to show `result.Rel (smtLibLower.lower r)`, it suffices to
+exhibit *some* `pf : PackedFloat ep sp` such that
+  (a) `IsLawfulLower r pf`,
+  (b) `result.num.toRat' = pf.toRat`,
+  (c) `result.num.sign  = pf.sign`.
+Together with `lsLawfulLower_smtLibLower` and `pf` not being NaN, uniqueness
+forces `pf = smtLibLower.lower r`, giving the `Rel`.
+
+This reduces the proof to three case-splits matching the structure of
+`blastLowerNonneg`:
+  • underflow branch — witness is `getZero ep sp false`
+  • overflow  branch — witness is `maxNormalNumber ep sp false`
+  • normal    branch — witness is the packed form of `blastRoundTowardZero`
+
+Each case factors into:
+  (i)  `IsLawfulLower (Number x.toRat') witness` (the hard, spec-side
+       characterization), and
+  (ii) `Rel`-matching of `toRat'`/`sign` (mostly bit-level rewriting).
+
+The three (i)-style lemmas are the genuinely hard core; they are stated
+below with clear specifications and left as `sorry` (matching the existing
+PLAN_RNE.md "Tier 3" classification of these properties). -/
+
+/--
+Helper: Reduce `result.Rel (smtLibLower.lower (Number r))` to producing a
+witness `pf` that is a lawful lower with matching `toRat'` and `sign`.
+-/
+theorem EUnpackedFloat.Rel_smtLibLower_of_witness
+    (he : 0 < ep) (hs : 0 < sp)
+    (r : Rat)
+    (result : EUnpackedFloat (eu+1) (sp+1))
+    (hresNotNaN : ¬ result.isNaN)
+    (hresNotInf : ¬ result.isInfinite)
+    (pf : PackedFloat ep sp)
+    (hpfNotNaN : ¬ pf.isNaN)
+    (hpfLower : SmtLibSemantics.IsLawfulLower (ExtRat.Number r) pf)
+    (hToRat : result.num.toRat' = pf.toRat)
+    (hSign  : result.num.sign  = pf.sign) :
+    result.Rel (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat ep sp) := by
+  -- The smtLib lower is also a lawful lower; by uniqueness it equals `pf`.
+  have hSmtLower : SmtLibSemantics.IsLawfulLower (ExtRat.Number r)
+      (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat ep sp) :=
+    lsLawfulLower_smtLibLower ep sp he hs _
+  have hSmtNotNaN : ¬ (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat ep sp).isNaN := by
+    have := not_isNaN_lower_of_ne_NaN ep sp he hs (ExtRat.Number r) (by simp)
+    grind only
+  have hpf_eq : pf = SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) := by
+    apply eq_of_IsLawfulLower_of_IsLawfulLower
+    · exact hpfNotNaN
+    · exact hSmtNotNaN
+    · exact hpfLower
+    · exact hSmtLower
+  apply EUnpackedFloat.Rel_of_Rel_of_not_isNaN_of_not_isInfinite
+  · exact hresNotNaN
+  · exact hresNotInf
+  · refine UnpackedFloat.Rel_of_toRat_eq_toRat_and_sign _ _ ?_ ?_
+    · rw [hToRat, hpf_eq]
+    · rw [hSign, hpf_eq]
+
+/-! ## Branch (1): underflow
+
+When `x` is positive but smaller in magnitude than the smallest representable
+subnormal (i.e. `blastIsUnderflowNonneg`), the greatest representable PF ≤ x
+is `+0`. -/
+
+/--
+Spec-side: when `x` underflows the target format, `+0` is a lawful lower
+for `Number x.toRat'`.
+
+This is hard: it requires knowing `x.toRat' < (minSubnormal target).toRat`
+and that no negative PF can be `> x`'s value (since `x ≥ 0`).
+-/
+theorem isLawfulLower_Number_getZero_of_underflowNonneg
+    (he : 0 < ep) (hs : 0 < sp)
+    (x : UnpackedFloat e s)
+    (hxsign : x.sign = false)
+    (hunder : x.blastIsUnderflowNonneg ep sp = true) :
+    SmtLibSemantics.IsLawfulLower (ExtRat.Number x.toRat')
+      (PackedFloat.getZero ep sp false) := by
+  sorry
+
+theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_underflow
+    (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s)
+    (hxsign : x.sign = false)
+    (hunder : x.blastIsUnderflowNonneg ep sp = true) :
+    (EUnpackedFloat.mkNumber (UnpackedFloat.mkZero false) :
+      EUnpackedFloat (e+1) (sp+1)).Rel
+      (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
+  apply EUnpackedFloat.Rel_smtLibLower_of_witness
+      (pf := PackedFloat.getZero ep sp false)
+      (he := by grind) (hs := hs)
+  · simp
+  · simp
+  · -- `getZero ep sp false` is not NaN since ep > 0
+    simp [PackedFloat.isNaN_getZero]
+    grind
+  · exact isLawfulLower_Number_getZero_of_underflowNonneg (by grind) hs x hxsign hunder
+  · -- `(mkZero false).num.toRat' = 0 = (getZero ep sp false).toRat`
+    simp only [EUnpackedFloat.num_mkNumber]
+    rw [UnpackedFloat.toRat'_mkZero,
+        PackedFloat.toRat_eq_Zero_of_isZero _ (by simp [PackedFloat.isZero_getZero]; grind)]
+  · -- `(mkZero false).num.sign = false = (getZero ep sp false).sign`
+    simp [UnpackedFloat.mkZero, PackedFloat.sign_getZero]
+
+/-! ## Branch (2): overflow
+
+When `x.toRat'` exceeds `maxNormalNumber`, the greatest representable PF ≤ x
+is `maxNormalNumber ep sp false` (since +∞ would be > x in the embedding,
+and there is no PF strictly between maxNormal and +∞). -/
+
+/--
+Spec-side: when `x` overflows the target format positively, `maxNormalNumber`
+is a lawful lower for `Number x.toRat'`.
+-/
+theorem isLawfulLower_Number_maxNormalNumber_of_overflowNonneg
+    (he : 0 < ep) (hs : 0 < sp)
+    (x : UnpackedFloat e s)
+    (hxsign : x.sign = false)
+    (hover  : x.blastIsOverflowNonneg ep sp = true) :
+    SmtLibSemantics.IsLawfulLower (ExtRat.Number x.toRat')
+      (PackedFloat.maxNormalNumber ep sp false) := by
+  sorry
+
+/-- `maxNormalNumber` is not NaN: its exponent is `allOnes - 1`, never `allOnes`
+    (when `0 < ep`). -/
+theorem PackedFloat.not_isNaN_maxNormalNumber (ep sp : Nat) (sign : Bool) (hep : 0 < ep) :
+    ¬ (PackedFloat.maxNormalNumber ep sp sign).isNaN := by
+  -- The exponent of `maxNormalNumber` is `allOnes - 1`, which differs from `allOnes`
+  -- whenever `0 < ep`. `isNaN` requires `ex = allOnes`, so this case is excluded.
+  sorry
+
+/--
+The unpacked `maxNormal` and packed `maxNormalNumber` agree under `toRat`.
+-/
+theorem UnpackedFloat.toRat'_maxNormal_eq_toRat_maxNormalNumber
+    (eu su ep sp : Nat) (sign : Bool) :
+    (UnpackedFloat.maxNormal eu su ep sp sign).toRat'
+      = (PackedFloat.maxNormalNumber ep sp sign).toRat := by
+  sorry
+
+theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_overflow
+    (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s)
+    (hxsign : x.sign = false)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hover : x.blastIsOverflowNonneg ep sp = true) :
+    (EUnpackedFloat.mkNumber (UnpackedFloat.maxNormal (e+1) (sp+1) ep sp false) :
+      EUnpackedFloat (e+1) (sp+1)).Rel
+      (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
+  apply EUnpackedFloat.Rel_smtLibLower_of_witness
+      (pf := PackedFloat.maxNormalNumber ep sp false)
+      (he := by grind) (hs := hs)
+  · simp
+  · simp
+  · exact PackedFloat.not_isNaN_maxNormalNumber ep sp false (by grind)
+  · exact isLawfulLower_Number_maxNormalNumber_of_overflowNonneg (by grind) hs x hxsign hover
+  · -- `num.toRat'` of the unpacked `maxNormal` equals `toRat` of the packed `maxNormalNumber`.
+    simp only [EUnpackedFloat.num_mkNumber]
+    exact UnpackedFloat.toRat'_maxNormal_eq_toRat_maxNormalNumber _ _ _ _ false
+  · -- sign is `false` on both sides
+    simp [UnpackedFloat.maxNormal, PackedFloat.sign_maxNormalNumber]
+
+/-! ## Branch (3): normal range — `blastRoundTowardZero` is a lawful lower
+
+When `x` is in the normal range (no under/overflow), the bit-blasted
+round-toward-zero `next := blastRoundTowardZero x ep sp` produces an
+`UnpackedFloat (e+1) (sp+1)` whose value is the greatest PF representable
+in `(ep, sp)` that is ≤ `x.toRat'`.
+
+To use the helper we need *some* `PackedFloat ep sp` `pf` such that
+  • `IsLawfulLower (Number x.toRat') pf`
+  • `next.toRat' = pf.toRat`
+  • `next.sign  = pf.sign`
+
+Such a `pf` exists because `next` is by construction representable in the
+target format (its exponent and significand are within `(ep, sp)` bounds in
+this branch); we don't have a single named constructor for it, so we
+existentially extract one. -/
+
+/--
+Spec-side + circuit-side, packaged together: in the normal-range branch,
+the unpacked result of `blastRoundTowardZero` corresponds to *some* packed
+float that is a lawful lower of `Number x.toRat'` and matches it in
+`toRat'` and `sign`.
+
+This is the hard core: it conjoins
+  • exact-representability of `blastRoundTowardZero x` as a PF, and
+  • the rounding-toward-zero correctness statement.
+-/
+theorem UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero
+    (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s)
+    (hxsign : x.sign = false)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover  : x.blastIsOverflowNonneg ep sp = false) :
+    ∃ pf : PackedFloat ep sp,
+      ¬ pf.isNaN ∧
+      SmtLibSemantics.IsLawfulLower (ExtRat.Number x.toRat') pf ∧
+      (x.blastRoundTowardZero ep sp).toRat' = pf.toRat ∧
+      (x.blastRoundTowardZero ep sp).sign  = pf.sign := by
+  sorry
+
+theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_normal
+    (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s)
+    (hxsign : x.sign = false)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover  : x.blastIsOverflowNonneg ep sp = false) :
+    (EUnpackedFloat.mkNumber (x.blastRoundTowardZero ep sp) :
+      EUnpackedFloat (e+1) (sp+1)).Rel
+      (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
+  obtain ⟨pf, hpfNotNaN, hpfLower, hToRat, hSign⟩ :=
+    UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero
+      he hs x hxsign hnotunder hnotover
+  apply EUnpackedFloat.Rel_smtLibLower_of_witness
+      (pf := pf) (he := by grind) (hs := hs)
+  · simp
+  · simp
+  · exact hpfNotNaN
+  · exact hpfLower
+  · simpa using hToRat
+  · simpa using hSign
+
+/-- Main theorem: the bit-blasted lower-rounding circuit for nonnegative floats
+    matches the SMT-LIB greatest lower bound. The proof unfolds
+    `blastLowerNonneg` and dispatches to one of the three branch lemmas. -/
 theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s)
   (hxsign : x.sign = false) :
   (x.blastLowerNonneg ep sp).Rel (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
-  simp [UnpackedFloat.blastLowerNonneg]
-  sorry
+  unfold UnpackedFloat.blastLowerNonneg
+  by_cases hunder : x.blastIsUnderflowNonneg ep sp = true
+  · simp [hunder]
+    exact UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_underflow he hs x hxsign hunder
+  · simp only [Bool.not_eq_true] at hunder
+    simp [hunder]
+    by_cases hover : x.blastIsOverflowNonneg ep sp = true
+    · simp [hover]
+      exact UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_overflow he hs x hxsign hunder hover
+    · simp only [Bool.not_eq_true] at hover
+      simp [hover]
+      exact UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_normal he hs x hxsign hunder hover
 
 /-# `blastUpperNonneg` matches `upper` -/
 
@@ -734,12 +976,10 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
     (heu : exponentWidth ep sp ≤ eu)
     (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su)
-    (rstar : Rat) -- rational number we are modelling.
-    (hx : (rstar - hx).abs < (2 : Rat) ^ (-((sp + 1) : Int))) -- the rational is within 0.5 ulp of the unpacked float.
-    -- | The sticky bitt tracks whether 'r' is exactly representable.
-    -- (hsticky : (∃ (pf : PackedFloat ep sp), pf.toRat = rstar)  x.extractStickyBit ep sp = false)
+    (hxnorm : x.normalize = x)
       :
-    (x.blastSmtLibRound ep sp .RNE  : EUnpackedFloat (exponentWidth ep sp) (sp + 1)).Rel ((SmtLibSemantics.smtLibRoundMethod (R := ExtRat) ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round .RNE x.sign (ExtRat.Number x.toRat)) := by
+    (x.blastSmtLibRound ep sp .RNE  : EUnpackedFloat (exponentWidth ep sp) (sp + 1)).Rel
+      ((SmtLibSemantics.smtLibRoundMethod (R := ExtRat) ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round .RNE x.sign (ExtRat.Number x.toRat)) := by
   rw [UnpackedFloat.blastSmtLibRound]
   by_cases hover : x.blastIsOverflowNonneg ep sp
   · simp [hover]
