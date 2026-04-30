@@ -663,46 +663,15 @@ theorem blastTieBreak_iff_smtLibTieBreak (he : 1 < ep) (hs : 0 < sp) (x : Unpack
   simp [SmtLibSemantics.smtLibRoundMethod]
   sorry
 
+/-# blastIsEven -/
 
-/-
-
-(if x.blastIsLowerHalf ep sp = false ∧ x.blastIsTieBreak ep sp = false then x.blastUpper ep sp
-        else
-          if x.blastIsTieBreak ep sp = true ∧ x.blastIsEven ep sp = false then x.blastUpper ep sp
-          else
-            if x.blastIsTieBreak ep sp = true ∧ x.blastIsEven ep sp = true then x.blastLower ep sp
-            else
-              if x.blastIsLowerHalf ep sp = true then x.blastLower ep sp
-              else EUnpackedFloat.mkNaN).truncateFittingExponent.normalize.Rel
-  (if
-      ¬(SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf
-            (ExtRat.Number x.toRat') ∧
-        ¬(SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).tieBreak
-            (ExtRat.Number x.toRat') then
-    SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat')
-  else
-    if
-        (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).tieBreak
-            (ExtRat.Number x.toRat') ∧
-          (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).isEven
-              (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat')) =
-            true then
-      SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat')
-    else
-      if
-          (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).tieBreak
-              (ExtRat.Number x.toRat') ∧
-            (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).isEven
-                (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat')) =
-              true then
-        SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat')
-      else
-        if
-            (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf
-              (ExtRat.Number x.toRat') then
-          SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat')
-        else PackedFloat.getNaN ep sp)
--/
+theorem blastIsEven_iff_smtLibIsEven (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s) :
+  x.blastIsEven ep sp = true ↔
+    (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).isEven
+          (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat')) = true := by
+  simp [UnpackedFloat.blastIsEven]
+  simp [SmtLibSemantics.smtLibRoundMethod]
+  sorry
 
 /-# `blastUpper` matches `upper` -/
 
@@ -815,7 +784,14 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
         by_cases htiebreak : x.blastIsTieBreak ep sp
         · have htiebreak' := blastTieBreak_iff_smtLibTieBreak he hs x |>.mp htiebreak
           simp [htiebreak, htiebreak']
-          sorry
+          by_cases heven : x.blastIsEven ep sp
+          · have heven' := blastIsEven_iff_smtLibIsEven he hs x |>.mp heven
+            simp [heven, heven']
+            sorry
+          · have heven' := blastIsEven_iff_smtLibIsEven he hs x
+            simp [heven] at heven'
+            simp [heven, heven']
+            sorry
         · have htiebreak' := blastTieBreak_iff_smtLibTieBreak he hs x
           simp [htiebreak] at htiebreak'
           simp [htiebreak, htiebreak']

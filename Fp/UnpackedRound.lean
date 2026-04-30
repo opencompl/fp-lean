@@ -704,16 +704,16 @@ def UnpackedFloat.blastRounderForSign {eu su : Nat} (uf : UnpackedFloat eu su) (
   else
     uf.blastLower tep tsp
 
-/-
-      if isNaN r then roundMethod.lower r
-      else if ¬ (isZero r) ∧ !roundMethod.lowerHalf r ∧ !roundMethod.tieBreak r then roundMethod.upper r
-      else if ¬ (isZero r) ∧ roundMethod.tieBreak r ∧ roundMethod.isEven (roundMethod.upper r) then roundMethod.upper r
-      else if ¬ (isZero r) ∧ roundMethod.tieBreak r ∧ roundMethod.isEven (roundMethod.lower r) then roundMethod.lower r
-      else if ¬ (isZero r) ∧ roundMethod.lowerHalf r then roundMethod.lower r
-      else if isZero r then roundMethod.rounderForSign sign r
-      else .getNaN e s -- does not occur.
 
--/
+@[bv_normalize]
+def UnpackedFloat.blastIsEvenLower {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) : Bool :=
+  uf.blastIsEven tep tsp
+
+@[bv_normalize]
+def UnpackedFloat.blastIsEvenUpper {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) : Bool :=
+  !uf.blastIsEven tep tsp
+
+
 @[bv_normalize]
 def UnpackedFloat.blastSmtLibRoundRNE {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) :
     EUnpackedFloat (eu + 1) (tsp + 1) :=
@@ -721,22 +721,10 @@ def UnpackedFloat.blastSmtLibRoundRNE {eu su : Nat} (uf : UnpackedFloat eu su) (
   if uf.isZero then
     uf.blastRounderForSign tep tsp
   else if ! uf.blastIsLowerHalf tep tsp && ! uf.blastIsTieBreak tep tsp then uf.blastUpper tep tsp
-  else if uf.blastIsTieBreak tep tsp && !uf.blastIsEven tep tsp then uf.blastUpper tep tsp
-  else if uf.blastIsTieBreak tep tsp && uf.blastIsEven tep tsp then uf.blastLower tep tsp
+  else if uf.blastIsTieBreak tep tsp && uf.blastIsEvenUpper tep tsp then uf.blastUpper tep tsp
+  else if uf.blastIsTieBreak tep tsp && uf.blastIsEvenLower tep tsp then uf.blastLower tep tsp
   else if uf.blastIsLowerHalf tep tsp then uf.blastLower tep tsp
-  else
-    -- does not occur, since NaN and infinity are handled separately.
-
-/-
-      if isNaN r then roundMethod.lower r
-      else if gtZero r ∧ ¬ roundMethod.lowerHalf r then roundMethod.upper r
-      else if gtZero r ∧ roundMethod.lowerHalf r then roundMethod.lower r
-      else if isZero r then roundMethod.rounderForSign sign r
-      else if ltZero r ∧ ¬ roundMethod.lowerHalf r ∧ ¬ roundMethod.tieBreak r then roundMethod.upper r
-      else if ltZero r ∧ (roundMethod.lowerHalf r ∨ roundMethod.tieBreak r) then roundMethod.lower r
-      else .getNaN e s -- does not occur.
-
--/    EUnpackedFloat.mkNaN
+  else EUnpackedFloat.mkNaN
 
 @[bv_normalize]
 def UnpackedFloat.blastSmtLibRoundRNA {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) :
