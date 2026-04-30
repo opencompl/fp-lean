@@ -1,5 +1,6 @@
 import Fp.PackedFloat.Basic
 import Fp.Theorems.PackedFloat.Negation
+import Fp.Theorems.PackedFloat.Packing
 import Fp.UnpackedFloat.Basic
 import Fp.Theorems.UnpackedFloat.ToRat
 import Fp.EUnpackedFloat.Basic
@@ -94,12 +95,13 @@ theorem EUnpackedFloat.neg_Rel_neg
 euf.neg.Rel (-pf) := by
   simp [EUnpackedFloat.Rel]
   rcases h with h | h | h
-  · have heuf : euf.neg.isNaN = true := by
+  · have heuf : euf.isNaN = true := by
       simp [h]
-    have hpf : (-pf).isNaN = true := by
+    have hpf : (pf).isNaN = true := by
       simp [h]
-    grind only
-  · simp [h]
+    grind only [=> EUnpackedFloat.isNaN_iff_state_eq]
+  · simp at h
+    simp [h]
   · obtain ⟨hnan, hinf, hnum⟩ := h
     simp at hnan
     simp at hinf
@@ -108,3 +110,10 @@ euf.neg.Rel (-pf) := by
 
 /-- info: 'EUnpackedFloat.neg_Rel_neg' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms EUnpackedFloat.neg_Rel_neg
+
+
+theorem pack_eq_of_Rel (euf : EUnpackedFloat (exponentWidth ep sp) (sp + 1)) (pf : PackedFloat ep sp) (hRel : euf.Rel pf) :
+  euf.pack = pf := sorry
+
+-- theorem unpack_eq_of_Rel (euf : EUnpackedFloat ef uf) (pf : PackedFloat (exponentWidth ef uf) (uf + 1)) (hRel : euf.Rel pf) :
+--   pf.unpack = euf := sorry
