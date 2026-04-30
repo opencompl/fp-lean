@@ -659,6 +659,13 @@ theorem smtLibUpper_eq_neg_smtLibLower_neg (e s : Nat) (he : 0 < e) (hs : 0 < s)
     · simp [upper]
     · simp [hr]
 
+theorem smtLibLower_eq_neg_smtLibUpper_neg (e s : Nat) (he : 0 < e) (hs : 0 < s) (r : ExtRat) (hr : r ≠ .NaN) :
+    (SmtLibSemantics.smtLibLower.lower r : PackedFloat e s) = - (SmtLibSemantics.smtLibUpper.upper (-r)) := by
+  rw [smtLibLower_eq_lower e s he hs r hr]
+  · rw [smtLibUpper_eq_upper e s he hs (-r)]
+    · simp [upper]
+    · simp [hr]
+
 /--
 This tells us that `PackedFloat`s are perfectly approximated,
 and that calling `lower` on a rational that represents a `PackedFloat`

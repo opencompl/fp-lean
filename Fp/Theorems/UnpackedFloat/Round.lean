@@ -94,27 +94,6 @@ theorem UnpackedFloat.blastClearSignificand_toRat_le_of_nonneg (uf : UnpackedFlo
   simp only [PackedFloat.Rat.natCast_le_natCast_iff_le]
   grind only [UnpackedFloat.blastClearSignificand]
 
-/-- For a nonnegative unpacked float, the error from clearing guard/sticky bits is bounded by
-    2^(guardBitIdx + 1) ULPs at the significand level, i.e.,
-    `x.toRat - cleared.toRat < 2^(guardBitIdx + 1) UnpackedFloat.blastClearSignificand
-    This is the ULP of the target precision. -/
-theorem clearSignificand_toRat_sub_lt (uf : UnpackedFloat e s)
-    (targetExponentWidth targetSignificandWidth : Nat)
-    (h : 0 ≤ uf.toRat) :
-    uf.toRat - (uf.blastClearSignificand targetExponentWidth targetSignificandWidth).toRat <
-      (2 : Rat) ^ ((uf.guardBitIndex targetExponentWidth targetSignificandWidth).toNat + 1) *
-      (2 : Rat) ^ uf.toExpInt := by
-  sorry
-
-/--
-The result of 'clearSignificand' results in an unpacked float
-that can be represented in the target format, and has the same rational value as some `PackedFloat`.
--/
-theorem exists_packedFloat_toRat_eq_clearSignificand_toRat (uf : UnpackedFloat e s)
-    (targetExponentWidth targetSignificandWidth : Nat) :
-    ∃ (pf : PackedFloat targetExponentWidth targetSignificandWidth),
-      pf.toRat = (uf.blastClearSignificand targetExponentWidth targetSignificandWidth).toRat := by
-  sorry
 
 
 /-! # guardBitIndex -/
@@ -494,8 +473,8 @@ theorem UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper (he : 1 < ep) (hs : 0 < s
   simp [UnpackedFloat.blastUpperNonneg]
   sorry
 
-/-# `blastLower` matches `lower` -/
 
+/-# `blastLower` matches `lower` -/
 
 theorem UnpackedFloat.blastLower_Rel_smtLibLower (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s) :
   (x.blastLower ep sp).Rel (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
@@ -503,10 +482,22 @@ theorem UnpackedFloat.blastLower_Rel_smtLibLower (he : 1 < ep) (hs : 0 < sp) (x 
   by_cases hsign : x.sign
   · simp [hsign]
     simp [UnpackedFloat.blastLowerNeg]
-
-    sorry
+    rw [smtLibLower_eq_neg_smtLibUpper_neg]
+    · apply EUnpackedFloat.neg_Rel_neg
+      simp
+      rw [show - x.toRat' = (-x).toRat' by simp]
+      apply UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper
+      · grind
+      · grind
+      · simp [hsign]
+    · grind only
+    · grind only
+    · grind only
   · simp [hsign]
-    sorry
+    apply UnpackedFloat.blastLowerNonneg_Rel_smtLibLower
+    · grind only
+    · grind only
+    · simp [hsign]
 
 
 /-# `blastUpper` matches `upper` -/

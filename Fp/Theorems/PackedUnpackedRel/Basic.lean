@@ -111,8 +111,13 @@ euf.neg.Rel (-pf) := by
 /-- info: 'EUnpackedFloat.neg_Rel_neg' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms EUnpackedFloat.neg_Rel_neg
 
-
-theorem pack_eq_of_Rel (euf : EUnpackedFloat (exponentWidth ep sp) (sp + 1)) (pf : PackedFloat ep sp) (hRel : euf.Rel pf) :
+/--
+If an extended unpacked float is related to a packed float,
+then packing the extended unpacked float gives back the same packed float.
+-/
+theorem pack_eq_of_Rel (euf : EUnpackedFloat (exponentWidth ep sp) (sp + 1))
+    (pf : PackedFloat ep sp)
+    (hRel : euf.Rel pf) :
   euf.pack = pf := sorry
 
 -- theorem unpack_eq_of_Rel (euf : EUnpackedFloat ef uf) (pf : PackedFloat (exponentWidth ef uf) (uf + 1)) (hRel : euf.Rel pf) :
