@@ -653,8 +653,9 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
               simp [hevenlower, hevenlower']
               apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) (by sorry)
               apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel (by grind) (by grind) (by grind) (by sorry)
-              -- nan relates to nan.
-              sorry
+              apply EUnpackedFloat.Rel_of_isNaN_of_isNaN
+              · simp
+              · simp
         · have htiebreak' := blastTieBreak_iff_smtLibTieBreak he hs x
           simp [htiebreak] at htiebreak'
           simp [htiebreak, htiebreak']
