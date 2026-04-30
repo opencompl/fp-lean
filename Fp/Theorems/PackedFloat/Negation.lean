@@ -32,10 +32,6 @@ theorem isZero_neg (x : PackedFloat e s) : (-x).isZero = x.isZero := by
   simp [neg_def, neg, isZero]
 
 @[simp]
-theorem isNorm_neg (x : PackedFloat e s) : (-x).isNorm = x.isNorm := by
-  simp [neg_def, neg, isNorm]
-
-@[simp]
 theorem isNonzeroSubnorm_neg (x : PackedFloat e s) :
     (-x).isNonzeroSubnorm = x.isNonzeroSubnorm := by
   simp [neg_def, neg, isNonzeroSubnorm]
@@ -69,15 +65,6 @@ theorem neg_getNaN :
 
 /-! ## Semantic preservation: toRatSig, toRatExp -/
 
-@[simp]
-theorem toRatSig_neg (x : PackedFloat e s) : (-x).toRatSig = x.toRatSig := by
-  have : (-x).isNorm = x.isNorm := isNorm_neg x
-  simp only [toRatSig, this, neg_sig]
-
-@[simp]
-theorem toRatExp_neg (x : PackedFloat e s) : (-x).toRatExp = x.toRatExp := by
-  have : (-x).isNorm = x.isNorm := isNorm_neg x
-  simp only [toRatExp, this, neg_ex]
 
 /-! ## Negation and Bool.toSign -/
 
@@ -86,11 +73,6 @@ theorem Bool.toSign_not (b : Bool) : (!b).toSign = -b.toSign := by
   cases b <;> simp [Bool.toSign]
 
 /-! ## toRat and negation -/
-
-@[simp]
-theorem toRat_neg (x : PackedFloat e s) : (-x).toRat = -x.toRat := by
-  simp only [toRat, toRatSig_neg, toRatExp_neg, neg_sign, Bool.toSign_not]
-  cases x.sign <;> simp [Bool.toSign] <;> grind
 
 /-! ## toExtRat' and negation -/
 

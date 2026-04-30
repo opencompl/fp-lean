@@ -477,13 +477,36 @@ theorem UnpackedFloat.blastExtractStickyBit_eq_decide
     simp at this
     grind only [#46e5, #0b53]
 
+
+/-# `blastLowerNonneg` matches `lower` -/
+
+theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s)
+  (hxsign : x.sign = false) :
+  (x.blastLowerNonneg ep sp).Rel (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
+  simp [UnpackedFloat.blastLowerNonneg]
+  sorry
+
+/-# `blastUpperNonneg` matches `upper` -/
+
+theorem UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s)
+  (hxsign : x.sign = false) :
+  (x.blastUpperNonneg ep sp).Rel (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
+  simp [UnpackedFloat.blastUpperNonneg]
+  sorry
+
 /-# `blastLower` matches `lower` -/
 
 
 theorem UnpackedFloat.blastLower_Rel_smtLibLower (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s) :
   (x.blastLower ep sp).Rel (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
   simp [UnpackedFloat.blastLower]
-  sorry
+  by_cases hsign : x.sign
+  · simp [hsign]
+    simp [UnpackedFloat.blastLowerNeg]
+
+    sorry
+  · simp [hsign]
+    sorry
 
 
 /-# `blastUpper` matches `upper` -/
@@ -496,14 +519,21 @@ theorem UnpackedFloat.blastUpper_Rel_smtLibUpper (he : 1 < ep) (hs : 0 < sp) (x 
   · simp [hsign]
     simp [UnpackedFloat.blastUpperNeg]
     rw [smtLibUpper_eq_neg_smtLibLower_neg]
-    -- neg_rel_neg
-    · sorry
+    · apply EUnpackedFloat.neg_Rel_neg
+      simp
+      rw [show - x.toRat' = (-x).toRat' by simp]
+      apply UnpackedFloat.blastLowerNonneg_Rel_smtLibLower
+      · grind
+      · grind
+      · simp [hsign]
     · grind only
     · grind only
     · grind only
   · simp [hsign]
-    -- blast upper nonneg relates properly.
-    sorry
+    apply UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper
+    · grind only
+    · grind only
+    · simp [hsign]
 
 /-# blastIsEvenUpper, blastIsEvenLower -/
 

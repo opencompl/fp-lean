@@ -1,8 +1,10 @@
 import Fp.PackedFloat.Basic
+import Fp.Theorems.PackedFloat.Negation
 import Fp.UnpackedFloat.Basic
 import Fp.Theorems.UnpackedFloat.ToRat
 import Fp.EUnpackedFloat.Basic
 import Fp.Basic
+import Fp.Utils
 
 
 /--
@@ -19,6 +21,7 @@ theorem sign_eq_sign_of_Rel (uf : UnpackedFloat e s) (pf : PackedFloat ep sp) (h
   simp only [UnpackedFloat.Rel] at hRel
   exact hRel.2
 
+@[simp]
 theorem toRat'_eq_toRat_of_Rel (uf : UnpackedFloat e s) (pf : PackedFloat ep sp) (hRel : uf.Rel pf) :
   uf.toRat' = pf.toRat := by
   simp only [UnpackedFloat.Rel] at hRel
@@ -39,14 +42,18 @@ theorem UnpackedFloat.Rel_of_isZero_of_isZero
   simp only [UnpackedFloat.Rel]
   simp [hpf, hsign, huf]
 
-theorem UnpackedFloat.neg_Rel_neg (he : 1 < e) (hs : 0 < s)
+@[simp]
+theorem UnpackedFloat.neg_Rel_neg
   (uf : UnpackedFloat e s) (pf : PackedFloat ep sp)
   (h : uf.Rel pf) :
   (- uf).Rel (-pf) := by
   constructor
-  · sorry
+  · simp
+    apply toRat'_eq_toRat_of_Rel uf pf h
   · simp; grind only [sign_eq_sign_of_Rel]
 
+/-- info: 'UnpackedFloat.neg_Rel_neg' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms UnpackedFloat.neg_Rel_neg
 
 /--
 An extended unpacked float is related to a packed float
@@ -80,7 +87,8 @@ theorem EUnpackedFloat.Rel_of_Rel_of_not_isNaN_of_not_isInfinite (euf : EUnpacke
   simp only [EUnpackedFloat.Rel]
   simp [heuf, heuf', hRel]
 
-theorem EUnpackedFloat.neg_Rel_neg (he : 1 < e) (hs : 0 < s)
+
+theorem EUnpackedFloat.neg_Rel_neg
   (euf : EUnpackedFloat e s) (pf : PackedFloat ep sp)
   (h : euf.Rel pf) :
 euf.neg.Rel (-pf) := by
@@ -96,5 +104,7 @@ euf.neg.Rel (-pf) := by
     simp at hnan
     simp at hinf
     simp [hnan, hinf]
-    apply UnpackedFloat.
-    sorry
+    apply UnpackedFloat.neg_Rel_neg _ _ hnum
+
+/-- info: 'EUnpackedFloat.neg_Rel_neg' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms EUnpackedFloat.neg_Rel_neg
