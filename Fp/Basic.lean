@@ -893,6 +893,14 @@ theorem neg_ex (x : PackedFloat e s) : (-x).ex = x.ex := rfl
 @[simp]
 theorem neg_sig (x : PackedFloat e s) : (-x).sig = x.sig := rfl
 
+@[simp]
+theorem neg_isNaN_iff_isNaN (pf : PackedFloat e s) : isNaN (-pf) ↔ isNaN pf := by
+  simp [isNaN]
+
+@[simp]
+theorem neg_isInfinite_iff_isInfinite (pf : PackedFloat e s) :
+    isInfinite (-pf) ↔ isInfinite pf := by
+  simp [isInfinite]
 /--
 Raw abs directly on the packedFloat representation.
 -/
@@ -956,8 +964,7 @@ end UnpackedFloat
 negate the number in an EUnpackedFloat.
 -/
 def EUnpackedFloat.neg (x : EUnpackedFloat e s) : EUnpackedFloat e s :=
-  { x with num := x.num.neg }
-
+  { x with num := - x.num }
 
 namespace ExtRat
 
@@ -3285,9 +3292,17 @@ theorem eq_num_ex {x y : EUnpackedFloat e s} :
 def isNaN (x : EUnpackedFloat e s) : Bool :=
   x.state == .NaN
 
+@[simp]
+theorem neg_isNaN_iff_isNaN (x : EUnpackedFloat e s) : isNaN (x.neg) ↔ isNaN x := by
+  simp [isNaN, EUnpackedFloat.neg]
+
 @[bv_normalize]
 def isInfinite (x : EUnpackedFloat e s) : Bool :=
   x.state == .Infinity
+
+@[simp]
+theorem neg_isInfinity_iff_isInfinity (x : EUnpackedFloat e s) : isInfinite (x.neg) ↔ isInfinite x := by
+  simp [isInfinite, EUnpackedFloat.neg]
 
 @[bv_normalize]
 def isNumber (x : EUnpackedFloat e s) : Bool :=
@@ -3300,6 +3315,14 @@ def isZero (x : EUnpackedFloat e s) : Bool :=
 @[bv_normalize]
 def sign (x : EUnpackedFloat e s) : Bool :=
   x.num.sign
+
+@[simp]
+theorem neg_sign (x : EUnpackedFloat e s) : x.neg.sign = !x.sign := by
+  simp [EUnpackedFloat.neg, sign]
+
+@[simp]
+theorem neg_state (uf : EUnpackedFloat e s) : uf.neg.state = uf.state := by
+  simp [EUnpackedFloat.neg]
 
 @[bv_normalize]
 def exp (x : EUnpackedFloat e s) : BitVec e :=

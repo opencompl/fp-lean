@@ -477,14 +477,6 @@ theorem UnpackedFloat.blastExtractStickyBit_eq_decide
     simp at this
     grind only [#46e5, #0b53]
 
-/-# `blastUpper` matches `upper` -/
-
-
-theorem UnpackedFloat.blastUpper_Rel_smtLibUpper (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s) :
-  (x.blastUpper ep sp).Rel (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
-  simp [UnpackedFloat.blastUpper]
-  sorry
-
 /-# `blastLower` matches `lower` -/
 
 
@@ -492,6 +484,26 @@ theorem UnpackedFloat.blastLower_Rel_smtLibLower (he : 1 < ep) (hs : 0 < sp) (x 
   (x.blastLower ep sp).Rel (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
   simp [UnpackedFloat.blastLower]
   sorry
+
+
+/-# `blastUpper` matches `upper` -/
+
+
+theorem UnpackedFloat.blastUpper_Rel_smtLibUpper (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s) :
+  (x.blastUpper ep sp).Rel (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
+  simp [UnpackedFloat.blastUpper]
+  by_cases hsign : x.sign
+  · simp [hsign]
+    simp [UnpackedFloat.blastUpperNeg]
+    rw [smtLibUpper_eq_neg_smtLibLower_neg]
+    -- neg_rel_neg
+    · sorry
+    · grind only
+    · grind only
+    · grind only
+  · simp [hsign]
+    -- blast upper nonneg relates properly.
+    sorry
 
 /-# blastIsEvenUpper, blastIsEvenLower -/
 
