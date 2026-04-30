@@ -581,10 +581,10 @@ def UnpackedFloat.blastIsOverflowNonneg {eu su : Nat} (uf : UnpackedFloat eu su)
 def UnpackedFloat.blastLowerNonneg {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) :
     EUnpackedFloat (eu + 1) (tsp + 1) :=
   let next := uf.blastRoundTowardZero tep tsp
-  if next.blastIsUnderflowNonneg tep tsp then
+  if uf.blastIsUnderflowNonneg tep tsp then
     -- greatest lower bound of 0 is +0
     EUnpackedFloat.mkNumber <| UnpackedFloat.mkZero false
-  else if next.blastIsOverflowNonneg tep tsp then
+  else if uf.blastIsOverflowNonneg tep tsp then
     EUnpackedFloat.mkNumber <| UnpackedFloat.maxNormal _ _ tep tsp false
   else
     EUnpackedFloat.mkNumber <| next
