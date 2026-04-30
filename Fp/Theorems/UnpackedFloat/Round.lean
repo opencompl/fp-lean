@@ -122,15 +122,20 @@ theorem exists_packedFloat_toRat_eq_clearSignificand_toRat (uf : UnpackedFloat e
 /--
 The guard bit index when interpreted as a natural number
 gives us the location of the guard bit inside the unpaked float.
-sorry
+
+The `hdiff*` hypotheses say that the exponent shift
+`minNormalExp ep - x.ex.toInt` is representable at unpacked exponent width `eu`
+and that the shifted guard position still lies inside the unpacked significand.
 -/
 theorem UnpackedFloat.toNat_guardBitIndex_eq (hep : 1 < ep) (hsp : 0 < sp)
-    -- TODO: I need a bound on `x.ex` to be at most `maxNormalExp`.
-    -- TODO: I need a bound on `x.ex` to be at least `minSubnormalExp`.
     (heu : exponentWidth ep sp ≤ eu)
     (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su)
+    (hdiffLower : -2 ^ (eu - 1) ≤ minNormalExp ep - x.ex.toInt)
+    (hdiffUpper : minNormalExp ep - x.ex.toInt < 2 ^ (eu - 1))
+    (hdiffNatLe : (minNormalExp ep - x.ex.toInt).toNat ≤ sp)
     -- (heusu : eu ≤ su)
-    (x : UnpackedFloat eu su) :
+    :
     (x.guardBitIndex ep sp).toNat =
     (su - 1 - (sp + 1) + (minNormalExp ep - x.ex.toInt).toNat) := by
   have := @one_lt_exponentWidth ep sp
@@ -158,18 +163,12 @@ theorem UnpackedFloat.toNat_guardBitIndex_eq (hep : 1 < ep) (hsp : 0 < sp)
       simp at h
       rw [Nat.mod_eq_of_lt]
       have : su < 2 ^ su := by exact Nat.lt_two_pow_self
-      sorry
+      omega
   · grind only
-  · have := neg_two_pow_le_minNormalExp hep hsp heu
-    rw [toInt_ofInt_minNormalExp_eq_minNormalExp_of_le hep hsp heu]
-    -- | This needs bounds on `minSubnormalExp ≤ x.ex.toInt` to prove this.
-    -- ⊢ -2 ^ (eu - 1) ≤ minNormalExp ep - x.ex.toInt
-    sorry
-  · have := minNormalExp_lt_two_pow hep hsp heu
-    rw [toInt_ofInt_minNormalExp_eq_minNormalExp_of_le hep hsp heu]
-    --  This needs bounds on `x.ex.toInt ≤ maxNormalExp` to prove this.
-    -- ⊢ minNormalExp ep - x.ex.toInt < 2 ^ (eu - 1)
-    sorry
+  · rw [toInt_ofInt_minNormalExp_eq_minNormalExp_of_le hep hsp heu]
+    exact hdiffLower
+  · rw [toInt_ofInt_minNormalExp_eq_minNormalExp_of_le hep hsp heu]
+    exact hdiffUpper
 
 theorem BitVec.eq_iff_getLsbD_eq (a b : BitVec w) : a = b ↔
     (∀ (i : Nat), a.getLsbD i = b.getLsbD i) := by
@@ -249,7 +248,11 @@ theorem UnpackedFloat.blastExtractGuardBit_eq_true_iff
     (hep : 1 < ep) (hsp : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu)
     (hsu : sp + 2 ≤ su)
-    (x : UnpackedFloat eu su) :
+    (x : UnpackedFloat eu su)
+    (hdiffLower : -2 ^ (eu - 1) ≤ minNormalExp ep - x.ex.toInt)
+    (hdiffUpper : minNormalExp ep - x.ex.toInt < 2 ^ (eu - 1))
+    (hdiffNatLe : (minNormalExp ep - x.ex.toInt).toNat ≤ sp)
+    :
     x.blastExtractGuardBit ep sp = true ↔
     x.sig.getLsbD (su - (sp + 2) + (minNormalExp ep - x.ex.toInt).toNat) := by
   simp [UnpackedFloat.blastExtractGuardBit]
@@ -258,14 +261,14 @@ theorem UnpackedFloat.blastExtractGuardBit_eq_true_iff
     obtain h := BitVec.ne_iff_getLsbD_ne .. |>.mp h
     obtain ⟨i, hi⟩ := h
     simp at hi
-    rw [UnpackedFloat.toNat_guardBitIndex_eq hep hsp heu hsu] at hi
+    rw [UnpackedFloat.toNat_guardBitIndex_eq hep hsp heu hsu x hdiffLower hdiffUpper hdiffNatLe] at hi
     grind only
   · intros h
     intros hcontra
     obtain hcontra := BitVec.eq_iff_getLsbD_eq .. |>.mp hcontra
     simp at hcontra
     specialize hcontra _ h (by grind)
-    rw [UnpackedFloat.toNat_guardBitIndex_eq hep hsp heu hsu] at hcontra
+    rw [UnpackedFloat.toNat_guardBitIndex_eq hep hsp heu hsu x hdiffLower hdiffUpper hdiffNatLe] at hcontra
     grind only
 /--
 The guard bit is the bit at the lower index at '2' (when `su = sp + 2`),
@@ -275,9 +278,13 @@ theorem UnpackedFloat.extractGuardBit_eq_getLsbD
     (hep : 1 < ep) (hsp : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu)
     (hsu : sp + 2 ≤ su)
-    (x : UnpackedFloat eu su) :
+    (x : UnpackedFloat eu su)
+    (hdiffLower : -2 ^ (eu - 1) ≤ minNormalExp ep - x.ex.toInt)
+    (hdiffUpper : minNormalExp ep - x.ex.toInt < 2 ^ (eu - 1))
+    (hdiffNatLe : (minNormalExp ep - x.ex.toInt).toNat ≤ sp)
+    :
     x.blastExtractGuardBit ep sp =  x.sig.getLsbD (su - (sp + 2) + (minNormalExp ep - x.ex.toInt).toNat)  := by
-  have := UnpackedFloat.blastExtractGuardBit_eq_true_iff hep hsp heu hsu x
+  have := UnpackedFloat.blastExtractGuardBit_eq_true_iff hep hsp heu hsu x hdiffLower hdiffUpper hdiffNatLe
   grind only [#65b0223044fbdd80]
 
 -- TODO: 'toRatSig' lemma about what the guardBit tracks.
@@ -341,7 +348,11 @@ theorem extractStickyBit_eq_true_iff
   (hep : 1 < ep) (hsp : 0 < sp)
   (heu : exponentWidth ep sp ≤ eu)
   (hsu : sp + 2 ≤ su)
-  (x : UnpackedFloat eu su) :
+  (x : UnpackedFloat eu su)
+  (hdiffLower : -2 ^ (eu - 1) ≤ minNormalExp ep - x.ex.toInt)
+  (hdiffUpper : minNormalExp ep - x.ex.toInt < 2 ^ (eu - 1))
+  (hdiffNatLe : (minNormalExp ep - x.ex.toInt).toNat ≤ sp)
+  :
   x.blastExtractStickyBit ep sp = true ↔
     -- This makes sense,
     -- Consider when `su = sp + 2`.
@@ -351,7 +362,7 @@ theorem extractStickyBit_eq_true_iff
       i < su - (sp + 2) + (minNormalExp ep - x.ex.toInt).toNat ∧
       x.sig.getLsbD i = true) := by
   simp [UnpackedFloat.blastExtractStickyBit]
-  rw [UnpackedFloat.toNat_guardBitIndex_eq]
+  rw [UnpackedFloat.toNat_guardBitIndex_eq hep hsp heu hsu x hdiffLower hdiffUpper hdiffNatLe]
   rw [show (su - 1 - (sp + 1)) = su - (sp + 2) by grind only]
   rw [show su - (sp + 2) + (minNormalExp ep - x.ex.toInt).toNat =
        ((su + (minNormalExp ep - x.ex.toInt).toNat)) - (sp + 2) by grind only]
@@ -373,23 +384,22 @@ theorem extractStickyBit_eq_true_iff
       specialize hcontra i (by grind)
       obtain ⟨hi1, hi2⟩ := hi
       grind
-  · grind only
-  · grind only
-  · grind only
-  · grind only
-
 theorem extractStickyBit_eq_false_iff
   (hep : 1 < ep) (hsp : 0 < sp)
   (heu : exponentWidth ep sp ≤ eu)
   (hsu : sp + 2 ≤ su)
-  (x : UnpackedFloat eu su) :
+  (x : UnpackedFloat eu su)
+  (hdiffLower : -2 ^ (eu - 1) ≤ minNormalExp ep - x.ex.toInt)
+  (hdiffUpper : minNormalExp ep - x.ex.toInt < 2 ^ (eu - 1))
+  (hdiffNatLe : (minNormalExp ep - x.ex.toInt).toNat ≤ sp)
+  :
   x.blastExtractStickyBit ep sp = false ↔
     -- This makes sense,
     -- This says that all the lower bits are false.
      (∀ (i : Nat),
       i < su - (sp + 2) + (minNormalExp ep - x.ex.toInt).toNat →
       x.sig.getLsbD i = false) := by
-  have htrue := extractStickyBit_eq_true_iff hep hsp heu hsu x
+  have htrue := extractStickyBit_eq_true_iff hep hsp heu hsu x hdiffLower hdiffUpper hdiffNatLe
   rw [iff_iff_not_iff_not] at htrue
   grind only [#da50, #0b53, #b326]
 
@@ -402,14 +412,18 @@ theorem UnpackedFloat.blastExtractStickyBit_eq_decide
   (hep : 1 < ep) (hsp : 0 < sp)
   (heu : exponentWidth ep sp ≤ eu)
   (hsu : sp + 2 ≤ su)
-  (x : UnpackedFloat eu su) :
+  (x : UnpackedFloat eu su)
+  (hdiffLower : -2 ^ (eu - 1) ≤ minNormalExp ep - x.ex.toInt)
+  (hdiffUpper : minNormalExp ep - x.ex.toInt < 2 ^ (eu - 1))
+  (hdiffNatLe : (minNormalExp ep - x.ex.toInt).toNat ≤ sp)
+  :
   x.blastExtractStickyBit ep sp = decide (∃ (i : Nat),
       i < su - (sp + 2) + (minNormalExp ep - x.ex.toInt).toNat ∧
       x.sig.getLsbD i = true) := by
   by_cases hextract : x.blastExtractStickyBit ep sp = true
-  · have := extractStickyBit_eq_true_iff hep hsp heu hsu x
+  · have := extractStickyBit_eq_true_iff hep hsp heu hsu x hdiffLower hdiffUpper hdiffNatLe
     grind only [#46e5, #0b53]
-  · have := extractStickyBit_eq_true_iff hep hsp heu hsu x
+  · have := extractStickyBit_eq_true_iff hep hsp heu hsu x hdiffLower hdiffUpper hdiffNatLe
     simp at this
     grind only [#46e5, #0b53]
 
@@ -420,16 +434,15 @@ theorem UnpackedFloat.blastExtractStickyBit_eq_not_tieBreak_of_nonneg_of_guardBi
     (hsu : sp + 2 ≤ su)
     (heu : exponentWidth ep sp ≤ eu)
     (x : UnpackedFloat eu su)
+    (hdiffLower : -2 ^ (eu - 1) ≤ minNormalExp ep - x.ex.toInt)
+    (hdiffUpper : minNormalExp ep - x.ex.toInt < 2 ^ (eu - 1))
+    (hdiffNatLe : (minNormalExp ep - x.ex.toInt).toNat ≤ sp)
     (hx : x.sign = false)
     (hguard : x.blastExtractGuardBit ep sp = true) :
     x.blastExtractStickyBit ep sp = ! (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).tieBreak (ExtRat.Number x.toRat) := by
   simp [SmtLibSemantics.smtLibRoundMethod]
-  rw [blastExtractStickyBit_eq_decide]
-  · sorry
-  · grind only
-  · grind only
-  · grind only
-  · grind only
+  rw [blastExtractStickyBit_eq_decide he hs heu hsu x hdiffLower hdiffUpper hdiffNatLe]
+  sorry
 
 /-# blastIsOverflowNonneg -/
 theorem blastIsOverflowNonneg_iff  (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s) :
@@ -508,17 +521,23 @@ theorem UnpackedFloat.blastRounderForSign_of_sign_eq_false_eq
 
 
 theorem UnpackedFloat.blastRounderForSign_Rel_rounderForSign_zero (he : 1 < ep) (hs : 0 < sp)
-    (heu : exponentWidth ep sp ≤ eu)
-    (hsu : sp + 2 ≤ su)
-    (x : UnpackedFloat eu su) :
+    (_heu : exponentWidth ep sp ≤ eu)
+    (_hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su)
+    (hx0 : x.isZero) :
   (x.blastRounderForSign ep sp).Rel
     ((SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).rounderForSign x.sign
         (ExtRat.Number 0)) := by
   by_cases hsign : x.sign
   · simp [hsign]
-    sorry
+    rw [← UnpackedFloat.toRat'_eq_zero_of_isZero x hx0]
+    exact
+      (UnpackedFloat.blastUpper_Rel_smtLibUpper he hs x)
   · simp [hsign]
-    sorry
+    rw [UnpackedFloat.blastRounderForSign_of_sign_eq_false_eq x (by grind)]
+    rw [← UnpackedFloat.toRat'_eq_zero_of_isZero x hx0]
+    exact
+      (UnpackedFloat.blastLower_Rel_smtLibLower he hs x)
 
 
 /-# normalize -/
@@ -656,7 +675,7 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
       false_and]
       apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
       apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel (by grind) (by grind) (by grind)
-      apply UnpackedFloat.blastRounderForSign_Rel_rounderForSign_zero (by grind) (by grind) (by grind) (by grind)
+      apply UnpackedFloat.blastRounderForSign_Rel_rounderForSign_zero (by grind) (by grind) (by grind) (by grind) _ hx0
       -- simp [blastRounderForSign_eq_smtLibRounderForSign he hs heu hsu x]
     · simp [hx0]
       have hx0' : x.toRat' ≠ 0 := by grind only [=> UnpackedFloat.toRat'_ne_zero_iff_not_isZero]
