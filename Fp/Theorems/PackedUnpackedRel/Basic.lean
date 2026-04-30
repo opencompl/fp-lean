@@ -33,8 +33,8 @@ iff they are both NaN, or they are both infinite with the same sign,
 or they are either NaN and infinite, and have the same rational value and the same sign.
 -/
 def EUnpackedFloat.Rel (euf : EUnpackedFloat ef uf) (pf : PackedFloat ep sp) :=
-  (euf.isNaN ↔ pf.isNaN) ∨
-  (euf.isInfinite ↔ pf.isInfinite ∧ euf.sign = pf.sign) ∨
+  (euf.isNaN ∧ pf.isNaN) ∨
+  (euf.isInfinite ∧ pf.isInfinite ∧ euf.sign = pf.sign) ∨
   (¬ euf.isNaN ∧ ¬ euf.isInfinite ∧ euf.num.Rel pf)
 
 @[simp, grind =>]

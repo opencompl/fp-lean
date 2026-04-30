@@ -525,7 +525,6 @@ theorem UnpackedFloat.blastRounderForSign_Rel_rounderForSign_zero (he : 1 < ep) 
 
 theorem UnpackedFloat.normalize_Rel_of_Rel (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu)
-    (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (pf : PackedFloat ep sp)
     (h : x.Rel pf) :
     (x.normalize sign).Rel pf := by
@@ -533,7 +532,6 @@ theorem UnpackedFloat.normalize_Rel_of_Rel (he : 1 < ep) (hs : 0 < sp)
 
 theorem EUnpackedFloat.normalize_Rel_of_Rel (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu)
-    (hsu : sp + 2 ≤ su)
     (x : EUnpackedFloat eu su) (pf : PackedFloat ep sp)
     (h : x.Rel pf) :
     (x.normalize).Rel pf := by
@@ -541,9 +539,15 @@ theorem EUnpackedFloat.normalize_Rel_of_Rel (he : 1 < ep) (hs : 0 < sp)
 
 /-# truncateFittingExponent -/
 
+/--
+Note: this lemma needs an additional hypothesis that `x.ex.toInt` lies in the
+range expressible by `exponentWidth ep sp` bits — without it the truncation can
+silently change the exponent's value. The hypothesis is provided at the call
+site by the surrounding `¬ blastIsOverflowNonneg` branch; plumb it in when
+filling the proof.
+-/
 theorem UnpackedFloat.truncateFittingExponent_Rel_of_Rel (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu)
-    (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (pf : PackedFloat ep sp)
     (h : x.Rel pf) :
     (x.truncateFittingExponent ep sp).Rel pf := by
@@ -551,7 +555,6 @@ theorem UnpackedFloat.truncateFittingExponent_Rel_of_Rel (he : 1 < ep) (hs : 0 <
 
 theorem EUnpackedFloat.truncateFittingExponent_Rel_of_Rel (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu)
-    (hsu : sp + 2 ≤ su)
     (x : EUnpackedFloat eu su) (pf : PackedFloat ep sp)
     (h : x.Rel pf) :
     (x.truncateFittingExponent ep sp).Rel pf := by
@@ -598,8 +601,8 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
     by_cases hx0 : x.isZero
     · simp only [hx0, ↓reduceIte, UnpackedFloat.toRat'_eq_zero_of_isZero, not_true_eq_false,
       false_and]
-      apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) (by sorry)
-      apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel (by grind) (by grind) (by grind) (by sorry)
+      apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind)
+      apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel (by grind) (by grind) (by grind)
       apply UnpackedFloat.blastRounderForSign_Rel_rounderForSign_zero (by grind) (by grind) (by grind) (by grind)
       -- simp [blastRounderForSign_eq_smtLibRounderForSign he hs heu hsu x]
     · simp [hx0]
@@ -618,14 +621,14 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
           · have hevenupper' := blastIsEvenUpper_iff_smtLibIsEven_upper he hs x
             simp [hevenupper] at hevenupper'
             simp [hevenupper, hevenupper']
-            apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) (by sorry)
-            apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel (by grind) (by grind) (by grind) (by sorry)
+            apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind)
+            apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel (by grind) (by grind) (by grind)
             apply UnpackedFloat.blastLower_Rel_smtLibLower (by grind) (by grind)
         · have htiebreak' := blastTieBreak_iff_smtLibTieBreak he hs x
           simp [htiebreak] at htiebreak'
           simp [htiebreak, htiebreak']
-          apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) (by sorry)
-          apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel (by grind) (by grind) (by grind) (by sorry)
+          apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind)
+          apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel (by grind) (by grind) (by grind)
           apply UnpackedFloat.blastLower_Rel_smtLibLower (by grind) (by grind)
       · have hlowerHalf' := blastIsLowerHalf_iff_smtLibLowerHalf he hs x
         simp [hlowerhalf] at hlowerHalf'
@@ -636,8 +639,8 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
           by_cases hevenupper : x.blastIsEvenUpper ep sp
           · have hevenupper' := blastIsEvenUpper_iff_smtLibIsEven_upper he hs x |>.mp hevenupper
             simp [hevenupper, hevenupper']
-            apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) (by sorry)
-            apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel (by grind) (by grind) (by grind) (by sorry)
+            apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind)
+            apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel (by grind) (by grind) (by grind)
             apply UnpackedFloat.blastUpper_Rel_smtLibUpper (by grind) (by grind)
           · have hevenupper' := blastIsEvenUpper_iff_smtLibIsEven_upper he hs x
             simp [hevenupper] at hevenupper'
@@ -645,22 +648,22 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
             by_cases hevenlower : x.blastIsEvenLower ep sp
             · have hevenlower' := blastIsEvenLower_iff_smtLibIsEven_lower he hs x |>.mp hevenlower
               simp [hevenlower, hevenlower']
-              apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) (by sorry)
-              apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel (by grind) (by grind) (by grind) (by sorry)
+              apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind)
+              apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel (by grind) (by grind) (by grind)
               apply UnpackedFloat.blastLower_Rel_smtLibLower (by grind) (by grind)
             · have hevenlower' := blastIsEvenLower_iff_smtLibIsEven_lower he hs x
               simp [hevenlower] at hevenlower'
               simp [hevenlower, hevenlower']
-              apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) (by sorry)
-              apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel (by grind) (by grind) (by grind) (by sorry)
+              apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind)
+              apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel (by grind) (by grind) (by grind)
               apply EUnpackedFloat.Rel_of_isNaN_of_isNaN
               · simp
               · simp
         · have htiebreak' := blastTieBreak_iff_smtLibTieBreak he hs x
           simp [htiebreak] at htiebreak'
           simp [htiebreak, htiebreak']
-          apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) (by sorry)
-          apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel (by grind) (by grind) (by grind) (by sorry)
+          apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind)
+          apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel (by grind) (by grind) (by grind)
           apply UnpackedFloat.blastUpper_Rel_smtLibUpper (by grind) (by grind)
 
 end Fp
