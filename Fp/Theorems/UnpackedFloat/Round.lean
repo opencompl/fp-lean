@@ -400,6 +400,25 @@ theorem UnpackedFloat.blastExtractStickyBit_eq_decide
     grind only [#46e5, #0b53]
 
 
+/-! # Normalization commutes with negation -/
+
+/-- Negating an `UnpackedFloat` commutes with `normalize` (passing the negated sign). -/
+@[simp]
+theorem UnpackedFloat.neg_normalize_eq_neg_normalize (x : UnpackedFloat e s) :
+    (-x).normalize = -(x.normalize) := by
+  simp only [UnpackedFloat.neg_def, UnpackedFloat.normalize, UnpackedFloat.neg,
+    UnpackedFloat.mkZero]
+  by_cases h : x.sig = 0#s
+  · simp only [h, beq_self_eq_true, cond_true]
+  · have : (x.sig == 0#s) = false := by simp [h]
+    simp only [this, cond_false]
+
+/-- If `x` is already normalized, so is `-x`. -/
+theorem UnpackedFloat.normalize_neg_eq_neg_of_normalize_eq (x : UnpackedFloat e s)
+    (hxnorm : x.normalize = x) :
+    (-x).normalize = -x := by
+  rw [UnpackedFloat.neg_normalize_eq_neg_normalize, hxnorm]
+
 /-# `blastLowerNonneg` matches `lower`
 
 ## Plan
@@ -602,6 +621,7 @@ This is the hard core: it conjoins
 theorem UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero
     (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s)
     (hxsign : x.sign = false)
+    (hxnorm : x.normalize = x)
     (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
     (hnotover  : x.blastIsOverflowNonneg ep sp = false) :
     ∃ pf : PackedFloat ep sp,
@@ -614,6 +634,7 @@ theorem UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero
 theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_normal
     (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s)
     (hxsign : x.sign = false)
+    (hxnorm : x.normalize = x)
     (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
     (hnotover  : x.blastIsOverflowNonneg ep sp = false) :
     (EUnpackedFloat.mkNumber (x.blastRoundTowardZero ep sp) :
@@ -621,7 +642,7 @@ theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_normal
       (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
   obtain ⟨pf, hpfNotNaN, hpfLower, hToRat, hSign⟩ :=
     UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero
-      he hs x hxsign hnotunder hnotover
+      he hs x hxsign hxnorm hnotunder hnotover
   apply EUnpackedFloat.Rel_smtLibLower_of_witness
       (pf := pf) (he := by grind) (hs := hs)
   · simp
@@ -633,9 +654,16 @@ theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_normal
 
 /-- Main theorem: the bit-blasted lower-rounding circuit for nonnegative floats
     matches the SMT-LIB greatest lower bound. The proof unfolds
-    `blastLowerNonneg` and dispatches to one of the three branch lemmas. -/
+    `blastLowerNonneg` and dispatches to one of the three branch lemmas.
+
+    Requires `x.normalize = x` (i.e. `x` is already in normalized form) so that
+    the normal-range branch can identify `blastRoundTowardZero x` with a packed
+    float — without normalization, multiple unpacked representations share the
+    same value and the bit-level "extract top sp+1 bits" step does not commute
+    with `toRat'`. -/
 theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s)
-  (hxsign : x.sign = false) :
+  (hxsign : x.sign = false)
+  (hxnorm : x.normalize = x) :
   (x.blastLowerNonneg ep sp).Rel (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
   unfold UnpackedFloat.blastLowerNonneg
   by_cases hunder : x.blastIsUnderflowNonneg ep sp = true
@@ -648,7 +676,7 @@ theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower (he : 1 < ep) (hs : 0 < s
       exact UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_overflow he hs x hxsign hunder hover
     · simp only [Bool.not_eq_true] at hover
       simp [hover]
-      exact UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_normal he hs x hxsign hunder hover
+      exact UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_normal he hs x hxsign hxnorm hunder hover
 
 /-# `blastUpperNonneg` matches `upper` -/
 
@@ -661,7 +689,8 @@ theorem UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper (he : 1 < ep) (hs : 0 < s
 
 /-# `blastLower` matches `lower` -/
 
-theorem UnpackedFloat.blastLower_Rel_smtLibLower (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s) :
+theorem UnpackedFloat.blastLower_Rel_smtLibLower (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s)
+  (hxnorm : x.normalize = x) :
   (x.blastLower ep sp).Rel (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
   simp [UnpackedFloat.blastLower]
   by_cases hsign : x.sign
@@ -683,12 +712,14 @@ theorem UnpackedFloat.blastLower_Rel_smtLibLower (he : 1 < ep) (hs : 0 < sp) (x 
     · grind only
     · grind only
     · simp [hsign]
+    · exact hxnorm
 
 
 /-# `blastUpper` matches `upper` -/
 
 
-theorem UnpackedFloat.blastUpper_Rel_smtLibUpper (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s) :
+theorem UnpackedFloat.blastUpper_Rel_smtLibUpper (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s)
+  (hxnorm : x.normalize = x) :
   (x.blastUpper ep sp).Rel (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
   simp [UnpackedFloat.blastUpper]
   by_cases hsign : x.sign
@@ -702,6 +733,7 @@ theorem UnpackedFloat.blastUpper_Rel_smtLibUpper (he : 1 < ep) (hs : 0 < sp) (x 
       · grind
       · grind
       · simp [hsign]
+      · exact UnpackedFloat.normalize_neg_eq_neg_of_normalize_eq x hxnorm
     · grind only
     · grind only
     · grind only
@@ -777,6 +809,7 @@ theorem UnpackedFloat.blastRounderForSign_Rel_rounderForSign_zero (he : 1 < ep) 
     (_heu : exponentWidth ep sp ≤ eu)
     (_hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su)
+    (hxnorm : x.normalize = x)
     (hx0 : x.isZero) :
   (x.blastRounderForSign ep sp).Rel
     ((SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).rounderForSign x.sign
@@ -784,12 +817,12 @@ theorem UnpackedFloat.blastRounderForSign_Rel_rounderForSign_zero (he : 1 < ep) 
   by_cases hsign : x.sign
   · simp [hsign]
     rw [← UnpackedFloat.toRat'_eq_zero_of_isZero x hx0]
-    exact (UnpackedFloat.blastUpper_Rel_smtLibUpper he hs x)
+    exact (UnpackedFloat.blastUpper_Rel_smtLibUpper he hs x hxnorm)
   · simp [hsign]
     rw [UnpackedFloat.blastRounderForSign_of_sign_eq_false_eq x (by grind)]
     rw [← UnpackedFloat.toRat'_eq_zero_of_isZero x hx0]
     exact
-      (UnpackedFloat.blastLower_Rel_smtLibLower he hs x)
+      (UnpackedFloat.blastLower_Rel_smtLibLower he hs x hxnorm)
 
 /--
 info: 'Fp.UnpackedFloat.blastRounderForSign_Rel_rounderForSign_zero' depends on axioms: [propext,
@@ -1003,7 +1036,7 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
       false_and]
       apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
       apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel_of_toInt_trunc_eq (by grind) (by grind) (by grind) _ _ (by sorry)
-      apply UnpackedFloat.blastRounderForSign_Rel_rounderForSign_zero (by grind) (by grind) (by grind) (by grind) _ hx0
+      apply UnpackedFloat.blastRounderForSign_Rel_rounderForSign_zero (by grind) (by grind) (by grind) (by grind) _ hxnorm hx0
       -- simp [blastRounderForSign_eq_smtLibRounderForSign he hs heu hsu x]
     · simp [hx0]
       have hx0' : x.toRat' ≠ 0 := by grind only [=> UnpackedFloat.toRat'_ne_zero_iff_not_isZero]
@@ -1019,19 +1052,19 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
             simp [hevenupper, hevenupper']
             apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
             apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel_of_toInt_trunc_eq (by grind) (by grind) (by grind) _ _ (by sorry)
-            apply UnpackedFloat.blastUpper_Rel_smtLibUpper (by grind) (by grind)
+            exact UnpackedFloat.blastUpper_Rel_smtLibUpper (by grind) (by grind) _ hxnorm
           · have hevenupper' := blastIsEvenUpper_iff_smtLibIsEven_upper he hs x
             simp [hevenupper] at hevenupper'
             simp [hevenupper, hevenupper']
             apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
             apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel_of_toInt_trunc_eq (by grind) (by grind) (by grind) _ _ (by sorry)
-            apply UnpackedFloat.blastLower_Rel_smtLibLower (by grind) (by grind)
+            exact UnpackedFloat.blastLower_Rel_smtLibLower (by grind) (by grind) _ hxnorm
         · have htiebreak' := blastTieBreak_iff_smtLibTieBreak he hs x
           simp [htiebreak] at htiebreak'
           simp [htiebreak, htiebreak']
           apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
           apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel_of_toInt_trunc_eq (by grind) (by grind) (by grind) _ _ (by sorry)
-          apply UnpackedFloat.blastLower_Rel_smtLibLower (by grind) (by grind)
+          exact UnpackedFloat.blastLower_Rel_smtLibLower (by grind) (by grind) _ hxnorm
       · have hlowerHalf' := blastIsLowerHalf_iff_smtLibLowerHalf he hs x
         simp [hlowerhalf] at hlowerHalf'
         simp [hlowerhalf, hlowerHalf']
@@ -1043,7 +1076,7 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
             simp [hevenupper, hevenupper']
             apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
             apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel_of_toInt_trunc_eq (by grind) (by grind) (by grind) _ _ (by sorry)
-            apply UnpackedFloat.blastUpper_Rel_smtLibUpper (by grind) (by grind)
+            exact UnpackedFloat.blastUpper_Rel_smtLibUpper (by grind) (by grind) _ hxnorm
           · have hevenupper' := blastIsEvenUpper_iff_smtLibIsEven_upper he hs x
             simp [hevenupper] at hevenupper'
             simp [hevenupper, hevenupper']
@@ -1052,7 +1085,7 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
               simp [hevenlower, hevenlower']
               apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
               apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel_of_toInt_trunc_eq (by grind) (by grind) (by grind) _ _ (by sorry)
-              apply UnpackedFloat.blastLower_Rel_smtLibLower (by grind) (by grind)
+              exact UnpackedFloat.blastLower_Rel_smtLibLower (by grind) (by grind) _ hxnorm
             · have hevenlower' := blastIsEvenLower_iff_smtLibIsEven_lower he hs x
               simp [hevenlower] at hevenlower'
               simp [hevenlower, hevenlower']
@@ -1066,6 +1099,6 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
           simp [htiebreak, htiebreak']
           apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
           apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel_of_toInt_trunc_eq (by grind) (by grind) (by grind) _ _ (by sorry)
-          apply UnpackedFloat.blastUpper_Rel_smtLibUpper (by grind) (by grind)
+          exact UnpackedFloat.blastUpper_Rel_smtLibUpper (by grind) (by grind) _ hxnorm
 
 end Fp
