@@ -617,6 +617,16 @@ float that is a lawful lower of `Number x.toRat'` and matches it in
 This is the hard core: it conjoins
   • exact-representability of `blastRoundTowardZero x` as a PF, and
   • the rounding-toward-zero correctness statement.
+
+Key facts:
+
+- the packed float will be the one given by 'blastLowerNonneg.pack'
+- pack preserves the toRat, nor does it change the sign
+- we need a lemma that says that it's a lawful lower if the 'toRat' is equal, and then distance
+  btween 'pf.toRat' and 'x.toRat' is less than 1 ulp of 'pf' (which is the same as 1 ulp of 'blastRoundTowardZero x').
+  This needs a separate lemma or two.
+- These key facts establish the existence of the 'pf'.
+- TODO: maybe worth it to replace the existential with the concrete pf we know.
 -/
 theorem UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero
     (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s)
