@@ -532,7 +532,7 @@ theorem toInt_ofInt_maxSubnormalExp_eq_maxSubnormalExp (he : 1 < e) (hs : 0 < s)
     have := bias_plus_one_lt_two_pow_exponentWidth_minus_one e s he hs
     grind only
 
-theorem neg_two_pow_exponentWidth_lt_minSubnormalExp (e : Nat) (s : Nat) (he : 1 < e) (hs : 0 < s) :
+theorem neg_two_pow_exponentWidth_lt_minSubnormalExp {e : Nat} {s : Nat} (he : 1 < e) (hs : 0 < s) :
     -(2 ^ (exponentWidth e s - 1)) < minSubnormalExp e s := by
   apply Int.lt_of_neg_lt_neg
   simp only [Int.neg_neg]
@@ -548,7 +548,7 @@ theorem neg_two_pow_exponentWidth_lt_minSubnormalExp (e : Nat) (s : Nat) (he : 1
   obtain ⟨log, hlogeq, hloglt, hlogle⟩ := hlog -- log2 value.
   grind only [!Nat.two_pow_pos, #569066451790c837]
 
-theorem minSubnormalExp_lt_two_pow_exponentWidth (e : Nat) (s : Nat) (he : 1 < e) (hs : 0 < s) :
+theorem minSubnormalExp_lt_two_pow_exponentWidth {e : Nat} {s : Nat} (he : 1 < e) (hs : 0 < s) :
     minSubnormalExp e s < 2 ^ (exponentWidth e s - 1) := by
   apply Int.lt_of_neg_lt_neg
   rw [minSubnormalExp, maxSubnormalExp, minNormalExp]
@@ -567,8 +567,8 @@ theorem minSubnormalExp_lt_two_pow_exponentWidth (e : Nat) (s : Nat) (he : 1 < e
 theorem toInt_ofInt_minSubnormalExp_eq_minSubnormalExp (he : 1 < e) (hs : 0 < s) :
     (BitVec.ofInt (exponentWidth e s) (minSubnormalExp e s)).toInt = (minSubnormalExp e s) := by
   simp only [BitVec.toInt_ofInt]
-  have := neg_two_pow_exponentWidth_lt_minSubnormalExp e s he hs
-  have := minSubnormalExp_lt_two_pow_exponentWidth e s he hs
+  have := neg_two_pow_exponentWidth_lt_minSubnormalExp he hs
+  have := minSubnormalExp_lt_two_pow_exponentWidth he hs
   rw [Int.bmod_eq_of_le]
   · simp
     grind only
@@ -579,8 +579,8 @@ theorem toInt_ofInt_minSubnormalExp_eq_minSubnormalExp_of_le
     (he : 1 < e) (hs : 0 < s) (hw : exponentWidth e s ≤ w) :
     (BitVec.ofInt w (minSubnormalExp e s)).toInt = (minSubnormalExp e s) := by
   simp only [BitVec.toInt_ofInt]
-  have := neg_two_pow_exponentWidth_lt_minSubnormalExp e s he hs
-  have := minSubnormalExp_lt_two_pow_exponentWidth e s he hs
+  have := neg_two_pow_exponentWidth_lt_minSubnormalExp he hs
+  have := minSubnormalExp_lt_two_pow_exponentWidth he hs
   have : 0 < exponentWidth e s := by exact zero_lt_exponentWidth
   have hwpos : 0 < w := by grind only
   have : 2 ^ (exponentWidth e s - 1) ≤ 2 ^ (w - 1) := by
@@ -597,8 +597,8 @@ theorem toInt_ofInt_minSubnormalExp_sub_one_eq_minSubnormalExp_sub_one_of_le
     (he : 1 < e) (hs : 0 < s) (hw : exponentWidth e s ≤ w) :
     (BitVec.ofInt w (minSubnormalExp e s - 1)).toInt = (minSubnormalExp e s - 1) := by
   simp only [BitVec.toInt_ofInt]
-  have := neg_two_pow_exponentWidth_lt_minSubnormalExp e s he hs
-  have := minSubnormalExp_lt_two_pow_exponentWidth e s he hs
+  have := neg_two_pow_exponentWidth_lt_minSubnormalExp he hs
+  have := minSubnormalExp_lt_two_pow_exponentWidth he hs
   have : 0 < exponentWidth e s := by exact zero_lt_exponentWidth
   have hwpos : 0 < w := by grind only
   have : 2 ^ (exponentWidth e s - 1) ≤ 2 ^ (w - 1) := by

@@ -962,15 +962,23 @@ theorem sig_truncateFittingExponent (x : UnpackedFloat eu su) :
   simp [UnpackedFloat.truncateFittingExponent]
 
 
+/--
+truncateFittingExponent doesn't change the value of the exponent
+when we don't have early over and underflow.
+-/
 theorem toExpInt_truncateFittingExponent_of_not_blastIsOverflowNonneg
     (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu)
     (x : UnpackedFloat eu su)
-    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hnotunder : x.blastIsEarlyUnderflowNonneg ep sp = false) :
     (x.truncateFittingExponent ep sp).toExpInt = x.toExpInt := by
   simp [UnpackedFloat.truncateFittingExponent, UnpackedFloat.toExpInt]
-  have := UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide he hs heu x
-  simp [hnotover] at this
+  have hnotover' := UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide he hs heu x
+  simp [hnotover] at hnotover'
+  have hnotunder' := UnpackedFloat.blastIsEarlyUnderflowNonneg_eq_decide he hs heu x
+  simp [hnotunder] at hnotunder'
+
   rw [BitVec.toInt_signExtend_eq_toInt_bmod_of_le]
   · rw [Int.bmod_eq_of_le]
     · simp
@@ -978,8 +986,10 @@ theorem toExpInt_truncateFittingExponent_of_not_blastIsOverflowNonneg
       have := x.ex.le_toInt
       have : 2 ^ (exponentWidth ep sp - 1) ≤ 2 ^ (eu - 1) := by
         apply Nat.two_pow_le_two_pow_of_le (by grind)
-      sorry
-
+      apply Int.le_trans (b := minSubnormalExp ep sp - 1)
+      · have := neg_two_pow_exponentWidth_lt_minSubnormalExp he hs
+        grind only
+      · grind only
     · simp; sorry
   · grind only
   -- rw [BitVec.toInt_signExtend_of_le]
@@ -993,20 +1003,24 @@ theorem toExpInt_truncateFittingExponent_of_not_blastIsOverflowNonneg
 If we have not overflowed, then `truncateFittingExponent` does not change the value of `toRat`.
 -/
 @[simp]
-theorem UnpackedFloat.toRat_truncateFittingExponent_of_not_blastIsOverflowNonneg
+theorem UnpackedFloat.toRat_truncateFittingExponent_of_not_blastIsOverflowNonneg_of_not_blastIsEarlyUnderflowNonneg
     (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu)
     (x : UnpackedFloat eu su)
-    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (notunder : x.blastIsEarlyUnderflowNonneg ep sp = false) :
     (x.truncateFittingExponent ep sp).toRat = x.toRat := by
   simp [UnpackedFloat.toRat_eq_toRat', UnpackedFloat.toRat']
-  rw [toExpInt_truncateFittingExponent_of_not_blastIsOverflowNonneg]
-  · grind only
-  · grind only
-  · grind only
-  · grind only
+  rw [toExpInt_truncateFittingExponent_of_not_blastIsOverflowNonneg] <;> grind only
 
 
+/--
+info: 'Fp.UnpackedFloat.toRat_truncateFittingExponent_of_not_blastIsOverflowNonneg_of_not_blastIsEarlyUnderflowNonneg' depends on axioms: [propext,
+ sorryAx,
+ Classical.choice,
+ Quot.sound]
+-/
+#guard_msgs in #print axioms UnpackedFloat.toRat_truncateFittingExponent_of_not_blastIsOverflowNonneg_of_not_blastIsEarlyUnderflowNonneg
 
 /-
 /-# `blastSmtLibRound` matches `smtLibRound` for RNE rounding mode. -/
