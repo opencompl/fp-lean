@@ -5,6 +5,7 @@ import Fp.UnpackedFloat.Basic
 import Fp.Theorems.UnpackedFloat.ToRat
 import Fp.EUnpackedFloat.Basic
 import Fp.Basic
+import Fp.Comparison
 import Fp.Utils
 
 
@@ -111,14 +112,18 @@ euf.neg.Rel (-pf) := by
 /-- info: 'EUnpackedFloat.neg_Rel_neg' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms EUnpackedFloat.neg_Rel_neg
 
+
 /--
 If an extended unpacked float is related to a packed float,
-then packing the extended unpacked float gives back the same packed float.
+then packing the extended unpacked gives a packed float that is equal
+to the related one according to SMT-LIB equality.
+This allows the 'NaN' bit pattern to change, but requires all else to remain equal.
+Thus, all our theorems will be stated in terms of SMT-LIB equality.
 -/
-theorem pack_eq_of_Rel (euf : EUnpackedFloat (exponentWidth ep sp) (sp + 1))
+theorem smtBeq_pack_of_rel (euf : EUnpackedFloat (exponentWidth ep sp) (sp + 1))
     (pf : PackedFloat ep sp)
     (hRel : euf.Rel pf) :
-  euf.pack = pf := sorry
+  euf.pack.smtBeq pf := sorry
 
 -- theorem unpack_eq_of_Rel (euf : EUnpackedFloat ef uf) (pf : PackedFloat (exponentWidth ef uf) (uf + 1)) (hRel : euf.Rel pf) :
 --   pf.unpack = euf := sorry
