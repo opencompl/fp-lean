@@ -532,25 +532,83 @@ theorem toInt_ofInt_maxSubnormalExp_eq_maxSubnormalExp (he : 1 < e) (hs : 0 < s)
     have := bias_plus_one_lt_two_pow_exponentWidth_minus_one e s he hs
     grind only
 
+theorem neg_two_pow_exponentWidth_lt_minSubnormalExp (e : Nat) (s : Nat) (he : 1 < e) (hs : 0 < s) :
+    -(2 ^ (exponentWidth e s - 1)) < minSubnormalExp e s := by
+  apply Int.lt_of_neg_lt_neg
+  simp only [Int.neg_neg]
+  rw [minSubnormalExp, maxSubnormalExp, minNormalExp]
+  have : 0 < bias e := by exact bias_pos_of_one_lt e he
+  rw [Int.natCast_sub (by grind only)]
+  norm_cast
+  simp
+  have hbias := bias_plus_one_lt_two_pow_exponentWidth_minus_one e s he hs
+  rw [exponentWidth, bias] at hbias ⊢
+  have hlog := Nat.log2_eq_exists ((2 ^ (e - 1) + s - 1)) (by grind only [!Nat.two_pow_pos,
+      #569066451790c837])
+  obtain ⟨log, hlogeq, hloglt, hlogle⟩ := hlog -- log2 value.
+  grind only [!Nat.two_pow_pos, #569066451790c837]
+
+theorem minSubnormalExp_lt_two_pow_exponentWidth (e : Nat) (s : Nat) (he : 1 < e) (hs : 0 < s) :
+    minSubnormalExp e s < 2 ^ (exponentWidth e s - 1) := by
+  apply Int.lt_of_neg_lt_neg
+  rw [minSubnormalExp, maxSubnormalExp, minNormalExp]
+  have : 0 < bias e := by exact bias_pos_of_one_lt e he
+  rw [Int.natCast_sub (by grind only)]
+  norm_cast
+  simp
+  have hbias := bias_plus_one_lt_two_pow_exponentWidth_minus_one e s he hs
+  rw [exponentWidth, bias] at hbias ⊢
+  have hlog := Nat.log2_eq_exists ((2 ^ (e - 1) + s - 1)) (by grind only [!Nat.two_pow_pos,
+      #569066451790c837])
+  obtain ⟨log, hlogeq, hloglt, hlogle⟩ := hlog -- log2 value.
+  grind only [!Nat.two_pow_pos, #569066451790c837]
+
 @[simp, grind =]
 theorem toInt_ofInt_minSubnormalExp_eq_minSubnormalExp (he : 1 < e) (hs : 0 < s) :
     (BitVec.ofInt (exponentWidth e s) (minSubnormalExp e s)).toInt = (minSubnormalExp e s) := by
   simp only [BitVec.toInt_ofInt]
+  have := neg_two_pow_exponentWidth_lt_minSubnormalExp e s he hs
+  have := minSubnormalExp_lt_two_pow_exponentWidth e s he hs
   rw [Int.bmod_eq_of_le]
   · simp
-    rw [minSubnormalExp, maxSubnormalExp, minNormalExp]
-    have : 0 < bias e := by exact bias_pos_of_one_lt e he
-    rw [Int.natCast_sub (by grind only)]
-    have hbias := bias_plus_one_lt_two_pow_exponentWidth_minus_one e s he hs
-    norm_cast
-    rw [exponentWidth, bias] at hbias ⊢
-    have hlog := Nat.log2_eq_exists ((2 ^ (e - 1) + s - 1)) (by grind only [!Nat.two_pow_pos,
-      #569066451790c837])
-    obtain ⟨log, hlogeq, hloglt, hlogle⟩ := hlog -- log2 value.
-    grind only [!Nat.two_pow_pos, #569066451790c837]
-  · rw [minSubnormalExp, maxSubnormalExp, minNormalExp]
-    simp
-    have := bias_plus_one_lt_two_pow_exponentWidth_minus_one e s he hs
+    grind only
+  · simp
+    grind only
+
+theorem toInt_ofInt_minSubnormalExp_eq_minSubnormalExp_of_le
+    (he : 1 < e) (hs : 0 < s) (hw : exponentWidth e s ≤ w) :
+    (BitVec.ofInt w (minSubnormalExp e s)).toInt = (minSubnormalExp e s) := by
+  simp only [BitVec.toInt_ofInt]
+  have := neg_two_pow_exponentWidth_lt_minSubnormalExp e s he hs
+  have := minSubnormalExp_lt_two_pow_exponentWidth e s he hs
+  have : 0 < exponentWidth e s := by exact zero_lt_exponentWidth
+  have hwpos : 0 < w := by grind only
+  have : 2 ^ (exponentWidth e s - 1) ≤ 2 ^ (w - 1) := by
+    apply Nat.pow_le_pow_of_le
+    · decide
+    · grind only
+  rw [Int.bmod_eq_of_le]
+  · simp [hwpos]
+    grind only
+  · simp
+    grind only
+
+theorem toInt_ofInt_minSubnormalExp_sub_one_eq_minSubnormalExp_sub_one_of_le
+    (he : 1 < e) (hs : 0 < s) (hw : exponentWidth e s ≤ w) :
+    (BitVec.ofInt w (minSubnormalExp e s - 1)).toInt = (minSubnormalExp e s - 1) := by
+  simp only [BitVec.toInt_ofInt]
+  have := neg_two_pow_exponentWidth_lt_minSubnormalExp e s he hs
+  have := minSubnormalExp_lt_two_pow_exponentWidth e s he hs
+  have : 0 < exponentWidth e s := by exact zero_lt_exponentWidth
+  have hwpos : 0 < w := by grind only
+  have : 2 ^ (exponentWidth e s - 1) ≤ 2 ^ (w - 1) := by
+    apply Nat.pow_le_pow_of_le
+    · decide
+    · grind only
+  rw [Int.bmod_eq_of_le]
+  · simp [hwpos]
+    grind only
+  · simp
     grind only
 
 /--

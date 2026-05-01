@@ -777,7 +777,7 @@ theorem blastIsEvenLower_iff_smtLibIsEven_lower (he : 1 < ep) (hs : 0 < sp) (x :
 /-# blastIsOverflowNonneg -/
 
 @[simp]
-theorem UnpackedFloat.blastIsOverflowNonneg_eq_decide  (he : 1 < ep) (hs : 0 < sp)
+theorem UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide  (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu)
     (x : UnpackedFloat eu su) :
     x.blastIsEarlyOverflowNonneg ep sp = decide (maxNormalExp ep < x.ex.toInt) := by
@@ -786,7 +786,29 @@ theorem UnpackedFloat.blastIsOverflowNonneg_eq_decide  (he : 1 < ep) (hs : 0 < s
   rw [toInt_ofInt_maxNormalExp_eq_maxNormalExp_of_le (w := eu) he hs]
   · grind only
 
+/-# blastIsUnderflowNonneg -/
 
+@[simp]
+theorem UnpackedFloat.blastUnderflowNonneg_eq_decide (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su) :
+    x.blastIsUnderflowNonneg ep sp = decide (x.ex.toInt < minSubnormalExp ep sp) := by
+  simp [UnpackedFloat.blastIsUnderflowNonneg]
+  rw [BitVec.slt_eq_decide]
+  rw [toInt_ofInt_minSubnormalExp_eq_minSubnormalExp_of_le (w := eu) he hs]
+  · grind only
+
+/-# blastIsEarlyUnderflowNonneg -/
+
+@[simp]
+theorem UnpackedFloat.blastIsEarlyUnderflowNonneg_eq_decide (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su) :
+    x.blastIsEarlyUnderflowNonneg ep sp = decide (x.ex.toInt < minSubnormalExp ep sp - 1) := by
+  simp [UnpackedFloat.blastIsEarlyUnderflowNonneg]
+  rw [BitVec.slt_eq_decide]
+  rw [toInt_ofInt_minSubnormalExp_sub_one_eq_minSubnormalExp_sub_one_of_le (w := eu) he hs]
+  · grind only
 
 /-# blastIsLowerHalf -/
 
@@ -947,7 +969,7 @@ theorem toExpInt_truncateFittingExponent_of_not_blastIsOverflowNonneg
     (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
     (x.truncateFittingExponent ep sp).toExpInt = x.toExpInt := by
   simp [UnpackedFloat.truncateFittingExponent, UnpackedFloat.toExpInt]
-  have := UnpackedFloat.blastIsOverflowNonneg_eq_decide he hs heu x
+  have := UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide he hs heu x
   simp [hnotover] at this
   rw [BitVec.toInt_signExtend_eq_toInt_bmod_of_le]
   · rw [Int.bmod_eq_of_le]
@@ -1008,12 +1030,12 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
   rw [UnpackedFloat.blastSmtLibRound]
   by_cases hover : x.blastIsOverflowNonneg ep sp
   · simp [hover]
-    rw [blastIsOverflowNonneg_eq_decide he hs heu x] at hover
+    rw [blastIsEarlyOverflowNonneg_eq_decide he hs heu x] at hover
     simp at hover
     simp [blastRounderSpecialCaseOverflow]
     sorry
   · simp [hover]
-    rw [blastIsOverflowNonneg_eq_decide he hs heu x] at hover
+    rw [blastIsEarlyOverflowNonneg_eq_decide he hs heu x] at hover
     simp at hover
     simp only [UnpackedFloat.blastSmtLibRoundAux]
     simp only [SmtLibSemantics.RoundMethod.roundRNE, SmtLibSemantics.instExtendedRat.isNaN_eq,
