@@ -225,7 +225,7 @@ def UnpackedFloat.truncateFittingExponent {eu su : Nat} (tep tsp : Nat)
   (uf : UnpackedFloat eu su) :
   UnpackedFloat (exponentWidth tep tsp) su :=
   { sign := uf.sign,
-    ex := uf.ex.truncate (exponentWidth tep tsp),
+    ex := uf.ex.signExtend (exponentWidth tep tsp),
     sig := uf.sig }
 
 axiom AxRoundPreconditions {P : Prop} : P
@@ -790,6 +790,7 @@ def UnpackedFloat.blastSmtLibRound {eu su : Nat}
   if blastIsOverflowNonneg uf tep tsp then
     blastRounderSpecialCaseOverflow mode uf.sign
   else
+    -- TODO: add special case for undeerflow.
     -- if overflow then do overflow else call the rsest of the functions
     let rounded := uf.truncateFittingExponent tep tsp
     let rounded := rounded.blastSmtLibRoundAux tep tsp mode

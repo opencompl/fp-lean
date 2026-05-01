@@ -776,8 +776,16 @@ theorem blastIsEvenLower_iff_smtLibIsEven_lower (he : 1 < ep) (hs : 0 < sp) (x :
 
 /-# blastIsOverflowNonneg -/
 
-theorem blastIsOverflowNonneg_iff  (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s) :
-  x.blastIsOverflowNonneg ep sp = true ↔ (PackedFloat.maxNormalNumber ep sp false).toRat < x.toRat := by sorry
+@[simp]
+theorem UnpackedFloat.blastIsOverflowNonneg_eq_decide  (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su) :
+    x.blastIsOverflowNonneg ep sp = decide (maxNormalExp ep < x.ex.toInt) := by
+  simp [UnpackedFloat.blastIsOverflowNonneg]
+  rw [BitVec.slt_eq_decide]
+  rw [toInt_ofInt_maxNormalExp_eq_maxNormalExp_of_le (w := eu) he hs]
+  · grind only
+
 
 
 /-# blastIsLowerHalf -/
@@ -913,99 +921,72 @@ info: 'Fp.EUnpackedFloat.normalize_Rel_of_Rel' depends on axioms: [propext, Clas
 
 /-# truncateFittingExponent -/
 
-/--
-Note: this lemma needs an additional hypothesis that `x.ex.toInt` lies in the
-range expressible by `exponentWidth ep sp` bits — without it the truncation can
-silently change the exponent's value. The hypothesis is provided at the call
-site by the surrounding `¬ blastIsOverflowNonneg` branch; plumb it in when
-filling the proof.
--/
-theorem UnpackedFloat.truncateFittingExponent_Rel_of_Rel_of_toInt_trunc_eq (_he : 1 < ep) (_hs : 0 < sp)
-    (_heu : exponentWidth ep sp ≤ eu)
-    (x : UnpackedFloat eu su) (pf : PackedFloat ep sp)
-    (htrunc : (x.ex.truncate (exponentWidth ep sp)).toInt = x.ex.toInt)
-    (h : x.Rel pf) :
-    (x.truncateFittingExponent ep sp).Rel pf := by
-  obtain ⟨hToRat, hSign⟩ := h
-  apply UnpackedFloat.Rel_of_toRat_eq_toRat_and_sign
-  · rw [← hToRat]
-    simp [UnpackedFloat.truncateFittingExponent, UnpackedFloat.toRat',
-      UnpackedFloat.toExpInt, htrunc]
-  · simp [UnpackedFloat.truncateFittingExponent, hSign]
-
-theorem EUnpackedFloat.truncateFittingExponent_Rel_of_Rel_of_toInt_trunc_eq (he : 1 < ep) (hs : 0 < sp)
-    (heu : exponentWidth ep sp ≤ eu)
-    (x : EUnpackedFloat eu su) (pf : PackedFloat ep sp)
-    (htrunc : (x.num.ex.truncate (exponentWidth ep sp)).toInt = x.num.ex.toInt)
-    (h : x.Rel pf) :
-    (x.truncateFittingExponent ep sp).Rel pf := by
-  rcases x with ⟨state, num⟩
-  cases state
-  · have hpf : pf.isNaN := by
-      simpa [EUnpackedFloat.Rel, EUnpackedFloat.isNaN, EUnpackedFloat.isInfinite] using h
-    apply EUnpackedFloat.Rel_of_isNaN_of_isNaN
-    · simp [EUnpackedFloat.isNaN, EUnpackedFloat.truncateFittingExponent, EUnpackedFloat.mkNaN]
-    · exact hpf
-  · have hpf : pf.isInfinite ∧ num.sign = pf.sign := by
-      simpa [EUnpackedFloat.Rel, EUnpackedFloat.isNaN, EUnpackedFloat.isInfinite,
-        EUnpackedFloat.sign] using h
-    apply EUnpackedFloat.Rel_of_isInfinite_of_isInfinite_and_sign
-    · simp [EUnpackedFloat.isInfinite, EUnpackedFloat.truncateFittingExponent,
-        EUnpackedFloat.mkInfinity]
-    · exact hpf.1
-    · simpa [EUnpackedFloat.truncateFittingExponent, EUnpackedFloat.mkInfinity,
-        EUnpackedFloat.sign] using hpf.2
-  · have hnumRel : num.Rel pf := by
-      rcases h with hNaN | hInf | hNum
-      · simp [EUnpackedFloat.isNaN] at hNaN
-      · simp [EUnpackedFloat.isInfinite] at hInf
-      · exact hNum.2.2
-    apply EUnpackedFloat.Rel_of_Rel_of_not_isNaN_of_not_isInfinite
-    · simp [EUnpackedFloat.truncateFittingExponent, EUnpackedFloat.isNaN]
-    · simp [EUnpackedFloat.truncateFittingExponent, EUnpackedFloat.isInfinite]
-    · exact UnpackedFloat.truncateFittingExponent_Rel_of_Rel_of_toInt_trunc_eq he hs heu num pf (by simpa using htrunc) hnumRel
 
 /--
-info: 'Fp.EUnpackedFloat.truncateFittingExponent_Rel_of_Rel_of_toInt_trunc_eq' depends on axioms: [propext,
- Classical.choice,
- Quot.sound]
+truncateFittingExponent does not change the sign.
 -/
-#guard_msgs in #print axioms EUnpackedFloat.truncateFittingExponent_Rel_of_Rel_of_toInt_trunc_eq
+@[simp]
+theorem sign_truncateFittingExponent
+  (x : UnpackedFloat eu su) :
+  (x.truncateFittingExponent ep sp).sign = x.sign := by
+  simp [UnpackedFloat.truncateFittingExponent]
+
+/--
+truncateFittingExponent does not change the significand.
+-/
+@[simp]
+theorem sig_truncateFittingExponent (x : UnpackedFloat eu su) :
+    (x.truncateFittingExponent ep sp).sig = x.sig := by
+  simp [UnpackedFloat.truncateFittingExponent]
 
 
-theorem UnpackedFloat.truncateFittingExponent_Rel_of_Rel_of_exponent_range
+theorem toExpInt_truncateFittingExponent_of_not_blastIsOverflowNonneg
     (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu)
-    (x : UnpackedFloat eu su) (pf : PackedFloat ep sp)
-    (hlo : -2 ^ (exponentWidth ep sp - 1) ≤ x.ex.toInt)
-    (hhi : x.ex.toInt < 2 ^ (exponentWidth ep sp - 1))
-    (h : x.Rel pf) :
-    (x.truncateFittingExponent ep sp).Rel pf := by
-  apply UnpackedFloat.truncateFittingExponent_Rel_of_Rel_of_toInt_trunc_eq he hs heu
-  · exact BitVec.toInt_truncate_eq_of_toInt_range x.ex
-      (by exact zero_lt_exponentWidth)
-      heu
-      hlo
-      hhi
-  · exact h
+    (x : UnpackedFloat eu su)
+    (hnotover : x.blastIsOverflowNonneg ep sp = false) :
+    (x.truncateFittingExponent ep sp).toExpInt = x.toExpInt := by
+  simp [UnpackedFloat.truncateFittingExponent, UnpackedFloat.toExpInt]
+  have := UnpackedFloat.blastIsOverflowNonneg_eq_decide he hs heu x
+  simp [hnotover] at this
+  rw [BitVec.toInt_signExtend_eq_toInt_bmod_of_le]
+  · rw [Int.bmod_eq_of_le]
+    · simp
+      -- TODO: also need to check for underflow?
+      have := x.ex.le_toInt
+      have : 2 ^ (exponentWidth ep sp - 1) ≤ 2 ^ (eu - 1) := by
+        apply Nat.two_pow_le_two_pow_of_le (by grind)
+      sorry
 
-theorem EUnpackedFloat.truncateFittingExponent_Rel_of_Rel_of_exponent_range
+    · simp; sorry
+  · grind only
+  -- rw [BitVec.toInt_signExtend_of_le]
+
+
+  -- rw [BitVec.toInt_signExtend_of_le]
+
+  -- simp [UnpackedFloat.blastIsOverflowNonneg] at hnotover
+
+/--
+If we have not overflowed, then `truncateFittingExponent` does not change the value of `toRat`.
+-/
+@[simp]
+theorem UnpackedFloat.toRat_truncateFittingExponent_of_not_blastIsOverflowNonneg
     (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu)
-    (x : EUnpackedFloat eu su) (pf : PackedFloat ep sp)
-    (hlo : -2 ^ (exponentWidth ep sp - 1) ≤ x.num.ex.toInt)
-    (hhi : x.num.ex.toInt < 2 ^ (exponentWidth ep sp - 1))
-    (h : x.Rel pf) :
-    (x.truncateFittingExponent ep sp).Rel pf := by
-  apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel_of_toInt_trunc_eq he hs heu
-  · exact BitVec.toInt_truncate_eq_of_toInt_range x.num.ex
-      (by exact zero_lt_exponentWidth)
-      heu
-      hlo
-      hhi
-  · exact h
+    (x : UnpackedFloat eu su)
+    (hnotover : x.blastIsOverflowNonneg ep sp = false) :
+    (x.truncateFittingExponent ep sp).toRat = x.toRat := by
+  simp [UnpackedFloat.toRat_eq_toRat', UnpackedFloat.toRat']
+  rw [toExpInt_truncateFittingExponent_of_not_blastIsOverflowNonneg]
+  · grind only
+  · grind only
+  · grind only
+  · grind only
 
 
+
+/-
 /-# `blastSmtLibRound` matches `smtLibRound` for RNE rounding mode. -/
 
 /--
@@ -1027,10 +1008,13 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
   rw [UnpackedFloat.blastSmtLibRound]
   by_cases hover : x.blastIsOverflowNonneg ep sp
   · simp [hover]
-    have := blastIsOverflowNonneg_iff he hs x |>.mp hover
+    rw [blastIsOverflowNonneg_eq_decide he hs heu x] at hover
+    simp at hover
     simp [blastRounderSpecialCaseOverflow]
     sorry
   · simp [hover]
+    rw [blastIsOverflowNonneg_eq_decide he hs heu x] at hover
+    simp at hover
     simp only [UnpackedFloat.blastSmtLibRoundAux]
     simp only [SmtLibSemantics.RoundMethod.roundRNE, SmtLibSemantics.instExtendedRat.isNaN_eq,
       ExtRat.isNaN_iff,
@@ -1046,7 +1030,13 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
     by_cases hy0 : y.isZero
     · simp only [hy0, ↓reduceIte, UnpackedFloat.toRat'_eq_zero_of_isZero, not_true_eq_false,
       false_and]
+-- Fixup the proof in 'toExtRat_round_Rel_smtLibRound_of_RNE' where you correctly write a lemma that says that in the case where there's no overflow, 'truncateFittingExponent' does not
+--   change the toRat nor does it change the sign, and thus continues to be a Rel. This enables the rest of the place to go through, substituting x for y in Fp/UnpackedRound.lean in proof
+--   theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
       apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
+      have hy0' : y.toRat' = 0 := by grind only [=> UnpackedFloat.toRat'_eq_zero_of_isZero]
+      have : hx0' : x.toRat' = 0 := by sorry
+
       apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel_of_toInt_trunc_eq (by grind) (by grind) (by grind) _ _ (by sorry)
       apply UnpackedFloat.blastRounderForSign_Rel_rounderForSign_zero (by grind) (by grind) (by grind) (by grind) _ hxnorm hy0
       -- simp [blastRounderForSign_eq_smtLibRounderForSign he hs heu hsu x]
@@ -1112,5 +1102,5 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
           apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
           apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel_of_toInt_trunc_eq (by grind) (by grind) (by grind) _ _ (by sorry)
           exact UnpackedFloat.blastUpper_Rel_smtLibUpper (by grind) (by grind) _ hxnorm
-
+-/
 end Fp

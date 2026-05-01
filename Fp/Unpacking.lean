@@ -186,6 +186,7 @@ theorem EUnpackedFloat.packNumber'.exPacked_ne_allOnes
     rw [Int.bmod_bmod_of_dvd]
     · simp [maxNormalExp, bias] at hexp ⊢
       have : 0 < 2 ^ (e - 1) := by grind only [!Nat.two_pow_pos]
+      have := exp.toInt_le
       sorry
     · refine (Nat.pow_dvd_pow_iff_le_right ?_).mpr ?_
       · decide
