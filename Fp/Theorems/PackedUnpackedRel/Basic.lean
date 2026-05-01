@@ -112,7 +112,6 @@ euf.neg.Rel (-pf) := by
 /-- info: 'EUnpackedFloat.neg_Rel_neg' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms EUnpackedFloat.neg_Rel_neg
 
-
 /--
 If an extended unpacked float is related to a packed float,
 then packing the extended unpacked gives a packed float that is equal
@@ -120,10 +119,25 @@ to the related one according to SMT-LIB equality.
 This allows the 'NaN' bit pattern to change, but requires all else to remain equal.
 Thus, all our theorems will be stated in terms of SMT-LIB equality.
 -/
-theorem smtBeq_pack_of_rel (euf : EUnpackedFloat (exponentWidth ep sp) (sp + 1))
+theorem EUnpackedFloat.smtBeq_pack_of_rel
+    (euf : EUnpackedFloat (exponentWidth ep sp) (sp + 1))
     (pf : PackedFloat ep sp)
     (hRel : euf.Rel pf) :
-  euf.pack.smtBeq pf := sorry
+    euf.pack.smtBeq pf := by
+  simp [EUnpackedFloat.Rel] at hRel
+  simp [PackedFloat.smtBeq]
+  rcases heuf : euf.state
+  case NaN =>
+    simp [heuf] at hRel ⊢
+    simp [hRel]
+  case Infinity =>
+    simp [heuf] at hRel ⊢
+    -- need a lemma about packing infinity.
+    sorry
+  case Number =>
+    simp [heuf] at hRel ⊢
+    -- this needs an actual proof, that packing and unpacking a number returns the number.
+    sorry
 
 -- theorem unpack_eq_of_Rel (euf : EUnpackedFloat ef uf) (pf : PackedFloat (exponentWidth ef uf) (uf + 1)) (hRel : euf.Rel pf) :
 --   pf.unpack = euf := sorry
