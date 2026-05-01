@@ -548,7 +548,7 @@ theorem isLawfulLower_Number_maxNormalNumber_of_overflowNonneg
     (he : 0 < ep) (hs : 0 < sp)
     (x : UnpackedFloat e s)
     (hxsign : x.sign = false)
-    (hover  : x.blastIsOverflowNonneg ep sp = true) :
+    (hover  : x.blastIsEarlyOverflowNonneg ep sp = true) :
     SmtLibSemantics.IsLawfulLower (ExtRat.Number x.toRat')
       (PackedFloat.maxNormalNumber ep sp false) := by
   sorry
@@ -574,7 +574,7 @@ theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_overflow
     (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat (exponentWidth ep sp) (sp+1))
     (hxsign : x.sign = false)
     (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
-    (hover : x.blastIsOverflowNonneg ep sp = true) :
+    (hover : x.blastIsEarlyOverflowNonneg ep sp = true) :
     (EUnpackedFloat.mkNumber (UnpackedFloat.maxNormal (exponentWidth ep sp) (sp+1) ep sp false)).Rel
       (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
   apply EUnpackedFloat.Rel_smtLibLower_of_witness
@@ -632,7 +632,7 @@ theorem UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero
     (hxsign : x.sign = false)
     (hxnorm : x.normalize = x)
     (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
-    (hnotover  : x.blastIsOverflowNonneg ep sp = false) :
+    (hnotover  : x.blastIsEarlyOverflowNonneg ep sp = false) :
     ∃ pf : PackedFloat ep sp,
       ¬ pf.isNaN ∧
       SmtLibSemantics.IsLawfulLower (ExtRat.Number x.toRat') pf ∧
@@ -645,7 +645,7 @@ theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_normal
     (hxsign : x.sign = false)
     (hxnorm : x.normalize = x)
     (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
-    (hnotover  : x.blastIsOverflowNonneg ep sp = false) :
+    (hnotover  : x.blastIsEarlyOverflowNonneg ep sp = false) :
     (EUnpackedFloat.mkNumber (x.blastRoundTowardZero ep sp) :
       EUnpackedFloat e (sp+1)).Rel
       (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
@@ -681,7 +681,7 @@ theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower (he : 1 < ep) (hs : 0 < s
     exact UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_underflow he hs x hxsign hunder
   · simp only [Bool.not_eq_true] at hunder
     simp [hunder]
-    by_cases hover : x.blastIsOverflowNonneg ep sp = true
+    by_cases hover : x.blastIsEarlyOverflowNonneg ep sp = true
     · simp [hover]
       exact UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_overflow he hs x hxsign hunder hover
     · simp only [Bool.not_eq_true] at hover
@@ -780,8 +780,8 @@ theorem blastIsEvenLower_iff_smtLibIsEven_lower (he : 1 < ep) (hs : 0 < sp) (x :
 theorem UnpackedFloat.blastIsOverflowNonneg_eq_decide  (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu)
     (x : UnpackedFloat eu su) :
-    x.blastIsOverflowNonneg ep sp = decide (maxNormalExp ep < x.ex.toInt) := by
-  simp [UnpackedFloat.blastIsOverflowNonneg]
+    x.blastIsEarlyOverflowNonneg ep sp = decide (maxNormalExp ep < x.ex.toInt) := by
+  simp [UnpackedFloat.blastIsEarlyOverflowNonneg]
   rw [BitVec.slt_eq_decide]
   rw [toInt_ofInt_maxNormalExp_eq_maxNormalExp_of_le (w := eu) he hs]
   · grind only
@@ -944,7 +944,7 @@ theorem toExpInt_truncateFittingExponent_of_not_blastIsOverflowNonneg
     (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu)
     (x : UnpackedFloat eu su)
-    (hnotover : x.blastIsOverflowNonneg ep sp = false) :
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
     (x.truncateFittingExponent ep sp).toExpInt = x.toExpInt := by
   simp [UnpackedFloat.truncateFittingExponent, UnpackedFloat.toExpInt]
   have := UnpackedFloat.blastIsOverflowNonneg_eq_decide he hs heu x
@@ -975,7 +975,7 @@ theorem UnpackedFloat.toRat_truncateFittingExponent_of_not_blastIsOverflowNonneg
     (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu)
     (x : UnpackedFloat eu su)
-    (hnotover : x.blastIsOverflowNonneg ep sp = false) :
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
     (x.truncateFittingExponent ep sp).toRat = x.toRat := by
   simp [UnpackedFloat.toRat_eq_toRat', UnpackedFloat.toRat']
   rw [toExpInt_truncateFittingExponent_of_not_blastIsOverflowNonneg]

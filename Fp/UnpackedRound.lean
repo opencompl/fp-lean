@@ -568,9 +568,15 @@ def UnpackedFloat.blastIsUnderflowNonneg {eu su : Nat} (uf : UnpackedFloat eu su
   let minSubnormalExpBV : BitVec eu := BitVec.ofInt eu (minSubnormalExp tep tsp)
   uf.ex.slt minSubnormalExpBV
 
+@[bv_normalize]
+def UnpackedFloat.blastIsEarlyUnderflowNonneg {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) :
+    Bool :=
+  let minSubnormalExpBV : BitVec eu := BitVec.ofInt eu (minSubnormalExp tep tsp - 1)
+  uf.ex.slt minSubnormalExpBV
+
 
 @[bv_normalize]
-def UnpackedFloat.blastIsOverflowNonneg {eu su : Nat} (uf : UnpackedFloat eu su) (tep _tsp : Nat) :
+def UnpackedFloat.blastIsEarlyOverflowNonneg {eu su : Nat} (uf : UnpackedFloat eu su) (tep _tsp : Nat) :
     Bool :=
   let maxNormalExpBV : BitVec eu :=
     BitVec.ofInt eu (maxNormalExp tep)
@@ -583,7 +589,7 @@ def UnpackedFloat.blastLowerNonneg {eu su : Nat} (uf : UnpackedFloat eu su) (tep
   if uf.blastIsUnderflowNonneg tep tsp then
     -- greatest lower bound of 0 is +0
     EUnpackedFloat.mkNumber <| UnpackedFloat.mkZero false
-  else if uf.blastIsOverflowNonneg tep tsp then
+  else if uf.blastIsEarlyOverflowNonneg tep tsp then
     EUnpackedFloat.mkNumber <| UnpackedFloat.maxNormal _ _ tep tsp false
   else
     EUnpackedFloat.mkNumber <| next
@@ -613,7 +619,7 @@ def UnpackedFloat.blastUpperNonneg {eu su : Nat} (uf : UnpackedFloat eu su) (tep
   let next := uf.blastSuccessorAwayFromZeroNonnegAux tep tsp
   if next.blastIsUnderflowNonneg tep tsp then
     EUnpackedFloat.mkNumber <| UnpackedFloat.minSubnormalForPackedFloat _ _ tep tsp false
-  else if next.blastIsOverflowNonneg tep tsp then
+  else if next.blastIsEarlyOverflowNonneg tep tsp then
     EUnpackedFloat.mkInfinity false
   else
     EUnpackedFloat.mkNumber <| next
@@ -787,11 +793,11 @@ def EUnpackedFloat.truncateFittingExponent {eu su : Nat}
 def UnpackedFloat.blastSmtLibRound {eu su : Nat}
     (tep tsp : Nat) (mode : RoundingMode) (uf : UnpackedFloat eu su) :
     EUnpackedFloat (exponentWidth tep tsp) (tsp + 1) :=
-  if blastIsOverflowNonneg uf tep tsp then
+  if uf.blastIsEarlyOverflowNonneg tep tsp then
     blastRounderSpecialCaseOverflow mode uf.sign
+  else if uf.blastIsEarlyUnderflowNonneg tep tsp && !uf.isZero then
+    blastRounderSpecialCaseUnderflow mode uf.sign
   else
-    -- TODO: add special case for undeerflow.
-    -- if overflow then do overflow else call the rsest of the functions
     let rounded := uf.truncateFittingExponent tep tsp
     let rounded := rounded.blastSmtLibRoundAux tep tsp mode
     -- | TODO: re-establish the normalized exponent.
