@@ -68,7 +68,7 @@ def EUnpackedFloat.Rel (euf : EUnpackedFloat ef uf) (pf : PackedFloat ep sp) :=
   (euf.state = .Number ∧ euf.num.Rel pf)
 
 @[simp, grind =>]
-theorem EUnpackedFloat.Rel_of_isNaN_of_isNaN (euf : EUnpackedFloat ef uf)
+theorem EUnpackedFloat.Rel_of_state_eq_NaN_of_isNaN (euf : EUnpackedFloat ef uf)
   (pf : PackedFloat ep sp)
   (heuf : euf.state = .NaN)
   (hpf : pf.isNaN) :
@@ -77,7 +77,7 @@ theorem EUnpackedFloat.Rel_of_isNaN_of_isNaN (euf : EUnpackedFloat ef uf)
   simp [heuf, hpf]
 
 @[simp, grind =>]
-theorem EUnpackedFloat.Rel_of_isInfinite_of_isInfinite_and_sign (euf : EUnpackedFloat ef uf) (pf : PackedFloat ep sp)
+theorem EUnpackedFloat.Rel_of_state_eq_Infinity_of_sign (euf : EUnpackedFloat ef uf) (pf : PackedFloat ep sp)
   (heuf : euf.state = .Infinity)
   (hpf : pf.isInfinite)
   (hsign : euf.sign = pf.sign) :
@@ -86,14 +86,15 @@ theorem EUnpackedFloat.Rel_of_isInfinite_of_isInfinite_and_sign (euf : EUnpacked
   simp [heuf, hpf, hsign]
 
 @[simp, grind =>]
-theorem EUnpackedFloat.Rel_of_Rel_of_not_isNaN_of_not_isInfinite (euf : EUnpackedFloat ef uf) (pf : PackedFloat ep sp)
+theorem EUnpackedFloat.Rel_of_Rel_of_state_eq_Number (euf : EUnpackedFloat ef uf) (pf : PackedFloat ep sp)
   (heuf : euf.state = .Number) (hRel : euf.num.Rel pf) :
   EUnpackedFloat.Rel euf pf := by
   simp [EUnpackedFloat.Rel]
   simp [heuf, hRel]
 
 
-theorem EUnpackedFloat.neg_Rel_neg
+@[simp, grind .]
+theorem EUnpackedFloat.neg_Rel_neg {e s ep sp}
   (euf : EUnpackedFloat e s) (pf : PackedFloat ep sp)
   (h : euf.Rel pf) :
 euf.neg.Rel (-pf) := by
@@ -110,6 +111,13 @@ euf.neg.Rel (-pf) := by
     apply UnpackedFloat.neg_Rel_neg _ _
     grind only [=> UnpackedFloat.Rel_of_toRat_eq_toRat_and_sign]
 
+@[grind .]
+theorem EUnpackeDFloat.num_Rel_of_Rel_of_eq_Number {e s ep sp}
+  (euf : EUnpackedFloat e s) (pf : PackedFloat ep sp)
+  (hRel : euf.Rel pf) (heuf : euf.state = .Number) :
+  euf.num.Rel pf := by
+  simp [EUnpackedFloat.Rel] at hRel
+  grind only
 
 /-- info: 'EUnpackedFloat.neg_Rel_neg' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms EUnpackedFloat.neg_Rel_neg

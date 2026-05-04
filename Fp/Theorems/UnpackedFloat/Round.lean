@@ -16,6 +16,9 @@ theorem PackedFloat.eq_of_unpack_eq_unpack_of_isInfinity {x y : PackedFloat e s}
     x = y := by
   cases x using PackedFloat.kindCasesNaNInfZeroNum <;> try grind
 
+-- TODO: there's EquivUptoNaN, and 'smtLibEq'.
+-- I should probably switch to 'EquivUptoNaN' in 'Rel',
+-- and then show that this is equivalent to 'smtLibEq' or whatever
 def EquivUptoNaN {e s : Nat} (x y : PackedFloat e s) : Prop :=
   x = y ∨ (x.isNaN ∧ y.isNaN)
 
@@ -461,8 +464,7 @@ theorem EUnpackedFloat.Rel_smtLibLower_of_witness
     (he : 0 < ep) (hs : 0 < sp)
     (r : Rat)
     (result : EUnpackedFloat (eu) (sp+1))
-    (hresNotNaN : ¬ result.isNaN)
-    (hresNotInf : ¬ result.isInfinite)
+    (hres : result.state = .Number)
     (pf : PackedFloat ep sp)
     (hpfNotNaN : ¬ pf.isNaN)
     (hpfLower : SmtLibSemantics.IsLawfulLower (ExtRat.Number r) pf)
@@ -482,9 +484,8 @@ theorem EUnpackedFloat.Rel_smtLibLower_of_witness
     · exact hSmtNotNaN
     · exact hpfLower
     · exact hSmtLower
-  apply EUnpackedFloat.Rel_of_Rel_of_not_isNaN_of_not_isInfinite
-  · exact hresNotNaN
-  · exact hresNotInf
+  apply EUnpackedFloat.Rel_of_Rel_of_state_eq_Number
+  · simp [hres]
   · refine UnpackedFloat.Rel_of_toRat_eq_toRat_and_sign _ _ ?_ ?_
     · rw [hToRat, hpf_eq]
     · rw [hSign, hpf_eq]
@@ -522,10 +523,7 @@ theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_underflow
       (pf := PackedFloat.getZero ep sp false)
       (he := by grind) (hs := hs)
   · simp
-  · simp
-  · -- `getZero ep sp false` is not NaN since ep > 0
-    simp [PackedFloat.isNaN_getZero]
-    grind
+  · simp; grind only
   · exact isLawfulLower_Number_getZero_of_underflowNonneg (by grind) hs x hxsign hunder
   · -- `(mkZero false).num.toRat' = 0 = (getZero ep sp false).toRat`
     simp only [EUnpackedFloat.num_mkNumber]
@@ -580,7 +578,6 @@ theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_overflow
   apply EUnpackedFloat.Rel_smtLibLower_of_witness
       (pf := PackedFloat.maxNormalNumber ep sp false)
       (he := by grind) (hs := hs)
-  · simp
   · simp
   · exact PackedFloat.not_isNaN_maxNormalNumber ep sp false (by grind)
   · exact isLawfulLower_Number_maxNormalNumber_of_overflowNonneg (by grind) hs x hxsign hover
@@ -645,7 +642,6 @@ theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_normal
       he hs x hxsign hxnorm hnotunder hnotover
   apply EUnpackedFloat.Rel_smtLibLower_of_witness
       (pf := pf) (he := by grind) (hs := hs)
-  · simp
   · simp
   · exact hpfNotNaN
   · exact hpfLower
@@ -904,28 +900,16 @@ theorem EUnpackedFloat.normalize_Rel_of_Rel (he : 1 < ep) (hs : 0 < sp)
     (h : x.Rel pf) :
     x.normalize.Rel pf := by
   unfold EUnpackedFloat.normalize
-  by_cases hnum : x.isNumber
-  · simp only [hnum, cond_true]
-    have hnotNaN : ¬ x.isNaN := by
-      simp [EUnpackedFloat.isNumber, EUnpackedFloat.isNaN] at hnum ⊢
-      grind
-    have hnotInf : ¬ x.isInfinite := by
-      simp [EUnpackedFloat.isNumber, EUnpackedFloat.isInfinite] at hnum ⊢
-      grind
-    have hnumRel : x.num.Rel pf := by
-      rcases h with hNaN | hInf | h3
-      · grind only
-      · grind only
-      · grind only
+  rcases hstate : x.state with rfl | rfl | rfl
+  · simp [hstate, h]
+  · simp [hstate, h]
+  · simp [hstate]
     have hnumNorm :=
-      UnpackedFloat.normalize_Rel_of_Rel he hs heu x.num pf hse hssub hnumRel
-    refine Or.inr (Or.inr ⟨?_, ?_, ?_⟩)
-    · simp [EUnpackedFloat.isNaN, UnpackedFloat.toEUnpackedFloat]
-    · simp [EUnpackedFloat.isInfinite, UnpackedFloat.toEUnpackedFloat]
-    · simpa [UnpackedFloat.toEUnpackedFloat] using hnumNorm
-  · simp only [hnum, cond_false]
-    grind only
-
+      UnpackedFloat.normalize_Rel_of_Rel he hs heu x.num pf hse hssub (by
+        grind only [EUnpackeDFloat.num_Rel_of_Rel_of_eq_Number]
+      )
+    exact
+      EUnpackedFloat.Rel_of_Rel_of_state_eq_Number x.num.normalize.toEUnpackedFloat pf rfl hnumNorm
 /--
 info: 'Fp.EUnpackedFloat.normalize_Rel_of_Rel' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
