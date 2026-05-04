@@ -404,7 +404,7 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
       simp only [EUnpackedFloat.state_mkNumber, reduceCtorEq, decide_false, Bool.or_self,
         cond_false]
       apply PackedFloat.EquivUptoNaN.of_eq
-      sorry
+      simp
       -- grind only
       -- TODO: prove a theorem that says that 'isNumber -> ∃ r such that b.toExtRat' = Number r'.
       -- Use that to simplify the value.

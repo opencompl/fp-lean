@@ -220,13 +220,14 @@ def EUnpackedFloat.pack' (uf : EUnpackedFloat (exponentWidth e s) (s + 1)) : Pac
     PackedFloat.getZero e s uf.sign
   else EUnpackedFloat.packNumber' uf.sign uf.sig uf.exp
 
-@[simp]
-theorem pack'_eq_getNaN_of_isNaN (uf : EUnpackedFloat (exponentWidth e s) (s + 1)) (huf : uf.isNaN) :
+@[simp, grind .]
+theorem pack'_eq_getNaN_of_isNaN (uf : EUnpackedFloat (exponentWidth e s) (s + 1))
+    (huf : uf.isNaN) :
     EUnpackedFloat.pack' uf = PackedFloat.getNaN e s := by
   rw [EUnpackedFloat.pack', huf]
   simp
 
-@[simp]
+@[simp, grind .]
 theorem pack'_eq_getInfinity_of_isInfinite (uf : EUnpackedFloat (exponentWidth e s) (s + 1))
     (huf : uf.isInfinite)  :
     EUnpackedFloat.pack' uf = PackedFloat.getInfinity e s uf.sign := by
@@ -235,6 +236,20 @@ theorem pack'_eq_getInfinity_of_isInfinite (uf : EUnpackedFloat (exponentWidth e
   intros hnan
   simp at hnan huf
   grind only
+
+@[simp, grind .]
+theorem pack'_eq_getZero_of_isZero (uf : EUnpackedFloat (exponentWidth e s) (s + 1))
+    (huf : uf.isZero) :
+    EUnpackedFloat.pack' uf = PackedFloat.getZero e s uf.sign := by
+  rw [EUnpackedFloat.pack', huf]
+  simp [huf]
+
+@[simp, grind .]
+theorem pack'_mkZero_eq_getZero (sign : Bool) :
+    EUnpackedFloat.pack' (EUnpackedFloat.mkZero sign) = PackedFloat.getZero e s sign := by
+  rw [pack'_eq_getZero_of_isZero]
+  · simp
+  · simp
 
 /-
 `BitVec.ushiftRight_eq'` unfolds stuff into 'toNat' that then cascades
