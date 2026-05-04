@@ -16,22 +16,6 @@ theorem PackedFloat.eq_of_unpack_eq_unpack_of_isInfinity {x y : PackedFloat e s}
     x = y := by
   cases x using PackedFloat.kindCasesNaNInfZeroNum <;> try grind
 
--- TODO: there's EquivUptoNaN, and 'smtLibEq'.
--- I should probably switch to 'EquivUptoNaN' in 'Rel',
--- and then show that this is equivalent to 'smtLibEq' or whatever
-def EquivUptoNaN {e s : Nat} (x y : PackedFloat e s) : Prop :=
-  x = y ∨ (x.isNaN ∧ y.isNaN)
-
-theorem EquivUptoNaN.of_isNaN_isNaN (x y : PackedFloat e s) (hx : x.isNaN) (hy : y.isNaN) : EquivUptoNaN x y :=
-  by simp [EquivUptoNaN, hx, hy]
-
-theorem EquivUptoNaN.of_eq (x y : PackedFloat e s) (h : x = y) : EquivUptoNaN x y := by simp [EquivUptoNaN, h]
-
-@[simp]
-theorem EquivUptoNaN.of_mkNaN_iff (x : PackedFloat e s) : EquivUptoNaN x (PackedFloat.getNaN e s) ↔ x.isNaN := by
-  simp [EquivUptoNaN]
-  grind only [!PackedFloat.isNaN_mkNaN]
-
 
 @[simp]
 theorem clearSignificand_sign (uf : UnpackedFloat e s)

@@ -806,6 +806,25 @@ theorem isNaN_getNaN {e s : Nat}  :
   simp [getNaN, isNaN]
   grind
 
+-- TODO: there's EquivUptoNaN, and 'smtLibEq'.
+-- I should probably switch to 'EquivUptoNaN' in 'Rel',
+-- and then show that this is equivalent to 'smtLibEq' or whatever
+def EquivUptoNaN {e s : Nat} (x y : PackedFloat e s) : Prop :=
+  x = y ∨ (x.isNaN ∧ y.isNaN)
+
+theorem EquivUptoNaN.of_isNaN_isNaN (x y : PackedFloat e s) (hx : x.isNaN) (hy : y.isNaN) : EquivUptoNaN x y :=
+  by simp [EquivUptoNaN, hx, hy]
+
+theorem EquivUptoNaN.of_eq (x y : PackedFloat e s) (h : x = y) : EquivUptoNaN x y := by simp [EquivUptoNaN, h]
+
+@[simp]
+theorem EquivUptoNaN.of_mkNaN_iff (x : PackedFloat e s) : EquivUptoNaN x (PackedFloat.getNaN e s) ↔ x.isNaN := by
+  simp [EquivUptoNaN]
+  intros hx
+  subst hx
+  simp
+
+
 /--
 Returns the `PackedFloat` representation for the given `BitVec`.
 -/
