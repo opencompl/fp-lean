@@ -129,12 +129,12 @@ to the related one according to SMT-LIB equality.
 This allows the 'NaN' bit pattern to change, but requires all else to remain equal.
 Thus, all our theorems will be stated in terms of SMT-LIB equality.
 -/
-theorem EUnpackedFloat.EquivUptoNaN_of_Rel
+theorem EUnpackedFloat.pack'_EquivUptoNaN_of_Rel
     (hsp : 0 < sp)
     (euf : EUnpackedFloat (exponentWidth ep sp) (sp + 1))
     (pf : PackedFloat ep sp)
     (hRel : euf.Rel pf) :
-    euf.pack.EquivUptoNaN pf := by
+    euf.pack'.EquivUptoNaN pf := by
   simp [EUnpackedFloat.Rel] at hRel
   simp [PackedFloat.EquivUptoNaN]
   rcases heuf : euf.state

@@ -975,7 +975,7 @@ info: 'Fp.UnpackedFloat.toRat_truncateFittingExponent_of_not_blastIsOverflowNonn
 -/
 #guard_msgs in #print axioms UnpackedFloat.toRat_truncateFittingExponent_of_not_blastIsOverflowNonneg_of_not_blastIsEarlyUnderflowNonneg
 
-/-
+
 /-# `blastSmtLibRound` matches `smtLibRound` for RNE rounding mode. -/
 
 /--
@@ -990,11 +990,17 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
     (heu : exponentWidth ep sp ≤ eu)
     (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su)
+    (sign : Bool) (hsign : sign = x.sign)
+    (r : Rat) (hr : r = x.toRat)
     (hxnorm : x.normalize = x)
       :
     (x.blastSmtLibRound ep sp .RNE  : EUnpackedFloat (exponentWidth ep sp) (sp + 1)).Rel
-      ((SmtLibSemantics.smtLibRoundMethod (R := ExtRat) ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round .RNE x.sign (ExtRat.Number x.toRat)) := by
+      ((SmtLibSemantics.smtLibRoundMethod (R := ExtRat) ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round .RNE
+        sign (ExtRat.Number r)) := by
+  subst r sign
   rw [UnpackedFloat.blastSmtLibRound]
+  sorry
+/-
   by_cases hover : x.blastIsOverflowNonneg ep sp
   · simp [hover]
     rw [blastIsEarlyOverflowNonneg_eq_decide he hs heu x] at hover

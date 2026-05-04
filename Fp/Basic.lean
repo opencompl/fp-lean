@@ -817,6 +817,10 @@ theorem EquivUptoNaN.of_isNaN_isNaN (x y : PackedFloat e s) (hx : x.isNaN) (hy :
 
 theorem EquivUptoNaN.of_eq (x y : PackedFloat e s) (h : x = y) : EquivUptoNaN x y := by simp [EquivUptoNaN, h]
 
+theorem EquivUptoNaN_symm (x y : PackedFloat e s) : EquivUptoNaN x y ↔ EquivUptoNaN y x := by
+  simp [EquivUptoNaN]
+  grind only [#10e0]
+
 @[simp]
 theorem EquivUptoNaN.of_mkNaN_iff (x : PackedFloat e s) : EquivUptoNaN x (PackedFloat.getNaN e s) ↔ x.isNaN := by
   simp [EquivUptoNaN]
@@ -3167,6 +3171,23 @@ theorem normalize_eq_self_iff (uf : UnpackedFloat e s) (huf : uf.sig ≠ 0#s) :
       rw [this]
       simp only [BitVec.setWidth_zero, BitVec.sub_zero, BitVec.toNat_ofNat, Nat.zero_mod,
         BitVec.shiftLeft_zero, and_self]
+
+
+/--
+Normalize is idempotent when the most significant bit is one,
+as such a number is already normalized.
+-/
+theorem normalize_eq_self_of_msb_eq_true (uf : UnpackedFloat e s)
+    (hmsb : uf.sig.msb = true) :
+    normalize uf zsign = uf := by
+  rw [normalize_eq_self_iff]
+  · simp [hmsb]
+  · grind only [= BitVec.msb_eq_getMsbD_zero, = BitVec.getMsbD_zero]
+
+/--
+info: 'UnpackedFloat.normalize_eq_self_of_msb_eq_true' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms normalize_eq_self_of_msb_eq_true
 
 
 @[bv_normalize]
