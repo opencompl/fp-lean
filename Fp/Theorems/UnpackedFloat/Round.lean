@@ -608,15 +608,6 @@ this branch); we don't have a single named constructor for it, so we
 existentially extract one. -/
 
 /--
-Spec-side + circuit-side, packaged together: in the normal-range branch,
-the unpacked result of `blastRoundTowardZero` corresponds to *some* packed
-float that is a lawful lower of `Number x.toRat'` and matches it in
-`toRat'` and `sign`.
-
-This is the hard core: it conjoins
-  • exact-representability of `blastRoundTowardZero x` as a PF, and
-  • the rounding-toward-zero correctness statement.
-
 Key facts:
 
 - the packed float will be the one given by 'blastLowerNonneg.pack'
@@ -992,12 +983,6 @@ theorem toExpInt_truncateFittingExponent_of_not_blastIsOverflowNonneg
       · grind only
     · simp; sorry
   · grind only
-  -- rw [BitVec.toInt_signExtend_of_le]
-
-
-  -- rw [BitVec.toInt_signExtend_of_le]
-
-  -- simp [UnpackedFloat.blastIsOverflowNonneg] at hnotover
 
 /--
 If we have not overflowed, then `truncateFittingExponent` does not change the value of `toRat`.
