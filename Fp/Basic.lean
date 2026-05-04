@@ -3329,8 +3329,14 @@ theorem eq_num_ex {x y : EUnpackedFloat e s} :
 def isNaN (x : EUnpackedFloat e s) : Bool :=
   x.state == .NaN
 
+
+@[simp, grind =]
+theorem isNaN_eq_decide (x : EUnpackedFloat e s) : isNaN x = decide (x.state = .NaN) := by
+  simp [isNaN]
+  grind only
+
 @[simp]
-theorem isNaN_neg_iff_isNaN (x : EUnpackedFloat e s) : isNaN (- x) ↔ isNaN x := by
+theorem isNaN_neg_eq_isNaN (x : EUnpackedFloat e s) : isNaN (- x) = isNaN x := by
   rw [← EUnpackedFloat.neg_def]
   simp [isNaN, neg]
 
@@ -3338,8 +3344,13 @@ theorem isNaN_neg_iff_isNaN (x : EUnpackedFloat e s) : isNaN (- x) ↔ isNaN x :
 def isInfinite (x : EUnpackedFloat e s) : Bool :=
   x.state == .Infinity
 
-@[simp]
-theorem isInfinite_neg_iff_isInfinite (x : EUnpackedFloat e s) : isInfinite (- x) ↔ isInfinite x := by
+@[simp, grind =]
+theorem isInfinite_eq_decide (x : EUnpackedFloat e s) : isInfinite x = decide (x.state = .Infinity) := by
+  simp [isInfinite]
+  grind only
+
+@[simp, grind =]
+theorem isInfinite_neg_eq_isInfinite (x : EUnpackedFloat e s) : isInfinite (- x) = isInfinite x := by
   rw [← EUnpackedFloat.neg_def]
   simp [isInfinite, neg]
 
@@ -3347,9 +3358,19 @@ theorem isInfinite_neg_iff_isInfinite (x : EUnpackedFloat e s) : isInfinite (- x
 def isNumber (x : EUnpackedFloat e s) : Bool :=
   x.state == .Number
 
+@[simp, grind =]
+theorem isNumber_eq_decide (x : EUnpackedFloat e s) : isNumber x = decide (x.state = .Number) := by
+  simp [isNumber]
+  grind only
+
 @[bv_normalize]
 def isZero (x : EUnpackedFloat e s) : Bool :=
   x.isNumber && x.num.isZero
+
+@[simp, grind .]
+theorem state_eq_number_of_isZero (x : EUnpackedFloat e s) (h : x.isZero) : x.state = .Number := by
+  simp [isZero] at h ⊢
+  grind only
 
 @[bv_normalize]
 def sign (x : EUnpackedFloat e s) : Bool :=
@@ -3384,6 +3405,9 @@ def mkNaN : EUnpackedFloat e s :=
     }
   }
 
+@[simp]
+theorem state_mkNaN : (mkNaN : EUnpackedFloat e s).state = .NaN := rfl
+
 @[bv_normalize]
 def mkInfinity (sign : Bool) : EUnpackedFloat e s :=
   {
@@ -3395,17 +3419,19 @@ def mkInfinity (sign : Bool) : EUnpackedFloat e s :=
     }
   }
 
-@[simp, grind =]
-theorem eq_of_mkInfinity_eq_mkInfinity {e s} (sign1 sign2 : Bool) :
-    (mkInfinity sign1 : EUnpackedFloat e s) = mkInfinity sign2 ↔ sign1 = sign2 := by
-  simp [mkInfinity]
+@[simp]
+theorem state_mkInfinity (sign : Bool) : (mkInfinity sign : EUnpackedFloat e s).state = .Infinity := rfl
+
+@[simp]
+theorem sign_mkInfinity (sign : Bool) : (mkInfinity sign : EUnpackedFloat e s).sign = sign := rfl
 
 @[simp]
 theorem sign_num_mkInfinity (sign : Bool) : (mkInfinity sign : EUnpackedFloat e s).num.sign = sign := rfl
 
-@[simp]
-theorem sign_mkInfinity (sign : Bool) : (mkInfinity sign : EUnpackedFloat e s).sign = sign := by
-  simp [EUnpackedFloat.sign, mkInfinity]
+@[simp, grind =]
+theorem eq_of_mkInfinity_eq_mkInfinity {e s} (sign1 sign2 : Bool) :
+    (mkInfinity sign1 : EUnpackedFloat e s) = mkInfinity sign2 ↔ sign1 = sign2 := by
+  simp [mkInfinity]
 
 @[bv_normalize]
 def mkNumber (num : UnpackedFloat e s) : EUnpackedFloat e s :=
