@@ -391,8 +391,8 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
         PackedFloat.isInfinite_getZero, ne_eq, decide_not, PackedFloat.unpack_eq_mkZero_of_isZero,
         PackedFloat.sign_getZero, EUnpackedFloat.mkZero_num_sign]
       simp only [SmtLibSemantics.SmtLibFunctions.xorSign, PackedFloat.sign_getZero]
-      simp only [show decide (ein = 0) = false by grind, Bool.false_and, Bool.or_self, cond_false,
-        EUnpackedFloat.mkZero_pack_eq_getZero]
+      simp only [EUnpackedFloat.isZero_mkZero, EUnpackedFloat.state_eq_number_of_isZero,
+        reduceCtorEq, decide_false, Bool.or_self, cond_false]
       apply EquivUptoNaN.of_eq
       sorry
       -- grind only
@@ -402,11 +402,8 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 0 < ein)
       rw [b.toExtRat'_eq_toRat_of hb]
       simp only [ExtRat.number_mul_number_eq, Rat.zero_mul, round_eq_mkZero_of_mkZero, he]
       simp only [SmtLibSemantics.SmtLibFunctions.xorSign, PackedFloat.sign_getZero]
-      simp only [show ¬b.isNaN by grind only [→ PackedFloat.not_isNaN_of_isNormOrSubnorm],
-        Bool.false_or]
-      simp only [show ¬b.isInfinite by grind only [→
-          PackedFloat.not_isInfinite_of_isNormOrNonzeroSubnorm],
-          cond_false, EUnpackedFloat.mkZero_pack_eq_getZero]
+      simp only [EUnpackedFloat.state_mkNumber, reduceCtorEq, decide_false, Bool.or_self,
+        cond_false]
       apply EquivUptoNaN.of_eq
       sorry
       -- grind only
