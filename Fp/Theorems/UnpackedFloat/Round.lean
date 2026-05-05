@@ -999,8 +999,6 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
         sign (ExtRat.Number r)) := by
   subst r sign
   rw [UnpackedFloat.blastSmtLibRound]
-  sorry
-/-
   by_cases hover : x.blastIsOverflowNonneg ep sp
   · simp [hover]
     rw [blastIsEarlyOverflowNonneg_eq_decide he hs heu x] at hover
@@ -1097,5 +1095,4 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
           apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
           apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel_of_toInt_trunc_eq (by grind) (by grind) (by grind) _ _ (by sorry)
           exact UnpackedFloat.blastUpper_Rel_smtLibUpper (by grind) (by grind) _ hxnorm
--/
 end Fp
