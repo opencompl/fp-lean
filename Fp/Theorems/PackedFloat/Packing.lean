@@ -457,8 +457,12 @@ namespace EUnpackedFloat
 theorem isNaN_pack'_of_isNaN
     (uf : EUnpackedFloat (exponentWidth e s) (s + 1)) (huf : uf.isNaN) :
     uf.pack'.isNaN = true := by
-  simp [pack', PackedFloat.isNaN, huf]
-  grind
+  simp only [isNaN_eq_decide, decide_eq_true_eq] at huf ⊢
+  simp only [PackedFloat.isNaN, pack', isNaN_eq_decide, huf, decide_true, ↓reduceIte,
+    PackedFloat.ex_getNaN, BEq.rfl, PackedFloat.sig_getNaN, BitVec.zero_eq, Bool.true_and,
+    Bool.or_eq_true, beq_iff_eq, bne_iff_ne, ne_eq, BitVec.intMin_eq_zero_iff]
+  grind only
+
 
 /-
 @[simp]

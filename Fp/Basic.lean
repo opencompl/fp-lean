@@ -806,6 +806,29 @@ theorem isNaN_getNaN {e s : Nat}  :
   simp [getNaN, isNaN]
   grind
 
+-- TODO: there's EquivUptoNaN, and 'smtLibEq'.
+-- I should probably switch to 'EquivUptoNaN' in 'Rel',
+-- and then show that this is equivalent to 'smtLibEq' or whatever
+def EquivUptoNaN {e s : Nat} (x y : PackedFloat e s) : Prop :=
+  x = y ∨ (x.isNaN ∧ y.isNaN)
+
+theorem EquivUptoNaN.of_isNaN_isNaN (x y : PackedFloat e s) (hx : x.isNaN) (hy : y.isNaN) : EquivUptoNaN x y :=
+  by simp [EquivUptoNaN, hx, hy]
+
+theorem EquivUptoNaN.of_eq (x y : PackedFloat e s) (h : x = y) : EquivUptoNaN x y := by simp [EquivUptoNaN, h]
+
+theorem EquivUptoNaN_symm (x y : PackedFloat e s) : EquivUptoNaN x y ↔ EquivUptoNaN y x := by
+  simp [EquivUptoNaN]
+  grind only [#10e0]
+
+@[simp]
+theorem EquivUptoNaN.of_mkNaN_iff (x : PackedFloat e s) : EquivUptoNaN x (PackedFloat.getNaN e s) ↔ x.isNaN := by
+  simp [EquivUptoNaN]
+  intros hx
+  subst hx
+  simp
+
+
 /--
 Returns the `PackedFloat` representation for the given `BitVec`.
 -/
@@ -3150,6 +3173,23 @@ theorem normalize_eq_self_iff (uf : UnpackedFloat e s) (huf : uf.sig ≠ 0#s) :
         BitVec.shiftLeft_zero, and_self]
 
 
+/--
+Normalize is idempotent when the most significant bit is one,
+as such a number is already normalized.
+-/
+theorem normalize_eq_self_of_msb_eq_true (uf : UnpackedFloat e s)
+    (hmsb : uf.sig.msb = true) :
+    normalize uf zsign = uf := by
+  rw [normalize_eq_self_iff]
+  · simp [hmsb]
+  · grind only [= BitVec.msb_eq_getMsbD_zero, = BitVec.getMsbD_zero]
+
+/--
+info: 'UnpackedFloat.normalize_eq_self_of_msb_eq_true' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms normalize_eq_self_of_msb_eq_true
+
+
 @[bv_normalize]
 def toEUnpackedFloat (uf : UnpackedFloat e s) : EUnpackedFloat e s :=
   .mk .Number uf
@@ -3329,8 +3369,14 @@ theorem eq_num_ex {x y : EUnpackedFloat e s} :
 def isNaN (x : EUnpackedFloat e s) : Bool :=
   x.state == .NaN
 
+
+@[simp, grind =]
+theorem isNaN_eq_decide (x : EUnpackedFloat e s) : isNaN x = decide (x.state = .NaN) := by
+  simp [isNaN]
+  grind only
+
 @[simp]
-theorem isNaN_neg_iff_isNaN (x : EUnpackedFloat e s) : isNaN (- x) ↔ isNaN x := by
+theorem isNaN_neg_eq_isNaN (x : EUnpackedFloat e s) : isNaN (- x) = isNaN x := by
   rw [← EUnpackedFloat.neg_def]
   simp [isNaN, neg]
 
@@ -3338,8 +3384,13 @@ theorem isNaN_neg_iff_isNaN (x : EUnpackedFloat e s) : isNaN (- x) ↔ isNaN x :
 def isInfinite (x : EUnpackedFloat e s) : Bool :=
   x.state == .Infinity
 
-@[simp]
-theorem isInfinite_neg_iff_isInfinite (x : EUnpackedFloat e s) : isInfinite (- x) ↔ isInfinite x := by
+@[simp, grind =]
+theorem isInfinite_eq_decide (x : EUnpackedFloat e s) : isInfinite x = decide (x.state = .Infinity) := by
+  simp [isInfinite]
+  grind only
+
+@[simp, grind =]
+theorem isInfinite_neg_eq_isInfinite (x : EUnpackedFloat e s) : isInfinite (- x) = isInfinite x := by
   rw [← EUnpackedFloat.neg_def]
   simp [isInfinite, neg]
 
@@ -3347,9 +3398,19 @@ theorem isInfinite_neg_iff_isInfinite (x : EUnpackedFloat e s) : isInfinite (- x
 def isNumber (x : EUnpackedFloat e s) : Bool :=
   x.state == .Number
 
+@[simp, grind =]
+theorem isNumber_eq_decide (x : EUnpackedFloat e s) : isNumber x = decide (x.state = .Number) := by
+  simp [isNumber]
+  grind only
+
 @[bv_normalize]
 def isZero (x : EUnpackedFloat e s) : Bool :=
   x.isNumber && x.num.isZero
+
+@[simp, grind .]
+theorem state_eq_number_of_isZero (x : EUnpackedFloat e s) (h : x.isZero) : x.state = .Number := by
+  simp [isZero] at h ⊢
+  grind only
 
 @[bv_normalize]
 def sign (x : EUnpackedFloat e s) : Bool :=
@@ -3384,6 +3445,9 @@ def mkNaN : EUnpackedFloat e s :=
     }
   }
 
+@[simp]
+theorem state_mkNaN : (mkNaN : EUnpackedFloat e s).state = .NaN := rfl
+
 @[bv_normalize]
 def mkInfinity (sign : Bool) : EUnpackedFloat e s :=
   {
@@ -3395,17 +3459,19 @@ def mkInfinity (sign : Bool) : EUnpackedFloat e s :=
     }
   }
 
-@[simp, grind =]
-theorem eq_of_mkInfinity_eq_mkInfinity {e s} (sign1 sign2 : Bool) :
-    (mkInfinity sign1 : EUnpackedFloat e s) = mkInfinity sign2 ↔ sign1 = sign2 := by
-  simp [mkInfinity]
+@[simp]
+theorem state_mkInfinity (sign : Bool) : (mkInfinity sign : EUnpackedFloat e s).state = .Infinity := rfl
+
+@[simp]
+theorem sign_mkInfinity (sign : Bool) : (mkInfinity sign : EUnpackedFloat e s).sign = sign := rfl
 
 @[simp]
 theorem sign_num_mkInfinity (sign : Bool) : (mkInfinity sign : EUnpackedFloat e s).num.sign = sign := rfl
 
-@[simp]
-theorem sign_mkInfinity (sign : Bool) : (mkInfinity sign : EUnpackedFloat e s).sign = sign := by
-  simp [EUnpackedFloat.sign, mkInfinity]
+@[simp, grind =]
+theorem eq_of_mkInfinity_eq_mkInfinity {e s} (sign1 sign2 : Bool) :
+    (mkInfinity sign1 : EUnpackedFloat e s) = mkInfinity sign2 ↔ sign1 = sign2 := by
+  simp [mkInfinity]
 
 @[bv_normalize]
 def mkNumber (num : UnpackedFloat e s) : EUnpackedFloat e s :=

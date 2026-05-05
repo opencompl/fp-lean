@@ -23,6 +23,11 @@ def UnpackedFloat.mul (x y : UnpackedFloat e s) : UnpackedFloat (e + 1) (2 * s) 
     ex := x.ex.signExtend (e + 1) + y.ex.signExtend (e + 1) + (BitVec.ofBool sigProd.msb).setWidth' (by omega)
     sign := x.sign ^^ y.sign
 
+@[simp]
+theorem UnpackedFloat.mul_sign (x y : UnpackedFloat e s) : (UnpackedFloat.mul x y).sign = (x.sign ^^ y.sign) := by
+  simp [mul, mul.sign]
+
+
 @[bv_normalize]
 def EUnpackedFloat.mul (m : RoundingMode) (x y : EUnpackedFloat (exponentWidth e s) (s + 1))
   : EUnpackedFloat (exponentWidth e s) (s + 1) :=

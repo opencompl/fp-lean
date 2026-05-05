@@ -35,8 +35,16 @@ def structBeq (x y : UnpackedFloat e s) : Bool :=
 
 @[bv_normalize]
 def beq (x y : UnpackedFloat e s) : Bool :=
-  x.isZero && y.isZero ||
-  x.sign == y.sign && x.ex == y.ex && x.sig == y.sig
+  (x.isZero && y.isZero) ||
+  (x.sign == y.sign && x.ex == y.ex && x.sig == y.sig)
+
+@[simp]
+theorem beq_refl (uf : UnpackedFloat e s) : uf.beq uf := by
+  simp [UnpackedFloat.beq]
+
+theorem beq_symm (x y : UnpackedFloat e s) : x.beq y = y.beq x := by
+  simp [UnpackedFloat.beq]
+  grind only [=> toRat'_ne_zero_iff_not_isZero, => toRat'_eq_zero_iff_isZero, #100b, #ba95, #cd35]
 
 @[bv_normalize]
 def bgeAux (xGEyOnDiffZeros : Bool) (x y : UnpackedFloat e s) : Bool :=
@@ -83,6 +91,11 @@ def smtBeq (x y : EUnpackedFloat e s) : Bool :=
   x.isNaN && y.isNaN ||
   x.isInfinite && y.isInfinite && x.sign == y.sign ||
   !x.isNaN && !y.isNaN && !x.isInfinite && !y.isInfinite && UnpackedFloat.beq x.num y.num
+
+@[simp]
+theorem smtBeq_refl (euf : EUnpackedFloat e s) : euf.smtBeq euf := by
+  simp [EUnpackedFloat.smtBeq]
+  grind only
 
 @[bv_normalize]
 def smtBne (x y : EUnpackedFloat e s) : Bool :=
@@ -179,5 +192,10 @@ def smtIsNeg (x : PackedFloat e s) : Bool :=
 
 def smtIsPos (x : PackedFloat e s) : Bool :=
   !x.isNaN && x.sign
+
+
+@[simp]
+theorem smtBeq_refl (pf : PackedFloat ep sp) : pf.smtBeq pf := by
+  simp [PackedFloat.smtBeq]
 
 end PackedFloat

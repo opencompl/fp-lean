@@ -186,6 +186,7 @@ theorem EUnpackedFloat.packNumber'.exPacked_ne_allOnes
     rw [Int.bmod_bmod_of_dvd]
     · simp [maxNormalExp, bias] at hexp ⊢
       have : 0 < 2 ^ (e - 1) := by grind only [!Nat.two_pow_pos]
+      have := exp.toInt_le
       sorry
     · refine (Nat.pow_dvd_pow_iff_le_right ?_).mpr ?_
       · decide
@@ -219,6 +220,37 @@ def EUnpackedFloat.pack' (uf : EUnpackedFloat (exponentWidth e s) (s + 1)) : Pac
     PackedFloat.getZero e s uf.sign
   else EUnpackedFloat.packNumber' uf.sign uf.sig uf.exp
 
+@[simp, grind .]
+theorem pack'_eq_getNaN_of_isNaN (uf : EUnpackedFloat (exponentWidth e s) (s + 1))
+    (huf : uf.isNaN) :
+    EUnpackedFloat.pack' uf = PackedFloat.getNaN e s := by
+  rw [EUnpackedFloat.pack', huf]
+  simp
+
+@[simp, grind .]
+theorem pack'_eq_getInfinity_of_isInfinite (uf : EUnpackedFloat (exponentWidth e s) (s + 1))
+    (huf : uf.isInfinite)  :
+    EUnpackedFloat.pack' uf = PackedFloat.getInfinity e s uf.sign := by
+  rw [EUnpackedFloat.pack', huf]
+  simp only [↓reduceIte, ite_eq_right_iff]
+  intros hnan
+  simp at hnan huf
+  grind only
+
+@[simp, grind .]
+theorem pack'_eq_getZero_of_isZero (uf : EUnpackedFloat (exponentWidth e s) (s + 1))
+    (huf : uf.isZero) :
+    EUnpackedFloat.pack' uf = PackedFloat.getZero e s uf.sign := by
+  rw [EUnpackedFloat.pack', huf]
+  simp [huf]
+
+@[simp, grind .]
+theorem pack'_mkZero_eq_getZero (sign : Bool) :
+    EUnpackedFloat.pack' (EUnpackedFloat.mkZero sign) = PackedFloat.getZero e s sign := by
+  rw [pack'_eq_getZero_of_isZero]
+  · simp
+  · simp
+
 /-
 `BitVec.ushiftRight_eq'` unfolds stuff into 'toNat' that then cascades
 into an annoying set of rewrites, so we just disable this simp-lemma
@@ -229,24 +261,39 @@ attribute [- simp] BitVec.ushiftRight_eq'
 @[simp]
 theorem EUnpackedFloat.pack_eq_pack' (euf : EUnpackedFloat (exponentWidth e s) (s + 1)) :
     euf.pack = EUnpackedFloat.pack' euf := by
-  simp? [EUnpackedFloat.pack, EUnpackedFloat.pack']
   by_cases hnan : euf.isNaN
-  · simp [hnan]
+  · simp at hnan
+    simp [pack, pack', hnan]
     simp [PackedFloat.getNaN]
-  · simp [hnan]
+  · simp [pack, pack']
     by_cases hinf : euf.isInfinite
-    · simp [hinf]
+    · simp at hinf
+      simp [hinf]
       simp [PackedFloat.getInfinity]
-    · simp [hinf]
+    · simp at hinf
+      simp [hinf]
       by_cases hzero : euf.isZero
       · simp [hzero]
         simp [PackedFloat.getZero]
       · simp only [hzero, Bool.false_eq_true, false_or, cond_false, ↓reduceIte]
         simp only [packNumber']
-        apply PackedFloat.ext
-        · simp
-        · simp [packNumber'.exPacked, packNumber'.inNormalRange]
-        · simp [packNumber'.sigPacked, packNumber'.inNormalRange, packNumber'.shift]
+        simp at hnan hinf hzero
+        simp [hnan]
+        by_cases hsle : (BitVec.ofInt _ (minNormalExp e)).sle euf.exp
+        · simp [hsle]
+          simp [packNumber'.exPacked, packNumber'.sigPacked, packNumber'.inNormalRange, packNumber'.shift]
+          constructor
+          · intros hcontra
+            grind only
+          · intros hcontra
+            grind only
+        · simp [hsle]
+          simp [packNumber'.exPacked, packNumber'.sigPacked, packNumber'.inNormalRange, packNumber'.shift]
+          constructor
+          · intros hcontra
+            grind only
+          · intros hcontra
+            grind only
 
 attribute [bv_normalize] BitVec.zero
 
