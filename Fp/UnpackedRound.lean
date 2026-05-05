@@ -793,9 +793,11 @@ def EUnpackedFloat.truncateFittingExponent {eu su : Nat}
 def UnpackedFloat.blastSmtLibRound {eu su : Nat}
     (tep tsp : Nat) (mode : RoundingMode) (uf : UnpackedFloat eu su) :
     EUnpackedFloat (exponentWidth tep tsp) (tsp + 1) :=
-  if uf.blastIsEarlyOverflowNonneg tep tsp then
+  if uf.isZero then
+    EUnpackedFloat.mkZero uf.sign
+  else if uf.blastIsEarlyOverflowNonneg tep tsp then
     blastRounderSpecialCaseOverflow mode uf.sign
-  else if uf.blastIsEarlyUnderflowNonneg tep tsp && !uf.isZero then
+  else if uf.blastIsEarlyUnderflowNonneg tep tsp  then
     blastRounderSpecialCaseUnderflow mode uf.sign
   else
     let rounded := uf.truncateFittingExponent tep tsp
