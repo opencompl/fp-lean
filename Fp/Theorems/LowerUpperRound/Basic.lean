@@ -271,6 +271,18 @@ theorem roundRNA_zero {eout sout : Nat} {zeroSign : Bool} (heout : 0 < eout) :
     simp [upper_zero_eq, heout]
 
 @[simp]
+theorem rounderForSign_zero {eout sout : Nat} {zeroSign : Bool} (heout : 0 < eout) :
+  ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).rounderForSign zeroSign
+    (ExtRat.Number 0)) = PackedFloat.getZero eout sout zeroSign := by
+  simp [SmtLibSemantics.RoundMethod.rounderForSign]
+  rcases zeroSign
+  case false =>
+    simp [lower_zero_eq, heout]
+  case true =>
+    simp [upper_zero_eq, heout]
+
+
+@[simp]
 theorem roundRNE_zero {eout sout : Nat} {zeroSign : Bool} (heout : 0 < eout) :
   ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRNE zeroSign
     (ExtRat.Number 0)) = PackedFloat.getZero eout sout zeroSign := by

@@ -1106,10 +1106,28 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
         SmtLibSemantics.smtLibRoundMethod.upper_eq, SmtLibSemantics.smtLibV_upper_eq,
         SmtLibSemantics.smtLibRoundMethod.lower_eq, SmtLibSemantics.smtLibV_lower_eq]
       rw [UnpackedFloat.blastSmtLibRoundRNE]
-      simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true,
-        UnpackedFloat.toRat_eq_toRat']
+      simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true]
       by_cases hx0 : x.toRat' = 0
       · simp [hx0]
+        rw [rounderForSign_zero _]
+        · apply EUnpackedFloat.Rel_of_Rel_of_isZero_of_isZero_of_eq_sign
+          · simp
+          · simp; grind only
+          · simp
+        · grind
+      · simp [hx0]
+        by_cases hunder : x.blastIsEarlyUnderflowNonneg ep sp
+        · simp [hunder]
+          rw [blastIsEarlyUnderflowNonneg_eq_decide he hs heu x] at hunder
+          simp only [decide_eq_true_eq] at hunder
+          sorry
+        · simp [hunder]
+          rw [blastIsEarlyUnderflowNonneg_eq_decide he hs heu x] at hunder
+          simp at hunder
+          sorry
+
+
+
   /-
         by_cases hunder : x.blastIsEarlyUnderflowNonneg ep sp
         · simp [hunder]

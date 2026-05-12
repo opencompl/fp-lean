@@ -92,6 +92,20 @@ theorem EUnpackedFloat.Rel_of_Rel_of_state_eq_Number (euf : EUnpackedFloat ef uf
   simp [EUnpackedFloat.Rel]
   simp [heuf, hRel]
 
+@[simp, grind .]
+theorem EUnpackedFloat.Rel_of_Rel_of_isZero_of_isZero_of_eq_sign
+  (euf : EUnpackedFloat ef uf) (pf : PackedFloat ep sp)
+  (heuf : euf.isZero) (hpf : pf.isZero) (hsign : euf.sign = pf.sign) :
+  EUnpackedFloat.Rel euf pf := by
+  simp [EUnpackedFloat.Rel]
+  simp [heuf, hsign]
+  apply UnpackedFloat.Rel_of_isZero_of_isZero
+  · simp [isZero] at heuf
+    grind only [=> UnpackedFloat.toRat'_ne_zero_iff_not_isZero]
+  · grind only
+  · simp only [sign] at hsign
+    simp only [hsign]
+
 
 @[simp, grind .]
 theorem EUnpackedFloat.neg_Rel_neg {e s ep sp}
