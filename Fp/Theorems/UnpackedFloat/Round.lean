@@ -1108,95 +1108,96 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
       rw [UnpackedFloat.blastSmtLibRoundRNE]
       simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true,
         UnpackedFloat.toRat_eq_toRat']
-      simp
-      have hx0 : x.toRat' ≠ 0 := by grind only [=> UnpackedFloat.toRat'_ne_zero_iff_not_isZero]
-      simp [hx0]
-      by_cases hunder : x.blastIsEarlyUnderflowNonneg ep sp
-      · simp [hunder]
-        sorry
-      · simp [hunder]
-        rw [blastIsEarlyUnderflowNonneg_eq_decide he hs heu x] at hunder
-        simp at hunder
+      by_cases hx0 : x.toRat' = 0
+      · simp [hx0]
+  /-
+        by_cases hunder : x.blastIsEarlyUnderflowNonneg ep sp
+        · simp [hunder]
+          sorry
+        · simp [hunder]
+          rw [blastIsEarlyUnderflowNonneg_eq_decide he hs heu x] at hunder
+          simp at hunder
 
-    -- Fixup the proof in 'toExtRat_round_Rel_smtLibRound_of_RNE' where you correctly write a lemma that says that in the case where there's no overflow, 'truncateFittingExponent' does not
-    --   change the toRat nor does it change the sign, and thus continues to be a Rel. This enables the rest of the place to go through, substituting x for y in Fp/UnpackedRound.lean in proof
-    --   theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
-          apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
-          have hy0' : y.toRat' = 0 := by grind only [=> UnpackedFloat.toRat'_eq_zero_of_isZero]
-          have hx0' : x.toRat' = 0 := by sorry
-          have hxsign : x.sign = y.sign := by sorry
-          rw [hxsign]
-          -- apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel_of_toInt_trunc_eq (by grind) (by grind) (by grind) _ _ (by sorry)
-          apply UnpackedFloat.blastRounderForSign_Rel_rounderForSign_zero (x := y) (by grind) (by grind)
-          · subst y
-            apply normalize_truncateFittingExponent_eq_self_of_normalize_eq_self
-            · exact he
-            · exact hs
+      -- Fixup the proof in 'toExtRat_round_Rel_smtLibRound_of_RNE' where you correctly write a lemma that says that in the case where there's no overflow, 'truncateFittingExponent' does not
+      --   change the toRat nor does it change the sign, and thus continues to be a Rel. This enables the rest of the place to go through, substituting x for y in Fp/UnpackedRound.lean in proof
+      --   theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
+            apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
+            have hy0' : y.toRat' = 0 := by grind only [=> UnpackedFloat.toRat'_eq_zero_of_isZero]
+            have hx0' : x.toRat' = 0 := by sorry
+            have hxsign : x.sign = y.sign := by sorry
+            rw [hxsign]
+            -- apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel_of_toInt_trunc_eq (by grind) (by grind) (by grind) _ _ (by sorry)
+            apply UnpackedFloat.blastRounderForSign_Rel_rounderForSign_zero (x := y) (by grind) (by grind)
+            · subst y
+              apply normalize_truncateFittingExponent_eq_self_of_normalize_eq_self
+              · exact he
+              · exact hs
+              · grind only
+              · grind only
+              · grind only
             · grind only
-            · grind only
-            · grind only
-          · grind only
-        · simp [hy0]
-          have hx0 : x.isZero = true := by sorry
-          simp [hx0]
-          have hx0' : x.toRat' ≠ 0 := by sorry
-          by_cases hlowerhalf : x.blastIsLowerHalf ep sp
-          · have hlowerHalf' := blastIsLowerHalf_iff_smtLibLowerHalf he hs x |>.mp hlowerhalf
-            simp [hlowerhalf, hlowerHalf']
-            by_cases htiebreak : x.blastIsTieBreak ep sp
-            · have htiebreak' := blastTieBreak_iff_smtLibTieBreak he hs x |>.mp htiebreak
-              simp [htiebreak, htiebreak']
-              by_cases hevenupper : x.blastIsEvenUpper ep sp
-              · have hevenupper' := blastIsEvenUpper_iff_smtLibIsEven_upper he hs x |>.mp hevenupper
-                simp [hevenupper, hevenupper']
-                apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
-                apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel_of_toInt_trunc_eq (by grind) (by grind) (by grind) _ _ (by sorry)
-                exact UnpackedFloat.blastUpper_Rel_smtLibUpper (by grind) (by grind) _ hxnorm
-              · have hevenupper' := blastIsEvenUpper_iff_smtLibIsEven_upper he hs x
-                simp [hevenupper] at hevenupper'
-                simp [hevenupper, hevenupper']
-                apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
-                apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel_of_toInt_trunc_eq (by grind) (by grind) (by grind) _ _ (by sorry)
-                exact UnpackedFloat.blastLower_Rel_smtLibLower (by grind) (by grind) _ hxnorm
-            · have htiebreak' := blastTieBreak_iff_smtLibTieBreak he hs x
-              simp [htiebreak] at htiebreak'
-              simp [htiebreak, htiebreak']
-              apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
-              apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel_of_toInt_trunc_eq (by grind) (by grind) (by grind) _ _ (by sorry)
-              exact UnpackedFloat.blastLower_Rel_smtLibLower (by grind) (by grind) _ hxnorm
-          · have hlowerHalf' := blastIsLowerHalf_iff_smtLibLowerHalf he hs x
-            simp [hlowerhalf] at hlowerHalf'
-            simp [hlowerhalf, hlowerHalf']
-            by_cases htiebreak : x.blastIsTieBreak ep sp
-            · have htiebreak' := blastTieBreak_iff_smtLibTieBreak he hs x |>.mp htiebreak
-              simp [htiebreak, htiebreak']
-              by_cases hevenupper : x.blastIsEvenUpper ep sp
-              · have hevenupper' := blastIsEvenUpper_iff_smtLibIsEven_upper he hs x |>.mp hevenupper
-                simp [hevenupper, hevenupper']
-                apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
-                apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel_of_toInt_trunc_eq (by grind) (by grind) (by grind) _ _ (by sorry)
-                exact UnpackedFloat.blastUpper_Rel_smtLibUpper (by grind) (by grind) _ hxnorm
-              · have hevenupper' := blastIsEvenUpper_iff_smtLibIsEven_upper he hs x
-                simp [hevenupper] at hevenupper'
-                simp [hevenupper, hevenupper']
-                by_cases hevenlower : x.blastIsEvenLower ep sp
-                · have hevenlower' := blastIsEvenLower_iff_smtLibIsEven_lower he hs x |>.mp hevenlower
-                  simp [hevenlower, hevenlower']
+          · simp [hy0]
+            have hx0 : x.isZero = true := by sorry
+            simp [hx0]
+            have hx0' : x.toRat' ≠ 0 := by sorry
+            by_cases hlowerhalf : x.blastIsLowerHalf ep sp
+            · have hlowerHalf' := blastIsLowerHalf_iff_smtLibLowerHalf he hs x |>.mp hlowerhalf
+              simp [hlowerhalf, hlowerHalf']
+              by_cases htiebreak : x.blastIsTieBreak ep sp
+              · have htiebreak' := blastTieBreak_iff_smtLibTieBreak he hs x |>.mp htiebreak
+                simp [htiebreak, htiebreak']
+                by_cases hevenupper : x.blastIsEvenUpper ep sp
+                · have hevenupper' := blastIsEvenUpper_iff_smtLibIsEven_upper he hs x |>.mp hevenupper
+                  simp [hevenupper, hevenupper']
+                  apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
+                  apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel_of_toInt_trunc_eq (by grind) (by grind) (by grind) _ _ (by sorry)
+                  exact UnpackedFloat.blastUpper_Rel_smtLibUpper (by grind) (by grind) _ hxnorm
+                · have hevenupper' := blastIsEvenUpper_iff_smtLibIsEven_upper he hs x
+                  simp [hevenupper] at hevenupper'
+                  simp [hevenupper, hevenupper']
                   apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
                   apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel_of_toInt_trunc_eq (by grind) (by grind) (by grind) _ _ (by sorry)
                   exact UnpackedFloat.blastLower_Rel_smtLibLower (by grind) (by grind) _ hxnorm
-                · have hevenlower' := blastIsEvenLower_iff_smtLibIsEven_lower he hs x
-                  simp [hevenlower] at hevenlower'
-                  simp [hevenlower, hevenlower']
+              · have htiebreak' := blastTieBreak_iff_smtLibTieBreak he hs x
+                simp [htiebreak] at htiebreak'
+                simp [htiebreak, htiebreak']
+                apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
+                apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel_of_toInt_trunc_eq (by grind) (by grind) (by grind) _ _ (by sorry)
+                exact UnpackedFloat.blastLower_Rel_smtLibLower (by grind) (by grind) _ hxnorm
+            · have hlowerHalf' := blastIsLowerHalf_iff_smtLibLowerHalf he hs x
+              simp [hlowerhalf] at hlowerHalf'
+              simp [hlowerhalf, hlowerHalf']
+              by_cases htiebreak : x.blastIsTieBreak ep sp
+              · have htiebreak' := blastTieBreak_iff_smtLibTieBreak he hs x |>.mp htiebreak
+                simp [htiebreak, htiebreak']
+                by_cases hevenupper : x.blastIsEvenUpper ep sp
+                · have hevenupper' := blastIsEvenUpper_iff_smtLibIsEven_upper he hs x |>.mp hevenupper
+                  simp [hevenupper, hevenupper']
                   apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
                   apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel_of_toInt_trunc_eq (by grind) (by grind) (by grind) _ _ (by sorry)
-                  apply EUnpackedFloat.Rel_of_isNaN_of_isNaN
-                  · simp
-                  · simp
-            · have htiebreak' := blastTieBreak_iff_smtLibTieBreak he hs x
-              simp [htiebreak] at htiebreak'
-              simp [htiebreak, htiebreak']
-              apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
-              apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel_of_toInt_trunc_eq (by grind) (by grind) (by grind) _ _ (by sorry)
-              exact UnpackedFloat.blastUpper_Rel_smtLibUpper (by grind) (by grind) _ hxnorm
+                  exact UnpackedFloat.blastUpper_Rel_smtLibUpper (by grind) (by grind) _ hxnorm
+                · have hevenupper' := blastIsEvenUpper_iff_smtLibIsEven_upper he hs x
+                  simp [hevenupper] at hevenupper'
+                  simp [hevenupper, hevenupper']
+                  by_cases hevenlower : x.blastIsEvenLower ep sp
+                  · have hevenlower' := blastIsEvenLower_iff_smtLibIsEven_lower he hs x |>.mp hevenlower
+                    simp [hevenlower, hevenlower']
+                    apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
+                    apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel_of_toInt_trunc_eq (by grind) (by grind) (by grind) _ _ (by sorry)
+                    exact UnpackedFloat.blastLower_Rel_smtLibLower (by grind) (by grind) _ hxnorm
+                  · have hevenlower' := blastIsEvenLower_iff_smtLibIsEven_lower he hs x
+                    simp [hevenlower] at hevenlower'
+                    simp [hevenlower, hevenlower']
+                    apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
+                    apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel_of_toInt_trunc_eq (by grind) (by grind) (by grind) _ _ (by sorry)
+                    apply EUnpackedFloat.Rel_of_isNaN_of_isNaN
+                    · simp
+                    · simp
+              · have htiebreak' := blastTieBreak_iff_smtLibTieBreak he hs x
+                simp [htiebreak] at htiebreak'
+                simp [htiebreak, htiebreak']
+                apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
+                apply EUnpackedFloat.truncateFittingExponent_Rel_of_Rel_of_toInt_trunc_eq (by grind) (by grind) (by grind) _ _ (by sorry)
+                exact UnpackedFloat.blastUpper_Rel_smtLibUpper (by grind) (by grind) _ hxnorm
+-/
 end Fp
