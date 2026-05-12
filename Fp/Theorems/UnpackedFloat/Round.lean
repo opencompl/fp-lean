@@ -810,12 +810,25 @@ theorem blastIsLowerHalf_iff_smtLibLowerHalf  (he : 1 < ep) (hs : 0 < sp)  (x : 
   sorry
 
 @[simp]
+theorem blastIsLowerHalf_eq (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s) :
+  x.blastIsLowerHalf ep sp = (decide <| (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat')) := by
+  have := blastIsLowerHalf_iff_smtLibLowerHalf he hs x
+  grind
+
+
+@[simp]
 theorem blastTieBreak_iff_smtLibTieBreak (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s) :
   x.blastIsTieBreak ep sp = true ↔
     (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).tieBreak (ExtRat.Number x.toRat') := by
   simp [UnpackedFloat.blastIsTieBreak]
   simp [SmtLibSemantics.smtLibRoundMethod]
   sorry
+
+@[simp]
+theorem blastIsTieBreak_eq (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s) :
+  x.blastIsTieBreak ep sp = (decide <| (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).tieBreak (ExtRat.Number x.toRat')) := by
+  have := blastTieBreak_iff_smtLibTieBreak he hs x
+  grind
 
 
 
@@ -995,18 +1008,13 @@ info: 'Fp.UnpackedFloat.toRat_truncateFittingExponent_of_not_blastIsOverflowNonn
 /-
 Round g anumber that's larger than max normal exp gives maxNormalExp as the result.
 -/
-theorem roundRNE_eq_infinity_of_lt_maxNormalExp
-  {ep sp eu su : Nat}
+theorem roundRNE_eq_infinity_of_maxNormalExp_lt
   (he : 1 < ep)
   (hs : 0 < sp)
-  (heu : exponentWidth ep sp ≤ eu)
-  (hsu : sp + 2 ≤ su)
-  (x : UnpackedFloat eu su)
-  (hxnorm : x.normalize = x)
-  (hover : maxNormalExp ep < x.ex.toInt) :
-    (EUnpackedFloat.mkInfinity x.sign : EUnpackedFloat eu su).Rel
-      ((SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRNE x.sign
-        (ExtRat.Number x.toRat)) := by
+  (r : Rat)
+  (hr : (2 : Rat) ^ maxNormalExp ep < r.abs) :
+  ((SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRNE sign
+        (ExtRat.Number r)) = PackedFloat.getInfinity ep sp sign := by
   simp only [SmtLibSemantics.RoundMethod.roundRNE, SmtLibSemantics.instExtendedRat.isNaN_eq,
     ExtRat.isNaN_iff, ExtRat.ExtRat.NaN_le_iff, decide_eq_true_eq, ExtRat.ExtRat.le_refl,
     reduceCtorEq, decide_false, Bool.false_eq_true, ↓reduceIte,
@@ -1020,6 +1028,20 @@ theorem roundRNE_eq_infinity_of_lt_maxNormalExp
     EUnpackedFloat.state_mkInfinity]
   -- TODO: this needs to argue that the sig is nonzero in this case.
   sorry
+
+/--
+Rounding any number whose absolute value is smaller than minNormalExp
+will produce a zero.
+-/
+theorem roundRNE_eq_zero_of_lt_minNormalExp
+  (he : 1 < ep)
+  (hs : 0 < sp)
+  (r : Rat)
+  (hr : r.abs < (2 : Rat) ^ minNormalExp ep) :
+  ((SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRNE sign
+        (ExtRat.Number r)) = PackedFloat.getZero ep sp sign := by
+  sorry
+
 
 /--
 Since 'truncateFittingExponent' does not change the significand,
@@ -1053,6 +1075,16 @@ theorem UnpackedFloat.toRat'_isZero
   grind only [= BitVec.toNat_zero, = BitVec.ofNat_toNat, = BitVec.getElem_zero,
     = BitVec.getElem_setWidth, = BitVec.getLsbD_eq_getElem, #a38c, #742d]
 
+@[simp]
+theorem toRat'_truncateFittingExponent_of_not_blastIsOverflowNonneg_of_not_blastIsEarlyUnderflowNonneg
+    (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (notunder : x.blastIsEarlyUnderflowNonneg ep sp = false) :
+    (x.truncateFittingExponent ep sp).toRat' = x.toRat' := by
+  simp [UnpackedFloat.toRat']
+  rw [toExpInt_truncateFittingExponent_of_not_blastIsOverflowNonneg] <;> grind only
 
 /-# `blastSmtLibRound` matches `smtLibRound` for RNE rounding mode. -/
 
@@ -1087,29 +1119,26 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
     · grind only
   · by_cases hover : x.blastIsEarlyOverflowNonneg ep sp
     · simp [hover]
-      rw [blastIsEarlyOverflowNonneg_eq_decide he hs heu x] at hover
-      simp at hover
+      -- rw [blastIsEarlyOverflowNonneg_eq_decide he hs heu x] at hover
+      -- simp at hover
       simp [blastRounderSpecialCaseOverflow]
       have hx0 : x.toRat' ≠ 0 := by grind only [=> UnpackedFloat.toRat'_ne_zero_iff_not_isZero]
       simp [hx0]
-      -- need a lemma that 'round' on larger than normal values gives infinity.
-      sorry
+      rw [roundRNE_eq_infinity_of_maxNormalExp_lt]
+      · apply EUnpackedFloat.Rel_of_state_eq_Infinity_of_sign
+        · simp
+        · grind
+        · simp
+      · simp [he]
+      · simp [hs]
+      · -- from hover
+        sorry
     · simp [hover]
-      rw [blastIsEarlyOverflowNonneg_eq_decide he hs heu x] at hover
-      simp at hover
-      simp only [UnpackedFloat.blastSmtLibRoundAux]
-      simp only [SmtLibSemantics.RoundMethod.roundRNE, SmtLibSemantics.instExtendedRat.isNaN_eq,
-        ExtRat.isNaN_iff,
-        reduceCtorEq, decide_false, Bool.false_eq_true, ↓reduceIte,
-        SmtLibSemantics.instExtendedRat.isZero, ← ExtRat.ExtRat.zero_def, ExtRat.Number.injEq,
-        Bool.not_eq_eq_eq_not, Bool.not_true, decide_eq_false_iff_not,
-        SmtLibSemantics.smtLibRoundMethod.upper_eq, SmtLibSemantics.smtLibV_upper_eq,
-        SmtLibSemantics.smtLibRoundMethod.lower_eq, SmtLibSemantics.smtLibV_lower_eq]
-      rw [UnpackedFloat.blastSmtLibRoundRNE]
-      simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true]
+      -- rw [blastIsEarlyOverflowNonneg_eq_decide he hs heu x] at hover
+      -- simp at hover
       by_cases hx0 : x.toRat' = 0
       · simp [hx0]
-        rw [rounderForSign_zero _]
+        rw [roundRNE_zero]
         · apply EUnpackedFloat.Rel_of_Rel_of_isZero_of_isZero_of_eq_sign
           · simp
           · simp; grind only
@@ -1118,13 +1147,34 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
       · simp [hx0]
         by_cases hunder : x.blastIsEarlyUnderflowNonneg ep sp
         · simp [hunder]
-          rw [blastIsEarlyUnderflowNonneg_eq_decide he hs heu x] at hunder
-          simp only [decide_eq_true_eq] at hunder
-          sorry
+          -- rw [blastIsEarlyUnderflowNonneg_eq_decide he hs heu x] at hunder
+          simp [blastRounderSpecialCaseUnderflow]
+          -- need a lemma that says that 'round' on smaller than minSubnormal values gives zero.
+          rw [roundRNE_eq_zero_of_lt_minNormalExp]
+          · apply EUnpackedFloat.mkZero_Rel_of_isZero ep sp (exponentWidth ep sp) (sp + 1) he
+            · grind only
+          · simp [he]
+          · simp [hs]
+          · -- from hunder
+            sorry
         · simp [hunder]
-          rw [blastIsEarlyUnderflowNonneg_eq_decide he hs heu x] at hunder
-          simp at hunder
+          -- rw [blastIsEarlyUnderflowNonneg_eq_decide he hs heu x] at hunder
+          -- -- simp at hunder
+          rw [UnpackedFloat.blastSmtLibRoundAux, UnpackedFloat.blastSmtLibRoundRNE]
+          simp
+          rw [blastIsLowerHalf_eq (by grind only) (by grind only)]
+          simp only [decide_eq_false_iff_not, decide_eq_true_eq]
+          rw [blastIsTieBreak_eq (by grind only) (by grind only)]
+          simp
+          rw [SmtLibSemantics.RoundMethod.roundRNE]
+          simp [hx0]
+          rw [toRat'_truncateFittingExponent_of_not_blastIsOverflowNonneg_of_not_blastIsEarlyUnderflowNonneg he hs heu x (by grind only) (by grind only)]
+          -- use that blastUpper rel smtLiBupper, blastLower rel smtLibLower.
+          -- this should just be pure proof automation!
           sorry
+
+
+
 
 
 
