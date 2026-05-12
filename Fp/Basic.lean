@@ -2275,6 +2275,7 @@ theorem toRatExp_eq_of_isNorm {e s} {pf : PackedFloat e s} (hnorm : pf.isNorm) :
 def toRat {e s} (pf : PackedFloat e s) : Rat :=
     pf.sign.toSign * pf.toRatSig * 2 ^ (pf.toRatExp)
 
+
 @[simp]
 theorem toRatExp_neg {pf : PackedFloat e s} :
     (- pf).toRatExp = pf.toRatExp := by
@@ -2335,6 +2336,13 @@ theorem toRat_eq_Zero_of_isZero {e s} (pf : PackedFloat e s) (hp : pf.isZero) :
   rw [toRat]
   have : pf.toRatSig = 0 := by exact toRatSig_eq_zero_of_isZero pf hp
   grind
+
+@[simp, grind =]
+theorem toRat_getZero {e s} (h : 0 < e) (sign : Bool) :
+    (PackedFloat.getZero e s sign).toRat = 0 := by
+  apply toRat_eq_Zero_of_isZero
+  simp [h]
+
 
 @[simp]
 theorem Rat.natCast_ne_zero_iff {n : Nat} : ((n : Rat) ≠ 0) ↔ n ≠ 0 := by

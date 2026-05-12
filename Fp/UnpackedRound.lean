@@ -723,9 +723,9 @@ def UnpackedFloat.blastIsEvenUpper {eu su : Nat} (uf : UnpackedFloat eu su) (tep
 def UnpackedFloat.blastSmtLibRoundRNE {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) :
     EUnpackedFloat (eu) (tsp + 1) :=
   -- NaN, infinity is handled separately, so this only handles the other cases.
-  if uf.isZero then
-    uf.blastRounderForSign tep tsp
-  else if ! uf.blastIsLowerHalf tep tsp && ! uf.blastIsTieBreak tep tsp then uf.blastUpper tep tsp
+  -- if uf.isZero then
+  --   uf.blastRounderForSign tep tsp
+  if ! uf.blastIsLowerHalf tep tsp && ! uf.blastIsTieBreak tep tsp then uf.blastUpper tep tsp
   else if uf.blastIsTieBreak tep tsp && uf.blastIsEvenUpper tep tsp then uf.blastUpper tep tsp
   else if uf.blastIsTieBreak tep tsp && uf.blastIsEvenLower tep tsp then uf.blastLower tep tsp
   else if uf.blastIsLowerHalf tep tsp then uf.blastLower tep tsp
@@ -734,8 +734,8 @@ def UnpackedFloat.blastSmtLibRoundRNE {eu su : Nat} (uf : UnpackedFloat eu su) (
 @[bv_normalize]
 def UnpackedFloat.blastSmtLibRoundRNA {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) :
     EUnpackedFloat (eu) (tsp + 1) :=
-  if uf.isZero then uf.blastRounderForSign tep tsp
-  else if uf.sign = false && !uf.blastIsLowerHalf tep tsp then uf.blastUpper tep tsp
+  -- if uf.isZero then uf.blastRounderForSign tep tsp
+  if uf.sign = false && !uf.blastIsLowerHalf tep tsp then uf.blastUpper tep tsp
   else if uf.sign = false && uf.blastIsLowerHalf tep tsp then uf.blastLower tep tsp
   else if uf.sign = true && !uf.blastIsLowerHalf tep tsp && !uf.blastIsTieBreak tep tsp then uf.blastUpper tep tsp
   else if uf.sign = true && (uf.blastIsLowerHalf tep tsp || uf.blastIsTieBreak tep tsp) then uf.blastLower tep tsp
@@ -744,25 +744,25 @@ def UnpackedFloat.blastSmtLibRoundRNA {eu su : Nat} (uf : UnpackedFloat eu su) (
 @[bv_normalize]
 def UnpackedFloat.blastSmtLibRoundRTP {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) :
     EUnpackedFloat (eu) (tsp + 1) :=
-  if uf.isZero then
-    uf.blastRounderForSign tep tsp
-  else
+  -- if uf.isZero then
+  --   uf.blastRounderForSign tep tsp
+  -- else
     uf.blastUpper tep tsp
 
 @[bv_normalize]
 def UnpackedFloat.blastSmtLibRoundRTN {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) :
     EUnpackedFloat (eu) (tsp + 1) :=
-  if uf.isZero then
-    uf.blastRounderForSign tep tsp
-  else
+  -- if uf.isZero then
+  --   uf.blastRounderForSign tep tsp
+  -- else
     uf.blastLower tep tsp
 
 @[bv_normalize]
 def UnpackedFloat.blastSmtLibRoundRTZ {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) :
     EUnpackedFloat (eu) (tsp + 1) :=
-  if uf.isZero then
-    EUnpackedFloat.mkNumber <| UnpackedFloat.mkZero uf.sign
-  else if uf.sign then
+  -- if uf.isZero then
+  --   EUnpackedFloat.mkNumber <| UnpackedFloat.mkZero uf.sign
+  if uf.sign then
     uf.blastUpper tep tsp
   else
     uf.blastLower tep tsp

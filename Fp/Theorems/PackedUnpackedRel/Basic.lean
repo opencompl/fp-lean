@@ -122,6 +122,31 @@ theorem EUnpackeDFloat.num_Rel_of_Rel_of_eq_Number {e s ep sp}
 /-- info: 'EUnpackedFloat.neg_Rel_neg' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms EUnpackedFloat.neg_Rel_neg
 
+
+-- ep sp eu su : Nat
+-- he : 1 < ep
+-- hs : 0 < sp
+-- heu : exponentWidth ep sp ≤ eu
+-- hsu : sp + 2 ≤ su
+-- x : UnpackedFloat eu su
+-- hxnorm : x.normalize = x
+-- hzero : x.isZero = true
+-- ⊢ (EUnpackedFloat.mkZero x.sign).Rel
+--   ((SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRNE x.sign
+--     (ExtRat.Number 0))
+theorem EUnpackedFloat.mkZero_Rel_of_isZero
+  (ep sp eu su : Nat)
+  (he : 1 < ep)
+  (hsign : signUnpacked = signPacked) :
+  (EUnpackedFloat.mkZero signUnpacked : EUnpackedFloat eu su).Rel
+    (PackedFloat.getZero ep sp signPacked) := by
+  simp [EUnpackedFloat.mkZero, EUnpackedFloat.Rel]
+  constructor
+  · simp only [UnpackedFloat.mkZero_isZero, UnpackedFloat.toRat'_eq_zero_of_isZero]
+    rw [PackedFloat.toRat_getZero]
+    grind only
+  · simp [hsign]
+
 /--
 If an extended unpacked float is related to a packed float,
 then packing the extended unpacked gives a packed float that is equal
