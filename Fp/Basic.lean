@@ -3202,6 +3202,9 @@ info: 'UnpackedFloat.normalize_eq_self_of_msb_eq_true' depends on axioms: [prope
 def toEUnpackedFloat (uf : UnpackedFloat e s) : EUnpackedFloat e s :=
   .mk .Number uf
 
+@[simp]
+theorem state_toEUnpackedFloat (uf : UnpackedFloat e s) : uf.toEUnpackedFloat = .mk .Number uf := rfl
+
 def toDyadic (uf : UnpackedFloat e s) : Dyadic :=
   let sig : BitVec (s + 1) := uf.sig.setWidth' (Nat.le.step Nat.le.refl)
   -- | this can lead to overflow in the case where
@@ -3571,11 +3574,18 @@ theorem isNumber_mkZero {e s} (sign : Bool) : isNumber (mkZero sign : EUnpackedF
   simp [mkZero, UnpackedFloat.mkZero, isNumber]
 
 @[bv_normalize]
-def normalize (uf : EUnpackedFloat e s) : EUnpackedFloat e s :=
-  bif uf.isNumber then
-    uf.num.normalize.toEUnpackedFloat
+def normalize (euf : EUnpackedFloat e s) : EUnpackedFloat e s :=
+  bif euf.isNumber then
+    euf.num.normalize.toEUnpackedFloat
   else
-    uf
+    euf
+
+@[simp]
+theorem state_normalize (euf : EUnpackedFloat e s) : (normalize euf).state = euf.state := by
+  simp [normalize]
+  by_cases hs : euf.state = .Number
+  · simp [hs]
+  · simp [hs]
 
 def toExtDyadic (ef : EUnpackedFloat e s) : ExtDyadic :=
   bif ef.isNaN then
