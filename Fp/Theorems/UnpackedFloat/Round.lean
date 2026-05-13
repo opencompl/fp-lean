@@ -546,7 +546,11 @@ theorem PackedFloat.not_isNaN_maxNormalNumber (ep sp : Nat) (sign : Bool) (hep :
     ¬ (PackedFloat.maxNormalNumber ep sp sign).isNaN := by
   -- The exponent of `maxNormalNumber` is `allOnes - 1`, which differs from `allOnes`
   -- whenever `0 < ep`. `isNaN` requires `ex = allOnes`, so this case is excluded.
-  sorry
+  simp [PackedFloat.maxNormalNumber, PackedFloat.isNaN]
+  intros hcontra
+  rw [BitVec.sub_eq_iff_eq_add] at hcontra
+  simp at hcontra
+  grind
 
 /--
 The unpacked `maxNormal` and packed `maxNormalNumber` agree under `toRat`.
