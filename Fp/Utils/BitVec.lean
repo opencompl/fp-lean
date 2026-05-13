@@ -369,7 +369,7 @@ protected theorem BitVec.eq_zero_iff_toNat_eq (x : BitVec w) :
     apply BitVec.toNat_inj.mp
     simp [h]
 
-@[simp]
+@[simp high]
 theorem BitVec.toNat_allOnes_sub_one_eq_twoPow_sub_two (n : Nat) (hn : 0 < n) :
     BitVec.toNat (BitVec.allOnes n - 1#n) = 2 ^ n - 2 := by
   rw [BitVec.toNat_sub_of_le]
@@ -396,4 +396,3 @@ theorem BitVec.sub_le_iff_le_add (a b c : BitVec n)
     · grind
     · grind
   · grind
-

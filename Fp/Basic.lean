@@ -298,7 +298,7 @@ Returns the maximum (magnitude) value for the given sign.
 def maxNormalNumber (exWidth sigWidth : Nat) (sign : Bool)
   : PackedFloat exWidth sigWidth where
   sign
-  ex := BitVec.allOnes exWidth - 1
+  ex := BitVec.allOnes exWidth - 1#_
   sig := BitVec.allOnes sigWidth
 
 @[simp]
@@ -311,7 +311,8 @@ theorem sig_maxNormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
 
 @[simp]
 theorem ex_maxNormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
-    (PackedFloat.maxNormalNumber exWidth sigWidth sign).ex = BitVec.allOnes exWidth - 1 := rfl
+    (PackedFloat.maxNormalNumber exWidth sigWidth sign).ex =
+    BitVec.allOnes exWidth - 1#exWidth := rfl
 
 -- TODO: write toRat_getMax
 
@@ -4089,6 +4090,20 @@ theorem toRatSig_maxNormalNumber (e s : Nat) (he : 2 < e) (sign : Bool) :
   rw [Rat.div_self_eq_one_of_ne_zero (by grind only [Rat.two_pow_nat_ne_zero])]
   rw [Rat.one_div_zpow_natCast_eq_zpow_neg]
   grind only
+
+@[simp]
+theorem toRatExp_maxNormalNumber (e s : Nat) (he : 2 < e) (sign : Bool) :
+    (PackedFloat.maxNormalNumber e s sign).toRatExp = maxNormalExp e := by
+  rw [toRatExp]
+  rw [isNorm_maxNormalNumber_eq_decide]
+  simp only [decide_eq_true_eq, ex_maxNormalNumber]
+  simp only [show 1 < e by grind, if_true]
+  rw [maxNormalExp]
+  rw [bias]
+  rw [BitVec.toNat_allOnes_sub_one_eq_twoPow_sub_two _ (by grind only)]
+  grind =>
+    instantiate approx
+    cases #1134
 
 @[simp]
 theorem BitVec.ofInt_eq_zero_iff_of_width_1 :

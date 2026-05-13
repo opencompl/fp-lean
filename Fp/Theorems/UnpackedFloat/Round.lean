@@ -559,7 +559,13 @@ theorem UnpackedFloat.toRat'_maxNormal_eq_toRat_maxNormalNumber
     (eu su ep sp : Nat) (sign : Bool) :
     (UnpackedFloat.maxNormal eu su ep sp sign).toRat'
       = (PackedFloat.maxNormalNumber ep sp sign).toRat := by
-  sorry
+  rw [UnpackedFloat.maxNormal, UnpackedFloat.toRat']
+  simp [UnpackedFloat.toExpInt]
+  rw [PackedFloat.toRat]
+  rw [PackedFloat.toRatSig_maxNormalNumber]
+  rw [PackedFloat.toRatE]
+
+
 
 theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_overflow
     (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat ex sx)
