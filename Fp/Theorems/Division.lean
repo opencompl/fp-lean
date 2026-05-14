@@ -208,6 +208,55 @@ theorem UnpackedFloat.msb_div_eq_true_of_msb_eq_true {x y : UnpackedFloat e s}
   exact DivUnnormalized.divAdjustMsb_msb_eq_true hx hy
 
 /--
+Rounding is determined by the rounder's classification of the input rational —
+`isNaN`, `isZero`, `lower`, `upper`, `lowerHalf`, `tieBreak` — and by no other
+property of the rational itself. So if two rationals `r1` and `r2` agree on these
+classifiers, `roundRNE` returns the same packed float. This is the abstract
+"close enough" property the sticky-bit machinery relies on: division produces a
+quotient whose true value differs from the implementation's `toRat`, but the
+sticky bit ensures all six classifiers agree, so the rounded results coincide.
+-/
+theorem Fp.SmtLibSemantics.RoundMethod.roundRNE_congr_of_classify_eq
+    {ep sp : Nat} {R : Type} [inst : Fp.SmtLibSemantics.ExtendedNumber R]
+    (rm : Fp.SmtLibSemantics.RoundMethod (PackedFloat ep sp) R)
+    [DecidablePred inst.isNaN] [DecidablePred inst.isZero]
+    [DecidablePred rm.lowerHalf] [DecidablePred rm.tieBreak]
+    (sign : Bool) (r1 r2 : R)
+    (hnan  : inst.isNaN  r1 ↔ inst.isNaN  r2)
+    (hzero : inst.isZero r1 ↔ inst.isZero r2)
+    (hlow  : rm.lower r1 = rm.lower r2)
+    (hup   : rm.upper r1 = rm.upper r2)
+    (hlh   : rm.lowerHalf r1 ↔ rm.lowerHalf r2)
+    (htb   : rm.tieBreak r1 ↔ rm.tieBreak r2) :
+    rm.roundRNE sign r1 = rm.roundRNE sign r2 := by
+  -- roundRNE is a chain of `if`s over exactly these classifiers (plus `isEven`,
+  -- which only inspects `lower r` / `upper r`). Each branch's result is either
+  -- `lower r` or `upper r`, which agree by hypothesis. Discharge by structural
+  -- case-split on the boolean classifiers.
+  unfold Fp.SmtLibSemantics.RoundMethod.roundRNE Fp.SmtLibSemantics.RoundMethod.rounderForSign
+  rw [hlow, hup]
+  by_cases hN : inst.isNaN r1
+  · simp [hN, hnan.mp hN]
+  · have hN2 : ¬ inst.isNaN r2 := fun h => hN (hnan.mpr h)
+    by_cases hZ : inst.isZero r1
+    · simp [hN, hN2, hZ, hzero.mp hZ]
+    · have hZ2 : ¬ inst.isZero r2 := fun h => hZ (hzero.mpr h)
+      by_cases hTB : rm.tieBreak r1
+      all_goals by_cases hLH : rm.lowerHalf r1
+      all_goals first
+        | (have hLH2 := hlh.mp hLH; have hTB2 := htb.mp hTB
+           simp [hN, hN2, hZ, hZ2, hLH, hLH2, hTB, hTB2])
+        | (have hTB2 := htb.mp hTB
+           have hLH2 : ¬ rm.lowerHalf r2 := fun h => hLH (hlh.mpr h)
+           simp [hN, hN2, hZ, hZ2, hLH, hLH2, hTB, hTB2])
+        | (have hLH2 := hlh.mp hLH
+           have hTB2 : ¬ rm.tieBreak r2 := fun h => hTB (htb.mpr h)
+           simp [hN, hN2, hZ, hZ2, hLH, hLH2, hTB, hTB2])
+        | (have hLH2 : ¬ rm.lowerHalf r2 := fun h => hLH (hlh.mpr h)
+           have hTB2 : ¬ rm.tieBreak r2 := fun h => hTB (htb.mpr h)
+           simp [hN, hN2, hZ, hZ2, hLH, hLH2, hTB, hTB2])
+
+/--
 The rounded result of `(x.div y)` agrees with the rounding of the exact quotient
 `x.toRat / y.toRat` at precision `(ep, sp)`. This is the analogue of the
 multiplication exactness theorem, but stated in terms of the rounder's `Rel`
