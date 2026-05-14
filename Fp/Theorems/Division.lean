@@ -249,8 +249,15 @@ theorem div_eq_div {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
   rw [PackedFloat.div, EUnpackedFloat.div]
   cases a using PackedFloat.kindCasesNaNInfZeroNum
   case nanCase hnan =>
-    -- a is NaN: result is NaN regardless of b.
-    sorry
+    -- a is NaN: NaN/y = NaN; result is NaN.
+    rw [ExtRat.div_eq_mul_inv]
+    simp only [hnan, PackedFloat.toExtRat'_eq_NaN_of_isNaN, ExtRat.NaN_mul,
+      PackedFloat.unpack_eq_NaN_of_isNaN, EUnpackedFloat.isNaN_mkNaN,
+      PackedFloat.isNaN_unpack_eq_isNaN, Bool.true_or, cond_true,
+      EUnpackedFloat.mkNaN_pack_eq_mkNaN, PackedFloat.EquivUptoNaN.of_mkNaN_iff]
+    -- Final goal: `(if xorSign ... then neg (round ...) else round ...).isNaN = true`.
+    -- Both branches round/operate on NaN, both yield NaN.
+    split <;> simp [SmtLibSemantics.SmtLibFunctions.neg]
   case infCase signa =>
     -- a is infinity: split on b.
     cases b using PackedFloat.kindCasesNaNInfZeroNum
