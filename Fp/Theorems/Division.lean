@@ -261,19 +261,46 @@ theorem div_eq_div {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
   case infCase signa =>
     -- a is infinity: split on b.
     cases b using PackedFloat.kindCasesNaNInfZeroNum
-    case nanCase hb => sorry         -- inf / NaN = NaN
+    case nanCase hb =>
+      -- inf / NaN = NaN
+      rw [ExtRat.div_eq_mul_inv]
+      have hinv : (ExtRat.NaN).inv = ExtRat.NaN := rfl
+      simp only [hb, PackedFloat.toExtRat'_eq_NaN_of_isNaN, hinv, ExtRat.mul_NaN,
+        PackedFloat.unpack_eq_NaN_of_isNaN, EUnpackedFloat.isNaN_mkNaN,
+        PackedFloat.isNaN_unpack_eq_isNaN, Bool.or_true, cond_true,
+        EUnpackedFloat.mkNaN_pack_eq_mkNaN, PackedFloat.EquivUptoNaN.of_mkNaN_iff,
+        ExtRat.neg_NaN]
+      split <;> simp [SmtLibSemantics.SmtLibFunctions.neg]
     case infCase signb => sorry      -- inf / inf = NaN
     case zeroCase signb => sorry     -- inf / 0   = inf
     case numCase hb => sorry         -- inf / num = inf
   case zeroCase signa =>
     cases b using PackedFloat.kindCasesNaNInfZeroNum
-    case nanCase hb => sorry         -- 0 / NaN = NaN
+    case nanCase hb =>
+      -- 0 / NaN = NaN
+      rw [ExtRat.div_eq_mul_inv]
+      have hinv : (ExtRat.NaN).inv = ExtRat.NaN := rfl
+      simp only [hb, PackedFloat.toExtRat'_eq_NaN_of_isNaN, hinv, ExtRat.mul_NaN,
+        PackedFloat.unpack_eq_NaN_of_isNaN, EUnpackedFloat.isNaN_mkNaN,
+        PackedFloat.isNaN_unpack_eq_isNaN, Bool.or_true, cond_true,
+        EUnpackedFloat.mkNaN_pack_eq_mkNaN, PackedFloat.EquivUptoNaN.of_mkNaN_iff,
+        ExtRat.neg_NaN]
+      split <;> simp [SmtLibSemantics.SmtLibFunctions.neg]
     case infCase signb => sorry      -- 0 / inf = 0
     case zeroCase signb => sorry     -- 0 / 0   = NaN
     case numCase hb => sorry         -- 0 / num = 0
   case numCase ha =>
     cases b using PackedFloat.kindCasesNaNInfZeroNum
-    case nanCase hb => sorry         -- num / NaN = NaN
+    case nanCase hb =>
+      -- num / NaN = NaN; a is a finite number, b is NaN.
+      rw [ExtRat.div_eq_mul_inv]
+      have hinv : (ExtRat.NaN).inv = ExtRat.NaN := rfl
+      simp only [hb, PackedFloat.toExtRat'_eq_NaN_of_isNaN, hinv, ExtRat.mul_NaN, ExtRat.NaN_mul,
+        PackedFloat.unpack_eq_NaN_of_isNaN, EUnpackedFloat.isNaN_mkNaN,
+        PackedFloat.isNaN_unpack_eq_isNaN, Bool.or_true, cond_true,
+        EUnpackedFloat.mkNaN_pack_eq_mkNaN, PackedFloat.EquivUptoNaN.of_mkNaN_iff,
+        ExtRat.neg_NaN]
+      split <;> simp [SmtLibSemantics.SmtLibFunctions.neg]
     case infCase signb => sorry      -- num / inf = 0
     case zeroCase signb => sorry     -- num / 0   = inf (division by zero)
     case numCase hb =>
