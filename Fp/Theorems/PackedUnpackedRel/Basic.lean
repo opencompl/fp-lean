@@ -11,10 +11,11 @@ import Fp.Utils
 
 /--
 An unpacked float is related to a packed float
-iff they have the same rational value and the same sign.
+iff they have the same rational value and the same sign, when
+the unpacked float is interpreted at the rational value.
 -/
 def UnpackedFloat.Rel (uf : UnpackedFloat e s) (pf : PackedFloat ep sp) :=
-  uf.toRat' = pf.toRat ∧ uf.sign = pf.sign -- ∧ ¬ pf.isInfinite ∧ ¬ pf.isNaN
+  uf.toRat' sp = pf.toRat ∧ uf.sign = pf.sign -- ∧ ¬ pf.isInfinite ∧ ¬ pf.isNaN
 
 
 @[simp, grind .]
@@ -25,13 +26,13 @@ theorem sign_eq_sign_of_Rel (uf : UnpackedFloat e s) (pf : PackedFloat ep sp) (h
 
 @[simp]
 theorem toRat'_eq_toRat_of_Rel (uf : UnpackedFloat e s) (pf : PackedFloat ep sp) (hRel : uf.Rel pf) :
-  uf.toRat' = pf.toRat := by
+  uf.toRat' sp = pf.toRat := by
   simp only [UnpackedFloat.Rel] at hRel
   exact hRel.1
 
 @[grind =>]
 theorem UnpackedFloat.Rel_of_toRat_eq_toRat_and_sign (uf : UnpackedFloat ef uf) (pf : PackedFloat ep sp)
-  (hToRat : uf.toRat' = pf.toRat) (hSign : uf.sign = pf.sign) :
+  (hToRat : uf.toRat' sp = pf.toRat) (hSign : uf.sign = pf.sign) :
   UnpackedFloat.Rel uf pf := by
   simp only [UnpackedFloat.Rel]
   simp [hToRat, hSign]

@@ -82,6 +82,24 @@ The exponent's value is [e.toNat] - bias = [e.toNat] - 127.
 def bias (e : Nat) : Nat :=
   2 ^ (e - 1) - 1
 
+@[simp]
+theorem bias_bmod_two_pow_eq_self_of_le {e : Nat}
+    (he : 0 < e)
+    (heout : e ≤ eout): (bias e : Int).bmod (2^eout) = bias e := by
+  simp [bias]
+  have : 2^e ≤ 2 ^ eout := by
+    exact Fp.Nat.two_pow_le_two_pow_of_le heout
+  have : ∃ e', e = e' + 1 := by
+    apply Nat.exists_eq_succ_of_ne_zero
+    grind only
+  obtain ⟨e', he'⟩ := this
+  subst he'
+  simp
+  have : 0 < 2 ^e' := by grind only [!Nat.two_pow_pos]
+  rw [Int.bmod_eq_of_le]
+  · grind only
+  · grind only
+
 /-- info: 127 -/
 #guard_msgs in #eval bias 8
 
@@ -292,6 +310,7 @@ theorem one_lt_exponentWidth : 1 < exponentWidth e s  := by
 /--
 the exponentWidth is strictly larger than the exponent itself.
 -/
+@[simp, grind .]
 theorem self_lt_exponentWidth (e s : Nat) (he : 1 < e) (hs : 0 < s) :
   e < exponentWidth e s := by
   simp [exponentWidth]
