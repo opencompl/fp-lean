@@ -452,7 +452,7 @@ theorem EUnpackedFloat.Rel_smtLibLower_of_witness
     (pf : PackedFloat ep sp)
     (hpfNotNaN : ¬ pf.isNaN)
     (hpfLower : SmtLibSemantics.IsLawfulLower (ExtRat.Number r) pf)
-    (hToRat : result.num.toRat' = pf.toRat)
+    (hToRat : result.num.toRat' sp = pf.toRat)
     (hSign  : result.num.sign  = pf.sign) :
     result.Rel (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat ep sp) := by
   -- The smtLib lower is also a lawful lower; by uniqueness it equals `pf`.
@@ -556,43 +556,96 @@ theorem PackedFloat.not_isNaN_maxNormalNumber (ep sp : Nat) (sign : Bool) (hep :
 The unpacked `maxNormal` and packed `maxNormalNumber` agree under `toRat`.
 -/
 theorem UnpackedFloat.toRat'_maxNormal_eq_toRat_maxNormalNumber
-    (eu su ep sp : Nat) (sign : Bool) :
-    (UnpackedFloat.maxNormal eu su ep sp sign).toRat'
+    {eu su ep sp : Nat}
+    {sign : Bool}
+    (hsp : 0 < sp)
+    (hsu : sp + 1 ≤ su)
+    (hep : 2 < ep)
+    (heu : exponentWidth ep sp ≤ eu) :
+    (UnpackedFloat.maxNormal eu su ep sp sign).toRat' (sp)
       = (PackedFloat.maxNormalNumber ep sp sign).toRat := by
   rw [UnpackedFloat.maxNormal, UnpackedFloat.toRat']
   simp [UnpackedFloat.toExpInt]
   rw [PackedFloat.toRat]
   rw [PackedFloat.toRatSig_maxNormalNumber]
-  rw [PackedFloat.toRatE]
+  rw [PackedFloat.toRatExp_maxNormalNumber]
+  rw [Nat.mod_eq_of_lt]
+  · rw [Int.bmod_eq_of_le]
+    · simp
+      rw [Int.neg_sub]
+      rw [Rat.zpow_sub_eq_zpow_mul_zpow (by grind)]
+      rw [Rat.natCast_sub_of_le (by grind)]
+      push_cast
+      have : ((2 : Rat) ^ (sp + 1) - 1) * (2 : Rat) ^ (-sp : Int) = (2 - (2 : Rat) ^ (-sp : Int)) := by
+        rw [Rat.sub_mul]
+        simp only [Rat.one_mul]
+        norm_cast
+        rw [Nat.pow_succ]
+        simp only [Rat.natCast_mul, Rat.natCast_pow, Rat.natCast_ofNat]
+        have := Rat.zpow_mul_zpow (show 2 ≠ 0 by grind) sp (-sp)
+        simp only [Rat.zpow_natCast] at this
+        grind only
+      rw [← this]
+      grind
+    · simp [maxNormalExp]
+      grind
+    · simp [maxNormalExp]
+      norm_cast
+      apply Nat.lt_trans <| bias_lt_two_pow_exponent_sub_one ep
+      apply Nat.pow_lt_pow_of_lt
+      · grind
+      · have := self_lt_exponentWidth ep sp (by grind) (by grind)
+        grind
+  · rw [Nat.pow_add]
+    have : 2 ^ (sp + 1) ≤ 2 ^ su := by
+      apply Nat.pow_le_pow_of_le
+      · grind
+      · grind
+    have : 2 * 2 ^ sp ≤ 2 ^ su := by
+      grind
+    grind
+  · grind
+  · grind
 
+/--
+info: 'Fp.UnpackedFloat.toRat'_maxNormal_eq_toRat_maxNormalNumber' depends on axioms:
+[propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms UnpackedFloat.toRat'_maxNormal_eq_toRat_maxNormalNumber
 
-
-theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_overflow
-    (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat ex sx)
+theorem UnpackedFloat.mkNumber_maxNormal_Rel_smtLibLower_of_overflow
+    (hep : 2 < ep)
+    (hsp : 0 < sp)
+    (x : UnpackedFloat eu su)
+    (hsu : sp + 1 ≤ sm)
+    (heu : exponentWidth ep sp ≤ em)
     (hxsign : x.sign = false)
-    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
     (hover : x.blastIsEarlyOverflowNonneg ep sp = true) :
-    (EUnpackedFloat.mkNumber (UnpackedFloat.maxNormal eu su ep sp false)).Rel
+    (EUnpackedFloat.mkNumber (UnpackedFloat.maxNormal em sm ep sp false)).Rel
       (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
   apply EUnpackedFloat.Rel_smtLibLower_of_witness
       (pf := PackedFloat.maxNormalNumber ep sp false)
-      (he := by grind) (hs := hs)
+      (by grind) (by grind)
   · simp
   · exact PackedFloat.not_isNaN_maxNormalNumber ep sp false (by grind)
-  · exact isLawfulLower_Number_maxNormalNumber_of_overflowNonneg (by grind) hs x hxsign hover
+  · exact isLawfulLower_Number_maxNormalNumber_of_overflowNonneg (by grind) (by grind) x hxsign hover
   · -- `num.toRat'` of the unpacked `maxNormal` equals `toRat` of the packed `maxNormalNumber`.
     simp only [EUnpackedFloat.num_mkNumber]
-    exact UnpackedFloat.toRat'_maxNormal_eq_toRat_maxNormalNumber _ _ _ _ false
+    apply UnpackedFloat.toRat'_maxNormal_eq_toRat_maxNormalNumber
+    · grind
+    · grind
+    · grind
+    · grind
   · -- sign is `false` on both sides
     simp [UnpackedFloat.maxNormal, PackedFloat.sign_maxNormalNumber]
 
 /--
-info: 'Fp.UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_overflow' depends on axioms: [propext,
+info: 'Fp.UnpackedFloat.mkNumber_maxNormal_Rel_smtLibLower_of_overflow' depends on axioms: [propext,
  sorryAx,
  Classical.choice,
  Quot.sound]
 -/
-#guard_msgs in #print axioms UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_overflow
+#guard_msgs in #print axioms UnpackedFloat.mkNumber_maxNormal_Rel_smtLibLower_of_overflow
 
 /-! ## Branch (3): normal range — `blastRoundTowardZero` is a lawful lower
 
@@ -664,7 +717,8 @@ theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_normal
     float — without normalization, multiple unpacked representations share the
     same value and the bit-level "extract top sp+1 bits" step does not commute
     with `toRat'`. -/
-theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower (he : 1 < ep) (hs : 0 < sp)
+theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower (he : 2 < ep) (hsp : 0 < sp)
+  (hsu : sp + 2 ≤ su) (heu : exponentWidth ep sp ≤ eu)
   (x : UnpackedFloat eu su)
   (hxsign : x.sign = false)
   (hxnorm : x.normalize = x) :
@@ -672,16 +726,23 @@ theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower (he : 1 < ep) (hs : 0 < s
   unfold UnpackedFloat.blastLowerNonneg
   by_cases hunder : x.blastIsUnderflowNonneg ep sp = true
   · simp [hunder]
-    exact UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_underflow he hs x hxsign hunder
+    exact UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_underflow (by grind only) hsp x hxsign hunder
   · simp only [Bool.not_eq_true] at hunder
     simp [hunder]
     by_cases hover : x.blastIsEarlyOverflowNonneg ep sp = true
     · simp [hover]
-      -- apply UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_overflow
-      apply blastLowerNonneg_Rel_smtLibLower_overflow he hs x
-      · grind only
-      · grind only
-      · grind only
+      -- apply UnpackedFloat.mkNumber_maxNormal_Rel_smtLibLower_of_overflow
+      have := mkNumber_maxNormal_Rel_smtLibLower_of_overflow (x := x) (ep := ep) (sp := sp) (sm := sp + 1) (em := exponentWidth ep sp)
+          (by grind)
+          (by grind)
+          (by grind)
+          (by grind)
+          (by grind)
+          (by grind)
+      sorry
+      -- · grind only
+      -- · grind only
+      -- · grind only
     · simp only [Bool.not_eq_true] at hover
       simp [hover]
       exact UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_normal he hs x hxsign hxnorm hunder hover
@@ -698,7 +759,10 @@ theorem UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper (he : 1 < ep) (hs : 0 < s
 
 /-# `blastLower` matches `lower` -/
 
-theorem UnpackedFloat.blastLower_Rel_smtLibLower (he : 1 < ep) (hs : 0 < sp)
+theorem UnpackedFloat.blastLower_Rel_smtLibLower (hep : 2 < ep)
+  (hsp : 0 < sp)
+  (hsu : sp + 2 ≤ su)
+  (heu : exponentWidth ep sp ≤ eu)
   (x : UnpackedFloat eu su)
   (hxnorm : x.normalize = x) :
   (x.blastLower ep sp).Rel (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
@@ -721,17 +785,20 @@ theorem UnpackedFloat.blastLower_Rel_smtLibLower (he : 1 < ep) (hs : 0 < sp)
     apply UnpackedFloat.blastLowerNonneg_Rel_smtLibLower
     · grind only
     · grind only
-    · simp [hsign]
-    · exact hxnorm
-
+    · grind
+    · grind
+    · grind only
+    · grind only
 
 /-# `blastUpper` matches `upper` -/
 
 
-theorem UnpackedFloat.blastUpper_Rel_smtLibUpper (he : 1 < ep) (hs : 0 < sp)
-(x : UnpackedFloat eu su)
-  (hxnorm : x.normalize = x) :
-  (x.blastUpper ep sp).Rel (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
+theorem UnpackedFloat.blastUpper_Rel_smtLibUpper (hep : 2 < ep) (hsp : 0 < sp)
+    (hsu : sp + 2 ≤ su)
+    (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su)
+    (hxnorm : x.normalize = x) :
+    (x.blastUpper ep sp).Rel (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
   simp [UnpackedFloat.blastUpper]
   by_cases hsign : x.sign
   · simp [hsign]
@@ -743,8 +810,10 @@ theorem UnpackedFloat.blastUpper_Rel_smtLibUpper (he : 1 < ep) (hs : 0 < sp)
       apply UnpackedFloat.blastLowerNonneg_Rel_smtLibLower
       · grind
       · grind
-      · simp [hsign]
-      · exact UnpackedFloat.normalize_neg_eq_neg_of_normalize_eq x hxnorm
+      · grind
+      · grind
+      · simp; grind only
+      · exact normalize_neg_eq_neg_of_normalize_eq x hxnorm
     · grind only
     · grind only
     · grind only

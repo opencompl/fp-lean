@@ -3219,6 +3219,7 @@ def toRat (uf : UnpackedFloat e s) : Rat :=
 theorem toRat_mkZero (sign : Bool) : (mkZero sign : UnpackedFloat e s).toRat = 0 := by
   simp [mkZero, toRat, toDyadic]
 
+
 def toSigNat (uf : UnpackedFloat e s) : Nat :=
   uf.sig.toNat
 
@@ -3231,24 +3232,28 @@ theorem toSigNat_of_sig_eq_zero (uf : UnpackedFloat e s)  (h : uf.sig = 0#s) :
     uf.toSigNat = 0 := by
   simp [toSigNat, h]
 
-def toExpInt {e s} (uf : UnpackedFloat e s) : Int :=
-  - ((s - 1 : Nat) - uf.ex.toInt)
+def toExpInt {e s} (uf : UnpackedFloat e s) (prec : Nat := s - 1): Int :=
+  - ((prec) - uf.ex.toInt)
 
 @[simp]
 theorem toExpInt_neg (uf : UnpackedFloat e s) :
-  (- uf).toExpInt = uf.toExpInt := by
+  (- uf).toExpInt prec = uf.toExpInt prec := by
   simp [toExpInt]
 
-def toRat' (uf : UnpackedFloat e s) : Rat :=
-  uf.sign.toSign * uf.toSigNat * (2 : Rat) ^ uf.toExpInt
+/--
+Evaluate the value of the UnpackedFloat at a given precicsion, which by default
+is `s - 1`.
+-/
+def toRat' (uf : UnpackedFloat e s) (prec : Nat := s - 1): Rat :=
+  uf.sign.toSign * uf.toSigNat * (2 : Rat) ^ uf.toExpInt prec
 
 @[simp]
-theorem toRat'_mkZero (sign : Bool) : (mkZero sign : UnpackedFloat e s).toRat' = 0 := by
+theorem toRat'_mkZero (sign : Bool) : (mkZero sign : UnpackedFloat e s).toRat' prec = 0 := by
   simp [mkZero, toRat']
 
 @[simp, grind =>]
-theorem toRat'_eq_zero_iff_isZero (uf : UnpackedFloat e s) :
-    uf.isZero ↔ uf.toRat' = 0 := by
+theorem toRat'_eq_zero_iff_isZero (uf : UnpackedFloat e s) (prec : Nat) :
+    uf.isZero ↔ uf.toRat' prec = 0 := by
   simp [toRat']
   simp [UnpackedFloat.isZero]
   grind only [= BitVec.toNat_zero, = BitVec.ofNat_toNat, = BitVec.getElem_zero,
@@ -3256,8 +3261,9 @@ theorem toRat'_eq_zero_iff_isZero (uf : UnpackedFloat e s) :
 
 @[simp, grind =>]
 theorem toRat'_ne_zero_iff_not_isZero (uf : UnpackedFloat e s) :
-    ¬ uf.isZero ↔ ¬ uf.toRat' = 0 := by
-  simp [toRat']
+    ¬ uf.isZero ↔ ¬ uf.toRat' prec = 0 := by
+  have := uf.toRat'_eq_zero_iff_isZero  prec
+  grind
 
 theorem toInt_setWidth_succ_eq_toNat (x : BitVec w) :
     (x.setWidth (w + 1)).toInt = x.toNat := by
@@ -3276,24 +3282,24 @@ theorem toRat_eq_toRat' (uf : UnpackedFloat e s) : uf.toRat = uf.toRat' := by
 
 @[grind =>, simp]
 theorem toRat'_eq_zero_of_isZero (uf : UnpackedFloat e s) (hz : uf.isZero) :
-    uf.toRat' = 0 := by
+    uf.toRat' prec = 0 := by
   simp [toRat']
   simp [UnpackedFloat.isZero] at hz
   simp [hz]
 
 @[simp]
 theorem toRat'_neg (uf : UnpackedFloat e s) :
-    (- uf).toRat' = - uf.toRat' := by
+    (- uf).toRat' prec = - uf.toRat' prec := by
   simp [toRat']
   grind only
 
 @[bv_normalize]
-def maxNormal (eout sout : Nat) (e _s : Nat) (sign : Bool) :
+def maxNormal (eout sout : Nat) (e s : Nat) (sign : Bool) :
     UnpackedFloat eout sout :=
   {
     sign := sign
     ex := BitVec.ofInt eout (maxNormalExp e)
-    sig := (BitVec.allOnes sout).zeroExtend sout
+    sig := (BitVec.allOnes (s + 1)).zeroExtend sout
   }
 
 @[bv_normalize]
