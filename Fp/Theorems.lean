@@ -7,3 +7,4 @@ import Fp.Theorems.SmtLibSemanticsQ
 import Fp.Theorems.LowerUpperRound
 import Fp.Theorems.UnpackedFloat.Round
 import Fp.Theorems.Multiplication
+import Fp.Theorems.Division
