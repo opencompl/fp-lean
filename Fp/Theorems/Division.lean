@@ -85,6 +85,7 @@ theorem DivUnnormalized.divident_eq_quot_mul_divisor_add_rem (x y : UnpackedFloa
   -- the truncation to `s+2` is justified by a bound `quot < 2^(s+2)` (proved separately).
   sorry
 
+
 /--
 Bound on the raw quotient: since `divident < 2^(2s+3)` and `divisor ≥ 2^(2s+2)` (when y is
 normalized: `y.sig.msb = true`), we get `quot < 2^(s+1) ≤ 2^(s+2)`, so truncation to `s + 2`
@@ -93,11 +94,18 @@ bits is lossless and leaves the msb-or-msb-1 invariant available for normalizati
 theorem DivUnnormalized.quot_lt_two_pow {x y : UnpackedFloat e s}
     (hy : y.sig.msb = true) :
     ((DivUnnormalized.div x y).quot).toNat < 2 ^ (s + 1) := by
+  simp [DivUnnormalized.div, div.quot]
+  rw [Nat.mod_eq_of_lt]
+  · sorry
+  · apply Nat.div_lt_of_lt_mul
+    apply Nat.lt_trans (m := 2 ^ (s + 2 + (s + 1)))
+    · grind only [usr BitVec.isLt]
+    · rw [Nat.pow_add, Nat.mul_comm]
+      sorry
   -- 1) `divident.toNat = x.sig.toNat * 2^(s+1) < 2^s * 2^(s+1) = 2^(2s+1)`.
   -- 2) `divisor.toNat = y.sig.toNat ≥ 2^(s-1)` from `hy` (msb-true gives the lower bound).
   -- 3) so the *true* quotient is `< 2^(2s+1) / 2^(s-1) = 2^(s+2)`. Want a tighter `2^(s+1)` —
   --    that requires the normalized-x argument `x.sig.toNat ≤ 2^s - 1` plus careful arithmetic.
-  sorry
 
 /--
 The unadjusted result has the correct rational interpretation (= `x.toRat / y.toRat`).
