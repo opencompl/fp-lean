@@ -271,7 +271,16 @@ theorem div_eq_div {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
         EUnpackedFloat.mkNaN_pack_eq_mkNaN, PackedFloat.EquivUptoNaN.of_mkNaN_iff,
         ExtRat.neg_NaN]
       split <;> simp [SmtLibSemantics.SmtLibFunctions.neg]
-    case infCase signb => sorry      -- inf / inf = NaN
+    case infCase signb =>
+      -- inf / inf = NaN; inv inf = 0, inf * 0 = NaN.
+      rw [ExtRat.div_eq_mul_inv]
+      simp only [hsin, PackedFloat.isInfinite_getInfinity, decide_true,
+        PackedFloat.toExtRat'_eq_Infinity_of_isInfinite, ExtRat.inv_inf_eq_zero,
+        ExtRat.inf_mul_zero_eq, ExtRat.neg_NaN,
+        PackedFloat.unpack_getInfinity, EUnpackedFloat.isNaN_mkInfinity,
+        EUnpackedFloat.isInfinite_mkInfinity, Bool.true_and, Bool.true_or, cond_true,
+        EUnpackedFloat.mkNaN_pack_eq_mkNaN, PackedFloat.EquivUptoNaN.of_mkNaN_iff]
+      split <;> simp [SmtLibSemantics.SmtLibFunctions.neg]
     case zeroCase signb => sorry     -- inf / 0   = inf
     case numCase hb => sorry         -- inf / num = inf
   case zeroCase signa =>
@@ -287,7 +296,7 @@ theorem div_eq_div {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
         ExtRat.neg_NaN]
       split <;> simp [SmtLibSemantics.SmtLibFunctions.neg]
     case infCase signb => sorry      -- 0 / inf = 0
-    case zeroCase signb => sorry     -- 0 / 0   = NaN
+    case zeroCase signb => sorry     -- 0 / 0   = NaN; needs `Number 0 * Number 0.inv = NaN` chain
     case numCase hb => sorry         -- 0 / num = 0
   case numCase ha =>
     cases b using PackedFloat.kindCasesNaNInfZeroNum
