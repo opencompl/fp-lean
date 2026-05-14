@@ -745,7 +745,7 @@ theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower (he : 2 < ep) (hsp : 0 < 
       -- · grind only
     · simp only [Bool.not_eq_true] at hover
       simp [hover]
-      exact UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_normal he hs x hxsign hxnorm hunder hover
+      exact UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_normal (by grind only) hsp x hxsign hxnorm hunder hover
 
 /-# `blastUpperNonneg` matches `upper` -/
 
@@ -940,7 +940,8 @@ theorem UnpackedFloat.blastRounderForSign_of_sign_eq_false_eq
   simp [UnpackedFloat.blastRounderForSign, hsign]
 
 
-theorem UnpackedFloat.blastRounderForSign_Rel_rounderForSign_zero (he : 1 < ep) (hs : 0 < sp)
+theorem UnpackedFloat.blastRounderForSign_Rel_rounderForSign_zero (he : 1 < ep) (hep : 2 < ep) (hs : 0 < sp)
+    (hsu : sp + 2 ≤ su) (heu : exponentWidth ep sp ≤ eu)
     (x : UnpackedFloat eu su)
     (hxnorm : x.normalize = x)
     (hx0 : x.isZero) :
@@ -950,12 +951,12 @@ theorem UnpackedFloat.blastRounderForSign_Rel_rounderForSign_zero (he : 1 < ep) 
   by_cases hsign : x.sign
   · simp [hsign]
     rw [← UnpackedFloat.toRat'_eq_zero_of_isZero x hx0]
-    exact (UnpackedFloat.blastUpper_Rel_smtLibUpper he hs x hxnorm)
+    exact (UnpackedFloat.blastUpper_Rel_smtLibUpper hep hs hsu heu x hxnorm)
   · simp [hsign]
     rw [UnpackedFloat.blastRounderForSign_of_sign_eq_false_eq x (by grind)]
     rw [← UnpackedFloat.toRat'_eq_zero_of_isZero x hx0]
     exact
-      (UnpackedFloat.blastLower_Rel_smtLibLower he hs x hxnorm)
+      (UnpackedFloat.blastLower_Rel_smtLibLower hep hs hsu heu x hxnorm)
 
 /--
 info: 'Fp.UnpackedFloat.blastRounderForSign_Rel_rounderForSign_zero' depends on axioms: [propext,
@@ -985,9 +986,7 @@ theorem UnpackedFloat.normalize_Rel_of_Rel (_he : 1 < ep) (_hs : 0 < sp)
     x.normalize.Rel pf := by
   obtain ⟨hToRat, hSign⟩ := h
   apply UnpackedFloat.Rel_of_toRat_eq_toRat_and_sign
-  · rw [← UnpackedFloat.toRat_eq_toRat',
-        UnpackedFloat.toRat_normalize_eq_toRat hse hssub,
-        UnpackedFloat.toRat_eq_toRat']
+  · rw [UnpackedFloat.toRat'_normalize_eq_toRat' hse hssub]
     exact hToRat
   · simp only [UnpackedFloat.sign_normalize, beq_iff_eq, ite_self]
     exact hSign
@@ -1245,6 +1244,7 @@ TODO: Refactor proof to case split on x.isZero, and then derive that y.isZero fr
 -/
 theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
     (he : 1 < ep)
+    (hep : 2 < ep)
     (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu)
     (hsu : sp + 2 ≤ su)
@@ -1326,25 +1326,25 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
           case neg.isTrue h1 =>
             apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
             rw [blastUpper_truncateFittingExponent_Rel_eq_blastUpper_Rel (by grind) (by grind) (by grind) (by grind)]
-            exact blastUpper_Rel_smtLibUpper he hs x hxnorm
+            exact blastUpper_Rel_smtLibUpper hep hs hsu heu x hxnorm
           case neg.isFalse h1 =>
             split
             case isTrue h2 =>
               apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
               rw [blastUpper_truncateFittingExponent_Rel_eq_blastUpper_Rel (by grind) (by grind) (by grind) (by grind)]
-              exact blastUpper_Rel_smtLibUpper he hs x hxnorm
+              exact blastUpper_Rel_smtLibUpper hep hs hsu heu x hxnorm
             case isFalse h2 =>
               split
               case isTrue h3 =>
                 apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
                 rw [blastLower_truncateFittingExponent_Rel_eq_blastLower_Rel (by grind) (by grind) (by grind) (by grind)]
-                exact blastLower_Rel_smtLibLower he hs x hxnorm
+                exact blastLower_Rel_smtLibLower hep hs hsu heu x hxnorm
               case isFalse h3 =>
                 split
                 case isTrue h4 =>
                   apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
                   rw [blastLower_truncateFittingExponent_Rel_eq_blastLower_Rel (by grind) (by grind) (by grind) (by grind)]
-                  exact blastLower_Rel_smtLibLower he hs x hxnorm
+                  exact blastLower_Rel_smtLibLower hep hs hsu heu x hxnorm
                 case isFalse h4 =>
                   apply EUnpackedFloat.Rel_of_state_eq_NaN_of_isNaN
                   · simp

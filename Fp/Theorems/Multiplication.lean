@@ -299,7 +299,7 @@ theorem UnpackedFloat.unpackNum_mul_unpackNum_toRat_eq_mul_toRat
 /--
 Example theorem we will prove, using our proof strategy of proving against the SMT-Lib semantics.
 -/
-theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein)
+theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ein)
     (rm : RoundingMode) (a b : PackedFloat ein sin) :
     (Fp.SmtLibSemantics.SmtLibFunctions.mul (Fp.SmtLibSemanticsQ.smtLibRoundMethodQ ein sin) rm a b).EquivUptoNaN
     (PackedFloat.mul rm a b) := by
@@ -478,6 +478,7 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein)
       apply EUnpackedFloat.pack'_EquivUptoNaN_of_Rel
       · grind
       · apply UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
+        · grind only
         · grind only
         · grind only
         · grind only

@@ -170,6 +170,43 @@ theorem sigWidth_add_one_lt_exponentWidth : s + 1 < 2 ^ exponentWidth e s := by
   grind only [!Nat.two_pow_pos, !Nat.log2_eq_iff, #569066451790c837, #ccfcc644d1be4e5b]
 
 
+theorem toRat'_normalize_eq_toRat' {uf : UnpackedFloat e s}
+  (hse : s - 1 < 2 ^ (e - 1))
+  (hex : !uf.ex.ssubOverflow (BitVec.setWidth e uf.sig.clz))
+  (prec : Nat)
+  : uf.normalize.toRat' prec = uf.toRat' prec := by
+  simp only [toRat', sign_normalize, beq_iff_eq, ite_self]
+  rw [UnpackedFloat.normalize]
+  by_cases hsig : uf.sig = 0#s
+  · simp [hsig]
+  · simp only [show ¬uf.sig == 0#s by grind, BitVec.shiftLeft_eq', cond_false]
+    simp only [toNat_toSigNat_eq]
+    rw [toNat_shiftLeft_clz_eq_toNat]
+    simp only [toExpInt]
+    have hSigClzNeZero : uf.sig.clz < s := BitVec.clz_lt_iff_ne_zero.mpr hsig
+    have hSigClzNeZero' : uf.sig.clz.toNat < s := by
+      rw [BitVec.lt_def] at hSigClzNeZero
+      simp at hSigClzNeZero
+      apply (toNat_clz_lt_iff_ne_zero ..) |>.mpr hsig
+    have hsub : (uf.ex - BitVec.setWidth e uf.sig.clz).toInt
+        = uf.ex.toInt - uf.sig.clz.toNat := by
+      rewrite [BitVec.toInt_sub_of_not_ssubOverflow (by grind)]
+      have hle : -((2 ^ e : Nat) / 2 : Int) ≤ ↑uf.sig.clz.toNat := by grind
+      rw [BitVec.toInt_setWidth]
+      have : (uf.sig.clz.toNat : Int).bmod (2 ^ e) = uf.sig.clz.toNat := by
+        refine Int.bmod_eq_of_le hle ?_
+        have : (2 ^ e + 1) / 2 = 2 ^ (e - 1) := by cases e <;> grind
+        grind
+      simp [this]
+    rw [hsub]
+    have := BitVec.toNat_lt_two_pow_sub_clz (x := uf.sig) (w := s)
+    rw [Nat.shiftLeft_eq]
+    simp
+    push_cast
+    simp only [Int.neg_sub]
+    simp only [Rat.zpow_sub_eq_zpow_mul_zpow (b := 2) (hb := by decide)]
+    grind only [two_pow_mul_two_pow_neg_intCast_eq_one]
+
 theorem toRat_normalize_eq_toRat {uf : UnpackedFloat e s}
   (hse : s - 1 < 2 ^ (e - 1))
   (hex : !uf.ex.ssubOverflow (BitVec.setWidth e uf.sig.clz))
