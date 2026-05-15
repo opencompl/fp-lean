@@ -530,7 +530,19 @@ theorem div_eq_div {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
         ExtRat.neg_NaN]
       split <;> simp [SmtLibSemantics.SmtLibFunctions.neg]
     case infCase signb => sorry      -- 0 / inf = 0
-    case zeroCase signb => sorry     -- 0 / 0   = NaN; needs `Number 0 * Number 0.inv = NaN` chain
+    case zeroCase signb =>
+      -- 0 / 0 = NaN: inv(0) = Infinity false, 0 * Infinity = NaN.
+      have he0 : 0 < ein := by omega
+      rw [ExtRat.div_eq_mul_inv]
+      simp only [he0, PackedFloat.isZero_getZero, decide_true,
+        PackedFloat.toExtRat'_eq_zero_of_isZero, ExtRat.zero_inv_eq_inf,
+        ExtRat.zero_mul_inf_eq, ExtRat.neg_NaN,
+        PackedFloat.unpack_eq_mkZero_of_isZero, EUnpackedFloat.isNaN_mkZero,
+        EUnpackedFloat.isInfinite_mkZero, EUnpackedFloat.isZero_mkZero,
+        Bool.and_true, Bool.true_and, Bool.true_or, Bool.or_self, Bool.false_or,
+        cond_true,
+        EUnpackedFloat.mkNaN_pack_eq_mkNaN, PackedFloat.EquivUptoNaN.of_mkNaN_iff]
+      split <;> simp [SmtLibSemantics.SmtLibFunctions.neg]
     case numCase hb => sorry         -- 0 / num = 0; sign-convention reconciliation remains
   case numCase ha =>
     cases b using PackedFloat.kindCasesNaNInfZeroNum
