@@ -174,15 +174,22 @@ theorem DivUnnormalized.divAdjustMsb_toRat_round_eq
   -- sticky-bit equality `getLsbD 0 = (rem ≠ 0)`. We split it into two separate lemmas below.
   trivial
 
-/-- The lsb of the adjusted significand equals the OR sticky bit `rem ≠ 0`. -/
-theorem DivUnnormalized.lsb_divAdjustMsb_eq_sticky
+/--
+The lsb of the adjusted significand decomposes as `(msb-preserved quot.lsb) || sticky`:
+in the unshifted case (`quot.msb = true`) the lsb is `quot.getLsbD 0 || (rem != 0)`,
+while in the shifted case (`quot.msb = false`) the shift introduces a `0` so lsb = `(rem != 0)`.
+Either way the OR captures all info "below position 1" — exactly what a sticky bit is.
+-/
+theorem DivUnnormalized.lsb_divAdjustMsb_eq
     {x y : UnpackedFloat e s} (hs : 0 < s) :
     let d := DivUnnormalized.div x y
-    d.divAdjustMsb.sig.getLsbD 0 = (d.rem != 0) := by
-  -- the OR with `(rem != 0).setWidth'` forces lsb := lsb_of_shift ||| sticky.
-  -- by `quot_lt_two_pow`, the lsb of `quot <<< !msb` is `false` (we shifted a multiple of 2
-  -- into the bottom), so the OR simplifies to just the sticky.
-  sorry
+    d.divAdjustMsb.sig.getLsbD 0 =
+      ((d.quot.msb && d.quot.getLsbD 0) || (d.rem != 0)) := by
+  simp only [DivUnnormalized.divAdjustMsb, DivUnnormalized.divAdjustMsb.sig,
+    BitVec.getLsbD_or, BitVec.getLsbD_shiftLeft, BitVec.toNat_ofBool,
+    BitVec.getLsbD_setWidth', BitVec.getLsbD_ofBool]
+  -- after simp, both sides agree by case split on `quot.msb`.
+  rcases hmsb : (DivUnnormalized.div x y).quot.msb <;> simp [hmsb]
 
 /--
 The toRat of the adjusted unpacked float (viewed as a rational with `s+2` bits of significand)
