@@ -71,6 +71,59 @@ theorem UnpackedFloat.div_eq_divAdjustMsb_divUnadjusted (x y : UnpackedFloat e s
     x.div y = (DivUnnormalized.div x y).divAdjustMsb := by rfl
 
 /--
+The divident `xs.setWidth'(...) ++ 0#(s+1)` has `toNat` equal to `xs.toNat * 2^(s+1)`.
+-/
+theorem DivUnnormalized.toNat_divident_eq {s : Nat} (xs : BitVec s) (h : s ≤ s + 2) :
+    (xs.setWidth' h ++ 0#(s + 1) : BitVec (s + 2 + (s + 1))).toNat = xs.toNat * 2 ^ (s + 1) := by
+  simp [BitVec.toNat_append, BitVec.toNat_setWidth', Nat.shiftLeft_eq]
+
+/--
+The divisor `ys.setWidth'(...)` has `toNat` equal to `ys.toNat` (it's a widening).
+-/
+theorem DivUnnormalized.toNat_divisor_eq {s : Nat} (ys : BitVec s) (h : s ≤ s + 2 + (s + 1)) :
+    (ys.setWidth' h : BitVec (s + 2 + (s + 1))).toNat = ys.toNat := by
+  have hlt : ys.toNat < 2 ^ (s + 2 + (s + 1)) :=
+    Nat.lt_of_lt_of_le ys.isLt (Nat.pow_le_pow_right (by decide) (by omega))
+  simp [BitVec.toNat_setWidth', Nat.mod_eq_of_lt hlt]
+
+/--
+When `ys.msb = true`, the (widened) divisor is at least `2^(s-1)` (needs `0 < s`).
+-/
+theorem DivUnnormalized.divisor_ge {s : Nat} (ys : BitVec s)
+    (hs : 0 < s) (hy : ys.msb = true) (h : s ≤ s + 2 + (s + 1)) :
+    2 ^ (s - 1) ≤ (ys.setWidth' h : BitVec (s + 2 + (s + 1))).toNat := by
+  rw [DivUnnormalized.toNat_divisor_eq ys h]
+  exact BitVec.le_toNat_of_msb_true hy
+
+/--
+Quotient bound: `divident / divisor < 2^(s+2)` whenever `0 < s` and `ys.msb = true`.
+This is the key bound that ensures truncating to `s + 2` bits is lossless.
+-/
+theorem DivUnnormalized.divident_div_divisor_lt {s : Nat} (xs ys : BitVec s)
+    (hs : 0 < s) (hy : ys.msb = true)
+    (h1 : s ≤ s + 2) (h2 : s ≤ s + 2 + (s + 1)) :
+    let divident : BitVec (s + 2 + (s + 1)) := xs.setWidth' h1 ++ 0#(s + 1)
+    let divisor  : BitVec (s + 2 + (s + 1)) := ys.setWidth' h2
+    divident.toNat / divisor.toNat < 2 ^ (s + 2) := by
+  intro divident divisor
+  have hxlt : xs.toNat < 2 ^ s := xs.isLt
+  have hge : 2 ^ (s - 1) ≤ divisor.toNat := DivUnnormalized.divisor_ge ys hs hy h2
+  have hdivident_eq : divident.toNat = xs.toNat * 2 ^ (s + 1) :=
+    DivUnnormalized.toNat_divident_eq xs h1
+  apply Nat.div_lt_of_lt_mul
+  rw [hdivident_eq]
+  -- xs.toNat * 2^(s+1) < 2^s * 2^(s+1) = 2^(s-1) * 2^(s+2) ≤ divisor * 2^(s+2)
+  have hk1 : xs.toNat * 2 ^ (s + 1) < 2 ^ s * 2 ^ (s + 1) :=
+    (Nat.mul_lt_mul_right (Nat.two_pow_pos _)).mpr hxlt
+  have hk2 : 2 ^ s * 2 ^ (s + 1) = 2 ^ (s - 1) * 2 ^ (s + 2) := by
+    rw [← Nat.pow_add, ← Nat.pow_add]
+    congr 1
+    omega
+  have hk3 : 2 ^ (s - 1) * 2 ^ (s + 2) ≤ divisor.toNat * 2 ^ (s + 2) :=
+    Nat.mul_le_mul_right _ hge
+  omega
+
+/--
 The fundamental integer division identity: `divident = quot * divisor + rem`,
 with `rem < divisor`. This is what relates `quot` to the true rational quotient.
 -/
@@ -106,10 +159,8 @@ theorem DivUnnormalized.divident_eq_quot_mul_divisor_add_rem {x y : UnpackedFloa
     have hidentity : divident.toNat =
         (divident.toNat / divisor.toNat) * divisor.toNat + divident.toNat % divisor.toNat :=
       by exact Eq.symm (Nat.div_add_mod' divident.toNat divisor.toNat)
-    have hbound : divident.toNat / divisor.toNat < 2 ^ (s + 2) := by
-      -- divident.toNat = x.sig.toNat * 2^(s+1); use hy to bound divisor.toNat ≥ 2^(s-1).
-
-      sorry
+    have hbound : divident.toNat / divisor.toNat < 2 ^ (s + 2) :=
+      DivUnnormalized.divident_div_divisor_lt x.sig y.sig hs_pos hy (by omega) (by omega)
     rw [hdiv_quot, hdiv_rem]
     simp only [BitVec.toNat_setWidth, BitVec.toNat_udiv, BitVec.toNat_umod,
                Nat.mod_eq_of_lt hbound]
