@@ -338,7 +338,9 @@ theorem div_eq_div {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
         EUnpackedFloat.isInfinite_mkInfinity, Bool.true_and, Bool.true_or, cond_true,
         EUnpackedFloat.mkNaN_pack_eq_mkNaN, PackedFloat.EquivUptoNaN.of_mkNaN_iff]
       split <;> simp [SmtLibSemantics.SmtLibFunctions.neg]
-    case zeroCase signb => sorry     -- inf / 0   = inf
+    case zeroCase signb => sorry     -- inf / 0 = inf; needs sign reconciliation (SmtLib's inv(0)
+                                     -- discards zero's sign, then `xorSign`+neg is supposed to
+                                     -- restore it; verifying this needs careful case analysis)
     case numCase hb => sorry         -- inf / num = inf
   case zeroCase signa =>
     cases b using PackedFloat.kindCasesNaNInfZeroNum
