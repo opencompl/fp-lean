@@ -262,20 +262,64 @@ theorem DivUnnormalized.toInt_ex_bound (x y : UnpackedFloat e s) (he : 0 < e) :
   rw [Int.bmod_eq_of_le] <;> grind
 
 /--
-After msb adjustment the significand has msb=true, provided the (raw) quotient
-is nonzero (which holds when `x.sig ≠ 0`, since the divident is `x.sig << (s+1)`).
+`msb = true` for a `BitVec w` (with `0 < w`) iff `toNat ≥ 2^(w-1)`.
+-/
+theorem BitVec.msb_iff_toNat_ge {w : Nat} (b : BitVec w) :
+    b.msb = true ↔ 2 ^ (w - 1) ≤ b.toNat := by
+  refine ⟨BitVec.le_toNat_of_msb_true, fun hge => ?_⟩
+  rw [BitVec.msb_eq_decide]
+  exact decide_eq_true hge
+
+/--
+`msb = false` iff `toNat < 2^(w-1)`.
+-/
+theorem BitVec.msb_false_iff_toNat_lt {w : Nat} (b : BitVec w) :
+    b.msb = false ↔ b.toNat < 2 ^ (w - 1) := by
+  rw [Bool.eq_false_iff, Ne, BitVec.msb_iff_toNat_ge]
+  omega
+
+/--
+After msb adjustment the significand has msb=true, provided both inputs are normalized
+(msb-true). Proof: `quot ≥ 2^s` and `quot < 2^(s+2)`, so the shift-by-`!msb` operation
+puts a 1 at position s+1. The OR with sticky only affects the lsb, so msb is preserved.
 -/
 theorem DivUnnormalized.divAdjustMsb_msb_eq_true {x y : UnpackedFloat e s}
-    (hx : x.sig.msb = true) (hy : y.sig.msb = true) :
+    (hs : 0 < s) (hx : x.sig.msb = true) (hy : y.sig.msb = true) :
     (DivUnnormalized.div x y).divAdjustMsb.sig.msb = true := by
-  -- by `quot_lt_two_pow`, `quot.msb = false ∨ quot.msb = true`; in either case the
-  -- shift-by-`!msb` puts a `1` in position `s+1` (the msb of the result):
-  --  - if `quot.msb = true`, no shift; msb already true.
-  --  - if `quot.msb = false`, we need bit s of quot to be true. Show this from the lower
-  --    bound `quot ≥ 2^s` which follows from divident ≥ divisor * 2^s (a.sig.msb=true
-  --    plus b.sig < 2^s gives divident/divisor ≥ 2^s).
-  -- The final OR with the sticky bit only affects the lsb, so msb is unchanged.
-  sorry
+  have hquot_lo : 2 ^ s ≤ (DivUnnormalized.div x y).quot.toNat :=
+    DivUnnormalized.quot_ge_pow hs hx hy
+  have hquot_hi : (DivUnnormalized.div x y).quot.toNat < 2 ^ (s + 2) :=
+    (DivUnnormalized.div x y).quot.isLt
+  -- show toNat of sig ≥ 2^(s+1)
+  rw [BitVec.msb_iff_toNat_ge]
+  have hwidth : (s + 2 - 1) = (s + 1) := by omega
+  rw [hwidth]
+  simp only [DivUnnormalized.divAdjustMsb, DivUnnormalized.divAdjustMsb.sig, BitVec.toNat_or,
+    BitVec.shiftLeft_eq', BitVec.toNat_shiftLeft, BitVec.toNat_ofBool]
+  -- a ≤ a ||| b
+  refine Nat.le_trans ?_ (Nat.left_le_or)
+  -- now: 2^(s+1) ≤ q.toNat <<< (ofBool !q.msb).toNat % 2^(s+2)
+  rcases hmsb : (DivUnnormalized.div x y).quot.msb with _ | _
+  · -- false: shift by 1
+    have hlt : (DivUnnormalized.div x y).quot.toNat < 2 ^ (s + 1) := by
+      have := (BitVec.msb_false_iff_toNat_lt _).mp hmsb
+      simpa using this
+    have hbound : (DivUnnormalized.div x y).quot.toNat * 2 < 2 ^ (s + 2) := by
+      have : (2 : Nat) ^ (s + 2) = 2 ^ (s + 1) * 2 := Nat.pow_succ 2 (s + 1)
+      omega
+    simp only [Bool.not_false, Bool.toNat_true, Nat.shiftLeft_eq, Nat.pow_one,
+      Nat.mod_eq_of_lt hbound]
+    have hpows : (2 : Nat) ^ (s + 1) = 2 ^ s * 2 := Nat.pow_succ 2 s
+    have hmul : 2 ^ s * 2 ≤ (DivUnnormalized.div x y).quot.toNat * 2 :=
+      Nat.mul_le_mul_right _ hquot_lo
+    omega
+  · -- true: shift by 0, q.toNat ≥ 2^(s+1)
+    have hge : 2 ^ (s + 1) ≤ (DivUnnormalized.div x y).quot.toNat := by
+      have := (BitVec.msb_iff_toNat_ge _).mp hmsb
+      simpa using this
+    simp only [Bool.not_true, Bool.toNat_false, Nat.shiftLeft_zero, Nat.pow_zero,
+      Nat.shiftLeft_eq, Nat.mul_one, Nat.mod_eq_of_lt hquot_hi]
+    exact hge
 
 /--
 Adjusting the msb preserves the *rounding equivalence class* of the rational interpretation:
@@ -333,10 +377,10 @@ theorem DivUnnormalized.toRat_divAdjustMsb_close_to_div
 The result of `x.div y` (unpacked, pre-rounding) is normalized.
 -/
 theorem UnpackedFloat.msb_div_eq_true_of_msb_eq_true {x y : UnpackedFloat e s}
-    (hx : x.sig.msb = true) (hy : y.sig.msb = true) :
+    (hs : 0 < s) (hx : x.sig.msb = true) (hy : y.sig.msb = true) :
     (x.div y).sig.msb = true := by
   rw [UnpackedFloat.div_eq_divAdjustMsb_divUnadjusted]
-  exact DivUnnormalized.divAdjustMsb_msb_eq_true hx hy
+  exact DivUnnormalized.divAdjustMsb_msb_eq_true hs hx hy
 
 /--
 Rounding is determined by the rounder's classification of the input rational —
