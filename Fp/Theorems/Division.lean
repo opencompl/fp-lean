@@ -354,7 +354,7 @@ theorem div_eq_div {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
       split <;> simp [SmtLibSemantics.SmtLibFunctions.neg]
     case infCase signb => sorry      -- 0 / inf = 0
     case zeroCase signb => sorry     -- 0 / 0   = NaN; needs `Number 0 * Number 0.inv = NaN` chain
-    case numCase hb => sorry         -- 0 / num = 0
+    case numCase hb => sorry         -- 0 / num = 0; sign-convention reconciliation remains
   case numCase ha =>
     cases b using PackedFloat.kindCasesNaNInfZeroNum
     case nanCase hb =>
