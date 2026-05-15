@@ -171,25 +171,65 @@ theorem DivUnnormalized.divident_eq_quot_mul_divisor_add_rem {x y : UnpackedFloa
 
 
 /--
-Bound on the raw quotient: since `divident < 2^(2s+3)` and `divisor ≥ 2^(2s+2)` (when y is
-normalized: `y.sig.msb = true`), we get `quot < 2^(s+1) ≤ 2^(s+2)`, so truncation to `s + 2`
-bits is lossless and leaves the msb-or-msb-1 invariant available for normalization.
+Bound on the raw quotient: since `divident < 2^(2s+1)` and `divisor ≥ 2^(s-1)` (when y is
+normalized: `y.sig.msb = true`), we get `quot < 2^(s+2)`, so truncation to `s + 2` bits
+is lossless and leaves the msb-or-msb-1 invariant available for normalization.
 -/
 theorem DivUnnormalized.quot_lt_two_pow {x y : UnpackedFloat e s}
-    (hy : y.sig.msb = true) :
-    ((DivUnnormalized.div x y).quot).toNat < 2 ^ (s + 1) := by
-  simp [DivUnnormalized.div, div.quot]
-  rw [Nat.mod_eq_of_lt]
-  · sorry
-  · apply Nat.div_lt_of_lt_mul
-    apply Nat.lt_trans (m := 2 ^ (s + 2 + (s + 1)))
-    · grind only [usr BitVec.isLt]
-    · rw [Nat.pow_add, Nat.mul_comm]
-      sorry
-  -- 1) `divident.toNat = x.sig.toNat * 2^(s+1) < 2^s * 2^(s+1) = 2^(2s+1)`.
-  -- 2) `divisor.toNat = y.sig.toNat ≥ 2^(s-1)` from `hy` (msb-true gives the lower bound).
-  -- 3) so the *true* quotient is `< 2^(2s+1) / 2^(s-1) = 2^(s+2)`. Want a tighter `2^(s+1)` —
-  --    that requires the normalized-x argument `x.sig.toNat ≤ 2^s - 1` plus careful arithmetic.
+    (hs : 0 < s) (hy : y.sig.msb = true) :
+    ((DivUnnormalized.div x y).quot).toNat < 2 ^ (s + 2) := by
+  -- (truncate (s+2) of a `BitVec` of width ≥ s+2 is bounded by 2^(s+2) automatically)
+  exact (DivUnnormalized.div x y).quot.isLt
+
+/--
+Closed-form `toNat` of the raw quotient: `(divident / divisor)`. The truncation in
+`def quot := (divident / divisor).truncate (s+2)` is lossless thanks to `divident_div_divisor_lt`.
+-/
+theorem DivUnnormalized.quot_toNat_eq {x y : UnpackedFloat e s}
+    (hs : 0 < s) (hy : y.sig.msb = true) :
+    (DivUnnormalized.div x y).quot.toNat
+      = (x.sig.toNat * 2 ^ (s + 1)) / y.sig.toNat := by
+  -- quot = (divident / divisor).truncate (s+2) ; toNat = · % 2^(s+2)
+  have hbound : x.sig.toNat * 2 ^ (s + 1) / y.sig.toNat < 2 ^ (s + 2) := by
+    have h := DivUnnormalized.divident_div_divisor_lt x.sig y.sig hs hy
+      (by omega : s ≤ s + 2) (by omega : s ≤ s + 2 + (s + 1))
+    simp only at h
+    rw [DivUnnormalized.toNat_divident_eq x.sig (by omega),
+        DivUnnormalized.toNat_divisor_eq y.sig (by omega)] at h
+    exact h
+  simp only [DivUnnormalized.div, div.quot, div.divident, div.divisor,
+    BitVec.toNat_setWidth, BitVec.toNat_udiv]
+  rw [DivUnnormalized.toNat_divident_eq x.sig (by omega),
+    DivUnnormalized.toNat_divisor_eq y.sig (by omega)]
+  exact Nat.mod_eq_of_lt hbound
+
+/--
+Lower bound on the raw quotient: when both inputs are normalized (msb = true),
+`quot ≥ 2^s`. This is what guarantees `divAdjustMsb` produces an msb-true result.
+-/
+theorem DivUnnormalized.quot_ge_pow {x y : UnpackedFloat e s}
+    (hs : 0 < s) (hx : x.sig.msb = true) (hy : y.sig.msb = true) :
+    2 ^ s ≤ (DivUnnormalized.div x y).quot.toNat := by
+  rw [DivUnnormalized.quot_toNat_eq hs hy]
+  -- need: 2^s ≤ (x.sig.toNat * 2^(s+1)) / y.sig.toNat
+  -- by Nat.le_div_iff_mul_le, equivalent to: 2^s * y.sig.toNat ≤ x.sig.toNat * 2^(s+1)
+  -- which holds since y.sig.toNat < 2^s and x.sig.toNat ≥ 2^(s-1), so:
+  -- 2^s * y.sig.toNat < 2^s * 2^s = 2^(2s) and 2^(s-1) * 2^(s+1) = 2^(2s) ≤ x.sig.toNat * 2^(s+1).
+  have hylt : y.sig.toNat < 2 ^ s := y.sig.isLt
+  have hyge : 2 ^ (s - 1) ≤ y.sig.toNat := BitVec.le_toNat_of_msb_true hy
+  have hxge : 2 ^ (s - 1) ≤ x.sig.toNat := BitVec.le_toNat_of_msb_true hx
+  have hypos : 0 < y.sig.toNat := by
+    have : 0 < 2 ^ (s - 1) := Nat.two_pow_pos _
+    omega
+  rw [Nat.le_div_iff_mul_le hypos]
+  -- 2^s * y.sig.toNat ≤ 2^s * (2^s - 1) < 2^(2s) = 2^(s-1) * 2^(s+1) ≤ x.sig.toNat * 2^(s+1)
+  have h1 : 2 ^ s * y.sig.toNat < 2 ^ s * 2 ^ s :=
+    (Nat.mul_lt_mul_left (Nat.two_pow_pos _)).mpr hylt
+  have h2 : 2 ^ s * 2 ^ s = 2 ^ (s - 1) * 2 ^ (s + 1) := by
+    rw [← Nat.pow_add, ← Nat.pow_add]; congr 1; omega
+  have h3 : 2 ^ (s - 1) * 2 ^ (s + 1) ≤ x.sig.toNat * 2 ^ (s + 1) :=
+    Nat.mul_le_mul_right _ hxge
+  omega
 
 /--
 The unadjusted result has the correct rational interpretation (= `x.toRat / y.toRat`).
