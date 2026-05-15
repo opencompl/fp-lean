@@ -451,6 +451,53 @@ theorem UnpackedFloat.toExtRat_round_div_Rel_smtLibRound_of_RNE
   -- `msb_div_eq_true_of_msb_eq_true` discharges the normalization side condition.
   sorry
 
+/-!
+## Sign-reconciliation lemmas for `SmtLibFunctions.div`
+
+`SmtLibFunctions.div` is defined as `if xorSign then neg (round rm true (-z)) else round rm false z`.
+For the special-value cases (z = Number 0 or z = Infinity sign), the conditional and `neg` together
+must reconcile with the implementation's `mkZero (x.sign ^^ y.sign) / mkInfinity (x.sign ^^ y.sign)`.
+
+Note: When `z = Number 0`, `round rm zeroSign (Number 0) = getZero zeroSign`, and
+`-(Number 0) = Number 0`. So `neg(round rm true (-z)) = neg(getZero true) = getZero false`.
+That means SmtLib's div ALWAYS yields `getZero false` when z = 0, regardless of `xorSign`.
+This is a sign-of-zero discrepancy with IEEE 754 that may make `div_eq_div` non-provable
+for those sub-cases without weakening the lemma's conclusion to ignore zero sign.
+-/
+
+/--
+When the embedded quotient `z` is `Number 0` and the output exponent width is positive,
+`SmtLibFunctions.div` produces `getZero false` regardless of `xorSign`.
+-/
+theorem Fp.SmtLibFunctions.div_eq_getZero_false_of_z_zero {ein sin : Nat} (he0 : 0 < ein)
+    (rm : RoundingMode) (sgn : Bool) (z : ExtRat) (hz : z = ExtRat.Number 0) :
+    (if sgn then
+        Fp.SmtLibSemantics.SmtLibFunctions.neg
+          ((Fp.SmtLibSemantics.smtLibRoundMethod ein sin
+              Fp.SmtLibSemantics.smtLibV Fp.SmtLibSemantics.smtLibV).round rm true (-z))
+      else
+        (Fp.SmtLibSemantics.smtLibRoundMethod ein sin
+            Fp.SmtLibSemantics.smtLibV Fp.SmtLibSemantics.smtLibV).round rm false z)
+    = PackedFloat.getZero ein sin false := by
+  subst hz
+  -- -(Number 0) = Number 0; round of Number 0 with sign sgn = getZero sgn; neg flips sign.
+  rcases sgn with _ | _
+  · simp [Fp.round_eq_mkZero_of_mkZero he0]
+  · have hneg : (-(ExtRat.Number 0) : ExtRat) = ExtRat.Number 0 := by
+      rw [ExtRat.ExtRat.neg_number]
+      simp
+    rw [hneg, Fp.round_eq_mkZero_of_mkZero he0]
+    -- neg(getZero true) = getZero false; getZero is not NaN given he0
+    have hein : ¬ (ein = 0 ∧ sin = 0) := fun h => Nat.not_lt_zero _ (h.1 ▸ he0)
+    have hnan : (PackedFloat.getZero ein sin true).isNaN = false := by
+      rw [PackedFloat.isNaN_getZero]
+      simp [hein]
+    show Fp.SmtLibSemantics.SmtLibFunctions.neg _ = _
+    rw [Fp.SmtLibSemantics.SmtLibFunctions.neg]
+    rw [if_neg (by rw [hnan]; decide)]
+    -- both sides reduce to PackedFloat records with sign=false
+    simp [PackedFloat.getZero, hein]
+
 namespace Fp
 
 /--
