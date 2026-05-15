@@ -74,16 +74,49 @@ theorem UnpackedFloat.div_eq_divAdjustMsb_divUnadjusted (x y : UnpackedFloat e s
 The fundamental integer division identity: `divident = quot * divisor + rem`,
 with `rem < divisor`. This is what relates `quot` to the true rational quotient.
 -/
-theorem DivUnnormalized.divident_eq_quot_mul_divisor_add_rem (x y : UnpackedFloat e s)
-    (hy : y.sig.toNat ≠ 0) :
+theorem DivUnnormalized.divident_eq_quot_mul_divisor_add_rem {x y : UnpackedFloat e s}
+    (hs : 0 < s)
+    (he: 2 < e)
+    (hy : y.sig.msb = true) :
     let d := DivUnnormalized.div x y
     let divident : BitVec (s + 2 + (s + 1)) := x.sig.setWidth' (by omega) ++ 0#(s + 1)
     let divisor  : BitVec (s + 2 + (s + 1)) := y.sig.setWidth' (by omega)
     divident.toNat = d.quot.toNat * divisor.toNat + d.rem.toNat ∧
     d.rem.toNat < divisor.toNat := by
-  -- standard integer-division lemma: `BitVec.toNat (a / b) * b.toNat + (a % b).toNat = a.toNat`.
-  -- the truncation to `s+2` is justified by a bound `quot < 2^(s+2)` (proved separately).
-  sorry
+  -- introduce the let-bindings
+  intro d divident divisor
+  -- y.sig.toNat > 0 from msb=true (needs s ≥ 1, derived below).
+  have hs_pos : 0 < s := by grind
+  have hy_pos : 0 < y.sig.toNat := by
+    have hge := BitVec.le_toNat_of_msb_true hy
+    have : 0 < 2 ^ (s - 1) := by grind
+    omega
+  have hdivisor_pos : 0 < divisor.toNat := by
+    simp [divisor]
+    rw [Nat.mod_eq_of_lt]
+    · grind
+    · apply Nat.lt_trans (show y.sig.toNat < 2 ^ s by grind)
+      apply Nat.pow_lt_pow_of_lt
+      · grind
+      · grind
+  have hdiv_quot : d.quot = (divident / divisor).truncate (s + 2) := rfl
+  have hdiv_rem : d.rem = divident % divisor := rfl
+  refine ⟨?_, ?_⟩
+  · -- divident = quot * divisor + rem (depends on the truncation being lossless)
+    have hidentity : divident.toNat =
+        (divident.toNat / divisor.toNat) * divisor.toNat + divident.toNat % divisor.toNat :=
+      by exact Eq.symm (Nat.div_add_mod' divident.toNat divisor.toNat)
+    have hbound : divident.toNat / divisor.toNat < 2 ^ (s + 2) := by
+      -- divident.toNat = x.sig.toNat * 2^(s+1); use hy to bound divisor.toNat ≥ 2^(s-1).
+
+      sorry
+    rw [hdiv_quot, hdiv_rem]
+    simp only [BitVec.toNat_setWidth, BitVec.toNat_udiv, BitVec.toNat_umod,
+               Nat.mod_eq_of_lt hbound]
+    exact hidentity
+  · rw [hdiv_rem]
+    simp [BitVec.toNat_umod]
+    exact Nat.mod_lt _ hdivisor_pos
 
 
 /--
