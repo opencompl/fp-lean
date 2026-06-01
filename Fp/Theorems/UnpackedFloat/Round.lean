@@ -1120,16 +1120,68 @@ theorem roundRNE_eq_infinity_of_maxNormalExp_lt
   sorry
 
 /--
-Rounding any number whose absolute value is smaller than minNormalExp
-will produce a zero.
+Rounding (RNE) any number whose absolute value is strictly below half the
+smallest representable subnormal (i.e. `2 ^ (minSubnormalExp - 1)`) produces a
+signed zero. Note that the threshold is `minSubnormalExp - 1`, NOT `minNormalExp`:
+there is a whole range of nonzero subnormals between `2 ^ minSubnormalExp` and
+`2 ^ minNormalExp` that do *not* round to zero.
+
+The `hsign` hypothesis ties the rounding sign to the sign of `r`, which is how
+this is used at the call site (where `sign = x.sign` and `r = x.toRat'` for a
+nonzero `x`). For nonzero `r`, RNE ignores the `sign` argument and uses the sign
+of `r`; for `r = 0` the two coincide under `hsign`.
 -/
-theorem roundRNE_eq_zero_of_lt_minNormalExp
+theorem roundRNE_eq_zero_of_lt_minSubnormalExp
   (he : 1 < ep)
   (hs : 0 < sp)
   (r : Rat)
-  (hr : r.abs < (2 : Rat) ^ minNormalExp ep) :
+  (hsign : sign = decide (r < 0))
+  (hr : r.abs < (2 : Rat) ^ (minSubnormalExp ep sp - 1)) :
   ((SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRNE sign
         (ExtRat.Number r)) = PackedFloat.getZero ep sp sign := by
+  -- PROOF SKETCH (handed back for review before filling in).
+  --
+  -- Notation: msexp := minSubnormalExp ep sp. The smallest representable
+  -- (ep,sp) subnormal is `2 ^ msexp`; in the one-bit-wider format (ep, sp+1)
+  -- the smallest subnormal is `2 ^ (msexp - 1)`, which equals our threshold.
+  -- Key fact: minSubnormalExp ep (sp+1) = minSubnormalExp ep sp - 1.
+  --
+  -- Step 0. Dispatch r = 0 via `roundRNE_zero` (then `hsign` gives sign = false).
+  --   So assume r ≠ 0 below; unfold `roundRNE`. `isNaN (Number r)` is false.
+  --
+  -- Step 1 (NEW reusable lemma, prove for general (e,s), instantiate at sp and sp+1):
+  --     `lower_eq_getZero_false_of_lt_smallestSubnormal`:
+  --         0 ≤ r < 2 ^ minSubnormalExp e s  →  smtLibLower (Number r) = getZero e s false
+  --     `upper_eq_getZero_true_of_neg_smallestSubnormal_lt`:
+  --        -2 ^ minSubnormalExp e s < r ≤ 0  →  smtLibUpper (Number r) = getZero e s true
+  --   Proof mirrors `lower_zero_eq`/`upper_zero_eq` (epsilon_elim) but with an
+  --   `IsLawfulLower (Number r) (getZero _ _ false)` witness: getZero ≤ r, and any
+  --   PF ≤ r is either a (signed) zero or, being below the smallest subnormal in
+  --   magnitude on the correct side, is dominated. Reuse the `IsLawfulLower_Zero_iff`
+  --   machinery + `isLawfulLower_Number_getZero_of_underflowNonneg` style argument.
+  --
+  -- Step 2. Case on the sign of r (hsign pins `sign` accordingly).
+  --
+  --   Case r > 0  (so |r| = r < 2^(msexp-1), and r < 2^msexp too):
+  --     • lower_{sp}   (Number r) = getZero false      [Step 1 at sp,   r < 2^msexp]
+  --     • lower_{sp+1} (Number r) = getZero false      [Step 1 at sp+1, r < 2^(msexp-1)]
+  --     ⇒ lowerHalf r = smtLibEq (embed +0) (embed +0) = true.
+  --     • upper_{sp}   (Number r) = smallest (ep,sp)   subnormal, embed = 2^msexp
+  --     • upper_{sp+1} (Number r) = smallest (ep,sp+1) subnormal, embed = 2^(msexp-1)
+  --       (these need a small "least PF ≥ r is the smallest subnormal" lemma)
+  --     ⇒ tieBreak r = ((0 < 0) = (2^(msexp-1) < 2^msexp)) = (False = True) = false.
+  --     roundRNE branches: b1 needs ¬lowerHalf (false); b2,b3 need tieBreak (false);
+  --     b4 fires on lowerHalf ⇒ result = lower_{sp} = getZero false = getZero sign.  ✓
+  --
+  --   Case r < 0  (symmetric, |r| = -r):
+  --     • upper_{sp} (Number r) = getZero true, upper_{sp+1} = getZero true ⇒ via the
+  --       tieBreak/lowerHalf computation, lowerHalf r = false, tieBreak r = false.
+  --     ⇒ b1 fires (¬lowerHalf ∧ ¬tieBreak) ⇒ result = upper_{sp} = getZero true = getZero sign. ✓
+  --
+  -- Remaining obligations to discharge: the two Step-1 lemmas (lower/upper = signed
+  -- zero), the two "upper/lower = smallest subnormal" value lemmas (only their embeds
+  -- are needed, for the tieBreak comparison), and the exponent-arithmetic fact
+  -- `minSubnormalExp ep (sp+1) = minSubnormalExp ep sp - 1`.
   sorry
 
 
@@ -1297,12 +1349,14 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
           -- rw [blastIsEarlyUnderflowNonneg_eq_decide he hs heu x] at hunder
           simp [blastRounderSpecialCaseUnderflow]
           -- need a lemma that says that 'round' on smaller than minSubnormal values gives zero.
-          rw [roundRNE_eq_zero_of_lt_minNormalExp]
+          rw [roundRNE_eq_zero_of_lt_minSubnormalExp]
           · apply EUnpackedFloat.mkZero_Rel_of_isZero ep sp (exponentWidth ep sp) (sp + 1) he
             · grind only
           · simp [he]
           · simp [hs]
-          · -- from hunder
+          · -- sign of result matches sign of x: `x.sign = decide (x.toRat' < 0)`
+            sorry
+          · -- bound: from hunder (blastIsEarlyUnderflowNonneg ⟹ |r| < 2^(minSubnormalExp-1))
             sorry
         · simp [hunder]
           -- rw [blastIsEarlyUnderflowNonneg_eq_decide he hs heu x] at hunder
