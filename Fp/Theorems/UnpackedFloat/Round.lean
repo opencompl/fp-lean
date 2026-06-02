@@ -105,6 +105,7 @@ theorem UnpackedFloat.toNat_guardBitIndex_eq (hep : 1 < ep) (hsp : 0 < sp)
     (x.guardBitIndex ep sp).toNat =
     (su - 1 - (sp + 1) + (minNormalExp ep - x.ex.toInt).toNat) := by
   have := @one_lt_exponentWidth ep sp
+  have : su < 2 ^ su := by exact Nat.lt_two_pow_self
   have hminNormal : (BitVec.ofInt eu (minNormalExp ep)).toInt = minNormalExp ep := by
     rw [toInt_ofInt_minNormalExp_eq_minNormalExp_of_le (s := sp)]
     · grind only
@@ -113,28 +114,57 @@ theorem UnpackedFloat.toNat_guardBitIndex_eq (hep : 1 < ep) (hsp : 0 < sp)
 
   rw [UnpackedFloat.guardBitIndex]
   rw [BitVec.toNat_add]
-  simp
+  simp only [BitVec.toNat_ofNat, BitVec.truncate_eq_setWidth, BitVec.toNat_setWidth,
+    Nat.add_mod_mod, Nat.mod_add_mod]
   rw [BitVec.toNat_subSaturatingZero_eq_ite_toNat]
   · simp only [hminNormal]
     split
     case isTrue h =>
-      simp
       rw [Int.sub_toNat_eq_zero_of_le]
-      · simp
-        rw [Nat.mod_eq_of_lt]
-        · have : su < 2 ^ su := by exact Nat.lt_two_pow_self
-          grind only
+      · grind only [= Nat.mod_eq_of_lt]
       · grind only
     case isFalse h =>
-      simp at h
-      rw [Nat.mod_eq_of_lt]
-      have : su < 2 ^ su := by exact Nat.lt_two_pow_self
-      omega
+      grind only [= Nat.mod_eq_of_lt]
   · grind only
   · rw [toInt_ofInt_minNormalExp_eq_minNormalExp_of_le hep hsp heu]
     exact hdiffLower
   · rw [toInt_ofInt_minNormalExp_eq_minNormalExp_of_le hep hsp heu]
     exact hdiffUpper
+
+theorem UnpackedFloat.toNat_lsbIndex_eq (hep : 1 < ep) (hsp : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su)
+    (hdiffLower : -2 ^ (eu - 1) ≤ minNormalExp ep - x.ex.toInt)
+    (hdiffUpper : minNormalExp ep - x.ex.toInt < 2 ^ (eu - 1))
+    (hdiffNatLe : (minNormalExp ep - x.ex.toInt).toNat ≤ sp)
+    -- (heusu : eu ≤ su)
+    :
+    (x.lsbIndex ep sp).toNat =
+    (su - 1 - (sp + 1) + (minNormalExp ep - x.ex.toInt).toNat + 1) := by
+  have := @one_lt_exponentWidth ep sp
+  have hsu : su < 2 ^ su := by exact Nat.lt_two_pow_self
+  have hminNormal : (BitVec.ofInt eu (minNormalExp ep)).toInt = minNormalExp ep := by
+    rw [toInt_ofInt_minNormalExp_eq_minNormalExp_of_le (s := sp)]
+    · grind only
+    · grind only
+    · grind only
+  rw [UnpackedFloat.lsbIndex, UnpackedFloat.guardBitIndex]
+  rw [BitVec.toNat_add]
+  simp only [BitVec.truncate_eq_setWidth, BitVec.toNat_add, BitVec.toNat_ofNat,
+    BitVec.toNat_setWidth, Nat.add_mod_mod, Nat.mod_add_mod]
+  rw [BitVec.toNat_subSaturatingZero_eq_ite_toNat]
+  · simp only [hminNormal]
+    split
+    case isTrue h =>
+      grind only [= Int.toNat_neg_eq_zero_of_nonpos, = Nat.mod_eq_of_lt, #37a5855c772b74a3]
+    case isFalse h =>
+      grind only [= Nat.mod_eq_of_lt]
+  · grind only
+  · rw [toInt_ofInt_minNormalExp_eq_minNormalExp_of_le hep hsp heu]
+    grind only
+  · rw [toInt_ofInt_minNormalExp_eq_minNormalExp_of_le hep hsp heu]
+    grind only
 
 theorem BitVec.eq_iff_getLsbD_eq (a b : BitVec w) : a = b ↔
     (∀ (i : Nat), a.getLsbD i = b.getLsbD i) := by
@@ -157,23 +187,21 @@ theorem iff_iff_not_iff_not {p q : Prop} :
 
 /-! # extractIsEven -/
 
-@[simp]
-theorem UnpackedFloat.blastSuccessorAwayFromZerotIsEven_eq_isEven_lower_of_nonneg (x : UnpackedFloat e s)
-    (hx : x.sign = false) :
-    x.blastExtractIsEven e s = (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) e s SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).isEven
-          (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat)) := by
-  simp [UnpackedFloat.blastExtractIsEven]
-  simp [SmtLibSemantics.smtLibRoundMethod]
-  sorry
+theorem and_oneHotBV_eq_zero_iff (x i : BitVec w)  :
+    x &&& (BitVec.oneHotBV i) = 0#w ↔ x.getLsbD i.toNat = false := by
+  constructor
+  · intros h
+    rw [BitVec.eq_iff_getLsbD_eq] at h
+    simp at h
+    specialize h i.toNat
+    grind only [= BitVec.getLsbD_of_ge]
+  · intros h
+    ext k hk
+    simp
+    intros hk
+    have := i.getElem_oneHotBV ⟨k, by omega⟩
+    grind only [= BitVec.getLsbD_eq_getElem, = Fin.getElem_fin]
 
-@[simp]
-theorem UnpackedFloat.blastExtractIsEven_eq_isEven_upper_of_neg (x : UnpackedFloat e s)
-    (hx : x.sign = true) :
-    x.blastExtractIsEven e s = (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) e s SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).isEven
-          (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat)) := by
-  simp [UnpackedFloat.blastExtractIsEven]
-  simp [SmtLibSemantics.smtLibRoundMethod]
-  sorry
 
 /-! # extractGuardBit -/
 theorem UnpackedFloat.blastExtractGuardBit_eq_true_iff
@@ -192,7 +220,9 @@ theorem UnpackedFloat.blastExtractGuardBit_eq_true_iff
   · intros h
     obtain h := BitVec.ne_iff_getLsbD_ne .. |>.mp h
     obtain ⟨i, hi⟩ := h
-    simp at hi
+    simp only [BitVec.getLsbD_and, BitVec.getlsbD_oneHotBV, BitVec.getLsbD_zero, ne_eq,
+      Bool.and_eq_false_imp, decide_eq_true_eq, decide_eq_false_iff_not, not_imp,
+      Decidable.not_not] at hi
     rw [UnpackedFloat.toNat_guardBitIndex_eq hep hsp heu hsu x hdiffLower hdiffUpper hdiffNatLe] at hi
     grind only
   · intros h
@@ -202,6 +232,7 @@ theorem UnpackedFloat.blastExtractGuardBit_eq_true_iff
     specialize hcontra _ h (by grind)
     rw [UnpackedFloat.toNat_guardBitIndex_eq hep hsp heu hsu x hdiffLower hdiffUpper hdiffNatLe] at hcontra
     grind only
+
 /--
 The guard bit is the bit at the lower index at '2' (when `su = sp + 2`),
 plus the offset from the exponent difference, which accounts for shifts when we are subnormal.
@@ -218,6 +249,74 @@ theorem UnpackedFloat.extractGuardBit_eq_getLsbD
     x.blastExtractGuardBit ep sp =  x.sig.getLsbD (su - (sp + 2) + (minNormalExp ep - x.ex.toInt).toNat)  := by
   have := UnpackedFloat.blastExtractGuardBit_eq_true_iff hep hsp heu hsu x hdiffLower hdiffUpper hdiffNatLe
   grind only [#65b0223044fbdd80]
+
+
+@[simp]
+theorem UnpackedFloat.blastExtractIsEven_eq_true_iff
+    (hep : 1 < ep) (hsp : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su)
+    (hdiffLower : -2 ^ (eu - 1) ≤ minNormalExp ep - x.ex.toInt)
+    (hdiffUpper : minNormalExp ep - x.ex.toInt < 2 ^ (eu - 1))
+    (hdiffNatLe : (minNormalExp ep - x.ex.toInt).toNat ≤ sp) :
+    x.blastExtractIsEven ep sp = true ↔
+    (x.sig.getLsbD (su - (sp + 2) + (minNormalExp ep - x.ex.toInt).toNat + 1) = false):= by
+  simp [UnpackedFloat.blastExtractIsEven]
+  constructor
+  · intros h
+    simp only at h
+    rw [BitVec.eq_iff_getLsbD_eq] at h
+    simp only [BitVec.getLsbD_and, BitVec.getlsbD_oneHotBV, BitVec.getLsbD_zero, Bool.and_eq_false_imp, decide_eq_true_eq,
+      decide_eq_false_iff_not] at h
+    apply Classical.byContradiction
+    intros hcontra
+    simp at hcontra
+    specialize h _ hcontra
+    rw [UnpackedFloat.toNat_lsbIndex_eq hep hsp heu hsu x hdiffLower hdiffUpper hdiffNatLe] at h
+    grind only
+  · intros h
+    simp only at h
+    rw [BitVec.eq_iff_getLsbD_eq]
+    intros i
+    simp
+    intros hx hi
+    intros hcontra
+    rw [UnpackedFloat.toNat_lsbIndex_eq hep hsp heu hsu x hdiffLower hdiffUpper hdiffNatLe] at hcontra
+    grind only
+
+
+theorem blastExtractIsEven_eq_not_getLsbD
+    (hep : 1 < ep) (hsp : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su)
+    (hdiffLower : -2 ^ (eu - 1) ≤ minNormalExp ep - x.ex.toInt)
+    (hdiffUpper : minNormalExp ep - x.ex.toInt < 2 ^ (eu - 1))
+    (hdiffNatLe : (minNormalExp ep - x.ex.toInt).toNat ≤ sp)
+    :
+    x.blastExtractIsEven ep sp = !x.sig.getLsbD (su - (sp + 2) + (minNormalExp ep - x.ex.toInt).toNat + 1)  := by
+  have := UnpackedFloat.blastExtractIsEven_eq_true_iff hep hsp heu hsu x hdiffLower hdiffUpper hdiffNatLe
+  grind only [#93deeaa3fa8dd789]
+
+theorem getLsbD_eq_not_blastExtractIsEven
+    (hep : 1 < ep) (hsp : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su)
+    (hdiffLower : -2 ^ (eu - 1) ≤ minNormalExp ep - x.ex.toInt)
+    (hdiffUpper : minNormalExp ep - x.ex.toInt < 2 ^ (eu - 1))
+    (hdiffNatLe : (minNormalExp ep - x.ex.toInt).toNat ≤ sp)
+    :
+    x.sig.getLsbD (su - (sp + 2) + (minNormalExp ep - x.ex.toInt).toNat + 1) = !x.blastExtractIsEven ep sp := by
+  have := UnpackedFloat.blastExtractIsEven_eq_true_iff hep hsp heu hsu x hdiffLower hdiffUpper hdiffNatLe
+  grind only [#ad239b3c63600307]
+
+/--
+info: 'Fp.UnpackedFloat.blastExtractIsEven_eq_true_iff' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms UnpackedFloat.blastExtractIsEven_eq_true_iff
+
 
 -- TODO: 'toRatSig' lemma about what the guardBit tracks.
 
@@ -1120,68 +1219,16 @@ theorem roundRNE_eq_infinity_of_maxNormalExp_lt
   sorry
 
 /--
-Rounding (RNE) any number whose absolute value is strictly below half the
-smallest representable subnormal (i.e. `2 ^ (minSubnormalExp - 1)`) produces a
-signed zero. Note that the threshold is `minSubnormalExp - 1`, NOT `minNormalExp`:
-there is a whole range of nonzero subnormals between `2 ^ minSubnormalExp` and
-`2 ^ minNormalExp` that do *not* round to zero.
-
-The `hsign` hypothesis ties the rounding sign to the sign of `r`, which is how
-this is used at the call site (where `sign = x.sign` and `r = x.toRat'` for a
-nonzero `x`). For nonzero `r`, RNE ignores the `sign` argument and uses the sign
-of `r`; for `r = 0` the two coincide under `hsign`.
+Rounding any number whose absolute value is smaller than minNormalExp
+will produce a zero.
 -/
-theorem roundRNE_eq_zero_of_lt_minSubnormalExp
+theorem roundRNE_eq_zero_of_lt_minNormalExp
   (he : 1 < ep)
   (hs : 0 < sp)
   (r : Rat)
-  (hsign : sign = decide (r < 0))
-  (hr : r.abs < (2 : Rat) ^ (minSubnormalExp ep sp - 1)) :
+  (hr : r.abs < (2 : Rat) ^ minNormalExp ep) :
   ((SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRNE sign
         (ExtRat.Number r)) = PackedFloat.getZero ep sp sign := by
-  -- PROOF SKETCH (handed back for review before filling in).
-  --
-  -- Notation: msexp := minSubnormalExp ep sp. The smallest representable
-  -- (ep,sp) subnormal is `2 ^ msexp`; in the one-bit-wider format (ep, sp+1)
-  -- the smallest subnormal is `2 ^ (msexp - 1)`, which equals our threshold.
-  -- Key fact: minSubnormalExp ep (sp+1) = minSubnormalExp ep sp - 1.
-  --
-  -- Step 0. Dispatch r = 0 via `roundRNE_zero` (then `hsign` gives sign = false).
-  --   So assume r ≠ 0 below; unfold `roundRNE`. `isNaN (Number r)` is false.
-  --
-  -- Step 1 (NEW reusable lemma, prove for general (e,s), instantiate at sp and sp+1):
-  --     `lower_eq_getZero_false_of_lt_smallestSubnormal`:
-  --         0 ≤ r < 2 ^ minSubnormalExp e s  →  smtLibLower (Number r) = getZero e s false
-  --     `upper_eq_getZero_true_of_neg_smallestSubnormal_lt`:
-  --        -2 ^ minSubnormalExp e s < r ≤ 0  →  smtLibUpper (Number r) = getZero e s true
-  --   Proof mirrors `lower_zero_eq`/`upper_zero_eq` (epsilon_elim) but with an
-  --   `IsLawfulLower (Number r) (getZero _ _ false)` witness: getZero ≤ r, and any
-  --   PF ≤ r is either a (signed) zero or, being below the smallest subnormal in
-  --   magnitude on the correct side, is dominated. Reuse the `IsLawfulLower_Zero_iff`
-  --   machinery + `isLawfulLower_Number_getZero_of_underflowNonneg` style argument.
-  --
-  -- Step 2. Case on the sign of r (hsign pins `sign` accordingly).
-  --
-  --   Case r > 0  (so |r| = r < 2^(msexp-1), and r < 2^msexp too):
-  --     • lower_{sp}   (Number r) = getZero false      [Step 1 at sp,   r < 2^msexp]
-  --     • lower_{sp+1} (Number r) = getZero false      [Step 1 at sp+1, r < 2^(msexp-1)]
-  --     ⇒ lowerHalf r = smtLibEq (embed +0) (embed +0) = true.
-  --     • upper_{sp}   (Number r) = smallest (ep,sp)   subnormal, embed = 2^msexp
-  --     • upper_{sp+1} (Number r) = smallest (ep,sp+1) subnormal, embed = 2^(msexp-1)
-  --       (these need a small "least PF ≥ r is the smallest subnormal" lemma)
-  --     ⇒ tieBreak r = ((0 < 0) = (2^(msexp-1) < 2^msexp)) = (False = True) = false.
-  --     roundRNE branches: b1 needs ¬lowerHalf (false); b2,b3 need tieBreak (false);
-  --     b4 fires on lowerHalf ⇒ result = lower_{sp} = getZero false = getZero sign.  ✓
-  --
-  --   Case r < 0  (symmetric, |r| = -r):
-  --     • upper_{sp} (Number r) = getZero true, upper_{sp+1} = getZero true ⇒ via the
-  --       tieBreak/lowerHalf computation, lowerHalf r = false, tieBreak r = false.
-  --     ⇒ b1 fires (¬lowerHalf ∧ ¬tieBreak) ⇒ result = upper_{sp} = getZero true = getZero sign. ✓
-  --
-  -- Remaining obligations to discharge: the two Step-1 lemmas (lower/upper = signed
-  -- zero), the two "upper/lower = smallest subnormal" value lemmas (only their embeds
-  -- are needed, for the tieBreak comparison), and the exponent-arithmetic fact
-  -- `minSubnormalExp ep (sp+1) = minSubnormalExp ep sp - 1`.
   sorry
 
 
@@ -1349,14 +1396,12 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
           -- rw [blastIsEarlyUnderflowNonneg_eq_decide he hs heu x] at hunder
           simp [blastRounderSpecialCaseUnderflow]
           -- need a lemma that says that 'round' on smaller than minSubnormal values gives zero.
-          rw [roundRNE_eq_zero_of_lt_minSubnormalExp]
+          rw [roundRNE_eq_zero_of_lt_minNormalExp]
           · apply EUnpackedFloat.mkZero_Rel_of_isZero ep sp (exponentWidth ep sp) (sp + 1) he
             · grind only
           · simp [he]
           · simp [hs]
-          · -- sign of result matches sign of x: `x.sign = decide (x.toRat' < 0)`
-            sorry
-          · -- bound: from hunder (blastIsEarlyUnderflowNonneg ⟹ |r| < 2^(minSubnormalExp-1))
+          · -- from hunder
             sorry
         · simp [hunder]
           -- rw [blastIsEarlyUnderflowNonneg_eq_decide he hs heu x] at hunder
