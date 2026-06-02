@@ -83,6 +83,7 @@ theorem BitVec.getElem_oneHotBV (i : BitVec w) (j : Fin w) :
     (oneHotBV i)[j] = decide (i.toNat = j) := by
   simp [← BitVec.getLsbD_eq_getElem]
 
+
 /-- Convert a binary number into a unary mask of that number. -/
 @[bv_normalize]
 def BitVec.orderEncode (x : BitVec w) : BitVec w :=
