@@ -285,6 +285,33 @@ theorem UnpackedFloat.blastExtractIsEven_eq_true_iff
     rw [UnpackedFloat.toNat_lsbIndex_eq hep hsp heu hsu x hdiffLower hdiffUpper hdiffNatLe] at hcontra
     grind only
 
+
+theorem blastExtractIsEven_eq_not_getLsbD
+    (hep : 1 < ep) (hsp : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su)
+    (hdiffLower : -2 ^ (eu - 1) ≤ minNormalExp ep - x.ex.toInt)
+    (hdiffUpper : minNormalExp ep - x.ex.toInt < 2 ^ (eu - 1))
+    (hdiffNatLe : (minNormalExp ep - x.ex.toInt).toNat ≤ sp)
+    :
+    x.blastExtractIsEven ep sp = !x.sig.getLsbD (su - (sp + 2) + (minNormalExp ep - x.ex.toInt).toNat + 1)  := by
+  have := UnpackedFloat.blastExtractIsEven_eq_true_iff hep hsp heu hsu x hdiffLower hdiffUpper hdiffNatLe
+  grind only [#93deeaa3fa8dd789]
+
+theorem getLsbD_eq_not_blastExtractIsEven
+    (hep : 1 < ep) (hsp : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su)
+    (hdiffLower : -2 ^ (eu - 1) ≤ minNormalExp ep - x.ex.toInt)
+    (hdiffUpper : minNormalExp ep - x.ex.toInt < 2 ^ (eu - 1))
+    (hdiffNatLe : (minNormalExp ep - x.ex.toInt).toNat ≤ sp)
+    :
+    x.sig.getLsbD (su - (sp + 2) + (minNormalExp ep - x.ex.toInt).toNat + 1) = !x.blastExtractIsEven ep sp := by
+  have := UnpackedFloat.blastExtractIsEven_eq_true_iff hep hsp heu hsu x hdiffLower hdiffUpper hdiffNatLe
+  grind only [#ad239b3c63600307]
+
 /--
 info: 'Fp.UnpackedFloat.blastExtractIsEven_eq_true_iff' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
