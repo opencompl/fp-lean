@@ -317,15 +317,6 @@ info: 'Fp.UnpackedFloat.blastExtractIsEven_eq_true_iff' depends on axioms: [prop
 -/
 #guard_msgs in #print axioms UnpackedFloat.blastExtractIsEven_eq_true_iff
 
-@[simp]
-theorem UnpackedFloat.blastExtractIsEven_eq_isEven_upper_of_neg (x : UnpackedFloat e s)
-    (hx : x.sign = true) :
-    x.blastExtractIsEven e s = (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) e s SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).isEven
-          (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat)) := by
-  simp [UnpackedFloat.blastExtractIsEven]
-  simp [SmtLibSemantics.smtLibRoundMethod]
-  sorry
-
 
 -- TODO: 'toRatSig' lemma about what the guardBit tracks.
 
