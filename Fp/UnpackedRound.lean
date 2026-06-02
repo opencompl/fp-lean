@@ -152,13 +152,19 @@ def UnpackedFloat.blastExtractStickyBit {eu su : Nat}
   let idx := uf.guardBitIndex tep tsp
   (uf.sig &&& BitVec.orderEncode idx) ≠ 0#su
 
+@[bv_normalize]
+def UnpackedFloat.lsbIndex {eu su : Nat}
+  (uf : UnpackedFloat eu su)
+  (tep tsp : Nat) : BitVec su :=
+  let guardBitIdx := uf.guardBitIndex tep tsp
+  guardBitIdx + 1#_
+
 /-- Check whether the unpacked float's significand LSB (relative to the target precision) is even. -/
 @[bv_normalize]
 def UnpackedFloat.blastExtractIsEven {eu su : Nat}
   (uf : UnpackedFloat eu su)
   (tep tsp : Nat) : Bool :=
-  let idx := uf.guardBitIndex tep tsp
-  uf.sig &&& BitVec.oneHotBV (idx + 1#su) = 0#su
+  uf.sig &&& BitVec.oneHotBV (uf.lsbIndex tep tsp) = 0#su
 
 /--
 Handle the overflow special case: depending on the rounding mode and sign,
