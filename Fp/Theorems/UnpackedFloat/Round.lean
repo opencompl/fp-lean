@@ -131,7 +131,7 @@ theorem UnpackedFloat.toNat_guardBitIndex_eq (hep : 1 < ep) (hsp : 0 < sp)
   · rw [toInt_ofInt_minNormalExp_eq_minNormalExp_of_le hep hsp heu]
     exact hdiffUpper
 
-theorem toNat_lsbIndex_eq (hep : 1 < ep) (hsp : 0 < sp)
+theorem UnpackedFloat.toNat_lsbIndex_eq (hep : 1 < ep) (hsp : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu)
     (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su)
@@ -252,7 +252,7 @@ theorem UnpackedFloat.extractGuardBit_eq_getLsbD
 
 
 @[simp]
-theorem UnpackedFloat.blastExtractIsEven_eq_true_iff (x : UnpackedFloat e s)
+theorem UnpackedFloat.blastExtractIsEven_eq_true_iff
     (hep : 1 < ep) (hsp : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu)
     (hsu : sp + 2 ≤ su)
@@ -260,8 +260,8 @@ theorem UnpackedFloat.blastExtractIsEven_eq_true_iff (x : UnpackedFloat e s)
     (hdiffLower : -2 ^ (eu - 1) ≤ minNormalExp ep - x.ex.toInt)
     (hdiffUpper : minNormalExp ep - x.ex.toInt < 2 ^ (eu - 1))
     (hdiffNatLe : (minNormalExp ep - x.ex.toInt).toNat ≤ sp) :
-    x.blastExtractIsEven e s = true ↔
-    (x.sig.getLsbD (su - (sp + 2) + (minNormalExp ep - x.ex.toInt).toNat) = false):= by
+    x.blastExtractIsEven ep sp = true ↔
+    (x.sig.getLsbD (su - (sp + 2) + (minNormalExp ep - x.ex.toInt).toNat + 1) = false):= by
   simp [UnpackedFloat.blastExtractIsEven]
   constructor
   · intros h
@@ -273,9 +273,22 @@ theorem UnpackedFloat.blastExtractIsEven_eq_true_iff (x : UnpackedFloat e s)
     intros hcontra
     simp at hcontra
     specialize h _ hcontra
-    sorry
-  · sorry
+    rw [UnpackedFloat.toNat_lsbIndex_eq hep hsp heu hsu x hdiffLower hdiffUpper hdiffNatLe] at h
+    grind only
+  · intros h
+    simp only at h
+    rw [BitVec.eq_iff_getLsbD_eq]
+    intros i
+    simp
+    intros hx hi
+    intros hcontra
+    rw [UnpackedFloat.toNat_lsbIndex_eq hep hsp heu hsu x hdiffLower hdiffUpper hdiffNatLe] at hcontra
+    grind only
 
+/--
+info: 'Fp.UnpackedFloat.blastExtractIsEven_eq_true_iff' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms UnpackedFloat.blastExtractIsEven_eq_true_iff
 
 @[simp]
 theorem UnpackedFloat.blastExtractIsEven_eq_isEven_upper_of_neg (x : UnpackedFloat e s)
