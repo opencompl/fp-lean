@@ -1,0 +1,9 @@
+# Typst build output
+*.pdf
+
+# Intermediate / preview renders
+*.png
+*.svg
+
+# macOS
+.DS_Store
