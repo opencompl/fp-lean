@@ -166,6 +166,209 @@ theorem UnpackedFloat.toNat_lsbIndex_eq (hep : 1 < ep) (hsp : 0 < sp)
   · rw [toInt_ofInt_minNormalExp_eq_minNormalExp_of_le hep hsp heu]
     grind only
 
+/-! # The selection engine for RNE (in terms of `lower`/`upper`) -/
+
+/--
+**Selection engine for RNE — `lowerHalf` half.**
+
+This is the keystone of the RNE part of the development (see
+`docs/lower-pen-and-paper.typ`, Part II): it is what the SMT-LIB selector
+bridge `blastIsLowerHalf_iff_smtLibLowerHalf` reduces to.
+
+We phrase it purely in terms of the two specification candidates — `lower r`
+(the greatest representable `≤ r`) and `upper r` (the least representable
+`≥ r`) — and never in terms of the internal round-toward-zero circuit. Being
+in the *lower half* of the bracketing interval `[lower r, upper r]`, i.e.
+`blastIsLowerHalf`, is exactly `r` being strictly closer to `lower r`:
+$$ \mathsf{blastIsLowerHalf}\ x \iff r - (\mathsf{lower}\ r).\mathsf{toRat} < (\mathsf{upper}\ r).\mathsf{toRat} - r . $$
+
+Stated for the nonnegative branch; the negative branch is recovered from this
+via the negation duality `lower (-r) = -(upper r)` (the same device used for the
+`blastLower`/`blastUpper` reduction). The companion tie case is
+`blastIsTieBreak_eq_decide_dist_eq_of_nonneg`.
+
+IMPORTANT (representable corner): the hypothesis `hlt : lower r < r` is
+*required*. When `r` is exactly representable we have `lower r = upper r = r`,
+so the distance test `r - lower < upper - r` degenerates to `0 < 0` (false) even
+though `blastIsLowerHalf` is `true` (the guard bit is `0`). The
+nearest-endpoint characterisation only holds when `r` lies strictly between its
+two neighbours. The exactly-representable case must be peeled off separately by
+the caller (it rounds to itself). -/
+theorem UnpackedFloat.blastIsLowerHalf_eq_decide_dist_lt_of_nonneg
+    (hep : 1 < ep) (hsp : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su)
+    (hxsign : x.sign = false)
+    (hxnorm : x.normalize = x)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover  : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hlt : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).toRat
+            < x.toRat') :
+    x.blastIsLowerHalf ep sp
+      = decide (x.toRat'
+            - (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).toRat
+          < (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp).toRat
+            - x.toRat') := by
+  sorry
+
+/--
+**Selection engine for RNE — `tieBreak` half.**
+
+The tie case is `r` being exactly the midpoint of the bracketing interval
+`[lower r, upper r]`, i.e. equidistant from the two candidates. This is what
+`blastTieBreak_iff_smtLibTieBreak` reduces to. Like its companion
+`blastIsLowerHalf_eq_decide_dist_lt_of_nonneg`, it is stated via `lower`/`upper`
+distances only, never via the round-toward-zero circuit.
+
+IMPORTANT (representable corner): the hypothesis `hlt : lower r < r` is
+*required*, for the same reason as the `lowerHalf` companion. When `r` is
+exactly representable, `lower r = upper r = r`, so `r - lower = upper - r` holds
+as `0 = 0` (true) while `blastIsTieBreak` is `false` (guard bit `0`). Note this
+is exactly where `blastIsTieBreak` and the SMT-LIB `tieBreak` predicate
+*disagree*: the SMT `tieBreak` is `true` at a representable `r` (both `<`-tests
+are `False`, and `False = False`), whereas the circuit reports `false`. The
+overall rounding result still agrees (both yield `r`), but only because the
+representable case is rounded to itself — it must be peeled off before the
+predicate-matching argument. -/
+theorem UnpackedFloat.blastIsTieBreak_eq_decide_dist_eq_of_nonneg
+    (hep : 1 < ep) (hsp : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su)
+    (hxsign : x.sign = false)
+    (hxnorm : x.normalize = x)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover  : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hlt : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).toRat
+            < x.toRat') :
+    x.blastIsTieBreak ep sp
+      = decide (x.toRat'
+            - (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).toRat
+          = (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp).toRat
+            - x.toRat') := by
+  sorry
+
+/-! ## Spec-side: the SMT predicates as `lower`/`upper` distances
+
+These two lemmas characterise the abstract SMT-LIB `lowerHalf`/`tieBreak`
+predicates (defined via a two-precision `lower` comparison) as the obvious
+nearer-endpoint / midpoint tests. They share their right-hand sides verbatim
+with the selection engine above, so composing the two discharges the selector
+bridges (`blastIs…_eq_smtLib…_of_nonneg`). Both require `lower r < r` for the
+same representable-corner reason. -/
+
+/-- `lowerHalf r` ⟺ `r` is strictly nearer `lower r` than `upper r`
+    (valid when `r` is not exactly representable, `hlt : lower r < r`). -/
+theorem smtLibLowerHalf_iff_lt_dist {ep sp : Nat} (he : 1 < ep) (hs : 0 < sp) (r : Rat)
+    (hlt : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat ep sp).toRat < r) :
+    (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf
+        (ExtRat.Number r)
+      ↔ (r - (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat ep sp).toRat
+          < (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r) : PackedFloat ep sp).toRat - r) := by
+  sorry
+
+/-- `tieBreak r` ⟺ `r` is the exact midpoint of `[lower r, upper r]`
+    (valid when `r` is not exactly representable, `hlt : lower r < r`). -/
+theorem smtLibTieBreak_iff_eq_dist {ep sp : Nat} (he : 1 < ep) (hs : 0 < sp) (r : Rat)
+    (hlt : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat ep sp).toRat < r) :
+    (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).tieBreak
+        (ExtRat.Number r)
+      ↔ (r - (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat ep sp).toRat
+          = (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r) : PackedFloat ep sp).toRat - r) := by
+  sorry
+
+/-! ## Selector bridges (engine ∘ spec) — nonnegative, non-representable
+
+These connect the bit-blasted predicates to the SMT-LIB predicates by composing
+the selection engine (bits ⟹ distance) with the spec-side characterisation
+(distance ⟹ SMT predicate). They are the properly-hypothesised replacements for
+the unconditional `blastIsLowerHalf_iff_smtLibLowerHalf` /
+`blastTieBreak_iff_smtLibTieBreak` (which are false at representable `r`). Their
+proofs contain no `sorry`: the remaining obligations are the engine and spec
+leaves above. -/
+
+theorem blastIsLowerHalf_eq_smtLibLowerHalf_of_nonneg
+    (hep : 1 < ep) (hsp : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su)
+    (hxsign : x.sign = false) (hxnorm : x.normalize = x)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover  : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hlt : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).toRat
+            < x.toRat') :
+    x.blastIsLowerHalf ep sp
+      = decide ((SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf
+          (ExtRat.Number x.toRat')) := by
+  have hengine :=
+    UnpackedFloat.blastIsLowerHalf_eq_decide_dist_lt_of_nonneg hep hsp heu hsu x hxsign hxnorm
+      hnotunder hnotover hlt
+  have hspec := smtLibLowerHalf_iff_lt_dist hep hsp x.toRat' hlt
+  grind
+
+theorem blastIsTieBreak_eq_smtLibTieBreak_of_nonneg
+    (hep : 1 < ep) (hsp : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su)
+    (hxsign : x.sign = false) (hxnorm : x.normalize = x)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover  : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hlt : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).toRat
+            < x.toRat') :
+    x.blastIsTieBreak ep sp
+      = decide ((SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).tieBreak
+          (ExtRat.Number x.toRat')) := by
+  have hengine :=
+    UnpackedFloat.blastIsTieBreak_eq_decide_dist_eq_of_nonneg hep hsp heu hsu x hxsign hxnorm
+      hnotunder hnotover hlt
+  have hspec := smtLibTieBreak_iff_eq_dist hep hsp x.toRat' hlt
+  grind
+
+/-! ## Selector bridges — sign-agnostic, non-representable
+
+The sign-general versions consumed by the main theorem. The nonnegative branch
+delegates to the `_of_nonneg` bridges above; the negative branch is the
+negation-duality mirror (`lower (-r) = -(upper r)`), left as the remaining
+obligation. Their conclusion is identical to the (unconditional, and false at
+representable `r`) `blastIsLowerHalf_eq` / `blastIsTieBreak_eq`, so they are
+drop-in replacements once `lower r < r` is known. -/
+
+theorem blastIsLowerHalf_eq_smtLibLowerHalf_of_normal
+    (hep : 1 < ep) (hsp : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su)
+    (hxnorm : x.normalize = x)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover  : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hlt : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).toRat
+            < x.toRat') :
+    x.blastIsLowerHalf ep sp
+      = decide ((SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf
+          (ExtRat.Number x.toRat')) := by
+  by_cases hsign : x.sign = false
+  · exact blastIsLowerHalf_eq_smtLibLowerHalf_of_nonneg hep hsp heu hsu x hsign hxnorm
+      hnotunder hnotover hlt
+  · -- negative branch: via `lower (-r) = -(upper r)` duality
+    sorry
+
+theorem blastIsTieBreak_eq_smtLibTieBreak_of_normal
+    (hep : 1 < ep) (hsp : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su)
+    (hxnorm : x.normalize = x)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover  : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hlt : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).toRat
+            < x.toRat') :
+    x.blastIsTieBreak ep sp
+      = decide ((SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).tieBreak
+          (ExtRat.Number x.toRat')) := by
+  by_cases hsign : x.sign = false
+  · exact blastIsTieBreak_eq_smtLibTieBreak_of_nonneg hep hsp heu hsu x hsign hxnorm
+      hnotunder hnotover hlt
+  · -- negative branch: via `lower (-r) = -(upper r)` duality
+    sorry
+
 theorem BitVec.eq_iff_getLsbD_eq (a b : BitVec w) : a = b ↔
     (∀ (i : Nat), a.getLsbD i = b.getLsbD i) := by
   constructor
@@ -536,8 +739,8 @@ Each case factors into:
   (ii) `Rel`-matching of `toRat'`/`sign` (mostly bit-level rewriting).
 
 The three (i)-style lemmas are the genuinely hard core; they are stated
-below with clear specifications and left as `sorry` (matching the existing
-PLAN_RNE.md "Tier 3" classification of these properties). -/
+below with clear specifications and left as `sorry` (see the mechanisation
+plan in `docs/lower-pen-and-paper.typ`). -/
 
 /--
 Helper: Reduce `result.Rel (smtLibLower.lower (Number r))` to producing a
@@ -988,37 +1191,15 @@ theorem UnpackedFloat.blastIsEarlyUnderflowNonneg_eq_decide (he : 1 < ep) (hs : 
   rw [toInt_ofInt_minSubnormalExp_sub_one_eq_minSubnormalExp_sub_one_of_le (w := eu) he hs]
   · grind only
 
-/-# blastIsLowerHalf -/
+/-# blastIsLowerHalf / blastIsTieBreak — see the corrected `…_of_normal` bridges
 
-@[simp]
-theorem blastIsLowerHalf_iff_smtLibLowerHalf  (he : 1 < ep) (hs : 0 < sp)  (x : UnpackedFloat e s)  :
-    (x.blastIsLowerHalf ep sp = true) ↔
-    (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat')
-    := by
-  simp [UnpackedFloat.blastIsLowerHalf]
-  simp [SmtLibSemantics.smtLibRoundMethod]
-  sorry
-
-@[simp]
-theorem blastIsLowerHalf_eq (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s) :
-  x.blastIsLowerHalf ep sp = (decide <| (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat')) := by
-  have := blastIsLowerHalf_iff_smtLibLowerHalf he hs x
-  grind
-
-
-@[simp]
-theorem blastTieBreak_iff_smtLibTieBreak (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s) :
-  x.blastIsTieBreak ep sp = true ↔
-    (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).tieBreak (ExtRat.Number x.toRat') := by
-  simp [UnpackedFloat.blastIsTieBreak]
-  simp [SmtLibSemantics.smtLibRoundMethod]
-  sorry
-
-@[simp]
-theorem blastIsTieBreak_eq (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s) :
-  x.blastIsTieBreak ep sp = (decide <| (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).tieBreak (ExtRat.Number x.toRat')) := by
-  have := blastTieBreak_iff_smtLibTieBreak he hs x
-  grind
+The earlier unconditional bridges `blastIsLowerHalf_iff_smtLibLowerHalf`,
+`blastIsLowerHalf_eq`, `blastTieBreak_iff_smtLibTieBreak`, `blastIsTieBreak_eq`
+were deleted: they are *false* at an exactly-representable `r` (there the circuit
+reports `lowerHalf`/`¬tieBreak` while the SMT spec reports `lowerHalf`/`tieBreak`).
+The main theorem now peels off the representable case and uses the
+hypothesis-guarded `blastIsLowerHalf_eq_smtLibLowerHalf_of_normal` /
+`blastIsTieBreak_eq_smtLibTieBreak_of_normal` instead. -/
 
 
 
@@ -1404,49 +1585,77 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
           · -- from hunder
             sorry
         · simp [hunder]
-          -- rw [blastIsEarlyUnderflowNonneg_eq_decide he hs heu x] at hunder
-          -- -- simp at hunder
-          rw [UnpackedFloat.blastSmtLibRoundAux, UnpackedFloat.blastSmtLibRoundRNE]
-          simp
-          rw [blastIsLowerHalf_eq (by grind only) (by grind only)]
-          simp only [decide_eq_false_iff_not, decide_eq_true_eq]
-          rw [blastIsTieBreak_eq (by grind only) (by grind only)]
-          simp only [decide_eq_false_iff_not, decide_eq_true_eq]
-          rw [blastIsEvenUpper_eq (by grind only) (by grind only)]
-          simp only [Bool.decide_eq_true]
-          rw [blastIsEvenLower_eq (by grind only) (by grind only)]
-          simp only [Bool.decide_eq_true]
-          rw [SmtLibSemantics.RoundMethod.roundRNE]
-          simp [hx0]
-          rw [toRat'_truncateFittingExponent_of_not_blastIsOverflowNonneg_of_not_blastIsEarlyUnderflowNonneg he hs heu (by grind only) (by grind only)]
-          -- use that blastUpper rel smtLiBupper, blastLower rel smtLibLower.
-          -- this should just be pure proof automation!
-          split
-          case neg.isTrue h1 =>
-            apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
-            rw [blastUpper_truncateFittingExponent_Rel_eq_blastUpper_Rel (by grind) (by grind) (by grind) (by grind)]
-            exact blastUpper_Rel_smtLibUpper hep hs hsu heu x hxnorm
-          case neg.isFalse h1 =>
+          -- Peel off the exactly-representable case: there `lower r = upper r = r`,
+          -- the circuit and the SMT spec disagree on the `lowerHalf`/`tieBreak`
+          -- predicates, but both round `r` to itself. Off this case (`lower r < r`)
+          -- the corrected selector bridges apply.
+          by_cases hrep :
+              (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).toRat
+                = x.toRat'
+          · -- exactly representable: rounds to itself
+            sorry
+          · -- not representable: `lower r < x.toRat'`
+            have htnorm :
+                (x.truncateFittingExponent ep sp).normalize = x.truncateFittingExponent ep sp := by
+              sorry
+            have htnotunder :
+                (x.truncateFittingExponent ep sp).blastIsUnderflowNonneg ep sp = false := by
+              sorry
+            have htnotover :
+                (x.truncateFittingExponent ep sp).blastIsEarlyOverflowNonneg ep sp = false := by
+              sorry
+            have htlt :
+                (SmtLibSemantics.smtLibLower.lower (ExtRat.Number (x.truncateFittingExponent ep sp).toRat')
+                    : PackedFloat ep sp).toRat
+                  < (x.truncateFittingExponent ep sp).toRat' := by
+              sorry
+            rw [UnpackedFloat.blastSmtLibRoundAux, UnpackedFloat.blastSmtLibRoundRNE]
+            simp
+            rw [blastIsLowerHalf_eq_smtLibLowerHalf_of_normal (ep := ep) (sp := sp)
+                (hep := by grind only) (hsp := by grind only) (heu := by omega) (hsu := hsu)
+                (x := x.truncateFittingExponent ep sp)
+                (hxnorm := htnorm) (hnotunder := htnotunder) (hnotover := htnotover) (hlt := htlt)]
+            simp only [decide_eq_false_iff_not, decide_eq_true_eq]
+            rw [blastIsTieBreak_eq_smtLibTieBreak_of_normal (ep := ep) (sp := sp)
+                (hep := by grind only) (hsp := by grind only) (heu := by omega) (hsu := hsu)
+                (x := x.truncateFittingExponent ep sp)
+                (hxnorm := htnorm) (hnotunder := htnotunder) (hnotover := htnotover) (hlt := htlt)]
+            simp only [decide_eq_false_iff_not, decide_eq_true_eq]
+            rw [blastIsEvenUpper_eq (by grind only) (by grind only)]
+            simp only [Bool.decide_eq_true]
+            rw [blastIsEvenLower_eq (by grind only) (by grind only)]
+            simp only [Bool.decide_eq_true]
+            rw [SmtLibSemantics.RoundMethod.roundRNE]
+            simp [hx0]
+            rw [toRat'_truncateFittingExponent_of_not_blastIsOverflowNonneg_of_not_blastIsEarlyUnderflowNonneg he hs heu (by grind only) (by grind only)]
+            -- use that blastUpper rel smtLiBupper, blastLower rel smtLibLower.
+            -- this should just be pure proof automation!
             split
-            case isTrue h2 =>
+            case neg.isTrue h1 =>
               apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
               rw [blastUpper_truncateFittingExponent_Rel_eq_blastUpper_Rel (by grind) (by grind) (by grind) (by grind)]
               exact blastUpper_Rel_smtLibUpper hep hs hsu heu x hxnorm
-            case isFalse h2 =>
+            case neg.isFalse h1 =>
               split
-              case isTrue h3 =>
+              case isTrue h2 =>
                 apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
-                rw [blastLower_truncateFittingExponent_Rel_eq_blastLower_Rel (by grind) (by grind) (by grind) (by grind)]
-                exact blastLower_Rel_smtLibLower hep hs hsu heu x hxnorm
-              case isFalse h3 =>
+                rw [blastUpper_truncateFittingExponent_Rel_eq_blastUpper_Rel (by grind) (by grind) (by grind) (by grind)]
+                exact blastUpper_Rel_smtLibUpper hep hs hsu heu x hxnorm
+              case isFalse h2 =>
                 split
-                case isTrue h4 =>
+                case isTrue h3 =>
                   apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
                   rw [blastLower_truncateFittingExponent_Rel_eq_blastLower_Rel (by grind) (by grind) (by grind) (by grind)]
                   exact blastLower_Rel_smtLibLower hep hs hsu heu x hxnorm
-                case isFalse h4 =>
-                  apply EUnpackedFloat.Rel_of_state_eq_NaN_of_isNaN
-                  · simp
-                  · grind
+                case isFalse h3 =>
+                  split
+                  case isTrue h4 =>
+                    apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
+                    rw [blastLower_truncateFittingExponent_Rel_eq_blastLower_Rel (by grind) (by grind) (by grind) (by grind)]
+                    exact blastLower_Rel_smtLibLower hep hs hsu heu x hxnorm
+                  case isFalse h4 =>
+                    apply EUnpackedFloat.Rel_of_state_eq_NaN_of_isNaN
+                    · simp
+                    · grind
 
 end Fp

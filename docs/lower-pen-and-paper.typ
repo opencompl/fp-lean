@@ -32,11 +32,18 @@
 #let bLN = $sans("blastLowerNonneg")$
 #let bUN = $sans("blastUpperNonneg")$
 #let bL = $sans("blastLower")$
+#let bU = $sans("blastUpper")$
 #let bclr = $sans("blastClearSig")$
 #let IsLawfulLower = $sans("IsLawfulLower")$
 #let IsLawfulUpper = $sans("IsLawfulUpper")$
 #let maxN = $sans("maxNormal")$
 #let lf = "lawful lower"
+#let RNE = $sans("RNE")$
+#let roundRNE = $sans("roundRNE")$
+#let lowerHalf = $sans("lowerHalf")$
+#let tieBreak = $sans("tieBreak")$
+#let isEven = $sans("isEven")$
+#let round = $sans("round")$
 
 // --- Status badges (Material palette: blue 800 = done, red 600 = to do) ---
 #let cOk = rgb("#1565C0")
@@ -53,28 +60,35 @@
 #let c(s) = raw(s.replace("_", "_" + zwsp).replace(".", "." + zwsp))
 
 #align(center)[
-  #text(17pt, weight: "bold")[Correctness of the bit-blasted lower-rounding circuit]
+  #text(17pt, weight: "bold")[Correctness of the bit-blasted round-to-nearest-even circuit]
   #v(0.2em)
   #text(11pt)[A pen-and-paper proof, structured for mechanisation in Lean 4]
   #v(0.4em)
-  #text(9.5pt, style: "italic")[Target file: `Fp/Theorems/UnpackedFloat/Round.lean` — theorem `UnpackedFloat.blastLower_Rel_smtLibLower`]
+  #text(9.5pt, style: "italic")[Target file: `Fp/Theorems/UnpackedFloat/Round.lean` — theorem `UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE`]
 ]
 
 #v(0.6em)
 
 #block(inset: (left: 0.4em, right: 0.4em), [
-  *Abstract.* We give a complete pen-and-paper proof that the bit-blasted
-  rounding-towards-the-greatest-representable-value circuit `blastLower`
-  computes a packed float that is `Rel`-equivalent to the SMT-LIB
-  specification `lower` (the greatest representable float $≤ r$). The proof
-  is organised so that each step maps directly onto a Lean lemma. We
-  isolate the abstract interface we require of the specification side
-  (`IsLawfulLower`, `lower`, `Rel`, the float ordering) in
-  @sec:interface, treating those facts as a black box. The mathematical
-  content — that bit-clearing implements truncation toward zero, and that
-  truncation toward zero is the greatest representable lower bound — lives
-  in @sec:normal, where we are careful about the exponent bounds that make
-  the subnormal shift well-defined.
+  *Abstract.* We give a pen-and-paper proof that the bit-blasted
+  round-to-nearest-ties-to-even circuit `blastSmtLibRound … .RNE` computes a
+  packed float that is `Rel`-equivalent to the SMT-LIB rounding specification
+  `round .RNE`. Both sides are, structurally, the *same* four-way selection
+  between two candidates — the greatest representable float $≤ r$ (`lower`) and
+  the least representable float $≥ r$ (`upper`) — governed by the predicates
+  $#lowerHalf$, $#tieBreak$ and $#isEven$. The proof therefore splits into two
+  parts. *Part I* (@sec:setup–@sec:sign) proves the two candidates correct:
+  `blastLower` $#Rel$ `lower` and, dually, `blastUpper` $#Rel$ `upper`. Its
+  mathematical core (@sec:normal) is that bit-clearing implements truncation
+  toward zero and that truncation is the greatest representable lower bound. We
+  isolate the abstract specification interface (`IsLawfulLower`, `lower`, `Rel`,
+  the float ordering) in @sec:interface and treat it as a black box. *Part II*
+  (@sec:rne) assembles RNE from those candidates: a single *selection engine*
+  (@sec:rne-engine) shows that the guard and sticky bits decide $#lowerHalf$ and
+  $#tieBreak$ — stated purely as which of $#lower$/$#upper$ is nearer, never via
+  the round-toward-zero circuit — after which the four-way match and the boundary
+  cases (zero, early overflow, early underflow) close the main theorem
+  (@sec:rne-assembly).
 ])
 
 = Setup and notation <sec:setup>
@@ -369,30 +383,34 @@ signed working exponent width (using $sans("exponentWidth") ≤ e_u$ and
 `hdiffNatLe` that thread through every guard/sticky lemma in the file.
 
 #block(inset: (left: 0.8em))[
-  #todo *Claim (truncation).* Let $t := (#bRTZ (x)).toRat'(s_p)$. Then $t$ is the
-  truncation of $r$ toward zero at target precision: writing
-  $beta := 2^(x.ex."toInt" - (s_p - 1) - δ(x))$ for the target unit in the
-  last place,
-  $ t = beta dot floor(r \/ beta), wide 0 ≤ r - t < beta. $ <eq:trunc>
+  #todo *Claim (within one ulp).* Let $t := (#bRTZ (x)).toRat'(s_p)$ and write
+  $beta := 2^(x.ex."toInt" - s_p + δ(x))$ for the target unit in the last place.
+  Then $t$ is a representable value at most one ulp below $r$:
+  $ 0 ≤ r - t < beta. $ <eq:trunc>
+  We do *not* need the exact quotient $t = beta floor(r\/beta)$; the lower-bound
+  $t ≤ r$ and the strict gap $r - t < beta$ are all that the maximality argument
+  (N3) consumes. In the normal regime $x.ex."toInt" ≥ #minNE$ the shift vanishes
+  ($δ(x) = 0$) and $beta = 2^(x.ex."toInt" - s_p)$ is the ordinary normal ulp; in
+  the subnormal regime $δ(x) = #minNE - x.ex."toInt" > 0$ raises the exponent back
+  to the fixed subnormal spacing $beta = 2^(#minNE - s_p)$.
 ]
 
 #block(inset: (left: 0.8em))[
   *Sketch.* By @eq:toRat, $r = x.sig."toNat" dot 2^(E(x))$. Clearing the
-  bits at and below index $g(x)$ replaces $x.sig."toNat"$ by
-  $2^(g(x)+1) dot floor(x.sig."toNat" \/ 2^(g(x)+1))$, i.e. it rounds the
-  significand down to a multiple of $2^(g(x)+1)$
-  (`blastClearSignificand_sig_toNat_le` gives $≤$; the exact quotient form is the
-  arithmetic content). Extracting the top $s_p + 1$ bits and re-reading the value
-  at precision $s_p$ rescales by the same power of two, yielding @eq:trunc with
-  $beta$ as stated. Monotonicity $0 ≤ r - t$ is
-  `blastClearSignificand_toRat_le_of_nonneg` /
-  `blastClearSignificand_toRat_le_of_nonneg`; nonnegativity of $t$ uses $x.sgn = sans("false")$. $qed$
+  bits at and below index $g(x)$ replaces $x.sig."toNat"$ by a multiple of
+  $2^(g(x)+1)$ that is $≤ x.sig."toNat"$ (`blastClearSignificand_sig_toNat_le`),
+  and discards a tail strictly smaller than $2^(g(x)+1)$. Extracting the top
+  $s_p + 1$ bits and re-reading at precision $s_p$ rescales by a fixed power of
+  two, giving the lower bound $t ≤ r$ (`blastClearSignificand_toRat_le_of_nonneg`,
+  with nonnegativity of $t$ from $x.sgn = sans("false")$) and the strict gap
+  $r - t < beta$. $qed$
 ]
 
 The use of $x."normalize" = x$ enters here: normalisation guarantees the
 implicit leading one sits in the top bit, so that "keep the top $s_p + 1$ bits"
-retains the hidden bit plus $s_p$ significand bits and the rescaling in
-@eq:trunc is exact rather than an inequality.
+retains the hidden bit plus $s_p$ significand bits and the discarded tail is
+genuinely below one ulp — making the strict gap $r - t < beta$ of @eq:trunc
+hold.
 
 === Truncation is the greatest representable lower bound
 
@@ -426,22 +444,22 @@ We now manufacture the witness $f$. Because @eq:normalrange holds, $t$ from
   and $≠ #NaN$), so $#embed (f') = #Number (f'.toRat)$ with $f'.toRat ≤ r$. Every
   representable value is an integer multiple of its own unit-in-last-place, and at
   the exponent of $f$ the target grid has spacing $beta$; since $f'.toRat ≤ r$ and
-  $f'.toRat$ is a grid point, $f'.toRat ≤ beta floor(r\/beta) = t = f.toRat$ by
-  @eq:trunc (no grid point lies in $(t, r]$ because the next grid point above $t$
-  is $t + beta > r$). Thus $#embed (f') ≤ #embed (f)$, and (O1) gives $f' ≤ f$. $qed$
+  $f'.toRat$ is a grid point, while $f = t$ is the grid point with $t ≤ r < t + beta$
+  by the one-ulp gap @eq:trunc, no grid point lies in $(t, r]$, so $f'.toRat ≤ t = f.toRat$.
+  Thus $#embed (f') ≤ #embed (f)$, and (O1) gives $f' ≤ f$. $qed$
 ]
 
 #block(inset: (left: 0.8em))[
   #todo *Proof of Lemma N.* Take $f$ from N1. It is non-#NaN. N2 and N3 are exactly the
   two conjuncts of @eq:lawful, so $#IsLawfulLower (#Number (r), f)$. Finally
-  $(#bRTZ (x)).toRat' = t = f.toRat$ (N1, @eq:trunc) and
+  $(#bRTZ (x)).toRat' = t = f.toRat$ (N1) and
   $(#bRTZ (x)).sgn = sans("false") = f.sgn$ (N1). $qed$
 ]
 
 #block(inset: (left: 0.8em), text(9.5pt)[
   _Where the bounds are essential._ N3 needs "the next grid point above $t$
-  exceeds $r$," which is $r - t < beta$ from @eq:trunc. That strict inequality is
-  precisely the truncation identity, and it depends on the guard index $g(x)$
+  exceeds $r$," which is $r - t < beta$ from @eq:trunc. That strict one-ulp gap
+  depends on the guard index $g(x)$
   pointing at the correct bit, which in turn requires @eq:shiftbounds — i.e. the
   full strength of $not sans("under")(x)$, $not sans("over")(x)$,
   $s_p + 2 ≤ s_u$, and $sans("exponentWidth")(e_p,s_p) ≤ e_u$. Drop any of these
@@ -486,12 +504,131 @@ established by the symmetric development (it is the dual sorry in the file).
     This is precisely $#bL (x) #Rel #lower (#Number (x.toRat'))$. $qed$
 ]
 
+This completes *Part I*. The same development run on the dual circuit yields
+the second candidate, `UnpackedFloat.blastUpper_Rel_smtLibUpper`:
+$ #bU (x) thin #Rel thin #upper (#Number (x.toRat')) , $
+where $#bU$ is `blastUpper`. From here on we treat both
+$#bL (x) #Rel #lower (r)$ and $#bU (x) #Rel #upper (r)$ as available.
+
+= From lower and upper to round-to-nearest-even <sec:rne>
+
+We now assemble RNE. The point of departure is that the implementation and the
+specification are the *same* four-way selection. The SMT-LIB rounder
+(`SmtLibSemantics.RoundMethod.roundRNE`) is
+$
+  #roundRNE (sgn, r) := cases(
+    #upper (r) & "if " not #lowerHalf (r) ∧ not #tieBreak (r),
+    #upper (r) & "if " #tieBreak (r) ∧ #isEven (#upper (r)),
+    #lower (r) & "if " #tieBreak (r) ∧ #isEven (#lower (r)),
+    #lower (r) & "if " #lowerHalf (r),
+  )
+$ <eq:roundRNE>
+(plus the zero case, handled by the wrapper below), and the circuit
+(`UnpackedFloat.blastSmtLibRoundRNE`) is the identical table with $#lower↦#bL$,
+$#upper↦#bU$, and the predicates replaced by their bit-blasted counterparts
+$sans("blastIsLowerHalf")$, $sans("blastIsTieBreak")$,
+$sans("blastIsEvenLower")$, $sans("blastIsEvenUpper")$. With Part I supplying the
+two candidates, RNE reduces to matching the *predicates*, then to a mechanical
+case match, then to the boundary wrapper.
+
+== The selection engine <sec:rne-engine>
+
+We phrase the selection *entirely in terms of the two candidates* $#lower (r)$
+and $#upper (r)$ from Part I — never in terms of the internal round-toward-zero
+circuit. This keeps Part II at the specification level and lets the negative
+branch be recovered by the same negation duality (S4) used in @sec:sign: for
+$x.sgn = sans("true")$ we work with $-x$ (nonnegative) and read off
+$#lower (r) = -(#upper (-r))$, so the entire engine is developed once, for the
+nonnegative branch, around $#lower$.
+
+Assume the nonnegative normal range of @sec:normal. There $#lower (r)$ and
+$#upper (r)$ are the two adjacent representable points bracketing $r$, with
+$ (#lower (r)).toRat ≤ r ≤ (#upper (r)).toRat . $ <eq:bracket>
+"Round to nearest" asks which endpoint is closer, and a tie is the exact
+midpoint. The guard and sticky bits are precisely the bits that decide this:
+
+#block(stroke: 0.6pt + luma(60%), inset: 8pt, radius: 3pt, width: 100%)[
+  #todo *Lemma E (selection engine).* In the nonnegative normal range,
+  $
+    sans("blastIsLowerHalf")(x) &= [thin r - (#lower (r)).toRat < (#upper (r)).toRat - r thin]
+      && quad (#c("blastIsLowerHalf_eq_decide_dist_lt_of_nonneg")) \
+    sans("blastIsTieBreak")(x) &= [thin r - (#lower (r)).toRat = (#upper (r)).toRat - r thin]
+      && quad (#c("blastIsTieBreak_eq_decide_dist_eq_of_nonneg")) .
+  $
+  That is, $#lowerHalf$ is "$r$ strictly nearer $#lower$", and $#tieBreak$ is
+  "$r$ equidistant from $#lower$ and $#upper$".
+]
+
+#block(inset: (left: 0.8em), text(9.5pt)[
+  _Why this is the keystone._ Lemma E is the only genuinely new mathematical
+  content of Part II. Its proof is where the half-ulp arithmetic lives — the
+  guard bit sits at value $((#upper (r)).toRat - (#lower (r)).toRat)\/2$, the
+  midpoint of @eq:bracket — but the *statement* exposes nothing but $#lower$ and
+  $#upper$. Everything below is bookkeeping on top of Lemma E and Part I.
+])
+
+From Lemma E the two SMT-LIB selector bridges follow, because $#lowerHalf$ and
+$#tieBreak$ are *defined* (`SmtLibSemantics.smtLibRoundMethod`) by comparing
+$#lower$ at precisions $s_p$ and $s_p+1$ — i.e. by exactly the nearer-endpoint
+test of Lemma E, identified through the Part I specifications:
+
+#block(inset: (left: 1em))[
+  #todo *(P1)* (`blastIsLowerHalf_iff_smtLibLowerHalf`).
+  $sans("blastIsLowerHalf")(x) = sans("true") thick <==> thick #lowerHalf (#Number (r))$.
+
+  #todo *(P2)* (`blastTieBreak_iff_smtLibTieBreak`).
+  $sans("blastIsTieBreak")(x) = sans("true") thick <==> thick #tieBreak (#Number (r))$.
+
+  #proved *(P3)* (`blastIsEvenLower_eq`, `blastIsEvenUpper_eq`). The even
+  predicates already match: $sans("blastIsEvenLower")(x)$ and
+  $sans("blastIsEvenUpper")(x)$ equal $#isEven (#lower (#Number (r)))$ and
+  $#isEven (#upper (#Number (r)))$ respectively.
+]
+
+The sign reduction for $#lowerHalf$/$#tieBreak$ is the same negation-duality
+device as @sec:sign (the negative case mirrors guard/sticky on $-x$), so Lemma E
+is stated for the nonnegative branch and lifted.
+
+== The boundary wrapper and the Main Theorem <sec:rne-assembly>
+
+The top-level circuit `UnpackedFloat.blastSmtLibRound … .RNE` guards the
+selection of @eq:roundRNE with three early exits, matched against the
+specification's own special cases:
+
+#block(inset: (left: 1em))[
+  #todo *(B0) Zero.* If $x$ is zero the circuit returns $plus.minus 0$; the spec
+  agrees via `roundRNE_zero`.
+
+  #todo *(B+) Early overflow* (`roundRNE_eq_infinity_of_maxNormalExp_lt`). If
+  $#maxNE < x.ex."toInt"$ the circuit returns $plus.minus ∞$ and so does
+  $#roundRNE$ (RNE sends everything above the largest finite float to infinity).
+
+  #todo *(B−) Early underflow* (`roundRNE_eq_zero_of_lt_minNormalExp`). Below the
+  minimum subnormal exponent the circuit returns $plus.minus 0$ and so does
+  $#roundRNE$.
+]
+
+Off the boundary, `truncateFittingExponent` re-seats the exponent without
+changing the `Rel`-class (`blastLower_truncateFittingExponent_Rel_eq_blastLower_Rel`
+and its `blastUpper` twin), and we are in the regime where Lemma E and (P1)–(P3)
+apply. The four-way match of @eq:roundRNE against the circuit is then mechanical.
+
+#block(stroke: 0.6pt + luma(60%), inset: 8pt, radius: 3pt, width: 100%)[
+  #todo *Main Theorem (RNE)* (`UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE`).
+  For a normalised $x$ and the standing hypotheses,
+  $ (#bL "/" #bU "selection on " x) thin #Rel thin #round (#RNE, x.sgn, #Number (x.toRat)) . $
+  _Proof._ Case on the wrapper. (B0)/(B+)/(B−) discharge the boundary exits.
+  Otherwise rewrite the circuit's predicates by (P1)–(P3), rewrite the spec by
+  @eq:roundRNE, and match the four branches: each returns $#bL (x)$ or $#bU (x)$,
+  which are $#Rel$-correct by Part I. $qed$
+]
+
 = Dependency map for mechanisation <sec:deps>
 
 The following table lists every lemma the argument consumes, its status in
 `Round.lean`, and the section that uses it. "Interface" lemmas are assumed; the
-remaining ones (Lemmas U, O, N and the sublemmas) are the genuine proof
-obligations, currently `sorry` in the file.
+remaining ones (Lemmas U, O, N, the sublemmas, and the Part II obligations) are
+the genuine proof obligations, currently `sorry` in the file.
 
 #text(size: 8.5pt)[
 #table(
@@ -518,10 +655,20 @@ obligations, currently `sorry` in the file.
   [Branch O (support)], [#c("not_isNaN_maxNormalNumber"), #c("toRat'_maxNormal_eq_toRat_maxNormalNumber")], [#proved],
   [Branch N (Lemma N)], [#c("exists_packedFloat_isLawfulLower_of_blastRoundTowardZero")], [#todo],
   [@eq:trunc (≤ part)], [#c("blastClearSignificand_toRat_le_of_nonneg"), #c("blastClearSignificand_sig_toNat_le")], [#proved],
-  [@eq:trunc (exact)], [truncation identity — strengthen the ≤-lemmas to equality], [#todo],
+  [@eq:trunc (strict gap)], [the $r - t < beta$ bound — strengthen the ≤-lemmas to a strict one-ulp gap], [#todo],
   [@eq:shiftbounds], [#c("toNat_guardBitIndex_eq"), #c("toNat_lsbIndex_eq")], [#proved],
   [Lemma U★], [#c("blastUpperNonneg_Rel_smtLibUpper")], [#todo],
-  [Main], [#c("blastLower_Rel_smtLibLower")], [#todo],
+  [Part I main], [#c("blastLower_Rel_smtLibLower"), #c("blastUpper_Rel_smtLibUpper")], [#todo],
+  table.cell(colspan: 3, fill: luma(94%))[*Part II — round-to-nearest-even (@sec:rne)*],
+  [Lemma E (@sec:rne-engine)], [#c("blastIsLowerHalf_eq_decide_dist_lt_of_nonneg"), #c("blastIsTieBreak_eq_decide_dist_eq_of_nonneg")], [#todo],
+  [P1], [#c("blastIsLowerHalf_iff_smtLibLowerHalf")], [#todo],
+  [P2], [#c("blastTieBreak_iff_smtLibTieBreak")], [#todo],
+  [P3], [#c("blastIsEvenLower_eq"), #c("blastIsEvenUpper_eq")], [#proved],
+  [B0], [#c("roundRNE_zero")], [#proved],
+  [B+], [#c("roundRNE_eq_infinity_of_maxNormalExp_lt")], [#todo],
+  [B−], [#c("roundRNE_eq_zero_of_lt_minNormalExp")], [#todo],
+  [Re-seat exponent], [#c("blastLower_truncateFittingExponent_Rel_eq_blastLower_Rel"), #c("blastUpper_truncateFittingExponent_Rel_eq_blastUpper_Rel")], [#todo],
+  [Main (RNE)], [#c("toExtRat_round_Rel_smtLibRound_of_RNE")], [#todo],
 )
 ]
 
@@ -530,24 +677,27 @@ obligations, currently `sorry` in the file.
 
 == Recommended mechanisation order
 
-The five steps below are ordered by dependency: each consumes only proved
-facts and the outputs of earlier steps. Equation numbers refer to the boxed,
-numbered displays above.
+The steps below are ordered by dependency: each consumes only proved facts and
+the outputs of earlier steps. Steps 1–5 are *Part I* (the two candidates);
+Steps 6–8 are *Part II* (RNE). Equation numbers refer to the boxed, numbered
+displays above.
 
-=== Step 1 — the truncation identity (@eq:trunc)
+=== Step 1 — the one-ulp gap (@eq:trunc)
 
-This is the keystone; everything in the normal branch rests on it. The file
-currently proves only the inequality direction (`blastClearSignificand_toRat_le_of_nonneg`,
-`blastClearSignificand_sig_toNat_le`). Strengthen this to the *exact* quotient
-form of @eq:trunc:
-$ (#bRTZ (x)).toRat'(s_p) = beta dot floor(x.toRat' \/ beta), wide beta = 2^(x.ex."toInt" - (s_p-1) - δ(x)). $
-Prove it at the bit level: `blastClearSignificand` replaces $x."sig"."toNat"$ by
-$2^(g+1) floor(x."sig"."toNat" \/ 2^(g+1))$ with $g = g(x)$ the guard index, and
-the top-$(s_p{+}1)$-bit extraction is exactly division by $2^(g+1)$ followed by
-rescaling. The index arithmetic needs the three bounds of Equation
-@eq:shiftbounds, which are already available via `toNat_guardBitIndex_eq`. *This
-step requires* $x."normalize" = x$ (so the hidden bit is in the top position and
-the rescaling is exact, not merely $≤$).
+The normal branch needs only that $#bRTZ (x)$ lands within one ulp below $r$. The
+file already proves the lower bound $t ≤ r$
+(`blastClearSignificand_toRat_le_of_nonneg`, `blastClearSignificand_sig_toNat_le`);
+add the *strict gap*
+$ 0 ≤ r - (#bRTZ (x)).toRat'(s_p) < beta, wide beta = 2^(x.ex."toInt" - s_p + δ(x)). $
+We deliberately do *not* prove the exact quotient $t = beta floor(r\/beta)$:
+the maximality argument (N3) consumes only $t ≤ r$ and $r - t < beta$, so we stay
+at the level of $#lower$/$#upper$ rather than naming a round-toward-zero value.
+Prove the gap at the bit level: `blastClearSignificand` discards the bits at and
+below the guard index $g = g(x)$, a tail strictly below $2^(g+1)$; rescaling by
+the top-$(s_p{+}1)$-bit extraction turns this into $r - t < beta$. The index
+arithmetic needs the three bounds of @eq:shiftbounds, already available via
+`toNat_guardBitIndex_eq`. *This step requires* $x."normalize" = x$ (the hidden bit
+in the top position is what makes the discarded tail genuinely below one ulp).
 
 === Step 2 — Sublemmas N1, N3 and Lemma N (@eq:trunc, @eq:normalrange, @eq:shiftbounds)
 
@@ -576,13 +726,45 @@ Repeat Steps 1–3 with all inequalities reversed to obtain
 `blastUpperNonneg_Rel_smtLibUpper`: the dual primitive is
 `blastSuccessorAwayFromZero` (round *away* from zero), and the boundary
 witnesses become $sans("minSubnormal")$ (underflow) and $+∞$ (overflow). The
-truncation identity of Step 1 reused with a $ceil(dot.c)$ in place of
-$floor(dot.c)$ gives the dual of @eq:trunc. No new ideas are needed.
+one-ulp gap of Step 1, dualized to a gap *above* $r$ ($0 ≤ t' - r < beta$ for the
+rounded-up value $t'$), gives the dual of @eq:trunc. No new ideas are needed.
 
-=== Step 5 — assembly (@eq:bln, @eq:blastlower)
+=== Step 5 — assembly of the candidates (@eq:bln, @eq:blastlower)
 
 The top-level case analysis is already written in
 `blastLower_Rel_smtLibLower`. The nonnegative case combines Steps 2–3 through
 @eq:bln; the negative case rewrites via the duality (S4) and Equation
 @eq:blastlower, applies Step 4, and negates with (R2). Once Steps 1–4 are
-filled, this theorem closes with no remaining `sorry`.
+filled, this theorem — and dually `blastUpper_Rel_smtLibUpper` — close with no
+remaining `sorry`. This finishes Part I.
+
+=== Step 6 — the selection engine, Lemma E (@sec:rne-engine, @eq:bracket)
+
+The genuinely new Part II content. Prove
+`blastIsLowerHalf_eq_decide_dist_lt_of_nonneg` and
+`blastIsTieBreak_eq_decide_dist_eq_of_nonneg`: that the guard bit decides "$r$
+nearer $#lower$" and guard-with-clear-sticky decides "$r$ at the midpoint", both
+stated as comparisons of the distances $r - (#lower (r)).toRat$ and
+$(#upper (r)).toRat - r$. The arithmetic core is that the guard bit sits at the
+midpoint of @eq:bracket; this is where the half-ulp reasoning lives, but it is
+discharged *once*, here, and never leaks the round-toward-zero circuit into the
+statement. The negative branch is the (S4) duality, as in @sec:sign.
+
+=== Step 7 — the selector bridges P1, P2 (@eq:roundRNE)
+
+With Lemma E and the Part I specifications, prove
+`blastIsLowerHalf_iff_smtLibLowerHalf` and `blastTieBreak_iff_smtLibTieBreak` by
+unfolding the SMT-LIB definitions of $#lowerHalf$/$#tieBreak$ (the two-precision
+$#lower$ comparison) to the nearer-endpoint test of Lemma E. The even predicates
+P3 (`blastIsEvenLower_eq`, `blastIsEvenUpper_eq`) are already proved.
+
+=== Step 8 — the boundary wrapper and the RNE theorem (@sec:rne-assembly)
+
+Discharge the three early exits — B0 zero (`roundRNE_zero`, proved), B+ early
+overflow (`roundRNE_eq_infinity_of_maxNormalExp_lt`), B− early underflow
+(`roundRNE_eq_zero_of_lt_minNormalExp`) — and the exponent re-seating
+(`blastLower_truncateFittingExponent_Rel_eq_blastLower_Rel` and its `blastUpper`
+twin). Then in `toExtRat_round_Rel_smtLibRound_of_RNE`, rewrite the circuit's
+predicates by Steps 6–7 (P1–P3), rewrite the spec by @eq:roundRNE, and match the
+four branches — each returning $#bL$ or $#bU$, correct by Part I. Once Steps 1–7
+are filled, this closes the development with no remaining `sorry`.
