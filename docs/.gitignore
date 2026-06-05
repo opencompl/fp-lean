@@ -1,6 +1,3 @@
-# Typst build output
-*.pdf
-
 # Intermediate / preview renders
 *.png
 *.svg
