@@ -418,6 +418,7 @@ theorem lsLawfulLower_smtLibLower (e s : Nat) (he : 0 < e) (hs : 0 < s) (r : Ext
   have := IsLawfulLower_lower e s he hs r
   grind only [#de43]
 
+
 /--
 two lawful lowers are equal to each other.
 -/
@@ -739,5 +740,20 @@ theorem smtLibUpper_eq_self_of_eq_toExtRat_of_not_isNaN
 info: 'Fp.smtLibUpper_eq_self_of_eq_toExtRat_of_not_isNaN' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in #print axioms smtLibUpper_eq_self_of_eq_toExtRat_of_not_isNaN
+
+
+/-- To show that 'x' is a `IsLawfulLower r`, it suffices to show that it's equal to what `lower` computes. -/
+theorem IsLawfulLower_of_eq_lower
+    (e s : Nat) (r : ExtRat) (x : PackedFloat e s) (he : 0 < e) (hs : 0 < s)
+    (heq : x = lower e s he hs r) : SmtLibSemantics.IsLawfulLower r x := by
+  rw [heq]
+  exact IsLawfulLower_lower e s he hs r
+
+/-- To show that 'x' is a `IsLawfulUpper r`, it suffices to show that it's equal to what `lower` computes. -/
+theorem IsLawfulLower_of_eq_upper
+    (e s : Nat) (r : ExtRat) (x : PackedFloat e s) (he : 0 < e) (hs : 0 < s)
+    (heq : x = upper e s he hs r) : SmtLibSemantics.IsLawfulUpper r x := by
+  rw [heq]
+  exact IsLawfulUpper_upper e s he hs r
 
 end Fp

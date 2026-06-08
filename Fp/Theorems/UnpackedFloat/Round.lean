@@ -505,6 +505,50 @@ theorem UnpackedFloat.normalize_neg_eq_neg_of_normalize_eq (x : UnpackedFloat e 
     (-x).normalize = -x := by
   rw [UnpackedFloat.neg_normalize_eq_neg_normalize, hxnorm]
 
+/-# blastIsEvenUpper, blastIsEvenLower -/
+
+theorem blastIsEvenUpper_iff_smtLibIsEven_upper (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s) :
+  x.blastIsEvenUpper ep sp = true ↔
+    (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).isEven
+          (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat')) = true := by
+  simp [UnpackedFloat.blastIsEvenUpper]
+  simp [SmtLibSemantics.smtLibRoundMethod]
+  sorry
+
+theorem blastIsEvenUpper_eq (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s) :
+  x.blastIsEvenUpper ep sp = (decide <| (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).isEven
+          (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat'))) := by
+  have := blastIsEvenUpper_iff_smtLibIsEven_upper he hs x
+  grind
+
+theorem blastIsEvenLower_iff_smtLibIsEven_lower (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s) :
+  x.blastIsEvenLower ep sp = true ↔
+    (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).isEven
+          (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat')) = true := by
+  simp [UnpackedFloat.blastIsEvenLower]
+  simp [SmtLibSemantics.smtLibRoundMethod]
+  sorry
+
+theorem blastIsEvenLower_eq (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s) :
+  x.blastIsEvenLower ep sp = (decide <| (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).isEven
+          (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat'))) := by
+  have := blastIsEvenLower_iff_smtLibIsEven_lower he hs x
+  grind
+
+/-# blastIsOverflowNonneg -/
+
+@[simp]
+theorem UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide  (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su) :
+    x.blastIsEarlyOverflowNonneg ep sp = decide (maxNormalExp ep < x.ex.toInt) := by
+  simp [UnpackedFloat.blastIsEarlyOverflowNonneg]
+  rw [BitVec.slt_eq_decide]
+  rw [toInt_ofInt_maxNormalExp_eq_maxNormalExp_of_le (w := eu) he hs]
+  · grind only
+
+
+
 /-# `blastLowerNonneg` matches `lower`
 
 ## Plan
@@ -578,6 +622,32 @@ info: 'Fp.EUnpackedFloat.Rel_smtLibLower_of_witness' depends on axioms: [propext
 -/
 #guard_msgs in #print axioms EUnpackedFloat.Rel_smtLibLower_of_witness
 
+/-# blastIsUnderflowNonneg -/
+
+@[simp]
+theorem UnpackedFloat.blastUnderflowNonneg_eq_decide (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su) :
+    x.blastIsUnderflowNonneg ep sp = decide (x.ex.toInt < minSubnormalExp ep sp) := by
+  simp [UnpackedFloat.blastIsUnderflowNonneg]
+  rw [BitVec.slt_eq_decide]
+  rw [toInt_ofInt_minSubnormalExp_eq_minSubnormalExp_of_le (w := eu) he hs]
+  · grind only
+
+/-# blastIsEarlyUnderflowNonneg -/
+
+@[simp]
+theorem UnpackedFloat.blastIsEarlyUnderflowNonneg_eq_decide (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su) :
+    x.blastIsEarlyUnderflowNonneg ep sp = decide (x.ex.toInt < minSubnormalExp ep sp - 1) := by
+  simp [UnpackedFloat.blastIsEarlyUnderflowNonneg]
+  rw [BitVec.slt_eq_decide]
+  rw [toInt_ofInt_minSubnormalExp_sub_one_eq_minSubnormalExp_sub_one_of_le (w := eu) he hs]
+  · grind only
+
+
+
 /-! ## Branch (1): underflow
 
 When `x` is positive but smaller in magnitude than the smallest representable
@@ -592,16 +662,63 @@ This is hard: it requires knowing `x.toRat' < (minSubnormal target).toRat`
 and that no negative PF can be `> x`'s value (since `x ≥ 0`).
 -/
 theorem isLawfulLower_Number_getZero_of_underflowNonneg
-    (he : 0 < ep) (hs : 0 < sp)
+    (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
     (x : UnpackedFloat eu su)
     (hxsign : x.sign = false)
     (hunder : x.blastIsUnderflowNonneg ep sp = true) :
     SmtLibSemantics.IsLawfulLower (ExtRat.Number x.toRat')
       (PackedFloat.getZero ep sp false) := by
-  sorry
+  constructor
+  · -- is a lower bound.
+    simp [hs]
+    rw [PackedFloat.toExtRat'_getZero]
+    simp only [ExtRat.ExtRat.num_le_num_iff, decide_eq_true_eq]
+    -- 0 ≤ x.toRat' because 'x' is nonnegative. (sign = false) and is not nan.
+    apply UnpackedFloat.zero_le_toRat'_of_sign_eq_false
+    · grind only
+  · -- is a greatest lower bound.
+    intros lower' hlower'
+    simp at hlower'
+    apply PackedFloat.le_of_toExtRat'_le_toExtRat'
+    · grind
+    · grind
+    · grind
+    · grind
+    · grind
+    · grind
+    · rw [PackedFloat.toExtRat'_getZero]
+      induction lower' using PackedFloat.classification
+      case nanCase => grind only [= PackedFloat.isNaN_iff_toExtRat'_eq_NaN, = ExtRat.le_NaN]
+      case infCase infsign =>
+        simp [hs, show 0 < ep by grind] at hlower' ⊢
+        grind only
+      case zeroCase zerosign =>
+        simp [hs, show 0 < ep by grind] at hlower' ⊢
+      case numCase y hy =>
+        simp [hs, show 0 < ep by grind] at hlower' ⊢
+        simp [show ¬ y.isNaN by grind]
+        simp [show ¬ y.isZero by grind]
+        apply Classical.byContradiction
+        intros hysign
+        simp at hysign
+        -- y must be zero, since it is strrictly less than y.
+        rw [y.toExtRat'_eq_toRat_of] at hlower'
+        simp at hlower'
+        rw [PackedFloat.toRat_eq] at hlower'
+        simp [hysign] at hlower'
+        rw [UnpackedFloat.blastUnderflowNonneg_eq_decide (he := by grind) (hs := by grind) (heu := by grind)] at hunder
+        simp at hunder
+        rw [UnpackedFloat.toRat'] at hlower'
+        simp [hxsign] at hlower'
+
+        have : y.isZero := by sorry
+        grind only [→ PackedFloat.not_isZero_of_isNormOrSubnorm]
 
 theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_underflow
-    (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat eu su)
+    (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su)
     (hxsign : x.sign = false)
     (hunder : x.blastIsUnderflowNonneg ep sp = true) :
     (EUnpackedFloat.mkNumber (UnpackedFloat.mkZero false) :
@@ -612,7 +729,10 @@ theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_underflow
       (he := by grind) (hs := hs)
   · simp
   · simp; grind only
-  · exact isLawfulLower_Number_getZero_of_underflowNonneg (by grind) hs x hxsign hunder
+  · exact isLawfulLower_Number_getZero_of_underflowNonneg (he := show 1 < ep by grind)
+      (hs := show  0 < sp by grind)
+      (heu := show exponentWidth ep sp ≤ eu by grind)
+      x hxsign hunder
   · -- `(mkZero false).num.toRat' = 0 = (getZero ep sp false).toRat`
     simp only [EUnpackedFloat.num_mkNumber]
     rw [UnpackedFloat.toRat'_mkZero,
@@ -921,72 +1041,6 @@ theorem UnpackedFloat.blastUpper_Rel_smtLibUpper (hep : 2 < ep) (hsp : 0 < sp)
     · grind only
     · grind only
     · simp [hsign]
-
-/-# blastIsEvenUpper, blastIsEvenLower -/
-
-theorem blastIsEvenUpper_iff_smtLibIsEven_upper (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s) :
-  x.blastIsEvenUpper ep sp = true ↔
-    (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).isEven
-          (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat')) = true := by
-  simp [UnpackedFloat.blastIsEvenUpper]
-  simp [SmtLibSemantics.smtLibRoundMethod]
-  sorry
-
-theorem blastIsEvenUpper_eq (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s) :
-  x.blastIsEvenUpper ep sp = (decide <| (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).isEven
-          (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat'))) := by
-  have := blastIsEvenUpper_iff_smtLibIsEven_upper he hs x
-  grind
-
-theorem blastIsEvenLower_iff_smtLibIsEven_lower (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s) :
-  x.blastIsEvenLower ep sp = true ↔
-    (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).isEven
-          (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat')) = true := by
-  simp [UnpackedFloat.blastIsEvenLower]
-  simp [SmtLibSemantics.smtLibRoundMethod]
-  sorry
-
-theorem blastIsEvenLower_eq (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s) :
-  x.blastIsEvenLower ep sp = (decide <| (SmtLibSemantics.smtLibRoundMethod (R := ExtRat) ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).isEven
-          (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat'))) := by
-  have := blastIsEvenLower_iff_smtLibIsEven_lower he hs x
-  grind
-
-/-# blastIsOverflowNonneg -/
-
-@[simp]
-theorem UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide  (he : 1 < ep) (hs : 0 < sp)
-    (heu : exponentWidth ep sp ≤ eu)
-    (x : UnpackedFloat eu su) :
-    x.blastIsEarlyOverflowNonneg ep sp = decide (maxNormalExp ep < x.ex.toInt) := by
-  simp [UnpackedFloat.blastIsEarlyOverflowNonneg]
-  rw [BitVec.slt_eq_decide]
-  rw [toInt_ofInt_maxNormalExp_eq_maxNormalExp_of_le (w := eu) he hs]
-  · grind only
-
-/-# blastIsUnderflowNonneg -/
-
-@[simp]
-theorem UnpackedFloat.blastUnderflowNonneg_eq_decide (he : 1 < ep) (hs : 0 < sp)
-    (heu : exponentWidth ep sp ≤ eu)
-    (x : UnpackedFloat eu su) :
-    x.blastIsUnderflowNonneg ep sp = decide (x.ex.toInt < minSubnormalExp ep sp) := by
-  simp [UnpackedFloat.blastIsUnderflowNonneg]
-  rw [BitVec.slt_eq_decide]
-  rw [toInt_ofInt_minSubnormalExp_eq_minSubnormalExp_of_le (w := eu) he hs]
-  · grind only
-
-/-# blastIsEarlyUnderflowNonneg -/
-
-@[simp]
-theorem UnpackedFloat.blastIsEarlyUnderflowNonneg_eq_decide (he : 1 < ep) (hs : 0 < sp)
-    (heu : exponentWidth ep sp ≤ eu)
-    (x : UnpackedFloat eu su) :
-    x.blastIsEarlyUnderflowNonneg ep sp = decide (x.ex.toInt < minSubnormalExp ep sp - 1) := by
-  simp [UnpackedFloat.blastIsEarlyUnderflowNonneg]
-  rw [BitVec.slt_eq_decide]
-  rw [toInt_ofInt_minSubnormalExp_sub_one_eq_minSubnormalExp_sub_one_of_le (w := eu) he hs]
-  · grind only
 
 /-# blastIsLowerHalf -/
 
