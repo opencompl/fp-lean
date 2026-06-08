@@ -711,9 +711,13 @@ theorem isLawfulLower_Number_getZero_of_underflowNonneg
         simp at hunder
         rw [UnpackedFloat.toRat'] at hlower'
         simp [hxsign] at hlower'
+        rw [UnpackedFloat.toExpInt] at hlower'
+        rw [Int.neg_sub] at hlower'
+        rw [Rat.zpow_sub_eq_zpow_mul_zpow] at hlower'
 
-        have : y.isZero := by sorry
-        grind only [→ PackedFloat.not_isZero_of_isNormOrSubnorm]
+
+
+
 
 theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_underflow
     (he : 1 < ep) (hs : 0 < sp)
@@ -945,7 +949,7 @@ theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower (he : 2 < ep) (hsp : 0 < 
   unfold UnpackedFloat.blastLowerNonneg
   by_cases hunder : x.blastIsUnderflowNonneg ep sp = true
   · simp [hunder]
-    exact UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_underflow (by grind only) hsp x hxsign hunder
+    exact UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_underflow (he := show 1 < ep by grind) (hs := show 0 < sp by grind) (show exponentWidth ep sp ≤ eu by grind) x hxsign hunder
   · simp only [Bool.not_eq_true] at hunder
     simp [hunder]
     by_cases hover : x.blastIsEarlyOverflowNonneg ep sp = true
