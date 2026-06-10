@@ -62,66 +62,91 @@
 
 #v(0.6em)
 
+== Setup
+
+We round into two formats: `PackedFloat e s`, and `PackedFloat e (s+1)`, the
+same format with one extra significand bit. `lower r` is the greatest
+representable value below `r`, and `upper r` the least above (this is
+`IsLawfulLower` / `IsLawfulUpper`). Write $a$ for the embed of the coarse
+`lower r`, and $delta$ for the grid spacing at `r`, so `r` lives in
+$[a, a+delta)$.
+
+Three facts we use throughout:
+- The fine grid is the coarse grid plus the midpoint of every cell. So the
+  only fine points in $[a, a+delta)$ are $a$ and $a + delta\/2$.
+- The guard bit $g$ says which half of the cell `r` is in: $g = 0$ iff
+  $r < a + delta\/2$. The sticky bit $t$ is $0$ iff `r` is on the fine grid,
+  i.e. `r` is $a$ or the midpoint.
+- For negative `r`, guard and sticky refer to `|r|` (`neg` only flips the
+  sign bit, so the circuit reads the same significand).
 
 == Correctness of lower (also upper)
 
-Check that lower produces any floating point number.
-This needs us to show that the result of lower can be packed.
-ie, (lowerComputed r).pack.unpack = lowerComputed r under the conditions we call it.
+Check that lower produces an actual floating point number. This needs us to
+show that the result of lower can be packed: `(lowerComputed r).pack.unpack =
+lowerComputed r` under the conditions we call it.
 
+Next, we show that `lowerComputed r` is close enough to `r`. That is,
+(a) `lowerComputed r <= r`, and (b) `r - delta < lowerComputed r`
+(concretely, $delta = 2^(-(s+2))$).
 
-Next, we show that 'lowerComputed r' is close enough to 'r'. That is, (a) `lowerComputed r <= r`
-and (b) `r - 2^(-(s+2)) < lowerComputed r`.
-
-From this, we will show that `lowerComputer r = lowr `r.
-
-First, see that we must have that `lowerComputer r <= lower r`, since `lowerComputed r` is a lower bound on `r`,
-and must be dominated by the greatest lower bound, which is `lower r`.
-Next, we want to show that `lower r <= lowerComputed r`.
-
-We start from `lowerComputer r <= r`.
-We assume for contradiction that `lowerComputed r != lower r`.
-Then, we must have that `lowerComputed r + 2^-(s+2) <= lower r`, 
-from the 'discreteness lemma' for PackedFloat.
-This then means that `lowerComputed r + 2^-(s+2) <= lower r <= r`.
-This contradicts property (b), wher we show that `lowerComputed r` is at least `2^-(s+2)` away from `r`.
-This proves `lower` correct.
-
+From this, `lowerComputed r = lower r`. First, `lowerComputed r <= lower r`,
+since `lowerComputed r` is a lower bound on `r` and must be dominated by the
+greatest lower bound. Next, assume for contradiction that `lowerComputed r ≠
+lower r`. Then `lowerComputed r + delta <= lower r <= r`, by the discreteness
+lemma for `PackedFloat`. This contradicts (b). This proves `lower` correct.
 
 == Correctness of upper
 
-Upper follows the same strategy, adjusted for the incrementing the significand and whatnot.
+Same strategy, mirrored: show `r <= upperComputed r < r + delta`, then run
+the least-upper-bound argument. The circuit is different (it increments the
+significand, with carry), but the proof only consumes the two bounds and
+discreteness.
+
+== The half-ulp identity
+
+`isLowerHalf` and `isTieBreak` compare rounding in the coarse format against
+the fine one. Everything follows from one identity. For `r >= 0`:
+
+$ "fine lower" = a + g dot delta\/2. $
+
+That is: the fine lower is the coarse lower, bumped up by half an ulp exactly
+when the guard bit is set. Proof: $a$ is fine-representable and below `r`, so
+$a <=$ fine lower $<= r < a + delta$. The only fine points in that range are
+$a$ and the midpoint, and which one we land on is decided by which half `r`
+is in — which is $g$.
+
+Dually for upper: if $t = 0$ then fine upper = fine lower = `r`; if $t = 1$
+then the fine upper is the midpoint when $g = 0$, and $a + delta$ when
+$g = 1$.
 
 == Correctness of isLowerHalf
 
-In SMT-LIB, we define `isLowerHalf` as 
+In SMT-LIB:
 
 ```
-lowerHalf r := ExtendedNumber.smtLibEq (v.embed (v.lower r))  (ves.embed (ves.lower r))
+lowerHalf r := smtLibEq (v.embed (v.lower r)) (ves.embed (ves.lower r))
 ```
 
-We know that `r - 2^(-s+2) <= v.embed (v.lower r) <= r`,
-and similarly, `r - 2^(-s+3) <= ves.embed (ves.lower r) <= r`.
+i.e. refining the grid does not change the result of rounding down.
+(`smtLibEq` is plain equality away from NaN and signed zeros.)
 
+For `r >= 0`: by the half-ulp identity, the two lowers agree iff $g = 0$. So
+`lowerHalf = !guardBit`, which is exactly `blastIsLowerHalfNonneg`.
 
-The key lemma we need is that `(v.embed (v.lower r)) - (ves.embed (ves.lower r)) <= 2^(-s+3)`.
-We can get this inequality by subtracting the two inequalities above:
+For `r < 0`: negation swaps lower and upper. So `lowerHalf r` iff the coarse
+and fine uppers of `|r|` agree, which (for $t = 1$, by the dual identity)
+happens iff $g = 1$. So `lowerHalf = guardBit` of the magnitude, which is
+exactly `blastIsLowerHalfNeg`.
 
-```
-r - 2^(-s+3) <= ves.embed (ves.lower r) <= r 
--r <= -(v.embed (v.lower r)) <= r - 2^(-s+2)
-
---------------------------------------
-???
-
-```
-
-That is, we get only one more bit of precision from the 'lower' of the 'extended' number, than we do from the 'lower' of the normal number.
-This is exactly computed by the guard bit of the 'lower' of the normal number, which is what we use to compute `isLowerHalf`.
-
+Boundary cases ($t = 0$, negative side only): at an exact point the spec says
+true but the circuit says false; at a midpoint the spec says false but the
+circuit says true. Both are harmless. An exact `r` has `lower = upper = r`,
+so every mode returns `r` regardless. A midpoint is a tie, and the tie
+branches fire before `lowerHalf` matters. So we mechanise the pointwise lemma
+under $t = 1$, and discharge $t = 0$ inside the round proof.
 
 == Correctness of isTieBreak
-
 
 ```
 tieBreak r :=
@@ -129,23 +154,45 @@ tieBreak r :=
   (ves.embed (ves.upper r) < (v.embed (v.upper r)))
 ```
 
-== Correctness of isEvenLower
+i.e. refining raises the lower exactly when it lowers the upper. Case on
+$(g, t)$, using the identities:
 
+- $(0,0)$, exact: both sides false. True.
+- $(0,1)$: lowers agree, uppers do not. False.
+- $(1,0)$, midpoint: both sides true. True — the genuine tie.
+- $(1,1)$: lowers differ, uppers agree. False.
+
+So the spec holds exactly when $t = 0$: midpoints _and_ exact points. The
+circuit computes `guard && !sticky` — midpoints only. The mismatch at exact
+points is harmless as before, so we mechanise under "`r` not representable in
+the coarse format".
+
+Negation swaps the two sides of the biconditional, which is symmetric, so the
+same boolean works for both signs — as the circuit does.
+
+Caveat: near overflow the coarse upper goes infinite while the fine format
+still has finite points above `maxNormal`. So the lemma needs an in-range
+hypothesis; the circuit handles overflow on a separate path anyway.
+
+== Correctness of isEvenLower
 
 ```
 isEven := roundableIsEven_of_packedFloat.isEven
 ```
 
+`isEven` reads the LSB of the packed significand. Once `lower` is correct,
+both sides look at the same float, and we just check that
+`blastExtractIsEven` (bit `guardBitIndex + 1` of the wide significand) is
+that LSB — a `getLsbD` index computation, transported through pack/unpack.
 
-Once we know that 'lower' is correct, this follows since 'isEvenLower' just takes that bit of the 'lower'.
-We just show that the value of the 'getLsbD' agrees.
+== Correctness of isEvenUpper
 
-== Correctess of isEvenHigher
+The circuit returns `!isEvenLower`. This is right because adjacent floats
+have significands of opposite parity: when `r` is not exact, `upper r = succ
+(lower r)` (nothing representable lies in between), and `succ` increments the
+significand by one — which always flips the LSB, including the carry case
+(all-ones, odd, to zero, even) and across binade and subnormal boundaries.
+For this we need a `PackedFloat.succ` with these properties.
 
-We prove that in the case where the numberis not a tie, we know that 'isEvenHigher = !isEvenLower',
-since the significands of adjacent numbers diifer by 1. For this, we need some predicate or something called 'PackedFloat.succ'
-so we can prove properties about it.
-
-
-
-
+When `r` is exact the claim is false pointwise but never used: parities are
+only consulted at ties. When `upper` is infinite, the overflow path applies.
