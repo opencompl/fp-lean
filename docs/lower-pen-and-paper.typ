@@ -104,6 +104,22 @@ We know that `r - 2^(-s+2) <= v.embed (v.lower r) <= r`,
 and similarly, `r - 2^(-s+3) <= ves.embed (ves.lower r) <= r`.
 
 
+The key lemma we need is that `(v.embed (v.lower r)) - (ves.embed (ves.lower r)) <= 2^(-s+3)`.
+We can get this inequality by subtracting the two inequalities above:
+
+```
+r - 2^(-s+3) <= ves.embed (ves.lower r) <= r 
+-r <= -(v.embed (v.lower r)) <= r - 2^(-s+2)
+
+--------------------------------------
+???
+
+```
+
+That is, we get only one more bit of precision from the 'lower' of the 'extended' number, than we do from the 'lower' of the normal number.
+This is exactly computed by the guard bit of the 'lower' of the normal number, which is what we use to compute `isLowerHalf`.
+
+
 == Correctness of isTieBreak
 
 
