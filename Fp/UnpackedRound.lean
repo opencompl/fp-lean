@@ -673,19 +673,19 @@ def UnpackedFloat.blastIsLowerHalf {eu su : Nat} (uf : UnpackedFloat eu su) (tep
     uf.blastIsLowerHalfNonneg tep tsp
 
 @[bv_normalize]
-def UnpackedFloat.blastIsEvenNonneg {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) : Bool :=
+def UnpackedFloat.blastIsEvenLowerNonneg {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) : Bool :=
   uf.blastExtractIsEven tep tsp
 
 @[bv_normalize]
-def UnpackedFloat.blastIsEvenNeg {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) : Bool :=
+def UnpackedFloat.blastIsEvenLowerNeg {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) : Bool :=
   !uf.blastExtractIsEven tep tsp
 
 @[bv_normalize]
-def UnpackedFloat.blastIsEven {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) : Bool :=
+def UnpackedFloat.blastIsEvenLower {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) : Bool :=
   if uf.sign then
-    uf.blastIsEvenNeg tep tsp
+    uf.blastIsEvenLowerNeg tep tsp
   else
-    uf.blastIsEvenNonneg tep tsp
+    uf.blastIsEvenLowerNonneg tep tsp
 
 -- We are in the tie break cast if we are exactly in the middle, *and are also*
 -- in the normal range! If we are outside the normal range, then note that our distance to infinity
@@ -715,14 +715,9 @@ def UnpackedFloat.blastRounderForSign {eu su : Nat} (uf : UnpackedFloat eu su) (
   else
     uf.blastLower tep tsp
 
-
-@[bv_normalize]
-def UnpackedFloat.blastIsEvenLower {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) : Bool :=
-  uf.blastIsEven tep tsp
-
 @[bv_normalize]
 def UnpackedFloat.blastIsEvenUpper {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) : Bool :=
-  !uf.blastIsEven tep tsp
+  !uf.blastIsEvenLower tep tsp
 
 
 @[bv_normalize]

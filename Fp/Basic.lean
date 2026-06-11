@@ -2271,11 +2271,13 @@ theorem toRatExp_eq_of_isNorm {e s} {pf : PackedFloat e s} (hnorm : pf.isNorm) :
   pf.toRatExp = pf.ex.toNat - bias e := by
   simp [toRatExp, hnorm]
 
--- TODO: Give this definition a better name; It exists
--- to be a nicer version of 'toRat'.
+/-- The rational interpretation of the packed floating point number. -/
 def toRat {e s} (pf : PackedFloat e s) : Rat :=
     pf.sign.toSign * pf.toRatSig * 2 ^ (pf.toRatExp)
 
+/-- Equation lemma for 'toRat'. -/
+theorem toRat_eq {e s} (pf : PackedFloat e s) :
+  pf.toRat = pf.sign.toSign * pf.toRatSig * 2 ^ (pf.toRatExp) := rfl
 
 @[simp]
 theorem toRatExp_neg {pf : PackedFloat e s} :
@@ -2287,6 +2289,7 @@ theorem toRat_neg {e s} (pf : PackedFloat e s) :
     (-pf).toRat = - pf.toRat := by
   simp [toRat]
   grind only
+
 
 @[simp]
 theorem toRatSig_eq_zero_of_isZero {e s} (pf : PackedFloat e s) (hzero : pf.isZero := by grind) :
@@ -3292,6 +3295,25 @@ theorem toRat'_neg (uf : UnpackedFloat e s) :
     (- uf).toRat' prec = - uf.toRat' prec := by
   simp [toRat']
   grind only
+
+/-- `toRat'` is nonnegative when the sign is `false`. -/
+theorem zero_le_toRat'_of_sign_eq_false (x : UnpackedFloat e s) (hsign : x.sign = false) :
+    0 ≤ x.toRat' := by
+  simp [toRat']
+  have : 0 ≤ x.sig.toNat := by grind
+  have : 0 ≤ (2 : Rat) ^ x.toExpInt := by grind
+  simp [hsign]
+  grind only [Rat.mul_nonneg]
+
+/-- `toRat'` is nonpositive when the sign is `true`. -/
+theorem le_zero_toRat'_of_sign_eq_true (x : UnpackedFloat e s) (hsign : x.sign = true) :
+    x.toRat' ≤ 0 := by
+  simp [toRat']
+  have : 0 ≤ x.sig.toNat := by grind
+  have : 0 ≤ (2 : Rat) ^ x.toExpInt := by grind
+  simp [hsign]
+  suffices (0 : Rat) ≤ x.sig.toNat * (2 : Rat) ^ x.toExpInt by grind only
+  grind only [Rat.mul_nonneg]
 
 @[bv_normalize]
 def maxNormal (eout sout : Nat) (e s : Nat) (sign : Bool) :
