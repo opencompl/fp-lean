@@ -452,7 +452,10 @@ def add (x y : PackedFloat e s) : PackedFloat e s :=
 
 def sub (x y : PackedFloat e s) : PackedFloat e s :=
       let z :=  ((roundMethod.embed x) - (roundMethod.embed y))
-      let sign : Bool := subSign rm x (neg y)
+      -- The zero-sign of `x - y` is the zero-sign of `x + (-y)`, i.e.
+      -- `addSign rm x (neg y) = subSign rm x y`.  (Passing `neg y` here would
+      -- double-negate, computing `addSign rm x y` instead.)
+      let sign : Bool := subSign rm x y
       roundMethod.round rm sign z
 
 def mul [Mul R] (x y : PackedFloat e s) : PackedFloat e s :=

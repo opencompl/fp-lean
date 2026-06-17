@@ -568,6 +568,18 @@ theorem isInfinite_pack'_of_isInfinite
   simp [pack', PackedFloat.isInfinite, huf, hnan]
   grind
 
+/-
+FALSE as stated: without an upper bound on the exponent, a `Number`-state input whose
+biased exponent overflows into `allOnes e` (and whose significand loses its only set bit
+when the leading bit is dropped) packs to the infinity bit pattern.
+Concrete counterexample at `e = 2`, `s = 1` (so `exponentWidth e s = 3`):
+  `uf = { state := .Number, num := { sign := false, ex := 2#3, sig := 2#2 } }`
+Here `uf.exp.toInt = 2 > maxNormalExp 2 = 1`, the packed exponent is
+`(2#3 + bias 2).signExtend 2 = 3#2 = allOnes 2` and the packed significand is
+`(2#2).truncate 1 = 0#1`, so `uf.pack'.isInfinite = true` while `uf.isInfinite = false`.
+Exhaustive enumeration confirms the statement *with* the additional hypothesis
+`uf.exp.toInt ≤ maxNormalExp e` has no counterexamples at small widths.
+-/
 theorem isInfinite_of_isInfinite_pack' (he : 1 < e) (hs : 0 < s)
     (uf : EUnpackedFloat (exponentWidth e s) (s + 1))
     (huf : uf.pack'.isInfinite) :
@@ -575,6 +587,15 @@ theorem isInfinite_of_isInfinite_pack' (he : 1 < e) (hs : 0 < s)
   sorry
 
 
+/-
+FALSE as stated, by the same counterexample as `isInfinite_of_isInfinite_pack'` above
+(`pack = pack'`): at `e = 2`, `s = 1`,
+  `uf = { state := .Number, num := { sign := false, ex := 2#3, sig := 2#2 } }`
+has `uf.pack.isInfinite = true` but `uf.isInfinite = false`, because the out-of-range
+exponent `uf.exp.toInt = 2 > maxNormalExp 2 = 1` wraps the packed exponent to `allOnes`.
+Exhaustive enumeration confirms the equation *with* the additional hypothesis
+`uf.exp.toInt ≤ maxNormalExp e` has no counterexamples at small widths.
+-/
 @[simp, grind .]
 theorem pack_isInfinite_eq_isInfinite (he : 1 < e) (hs : 0 < s)
     (uf : EUnpackedFloat (exponentWidth e s) (s + 1)) :
@@ -595,7 +616,9 @@ theorem unpack_pack_of_isInfinite
     (uf : EUnpackedFloat (exponentWidth e s) (s + 1))
     (huf : uf.isInfinite) (hs : 0 < s) :
     uf.pack.unpack = EUnpackedFloat.mkInfinity uf.sign := by
-  sorry
+  rw [pack_eq_pack', pack'_eq_getInfinity_of_isInfinite uf huf,
+    PackedFloat.unpack_getInfinity]
+  simp [hs]
 
 /--
 Packing then unpacking a NaN yields `mkNaN`.
@@ -606,7 +629,8 @@ theorem unpack_pack_of_isNaN
     (uf : EUnpackedFloat (exponentWidth e s) (s + 1))
     (huf : uf.isNaN) :
     uf.pack.unpack = EUnpackedFloat.mkNaN := by
-  sorry
+  rw [pack_eq_pack', pack'_eq_getNaN_of_isNaN uf huf]
+  exact PackedFloat.unpack_eq_NaN_of_isNaN _ PackedFloat.isNaN_getNaN
 
 /-! ### Helper lemmas for the Number round-trip
 
@@ -685,11 +709,220 @@ theorem State.beq_eq_decide_eq {x y : State} :
     (x == y) = decide (x = y) := by
   grind [State]
 
+set_option maxHeartbeats 1000000 in
+/--
+Packing a Number-state unpacked float preserves its rational value.
+
+NOTE: hypotheses `hnorm`, `hexp1`, `hexp2` were ADDED (statement strengthened) because the
+bare statement is FALSE; `grep` shows no other use site. Exhaustive enumeration at
+`(e, s) ∈ {(2,1), (2,2), (3,1), (3,2), (4,2)}` confirms the statement below has no
+counterexamples, and that each hypothesis is necessary:
+* without `hnorm` (normalization): `uf = { sign := false, ex := 0#3, sig := 1#2 }` at
+  `e = 2, s = 1` has `uf.toRat = 1/2` but packs (gaining the implicit leading 1 bit)
+  to a float with value `3/2`;
+* without `hexp1` (exponent upper bound): `uf = { sign := false, ex := 2#3, sig := 2#2 }`
+  wraps the packed exponent past `allOnes` (cf. `pack_isInfinite_eq_isInfinite` above);
+* without `hexp2` (subnormal exactness): `uf = { sign := false, ex := 7#3, sig := 3#2 }`
+  (value `3/4 = 1.1₂ × 2⁻¹`) loses its low bit in the subnormal right-shift and packs to
+  a float with value `1/2`; the divisibility condition states precisely that the bits
+  shifted out are zero, i.e. `uf` is exactly representable. Note that it holds trivially
+  (with `2^0 ∣ _`) whenever `uf` is in the normal range `minNormalExp e ≤ uf.ex.toInt`,
+  and for `uf.sig = 0`, so the disjunction covers the zero / normal / subnormal trichotomy.
+
+The proof is the corresponding 3-way case split.
+-/
 theorem toRat_pack_mkNumber_eq_toRat
     (he : 1 < e) (hs : 0 < s)
-    (uf : UnpackedFloat (exponentWidth e s) (s + 1)) :
+    (uf : UnpackedFloat (exponentWidth e s) (s + 1))
+    (hnorm : uf.normalize = uf)
+    (hexp1 : uf.ex.toInt ≤ maxNormalExp e)
+    (hexp2 : minNormalExp e ≤ uf.ex.toInt ∨
+      2 ^ (minNormalExp e - uf.ex.toInt).toNat ∣ uf.sig.toNat) :
     (EUnpackedFloat.mkNumber uf).pack.toRat = uf.toRat := by
-  sorry
+  rw [EUnpackedFloat.pack_eq_pack']
+  by_cases hzero : uf.sig = 0#(s + 1)
+  case pos =>
+    rw [pack'_eq_getZero_of_isZero _ (by simp [UnpackedFloat.isZero, hzero])]
+    rw [PackedFloat.toRat_getZero (by omega)]
+    exact (UnpackedFloat.toRat_sig_zero_eq_toRat_mkZero hzero).symm
+  case neg =>
+    -- basic facts
+    have hmin_eq : minNormalExp e = -((bias e - 1 : Nat) : Int) := rfl
+    have hmax_eq : maxNormalExp e = (bias e : Int) := rfl
+    have hbias_pos : 0 < bias e := bias_pos_of_one_lt e he
+    have hmsb : uf.sig.msb = true := (UnpackedFloat.normalize_eq_self_iff uf hzero).mp hnorm
+    have hsig_lt : uf.sig.toNat < 2 ^ (s + 1) := uf.sig.isLt
+    have hsig_ge : 2 ^ s ≤ uf.sig.toNat := by
+      have h := hmsb
+      rw [BitVec.msb_eq_decide] at h
+      simpa using h
+    have hpow_s : (2:Nat) ^ (s + 1) = 2 ^ s * 2 := by rw [Nat.pow_succ]
+    have hpowW : (2:Nat) ^ exponentWidth e s = 2 ^ (exponentWidth e s - 1) * 2 :=
+      (Nat.two_pow_pred_mul_two (zero_lt_exponentWidth (e := e) (s := s))).symm
+    -- reduce `pack'` to `packNumber'`
+    have hZ : (EUnpackedFloat.mkNumber uf).isZero = false := by
+      simp [UnpackedFloat.isZero, hzero]
+    simp only [EUnpackedFloat.pack', EUnpackedFloat.isNaN_mkNumber,
+      EUnpackedFloat.isInfinite_mkNumber, hZ, Bool.false_eq_true, ↓reduceIte,
+      EUnpackedFloat.sign, EUnpackedFloat.sig, EUnpackedFloat.exp, EUnpackedFloat.num_mkNumber]
+    rw [UnpackedFloat.toRat_eq]
+    simp only [Nat.add_sub_cancel]
+    by_cases hrange : minNormalExp e ≤ uf.ex.toInt
+    case pos =>
+      -- normal case
+      have hinr : EUnpackedFloat.packNumber'.inNormalRange (s := s) (e := e) uf.ex = true :=
+        (EUnpackedFloat.packNumber'.inNormalRange_iff he hs uf.ex).mpr hrange
+      have hexW : e < exponentWidth e s := self_lt_exponentWidth e s he hs
+      have h2bias : bias e + bias e = 2 ^ e - 2 := bias_plus_bias_eq_twoPow_minus_two e he
+      have h2e4 : 4 ≤ 2 ^ e := by
+        calc (4:Nat) = 2 ^ 2 := rfl
+        _ ≤ 2 ^ e := Nat.pow_le_pow_of_le (by decide) he
+      have hpow3 : (2:Nat) ^ e ≤ 2 ^ (exponentWidth e s - 1) :=
+        Nat.pow_le_pow_of_le (by decide) (by omega)
+      have hlo : 1 ≤ uf.ex.toInt + bias e := by omega
+      have hhi : uf.ex.toInt + bias e ≤ 2 * bias e := by omega
+      have hA : (uf.ex + BitVec.ofNat (exponentWidth e s) (bias e)).toInt
+          = uf.ex.toInt + bias e := by
+        rw [BitVec.toInt_add, toInt_ofNat_bias_eq_bias he hs]
+        apply Int.bmod_eq_of_le <;> omega
+      have hAmsb : (uf.ex + BitVec.ofNat (exponentWidth e s) (bias e)).msb = false := by
+        rw [BitVec.msb_eq_toInt, hA]
+        simp only [decide_eq_false_iff_not, Int.not_lt]
+        omega
+      have hAnat : ((uf.ex + BitVec.ofNat (exponentWidth e s) (bias e)).toNat : Int)
+          = uf.ex.toInt + bias e := by
+        rw [← BitVec.toInt_eq_toNat_of_msb hAmsb, hA]
+      have hexPacked : EUnpackedFloat.packNumber'.exPacked (s := s) uf.ex =
+          BitVec.setWidth e (uf.ex + BitVec.ofNat (exponentWidth e s) (bias e)) := by
+        simp only [EUnpackedFloat.packNumber'.exPacked, hinr, Bool.not_true, Bool.false_eq_true,
+          ↓reduceIte]
+        rw [BitVec.signExtend_eq_setWidth_of_le _ (Nat.le_of_lt hexW)]
+      have hexN : ((EUnpackedFloat.packNumber'.exPacked (s := s) uf.ex).toNat : Int)
+          = uf.ex.toInt + bias e := by
+        rw [hexPacked, BitVec.toNat_setWidth, Nat.mod_eq_of_lt (by omega)]
+        exact hAnat
+      have hnormPf : (EUnpackedFloat.packNumber' uf.sign uf.sig uf.ex).isNorm = true := by
+        simp only [PackedFloat.isNorm, EUnpackedFloat.packNumber', BitVec.zero_eq,
+          Bool.and_eq_true, bne_iff_ne, ne_eq]
+        constructor
+        · intro hc
+          have h := congrArg BitVec.toNat hc
+          simp only [BitVec.toNat_allOnes] at h
+          omega
+        · intro hc
+          have h := congrArg BitVec.toNat hc
+          simp only [BitVec.toNat_ofNat, Nat.zero_mod] at h
+          omega
+      have hsigPacked : (EUnpackedFloat.packNumber'.sigPacked uf.sig uf.ex).toNat
+          = uf.sig.toNat - 2 ^ s := by
+        simp only [EUnpackedFloat.packNumber'.sigPacked, hinr, ↓reduceIte,
+          BitVec.truncate_eq_setWidth, BitVec.toNat_setWidth]
+        rw [Nat.mod_eq_sub_mod hsig_ge, Nat.mod_eq_of_lt (by omega)]
+      simp only [PackedFloat.toRat, PackedFloat.toRatSig, PackedFloat.toRatExp, hnormPf,
+        ↓reduceIte]
+      simp only [EUnpackedFloat.packNumber', hsigPacked]
+      rw [hexN]
+      rw [show uf.ex.toInt + (bias e : Int) - (bias e : Int) = uf.ex.toInt from by omega]
+      rw [Rat.natCast_sub_of_le hsig_ge, Rat.natCast_pow, Rat.natCast_ofNat]
+      simp only [Rat.mul_assoc]
+      congr 1
+      -- ⊢ (1 + (↑sig - 2^s)/2^s) * 2^ex = ↑sig * 2^(ex - ↑s)
+      have key : (1 : Rat) + ((uf.sig.toNat : Rat) - 2 ^ s) / 2 ^ s
+          = (uf.sig.toNat : Rat) / 2 ^ s := by
+        simp only [Rat.div_def, Rat.inv_zpow_natCast_eq_zpow_neg, Rat.sub_mul,
+          UnpackedFloat.two_pow_mul_two_pow_neg_intCast_eq_one]
+        grind
+      rw [key]
+      rw [show uf.ex.toInt - (s : Int) = -(s : Int) + uf.ex.toInt from by omega]
+      rw [← Rat.zpow_mul_zpow (by decide : (2:Rat) ≠ 0) (-(s : Int)) uf.ex.toInt]
+      rw [Rat.div_def, Rat.inv_zpow_natCast_eq_zpow_neg, Rat.mul_assoc]
+    case neg =>
+      -- subnormal case
+      have hinr : EUnpackedFloat.packNumber'.inNormalRange (s := s) (e := e) uf.ex = false :=
+        Bool.eq_false_iff.mpr
+          (fun hc => hrange ((EUnpackedFloat.packNumber'.inNormalRange_iff he hs uf.ex).mp hc))
+      have hdvd : 2 ^ (minNormalExp e - uf.ex.toInt).toNat ∣ uf.sig.toNat := by
+        rcases hexp2 with h | h
+        · exact absurd h hrange
+        · exact h
+      have hd_int : ((minNormalExp e - uf.ex.toInt).toNat : Int)
+          = minNormalExp e - uf.ex.toInt :=
+        Int.toNat_of_nonneg (by omega)
+      obtain ⟨d, hd_def⟩ : ∃ d, (minNormalExp e - uf.ex.toInt).toNat = d := ⟨_, rfl⟩
+      rw [hd_def] at hdvd hd_int
+      have hd_pos : 0 < d := by omega
+      obtain ⟨q, hq⟩ := hdvd
+      have hsig_pos : 0 < uf.sig.toNat := by
+        have := Nat.two_pow_pos s
+        omega
+      have hq_pos : 0 < q := by
+        rcases Nat.eq_zero_or_pos q with h | h
+        · rw [h, Nat.mul_zero] at hq
+          omega
+        · exact h
+      have h2d_le : 2 ^ d ≤ uf.sig.toNat := Nat.le_of_dvd hsig_pos ⟨q, hq⟩
+      have hd_le : d ≤ s := by
+        rcases Nat.lt_or_ge s d with h | h
+        · exfalso
+          have h1 : (2:Nat) ^ (s + 1) ≤ 2 ^ d := Nat.pow_le_pow_of_le (by decide) (by omega)
+          omega
+        · exact h
+      have h2d_two : 2 ≤ 2 ^ d := by
+        calc (2:Nat) = 2 ^ 1 := rfl
+        _ ≤ 2 ^ d := Nat.pow_le_pow_of_le (by decide) hd_pos
+      have hq_lt : q < 2 ^ s := by
+        have h1 : 2 ^ d * q < 2 ^ s * 2 := by
+          rw [← hq, ← hpow_s]
+          exact hsig_lt
+        have h2 : 2 ^ s * 2 ≤ 2 ^ d * 2 ^ s := by
+          calc (2:Nat) ^ s * 2 = 2 * 2 ^ s := Nat.mul_comm _ _
+          _ ≤ 2 ^ d * 2 ^ s := Nat.mul_le_mul_right _ h2d_two
+        exact Nat.lt_of_mul_lt_mul_left (Nat.lt_of_lt_of_le h1 h2)
+      have hs_lt : s < 2 ^ (exponentWidth e s - 1) :=
+        UnpackedFloat.sigWidth_lt_exponentWidth_sub_one
+      -- the shift amount
+      have hshift_int : (EUnpackedFloat.packNumber'.shift (s := s) uf.ex).toInt = (d : Int) := by
+        simp only [EUnpackedFloat.packNumber'.shift]
+        rw [BitVec.toInt_sub, toInt_ofInt_minNormalExp_eq_minNormalExp he hs, ← hd_int]
+        apply Int.bmod_eq_of_le <;> omega
+      have hshift_msb : (EUnpackedFloat.packNumber'.shift (s := s) uf.ex).msb = false := by
+        rw [BitVec.msb_eq_toInt, hshift_int]
+        simp only [decide_eq_false_iff_not, Int.not_lt]
+        omega
+      have hshift_nat : (EUnpackedFloat.packNumber'.shift (s := s) uf.ex).toNat = d := by
+        have h := BitVec.toInt_eq_toNat_of_msb hshift_msb
+        rw [hshift_int] at h
+        exact_mod_cast h.symm
+      have hexPacked : EUnpackedFloat.packNumber'.exPacked (s := s) uf.ex = 0#e := by
+        simp only [EUnpackedFloat.packNumber'.exPacked, hinr, Bool.not_false, ↓reduceIte]
+      have hsigPacked : (EUnpackedFloat.packNumber'.sigPacked uf.sig uf.ex).toNat = q := by
+        simp only [EUnpackedFloat.packNumber'.sigPacked, hinr, Bool.false_eq_true, ↓reduceIte,
+          BitVec.truncate_eq_setWidth, BitVec.toNat_setWidth]
+        rw [BitVec.ushiftRight_eq', hshift_nat, BitVec.toNat_ushiftRight,
+          Nat.shiftRight_eq_div_pow, hq, Nat.mul_div_cancel_left q (Nat.two_pow_pos d)]
+        exact Nat.mod_eq_of_lt hq_lt
+      have hnormPf : (EUnpackedFloat.packNumber' uf.sign uf.sig uf.ex).isNorm = false := by
+        simp only [PackedFloat.isNorm, EUnpackedFloat.packNumber', hexPacked, BitVec.zero_eq,
+          bne_self_eq_false, Bool.and_false]
+      simp only [PackedFloat.toRat, PackedFloat.toRatSig, PackedFloat.toRatExp, hnormPf,
+        Bool.false_eq_true, ↓reduceIte]
+      simp only [EUnpackedFloat.packNumber', hsigPacked]
+      rw [hq]
+      have hex_eq : uf.ex.toInt = minNormalExp e - (d : Int) := by omega
+      rw [hex_eq]
+      rw [show -((bias e - 1 : Nat) : Int) = minNormalExp e from rfl]
+      simp only [Rat.zero_add, Rat.mul_assoc]
+      congr 1
+      -- ⊢ ↑q / 2^s * 2^M = ↑(2^d * q) * 2^(M - ↑d - ↑s)
+      rw [Rat.natCast_mul, Rat.natCast_pow, Rat.natCast_ofNat]
+      rw [show minNormalExp e - (d : Int) - (s : Int)
+          = -(d : Int) + (-(s : Int) + minNormalExp e) from by omega]
+      rw [← Rat.zpow_mul_zpow (by decide : (2:Rat) ≠ 0) (-(d : Int)) (-(s : Int) + minNormalExp e)]
+      rw [← Rat.zpow_mul_zpow (by decide : (2:Rat) ≠ 0) (-(s : Int)) (minNormalExp e)]
+      rw [Rat.div_def, Rat.inv_zpow_natCast_eq_zpow_neg, Rat.mul_assoc]
+      have hone_d : (2:Rat) ^ d * 2 ^ (-(d : Int)) = 1 :=
+        UnpackedFloat.two_pow_mul_two_pow_neg_intCast_eq_one d
+      grind
 
 
 end EUnpackedFloat

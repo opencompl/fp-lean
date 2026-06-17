@@ -830,18 +830,17 @@ theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower (he : 2 < ep) (hsp : 0 < 
     simp [hunder]
     by_cases hover : x.blastIsEarlyOverflowNonneg ep sp = true
     · simp [hover]
-      -- apply UnpackedFloat.mkNumber_maxNormal_Rel_smtLibLower_of_overflow
-      have := mkNumber_maxNormal_Rel_smtLibLower_of_overflow (x := x) (ep := ep) (sp := sp) (sm := sp + 1) (em := exponentWidth ep sp)
+      -- The witness lemma must be instantiated at `em := eu` (not `exponentWidth ep sp`):
+      -- `blastLowerNonneg` returns an `EUnpackedFloat eu (sp+1)`, so the goal mentions
+      -- `UnpackedFloat.maxNormal eu (sp+1) ep sp false`.
+      have := mkNumber_maxNormal_Rel_smtLibLower_of_overflow (x := x) (ep := ep) (sp := sp) (sm := sp + 1) (em := eu)
           (by grind)
           (by grind)
           (by grind)
           (by grind)
           (by grind)
           (by grind)
-      sorry
-      -- · grind only
-      -- · grind only
-      -- · grind only
+      exact this
     · simp only [Bool.not_eq_true] at hover
       simp [hover]
       exact UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_normal (by grind only) hsp x hxsign hxnorm hunder hover
@@ -1168,7 +1167,13 @@ theorem toExpInt_truncateFittingExponent_of_not_blastIsOverflowNonneg
       · have := neg_two_pow_exponentWidth_lt_minSubnormalExp he hs
         grind only
       · grind only
-    · simp; sorry
+    · simp
+      have hbias := bias_plus_one_lt_two_pow_exponentWidth_minus_one ep sp he hs
+      rw [maxNormalExp] at hnotover'
+      have hcast : ((2 ^ (exponentWidth ep sp - 1) : Nat) : Int) = (2 : Int) ^ (exponentWidth ep sp - 1) := by
+        push_cast
+        rfl
+      omega
   · grind only
 
 /--
@@ -1188,45 +1193,532 @@ theorem UnpackedFloat.toRat_truncateFittingExponent_of_not_blastIsOverflowNonneg
 
 /--
 info: 'Fp.UnpackedFloat.toRat_truncateFittingExponent_of_not_blastIsOverflowNonneg_of_not_blastIsEarlyUnderflowNonneg' depends on axioms: [propext,
- sorryAx,
  Classical.choice,
  Quot.sound]
 -/
 #guard_msgs in #print axioms UnpackedFloat.toRat_truncateFittingExponent_of_not_blastIsOverflowNonneg_of_not_blastIsEarlyUnderflowNonneg
 
-/-
-Round g anumber that's larger than max normal exp gives maxNormalExp as the result.
+/-- `maxNormalNumber` is a normal number when `1 < e`. -/
+theorem PackedFloat.isNormOrNonzeroSubnorm_maxNormalNumber'
+    {e s : Nat} (he : 1 < e) (sign : Bool) :
+    (PackedFloat.maxNormalNumber e s sign).isNormOrNonzeroSubnorm := by
+  have h := PackedFloat.isNorm_maxNormalNumber_of_lt_e e s he sign
+  simp only [PackedFloat.isNormOrNonzeroSubnorm]
+  simp only [PackedFloat.isNorm] at h
+  grind
+
+/-- Negating the positive `maxNormalNumber` gives the negative one. -/
+theorem PackedFloat.neg_maxNormalNumber_false' {ep sp : Nat} :
+    - PackedFloat.maxNormalNumber ep sp false = PackedFloat.maxNormalNumber ep sp true := rfl
+
+/-- The value of `maxNormalNumber` is strictly below `2 ^ (maxNormalExp + 1)`. -/
+theorem PackedFloat.toRat_maxNormalNumber_lt_two_pow
+    {ep sp : Nat} (hep : 2 < ep) (hs : 0 < sp) :
+    (PackedFloat.maxNormalNumber ep sp false).toRat < (2 : Rat) ^ (maxNormalExp ep + 1) := by
+  rw [PackedFloat.toRat, PackedFloat.toRatSig_maxNormalNumber ep sp hep,
+    PackedFloat.toRatExp_maxNormalNumber ep sp hep]
+  simp [Bool.toSign]
+  have h2 : (2 : Rat) * (2 : Rat) ^ maxNormalExp ep = (2 : Rat) ^ (maxNormalExp ep + 1) :=
+    Rat.mul_self_zpow_eq_zpow_succ (by grind)
+  rw [← h2, Rat.sub_mul]
+  have hpos : (0 : Rat) < 2 ^ maxNormalExp ep := Rat.two_pow_pos _
+  have hsub : (0 : Rat) < 2 ^ (-(sp : Int)) := Rat.two_pow_pos _
+  have : (0 : Rat) < 2 ^ (-(sp : Int)) * 2 ^ maxNormalExp ep := Rat.mul_positive hsub hpos
+  grind
+
+/-- The value of the positive `maxNormalNumber` is nonnegative. -/
+theorem PackedFloat.toRat_maxNormalNumber_nonneg
+    {ep sp : Nat} (he : 1 < ep) :
+    (0 : Rat) ≤ (PackedFloat.maxNormalNumber ep sp false).toRat := by
+  have h := PackedFloat.sign_iff_toRat_neg
+    (PackedFloat.isNormOrNonzeroSubnorm_maxNormalNumber' (e := ep) (s := sp) he false)
+  rw [PackedFloat.sign_maxNormalNumber] at h
+  have h3 : ¬ ((PackedFloat.maxNormalNumber ep sp false).toRat < 0) := by
+    simpa using h.symm
+  grind
+
+/-- The max normal value strictly increases with the significand width. -/
+theorem PackedFloat.toRat_maxNormalNumber_lt_toRat_maxNormalNumber_succ
+    {ep sp : Nat} (hep : 2 < ep) (hs : 0 < sp) :
+    (PackedFloat.maxNormalNumber ep sp false).toRat
+      < (PackedFloat.maxNormalNumber ep (sp + 1) false).toRat := by
+  rw [PackedFloat.toRat, PackedFloat.toRat,
+    PackedFloat.toRatSig_maxNormalNumber ep sp hep,
+    PackedFloat.toRatExp_maxNormalNumber ep sp hep,
+    PackedFloat.toRatSig_maxNormalNumber ep (sp + 1) hep,
+    PackedFloat.toRatExp_maxNormalNumber ep (sp + 1) hep]
+  simp [Bool.toSign]
+  have hpos : (0 : Rat) < 2 ^ maxNormalExp ep := Rat.two_pow_pos _
+  rw [Rat.sub_mul, Rat.sub_mul]
+  have hppos : (0 : Rat) < 2 ^ (-((sp : Int) + 1)) := Rat.two_pow_pos _
+  have hstep : (2 : Rat) * (2 : Rat) ^ (-((sp : Int) + 1)) = 2 ^ (-((sp : Int) + 1) + 1) :=
+    Rat.mul_self_zpow_eq_zpow_succ (by grind)
+  have hexp : (-((sp : Int) + 1) + 1) = -(sp : Int) := by omega
+  rw [hexp] at hstep
+  have hlt : (2 : Rat) ^ (-((sp : Int) + 1)) < 2 ^ (-(sp : Int)) := by
+    rw [← hstep]
+    grind
+  have h1 : (2 : Rat) ^ (-((sp : Int) + 1)) * 2 ^ maxNormalExp ep
+      < 2 ^ (-(sp : Int)) * 2 ^ maxNormalExp ep := by
+    rw [Rat.mul_lt_mul_cancel_right_of_lt hpos]
+    exact hlt
+  grind
+
+/-- For `R` at or above `maxNormalNumber`, the greatest float `≤ R` is
+`maxNormalNumber` itself. -/
+theorem lower_Number_eq_maxNormalNumber_of_toRat_le
+    {ep sp : Nat} (hep : 1 < ep) (hep0 : 0 < ep) (hsp : 0 < sp) (R : Rat)
+    (hmax : (PackedFloat.maxNormalNumber ep sp false).toRat ≤ R) :
+    lower ep sp hep0 hsp (ExtRat.Number R) = PackedFloat.maxNormalNumber ep sp false := by
+  have hfin := PackedFloat.isNormOrNonzeroSubnorm_maxNormalNumber' (e := ep) (s := sp) hep false
+  have hnan := PackedFloat.not_isNaN_maxNormalNumber ep sp false hep0
+  symm
+  apply eq_lower_of_IsLawfulLower ep sp hep0 hsp _ _ (by simp)
+  constructor
+  · -- `maxNormalNumber ≤ R` in the embedding
+    show (PackedFloat.maxNormalNumber ep sp false).toExtRat ≤ ExtRat.Number R
+    rw [PackedFloat.toExtRat_eq_toExtRat', PackedFloat.toExtRat'_eq_toRat_of hfin]
+    simp only [ExtRat.ExtRat.num_le_num_iff, decide_eq_true_eq]
+    exact hmax
+  · -- anything `≤ R` is at most `maxNormalNumber`
+    intro y hy
+    have hy' : y.toExtRat' ≤ ExtRat.Number R := by
+      rw [← PackedFloat.toExtRat_eq_toExtRat']
+      exact hy
+    clear hy
+    induction y using PackedFloat.kindCasesNaNInfZeroNum with
+    | nanCase n hn =>
+      exfalso
+      rw [PackedFloat.toExtRat'_eq_NaN_of_isNaN n hn] at hy'
+      simp at hy'
+    | infCase sign =>
+      cases sign
+      case false =>
+        exfalso
+        rw [PackedFloat.toExtRat'_getInfinity hsp] at hy'
+        simp at hy'
+      case true =>
+        exact PackedFloat.le_of_nonneg_of_neg _ _ (by simp)
+          (by simp [PackedFloat.sign_maxNormalNumber]) (by simp [hsp]) hnan
+    | zeroCase sign =>
+      cases sign
+      case true =>
+        exact PackedFloat.le_of_nonneg_of_neg _ _ (by simp [PackedFloat.sign_getZero])
+          (by simp [PackedFloat.sign_maxNormalNumber]) (by simp [hsp] <;> omega) hnan
+      case false =>
+        apply PackedFloat.le_of_toExtRat'_le_toExtRat' hep0 hsp
+          (PackedFloat.getZero ep sp false) (PackedFloat.maxNormalNumber ep sp false)
+          (by simp [hsp] <;> omega) hnan
+        · intro h1 h2 h3
+          simp [PackedFloat.sign_getZero] at h3
+        · intro h1 _ _
+          exfalso
+          have h2 := PackedFloat.not_isZero_of_isNormOrSubnorm hfin
+          simp at h2
+          simp [h2] at h1
+        · rw [PackedFloat.toExtRat'_eq_zero_of_isZero _ (by simp [hsp] <;> omega),
+            PackedFloat.toExtRat'_eq_toRat_of hfin]
+          simp only [ExtRat.ExtRat.num_le_num_iff, decide_eq_true_eq]
+          exact PackedFloat.toRat_maxNormalNumber_nonneg hep
+    | numCase n hn =>
+      by_cases hsign : n.sign
+      · exact PackedFloat.le_of_nonneg_of_neg _ _ hsign
+          (by simp [PackedFloat.sign_maxNormalNumber])
+          (by simpa using PackedFloat.not_isNaN_of_isNormOrSubnorm hn) hnan
+      · apply PackedFloat.le_maxNormalNumber_of_isNormOrNonzeroSubnorm_of_nonneg _ hep hn
+        simpa using hsign
+
+/--
+Rounding (RNE) any number of magnitude at least `2 ^ (maxNormalExp ep + 1)`
+produces the infinity whose sign is the sign of the number.
+
+NOTE (statement corrected): the original hypothesis was
+`2 ^ maxNormalExp ep < r.abs`, which does NOT force rounding to infinity
+(counterexample `(ep, sp) = (3, 2)`, `r = 9`: `lower = 8`, `upper = 10`,
+RNE returns `8`). The hypothesis was strengthened to
+`2 ^ (maxNormalExp ep + 1) ≤ r.abs` (dischargeable at the call site from
+`maxNormalExp ep < x.ex.toInt` and a normalized significand). Additionally
+`hsign : sign = decide (r < 0)` and `hep : 2 < ep` were ADDED: without
+`hsign` the conclusion is false for, e.g., positive `r` and `sign = true`
+(the result `+∞` does not depend on `sign` for nonzero `r`).
 -/
 theorem roundRNE_eq_infinity_of_maxNormalExp_lt
   (he : 1 < ep)
+  (hep : 2 < ep)
   (hs : 0 < sp)
   (r : Rat)
-  (hr : (2 : Rat) ^ maxNormalExp ep < r.abs) :
+  (hsign : sign = decide (r < 0))
+  (hr : (2 : Rat) ^ (maxNormalExp ep + 1) ≤ r.abs) :
   ((SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRNE sign
         (ExtRat.Number r)) = PackedFloat.getInfinity ep sp sign := by
-  simp only [SmtLibSemantics.RoundMethod.roundRNE, SmtLibSemantics.instExtendedRat.isNaN_eq,
-    ExtRat.isNaN_iff, ExtRat.ExtRat.NaN_le_iff, decide_eq_true_eq, ExtRat.ExtRat.le_refl,
-    reduceCtorEq, decide_false, Bool.false_eq_true, ↓reduceIte,
-    SmtLibSemantics.instExtendedRat.isZero, ← ExtRat.ExtRat.zero_def, ExtRat.Number.injEq,
-    SmtLibSemantics.smtLibRoundMethod, SmtLibSemantics.smtLibV_lower_eq,
-    SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat', Nat.zero_lt_succ,
-    SmtLibSemantics.instExtendedRat.smtLibEq, SmtLibSemantics.smtLibV_upper_eq, eq_iff_iff,
-    Bool.not_eq_eq_eq_not, Bool.not_true, decide_eq_false_iff_not, Bool.decide_iff_dist,
-    beq_eq_false_iff_ne, ne_eq, decide_eq_decide,
-    SmtLibSemantics.isEven_roundableIsEven_of_packedFloat, beq_iff_eq,
-    EUnpackedFloat.state_mkInfinity]
-  -- TODO: this needs to argue that the sig is nonzero in this case.
-  sorry
+  have hep0 : 0 < ep := by omega
+  have hsp1 : 0 < sp + 1 := by omega
+  have hpow_pos : (0 : Rat) < 2 ^ (maxNormalExp ep + 1) := Rat.two_pow_pos _
+  have hr0 : r ≠ 0 := by
+    intro h
+    rw [h] at hr
+    simp [Rat.abs] at hr
+    grind
+  have hfinN := PackedFloat.isNormOrNonzeroSubnorm_maxNormalNumber' (e := ep) (s := sp) he false
+  have hfinN1 := PackedFloat.isNormOrNonzeroSubnorm_maxNormalNumber' (e := ep) (s := sp + 1) he false
+  have hmaxlt : (PackedFloat.maxNormalNumber ep sp false).toRat < 2 ^ (maxNormalExp ep + 1) :=
+    PackedFloat.toRat_maxNormalNumber_lt_two_pow hep hs
+  have hmaxlt1 : (PackedFloat.maxNormalNumber ep (sp + 1) false).toRat < 2 ^ (maxNormalExp ep + 1) :=
+    PackedFloat.toRat_maxNormalNumber_lt_two_pow hep hsp1
+  have hmono : (PackedFloat.maxNormalNumber ep sp false).toRat
+      < (PackedFloat.maxNormalNumber ep (sp + 1) false).toRat :=
+    PackedFloat.toRat_maxNormalNumber_lt_toRat_maxNormalNumber_succ hep hs
+  have hnotnan : ¬ (SmtLibSemantics.ExtendedNumber.isNaN (ExtRat.Number r)) := by
+    simp
+  have hnotzero : ¬ (SmtLibSemantics.ExtendedNumber.isZero (ExtRat.Number r)) := by
+    simp only [SmtLibSemantics.instExtendedRat.isZero, ← ExtRat.ExtRat.zero_def]
+    simp [hr0]
+  by_cases hneg : r < 0
+  case neg =>
+    -- positive case: `2 ^ (maxNormalExp + 1) ≤ r`
+    have habs : r.abs = r := by
+      simp [Rat.abs, hneg]
+    rw [habs] at hr
+    have hsignF : sign = false := by simp [hsign, hneg]
+    -- evaluations of the four bounds
+    have hL : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat ep sp)
+        = PackedFloat.maxNormalNumber ep sp false := by
+      rw [smtLibLower_eq_lower ep sp hep0 hs _ (by simp),
+        lower_Number_eq_maxNormalNumber_of_toRat_le he hep0 hs r (by grind)]
+    have hL1 : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat ep (sp + 1))
+        = PackedFloat.maxNormalNumber ep (sp + 1) false := by
+      rw [smtLibLower_eq_lower ep (sp + 1) hep0 hsp1 _ (by simp),
+        lower_Number_eq_maxNormalNumber_of_toRat_le he hep0 hsp1 r (by grind)]
+    have hU : (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r) : PackedFloat ep sp)
+        = PackedFloat.getInfinity ep sp false := by
+      rw [smtLibUpper_eq_upper ep sp hep0 hs _ (by simp),
+        upper_Number_eq_getInfinity_of_maxNormalNumber_lt hep0 hs r (by grind)]
+    have hU1 : (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r) : PackedFloat ep (sp + 1))
+        = PackedFloat.getInfinity ep (sp + 1) false := by
+      rw [smtLibUpper_eq_upper ep (sp + 1) hep0 hsp1 _ (by simp),
+        upper_Number_eq_getInfinity_of_maxNormalNumber_lt hep0 hsp1 r (by grind)]
+    -- conditions
+    have hLH : ¬ ((SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV
+        SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number r)) := by
+      rw [SmtLibSemantics.smtLibRoundMethod.lowerHalf_eq]
+      simp only [SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.smtLibV_lower_eq, hL, hL1,
+        SmtLibSemantics.instExtendedRat.smtLibEq]
+      rw [PackedFloat.toExtRat_eq_toExtRat', PackedFloat.toExtRat_eq_toExtRat',
+        PackedFloat.toExtRat'_eq_toRat_of hfinN, PackedFloat.toExtRat'_eq_toRat_of hfinN1]
+      simp only [ExtRat.Number.injEq]
+      grind
+    have hTB : ¬ ((SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV
+        SmtLibSemantics.smtLibV).tieBreak (ExtRat.Number r)) := by
+      rw [SmtLibSemantics.smtLibRoundMethod.tieBreak_eq]
+      simp only [SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.smtLibV_lower_eq,
+        SmtLibSemantics.smtLibV_upper_eq, hL, hL1, hU, hU1]
+      rw [PackedFloat.toExtRat_eq_toExtRat', PackedFloat.toExtRat_eq_toExtRat',
+        PackedFloat.toExtRat_eq_toExtRat', PackedFloat.toExtRat_eq_toExtRat',
+        PackedFloat.toExtRat'_eq_toRat_of hfinN, PackedFloat.toExtRat'_eq_toRat_of hfinN1,
+        PackedFloat.toExtRat'_getInfinity hs, PackedFloat.toExtRat'_getInfinity hsp1]
+      have h1 : (ExtRat.Number (PackedFloat.maxNormalNumber ep sp false).toRat
+          < ExtRat.Number (PackedFloat.maxNormalNumber ep (sp + 1) false).toRat) := by
+        simp [hmono]
+      have h2 : ¬ ((ExtRat.Infinity false : ExtRat) < ExtRat.Infinity false) := by
+        simp
+      intro hcontra
+      rw [hcontra] at h1
+      exact h2 h1
+    have hRU : (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV
+        SmtLibSemantics.smtLibV).upper (ExtRat.Number r) = PackedFloat.getInfinity ep sp false := by
+      rw [SmtLibSemantics.smtLibRoundMethod.upper_eq, SmtLibSemantics.smtLibV_upper_eq, hU]
+    rw [SmtLibSemantics.RoundMethod.roundRNE]
+    rw [if_neg hnotnan, if_pos ⟨hnotzero, by simp [hLH], by simp [hTB]⟩, hRU, hsignF]
+  case pos =>
+    -- negative case: `r ≤ -2 ^ (maxNormalExp + 1)`
+    have habs : r.abs = -r := by
+      simp [Rat.abs, hneg]
+    rw [habs] at hr
+    have hsignT : sign = true := by simp [hsign, hneg]
+    have hflip : (PackedFloat.maxNormalNumber ep sp true).toRat
+        = - (PackedFloat.maxNormalNumber ep sp false).toRat := by
+      rw [← PackedFloat.neg_maxNormalNumber_false', PackedFloat.toRat_neg]
+    have hflip1 : (PackedFloat.maxNormalNumber ep (sp + 1) true).toRat
+        = - (PackedFloat.maxNormalNumber ep (sp + 1) false).toRat := by
+      rw [← PackedFloat.neg_maxNormalNumber_false', PackedFloat.toRat_neg]
+    -- evaluations of the four bounds
+    have hL : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat ep sp)
+        = PackedFloat.getInfinity ep sp true := by
+      rw [smtLibLower_eq_lower ep sp hep0 hs _ (by simp),
+        lower_Number_eq_getInfinity_of_maxNormalNumber_lt hep0 hs r (by grind)]
+    have hL1 : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat ep (sp + 1))
+        = PackedFloat.getInfinity ep (sp + 1) true := by
+      rw [smtLibLower_eq_lower ep (sp + 1) hep0 hsp1 _ (by simp),
+        lower_Number_eq_getInfinity_of_maxNormalNumber_lt hep0 hsp1 r (by grind)]
+    have hU : (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r) : PackedFloat ep sp)
+        = PackedFloat.maxNormalNumber ep sp true := by
+      rw [smtLibUpper_eq_upper ep sp hep0 hs _ (by simp), upper, ExtRat.ExtRat.neg_number,
+        lower_Number_eq_maxNormalNumber_of_toRat_le he hep0 hs (-r) (by grind),
+        PackedFloat.neg_maxNormalNumber_false']
+    have hU1 : (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r) : PackedFloat ep (sp + 1))
+        = PackedFloat.maxNormalNumber ep (sp + 1) true := by
+      rw [smtLibUpper_eq_upper ep (sp + 1) hep0 hsp1 _ (by simp), upper, ExtRat.ExtRat.neg_number,
+        lower_Number_eq_maxNormalNumber_of_toRat_le he hep0 hsp1 (-r) (by grind),
+        PackedFloat.neg_maxNormalNumber_false']
+    -- conditions
+    have hLH : ((SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV
+        SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number r)) := by
+      rw [SmtLibSemantics.smtLibRoundMethod.lowerHalf_eq]
+      simp only [SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.smtLibV_lower_eq, hL, hL1,
+        SmtLibSemantics.instExtendedRat.smtLibEq]
+      rw [PackedFloat.toExtRat_eq_toExtRat', PackedFloat.toExtRat_eq_toExtRat',
+        PackedFloat.toExtRat'_getInfinity hs, PackedFloat.toExtRat'_getInfinity hsp1]
+    have hTB : ¬ ((SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV
+        SmtLibSemantics.smtLibV).tieBreak (ExtRat.Number r)) := by
+      rw [SmtLibSemantics.smtLibRoundMethod.tieBreak_eq]
+      simp only [SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.smtLibV_lower_eq,
+        SmtLibSemantics.smtLibV_upper_eq, hL, hL1, hU, hU1]
+      rw [PackedFloat.toExtRat_eq_toExtRat', PackedFloat.toExtRat_eq_toExtRat',
+        PackedFloat.toExtRat_eq_toExtRat', PackedFloat.toExtRat_eq_toExtRat',
+        PackedFloat.toExtRat'_getInfinity hs, PackedFloat.toExtRat'_getInfinity hsp1,
+        PackedFloat.toExtRat'_eq_toRat_of (PackedFloat.isNormOrNonzeroSubnorm_maxNormalNumber' he true),
+        PackedFloat.toExtRat'_eq_toRat_of (PackedFloat.isNormOrNonzeroSubnorm_maxNormalNumber' he true)]
+      have h1 : ¬ ((ExtRat.Infinity true : ExtRat) < ExtRat.Infinity true) := by
+        simp
+      have h2 : (ExtRat.Number (PackedFloat.maxNormalNumber ep (sp + 1) true).toRat
+          < ExtRat.Number (PackedFloat.maxNormalNumber ep sp true).toRat) := by
+        have : (PackedFloat.maxNormalNumber ep (sp + 1) true).toRat
+            < (PackedFloat.maxNormalNumber ep sp true).toRat := by
+          rw [hflip, hflip1]
+          grind
+        simp [this]
+      intro hcontra
+      rw [← hcontra] at h2
+      exact h1 h2
+    have hRL : (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV
+        SmtLibSemantics.smtLibV).lower (ExtRat.Number r) = PackedFloat.getInfinity ep sp true := by
+      rw [SmtLibSemantics.smtLibRoundMethod.lower_eq, SmtLibSemantics.smtLibV_lower_eq, hL]
+    rw [SmtLibSemantics.RoundMethod.roundRNE]
+    rw [if_neg hnotnan,
+      if_neg (by intro h; exact absurd hLH (by simpa using h.2.1)),
+      if_neg (by intro h; exact hTB h.2.1),
+      if_neg (by intro h; exact hTB h.2.1),
+      if_pos ⟨hnotzero, hLH⟩, hRL, hsignT]
 
 /--
-Rounding any number whose absolute value is smaller than minNormalExp
-will produce a zero.
+An overflowing, normalized, nonzero float has magnitude strictly above `2 ^ maxNormalExp ep`.
+-/
+theorem UnpackedFloat.two_pow_maxNormalExp_lt_abs_toRat'
+    (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su)
+    (hxnorm : x.normalize = x)
+    (hzero : ¬ x.isZero)
+    (hover : x.blastIsEarlyOverflowNonneg ep sp = true) :
+    (2 : Rat) ^ maxNormalExp ep < (x.toRat').abs := by
+  -- exponent strictly above maxNormalExp
+  have hover' : maxNormalExp ep < x.ex.toInt := by
+    have := UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide he hs heu x
+    grind
+  -- the significand is nonzero and normalized, so its msb is set
+  have hsig : x.sig ≠ 0#su := by
+    simp [UnpackedFloat.isZero] at hzero
+    exact hzero
+  have hmsb : x.sig.msb = true := (UnpackedFloat.normalize_eq_self_iff x hsig).mp hxnorm
+  have hle : 2 ^ (su - 1) ≤ x.sig.toNat := BitVec.le_toNat_of_msb_true hmsb
+  -- |toRat'| = sig.toNat * 2 ^ toExpInt
+  have hpos : (0 : Rat) < (2 : Rat) ^ x.toExpInt := Rat.two_pow_pos _
+  have hsignat : (0 : Rat) < (x.sig.toNat : Rat) := by
+    have : 0 < x.sig.toNat := by
+      have : 0 < 2 ^ (su - 1) := Nat.two_pow_pos _
+      omega
+    exact_mod_cast this
+  have habs : (x.toRat').abs = (x.sig.toNat : Rat) * (2 : Rat) ^ x.toExpInt := by
+    rw [UnpackedFloat.toRat', Rat.abs]
+    cases hsgn : x.sign
+    · simp [Bool.toSign]
+      intros hlt
+      exfalso
+      have : (0 : Rat) < (x.sig.toNat : Rat) * (2 : Rat) ^ x.toExpInt := by
+        exact Rat.mul_positive hsignat hpos
+      grind
+    · simp [Bool.toSign]
+      have : (0 : Rat) < (x.sig.toNat : Rat) * (2 : Rat) ^ x.toExpInt := by
+        exact Rat.mul_positive hsignat hpos
+      grind
+  rw [habs]
+  -- 2 ^ (su-1) * 2 ^ toExpInt = 2 ^ ex.toInt
+  have hexp : x.toExpInt = x.ex.toInt - ((su - 1 : Nat) : Int) := by
+    simp [UnpackedFloat.toExpInt]
+    omega
+  have h1 : ((2 : Rat) ^ ((su - 1 : Nat) : Int)) * (2 : Rat) ^ x.toExpInt = (2 : Rat) ^ x.ex.toInt := by
+    rw [Rat.zpow_mul_zpow (by grind)]
+    have heq : ((su - 1 : Nat) : Int) + x.toExpInt = x.ex.toInt := by
+      rw [hexp]; omega
+    rw [heq]
+  have key : (2 : Rat) ^ x.ex.toInt ≤ (x.sig.toNat : Rat) * (2 : Rat) ^ x.toExpInt := by
+    rw [← h1]
+    apply Rat.mul_le_mul_of_nonneg_right
+    · rw [Rat.zpow_natCast]
+      have : ((2 ^ (su - 1) : Nat) : Rat) ≤ (x.sig.toNat : Rat) := by
+        exact_mod_cast hle
+      simpa [Rat.natCast_pow] using this
+    · exact Rat.le_of_lt hpos
+  have hstrict : (2 : Rat) ^ maxNormalExp ep < (2 : Rat) ^ x.ex.toInt := by
+    have h2 : (2 : Rat) * (2 : Rat) ^ maxNormalExp ep = (2 : Rat) ^ (maxNormalExp ep + 1) :=
+      Rat.mul_self_zpow_eq_zpow_succ (by grind)
+    have h3 : (2 : Rat) ^ (maxNormalExp ep + 1) ≤ (2 : Rat) ^ x.ex.toInt :=
+      Rat.two_pow_le_two_pow_of_le (by omega)
+    have h4 : (0 : Rat) < (2 : Rat) ^ maxNormalExp ep := Rat.two_pow_pos _
+    grind
+  grind
+
+/--
+An overflowing, normalized, nonzero float has magnitude at least `2 ^ (maxNormalExp ep + 1)`.
+Strengthened form of `two_pow_maxNormalExp_lt_abs_toRat'`, used to discharge the
+corrected hypothesis of `roundRNE_eq_infinity_of_maxNormalExp_lt`.
+-/
+theorem UnpackedFloat.two_pow_maxNormalExp_succ_le_abs_toRat'
+    (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su)
+    (hxnorm : x.normalize = x)
+    (hzero : ¬ x.isZero)
+    (hover : x.blastIsEarlyOverflowNonneg ep sp = true) :
+    (2 : Rat) ^ (maxNormalExp ep + 1) ≤ (x.toRat').abs := by
+  -- exponent strictly above maxNormalExp
+  have hover' : maxNormalExp ep < x.ex.toInt := by
+    have := UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide he hs heu x
+    grind
+  -- the significand is nonzero and normalized, so its msb is set
+  have hsig : x.sig ≠ 0#su := by
+    simp [UnpackedFloat.isZero] at hzero
+    exact hzero
+  have hmsb : x.sig.msb = true := (UnpackedFloat.normalize_eq_self_iff x hsig).mp hxnorm
+  have hle : 2 ^ (su - 1) ≤ x.sig.toNat := BitVec.le_toNat_of_msb_true hmsb
+  -- |toRat'| = sig.toNat * 2 ^ toExpInt
+  have hpos : (0 : Rat) < (2 : Rat) ^ x.toExpInt := Rat.two_pow_pos _
+  have hsignat : (0 : Rat) < (x.sig.toNat : Rat) := by
+    have : 0 < x.sig.toNat := by
+      have : 0 < 2 ^ (su - 1) := Nat.two_pow_pos _
+      omega
+    exact_mod_cast this
+  have habs : (x.toRat').abs = (x.sig.toNat : Rat) * (2 : Rat) ^ x.toExpInt := by
+    rw [UnpackedFloat.toRat', Rat.abs]
+    cases hsgn : x.sign
+    · simp [Bool.toSign]
+      intros hlt
+      exfalso
+      have : (0 : Rat) < (x.sig.toNat : Rat) * (2 : Rat) ^ x.toExpInt := by
+        exact Rat.mul_positive hsignat hpos
+      grind
+    · simp [Bool.toSign]
+      have : (0 : Rat) < (x.sig.toNat : Rat) * (2 : Rat) ^ x.toExpInt := by
+        exact Rat.mul_positive hsignat hpos
+      grind
+  rw [habs]
+  -- 2 ^ (su-1) * 2 ^ toExpInt = 2 ^ ex.toInt
+  have hexp : x.toExpInt = x.ex.toInt - ((su - 1 : Nat) : Int) := by
+    simp [UnpackedFloat.toExpInt]
+    omega
+  have h1 : ((2 : Rat) ^ ((su - 1 : Nat) : Int)) * (2 : Rat) ^ x.toExpInt = (2 : Rat) ^ x.ex.toInt := by
+    rw [Rat.zpow_mul_zpow (by grind)]
+    have heq : ((su - 1 : Nat) : Int) + x.toExpInt = x.ex.toInt := by
+      rw [hexp]; omega
+    rw [heq]
+  have key : (2 : Rat) ^ x.ex.toInt ≤ (x.sig.toNat : Rat) * (2 : Rat) ^ x.toExpInt := by
+    rw [← h1]
+    apply Rat.mul_le_mul_of_nonneg_right
+    · rw [Rat.zpow_natCast]
+      have : ((2 ^ (su - 1) : Nat) : Rat) ≤ (x.sig.toNat : Rat) := by
+        exact_mod_cast hle
+      simpa [Rat.natCast_pow] using this
+    · exact Rat.le_of_lt hpos
+  have h3 : (2 : Rat) ^ (maxNormalExp ep + 1) ≤ (2 : Rat) ^ x.ex.toInt :=
+    Rat.two_pow_le_two_pow_of_le (by omega)
+  grind
+
+/-- The absolute value of an unpacked float is its significand value times its scaled exponent. -/
+theorem UnpackedFloat.abs_toRat'_eq (x : UnpackedFloat eu su) :
+    (x.toRat' prec).abs = (x.sig.toNat : Rat) * (2 : Rat) ^ x.toExpInt prec := by
+  have hpos : (0 : Rat) < (2 : Rat) ^ x.toExpInt prec := Rat.two_pow_pos _
+  have hsignn : (0 : Rat) ≤ (x.sig.toNat : Rat) := by exact_mod_cast Nat.zero_le _
+  have hnonneg : (0 : Rat) ≤ (x.sig.toNat : Rat) * (2 : Rat) ^ x.toExpInt prec :=
+    Rat.mul_nonneg hsignn (Rat.le_of_lt hpos)
+  rw [UnpackedFloat.toRat', Rat.abs]
+  cases hsgn : x.sign
+  · simp [Bool.toSign]
+    intros hlt
+    grind
+  · simp [Bool.toSign]
+    grind
+
+/-- For a nonzero unpacked float, the sign bit records whether the value is negative. -/
+theorem UnpackedFloat.sign_eq_decide_toRat'_lt_zero (x : UnpackedFloat eu su)
+    (hx0 : x.toRat' ≠ 0) :
+    x.sign = decide (x.toRat' < 0) := by
+  have hpos : (0 : Rat) < (2 : Rat) ^ x.toExpInt := Rat.two_pow_pos _
+  have hsig : x.sig.toNat ≠ 0 := by
+    intro h
+    apply hx0
+    simp [UnpackedFloat.toRat', UnpackedFloat.toSigNat, h]
+  have hsignat : (0 : Rat) < (x.sig.toNat : Rat) := by
+    exact_mod_cast Nat.pos_of_ne_zero hsig
+  have hprod : (0 : Rat) < (x.sig.toNat : Rat) * (2 : Rat) ^ x.toExpInt :=
+    Rat.mul_positive hsignat hpos
+  rw [UnpackedFloat.toRat']
+  cases hsgn : x.sign
+  · simp [Bool.toSign]
+    grind
+  · simp [Bool.toSign]
+    grind
+
+/-- An early-underflowing float is strictly smaller in magnitude than
+half the minimum subnormal of the target format. -/
+theorem UnpackedFloat.abs_toRat'_lt_two_pow_of_blastIsEarlyUnderflowNonneg
+    (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su)
+    (hunder : x.blastIsEarlyUnderflowNonneg ep sp = true) :
+    (x.toRat').abs < (2 : Rat) ^ (minSubnormalExp ep sp - 1) := by
+  have hunder' : x.ex.toInt < minSubnormalExp ep sp - 1 := by
+    have := UnpackedFloat.blastIsEarlyUnderflowNonneg_eq_decide he hs heu x
+    grind
+  rw [UnpackedFloat.abs_toRat'_eq]
+  have hpos : (0 : Rat) < (2 : Rat) ^ x.toExpInt := Rat.two_pow_pos _
+  have hsiglt : x.sig.toNat < 2 ^ su := x.sig.isLt
+  have h1 : (x.sig.toNat : Rat) * (2 : Rat) ^ x.toExpInt
+      < ((2 : Rat) ^ ((su : Nat) : Int)) * (2 : Rat) ^ x.toExpInt := by
+    rw [Rat.mul_lt_mul_cancel_right_of_lt hpos]
+    rw [Rat.zpow_natCast]
+    have : ((x.sig.toNat : Nat) : Rat) < ((2 ^ su : Nat) : Rat) := by exact_mod_cast hsiglt
+    simpa [Rat.natCast_pow] using this
+  have h2 : ((2 : Rat) ^ ((su : Nat) : Int)) * (2 : Rat) ^ x.toExpInt
+      = (2 : Rat) ^ (((su : Nat) : Int) + x.toExpInt) :=
+    Rat.zpow_mul_zpow (by grind) _ _
+  have h3 : ((su : Nat) : Int) + x.toExpInt ≤ minSubnormalExp ep sp - 1 := by
+    simp [UnpackedFloat.toExpInt]
+    omega
+  have h4 : (2 : Rat) ^ (((su : Nat) : Int) + x.toExpInt) ≤ (2 : Rat) ^ (minSubnormalExp ep sp - 1) :=
+    Rat.two_pow_le_two_pow_of_le h3
+  grind
+
+/--
+Rounding any number whose absolute value is strictly smaller than *half the
+minimum subnormal* of the target format produces a zero, whose sign is the
+sign of the number itself.
+
+NOTE (statement corrected): the original statement assumed only
+`r.abs < 2 ^ minNormalExp ep` and an arbitrary `sign`, which is FALSE:
+* any representable subnormal `r` (e.g. `r = 2 ^ minSubnormalExp ep sp`)
+  satisfies that bound but rounds to itself (nonzero);
+* for nonzero `r` the sign of the resulting zero is forced by the sign of
+  `r` (e.g. positive tiny `r` rounds to `+0` even when `sign = true`).
+The corrected hypotheses require `|r| < 2 ^ (minSubnormalExp ep sp - 1)`
+(strictly below half the smallest subnormal, so RNE rounds to zero) and
+`sign = decide (r < 0)`.
 -/
 theorem roundRNE_eq_zero_of_lt_minNormalExp
   (he : 1 < ep)
   (hs : 0 < sp)
   (r : Rat)
-  (hr : r.abs < (2 : Rat) ^ minNormalExp ep) :
+  (hsign : sign = decide (r < 0))
+  (hr : r.abs < (2 : Rat) ^ (minSubnormalExp ep sp - 1)) :
   ((SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRNE sign
         (ExtRat.Number r)) = PackedFloat.getZero ep sp sign := by
   sorry
@@ -1235,17 +1727,30 @@ theorem roundRNE_eq_zero_of_lt_minNormalExp
 /--
 Since 'truncateFittingExponent' does not change the significand,
 it preserves being normalized.
+
+NOTE (statement corrected): the hypothesis `¬ x.isZero` was added. The
+original statement (without it) is FALSE when `exponentWidth ep sp < eu`:
+for the canonical zero (`sig = 0`, `ex = intMin eu`), `truncateFittingExponent`
+truncates `intMin eu` to `0`, while re-normalizing the result produces the
+canonical zero of the *narrower* width, whose exponent is
+`intMin (exponentWidth ep sp) ≠ 0`. (Counterexamples found by exhaustive
+enumeration at `ep = 3, sp = 2, eu = 5, su = 4`; the nonzero case has no
+counterexamples there.) The lemma was unused at the time of the change.
 -/
 theorem normalize_truncateFittingExponent_eq_self_of_normalize_eq_self
   (he : 1 < ep) (hs : 0 < sp)
   (heu : exponentWidth ep sp ≤ eu)
   (hsu : sp + 2 ≤ su)
   (x : UnpackedFloat eu su)
+  (hzero : ¬ x.isZero)
   (hxnorm : x.normalize = x) :
     (x.truncateFittingExponent ep sp).normalize = x.truncateFittingExponent ep sp := by
   apply UnpackedFloat.normalize_eq_self_of_msb_eq_true
   simp only [sig_truncateFittingExponent]
-  sorry
+  have hsig : x.sig ≠ 0#su := by
+    simp [UnpackedFloat.isZero] at hzero
+    exact hzero
+  exact (UnpackedFloat.normalize_eq_self_iff x hsig).mp hxnorm
 
 /--
 since truncateFittingExponent does not change the significand, it preserves being zero.
@@ -1275,31 +1780,474 @@ theorem toRat'_truncateFittingExponent_of_not_blastIsOverflowNonneg_of_not_blast
   simp [UnpackedFloat.toRat']
   rw [toExpInt_truncateFittingExponent_of_not_blastIsOverflowNonneg] <;> grind only
 
+/-! ### Invariance of the lower/upper circuits under `truncateFittingExponent`
+
+The lemmas below show that (in the no-early-over/underflow window) the
+`blastLower*`/`blastUpper*` circuits produce `Rel`-equivalent results before
+and after `truncateFittingExponent`. The proofs go through `PartsEq`
+(agreement on state, sign and rational value at every precision). -/
+
+/-- Under no early over/underflow, `truncateFittingExponent` preserves the
+*value* of the exponent field. -/
+theorem toInt_ex_truncateFittingExponent
+    (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hnotunder : x.blastIsEarlyUnderflowNonneg ep sp = false) :
+    (x.truncateFittingExponent ep sp).ex.toInt = x.ex.toInt := by
+  have h := toExpInt_truncateFittingExponent_of_not_blastIsOverflowNonneg he hs heu x hnotover hnotunder
+  simp [UnpackedFloat.toExpInt] at h
+  omega
+
+/-- `s + 1` is strictly below `2 ^ (exponentWidth e s - 1)` when `1 < e`. -/
+theorem sigWidth_add_one_lt_two_pow_exponentWidth_sub_one (he : 1 < e) :
+    s + 1 < 2 ^ (exponentWidth e s - 1) := by
+  rw [exponentWidth]
+  have hpow : 2 ≤ 2 ^ (e - 1) := by
+    have : 2 ^ 1 ≤ 2 ^ (e - 1) := Nat.pow_le_pow_right (by omega) (by omega)
+    omega
+  have h0 : 2 ^ (e - 1) + s - 1 ≠ 0 := by omega
+  obtain ⟨k, hk, hle, hlt⟩ := Nat.log2_eq_exists _ h0
+  rw [hk]
+  show s + 1 < 2 ^ (k + 1)
+  omega
+
+/-- The shift amount `minNormalExp ep - exInt` fits in the signed range of any
+width `w ≥ exponentWidth ep sp`, provided the exponent is between
+`minSubnormalExp - 1` and `maxNormalExp`. -/
+theorem shift_range
+    (he : 1 < ep) (hs : 0 < sp) (hw : exponentWidth ep sp ≤ w)
+    {exInt : Int}
+    (hlo : minSubnormalExp ep sp - 1 ≤ exInt) (hhi : exInt ≤ maxNormalExp ep) :
+    -2 ^ (w - 1) ≤ minNormalExp ep - exInt ∧ minNormalExp ep - exInt < 2 ^ (w - 1) := by
+  have hbias : 0 < bias ep := bias_pos_of_one_lt ep he
+  have hminN : minNormalExp ep = 1 - (bias ep : Int) := by
+    rw [minNormalExp]
+    omega
+  have hminS : minSubnormalExp ep sp = -(bias ep : Int) - ((sp : Int) - 1) :=
+    minSubnormalExp_eq_neg_bias_minus_s_minus_one he
+  have hmaxN : maxNormalExp ep = (bias ep : Int) := rfl
+  have hsp1 : sp + 1 < 2 ^ (exponentWidth ep sp - 1) :=
+    sigWidth_add_one_lt_two_pow_exponentWidth_sub_one he
+  have h2b : 2 * bias ep = 2 ^ ep - 2 := two_mul_bias_eq_twoPow_minus_two ep he
+  have hpow1 : (2 : Nat) ^ ep ≤ 2 ^ (exponentWidth ep sp - 1) := by
+    apply Nat.pow_le_pow_right (by omega)
+    have := self_lt_exponentWidth ep sp he hs
+    omega
+  have hpow2 : (2 : Nat) ^ (exponentWidth ep sp - 1) ≤ 2 ^ (w - 1) := by
+    apply Nat.pow_le_pow_right (by omega)
+    have := @one_lt_exponentWidth ep sp
+    omega
+  have hcast : ((2 ^ (w - 1) : Nat) : Int) = (2 : Int) ^ (w - 1) := by push_cast; rfl
+  omega
+
+/-- `blastIsUnderflowNonneg` is invariant under `truncateFittingExponent`
+(no early over/underflow). -/
+theorem blastIsUnderflowNonneg_truncateFittingExponent
+    (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hnotunder : x.blastIsEarlyUnderflowNonneg ep sp = false) :
+    (x.truncateFittingExponent ep sp).blastIsUnderflowNonneg ep sp
+      = x.blastIsUnderflowNonneg ep sp := by
+  rw [UnpackedFloat.blastUnderflowNonneg_eq_decide he hs (Nat.le_refl _),
+      UnpackedFloat.blastUnderflowNonneg_eq_decide he hs heu,
+      toInt_ex_truncateFittingExponent he hs heu x hnotover hnotunder]
+
+/-- `blastIsEarlyOverflowNonneg` is invariant under `truncateFittingExponent`
+(no early over/underflow). -/
+theorem blastIsEarlyOverflowNonneg_truncateFittingExponent
+    (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hnotunder : x.blastIsEarlyUnderflowNonneg ep sp = false) :
+    (x.truncateFittingExponent ep sp).blastIsEarlyOverflowNonneg ep sp
+      = x.blastIsEarlyOverflowNonneg ep sp := by
+  rw [UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide he hs (Nat.le_refl _),
+      UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide he hs heu,
+      toInt_ex_truncateFittingExponent he hs heu x hnotover hnotunder]
+
+/-- The guard bit index is invariant under `truncateFittingExponent`
+(no early over/underflow). -/
+theorem guardBitIndex_truncateFittingExponent
+    (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hnotunder : x.blastIsEarlyUnderflowNonneg ep sp = false) :
+    (x.truncateFittingExponent ep sp).guardBitIndex ep sp = x.guardBitIndex ep sp := by
+  have hover' : x.ex.toInt ≤ maxNormalExp ep := by
+    have := UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide he hs heu x
+    grind
+  have hunder' : minSubnormalExp ep sp - 1 ≤ x.ex.toInt := by
+    have := UnpackedFloat.blastIsEarlyUnderflowNonneg_eq_decide he hs heu x
+    grind
+  have hext := toInt_ex_truncateFittingExponent he hs heu x hnotover hnotunder
+  have hofIntT : (BitVec.ofInt (exponentWidth ep sp) (minNormalExp ep)).toInt = minNormalExp ep :=
+    toInt_ofInt_minNormalExp_eq_minNormalExp_of_le he hs (Nat.le_refl _)
+  have hofIntX : (BitVec.ofInt eu (minNormalExp ep)).toInt = minNormalExp ep :=
+    toInt_ofInt_minNormalExp_eq_minNormalExp_of_le he hs heu
+  have hewpos : 0 < exponentWidth ep sp := zero_lt_exponentWidth
+  have heupos : 0 < eu := by omega
+  obtain ⟨hrt1, hrt2⟩ := shift_range he hs (Nat.le_refl _) (exInt := x.ex.toInt) hunder' hover'
+  obtain ⟨hrx1, hrx2⟩ := shift_range he hs heu (exInt := x.ex.toInt) hunder' hover'
+  unfold UnpackedFloat.guardBitIndex
+  apply BitVec.eq_of_toNat_eq
+  rw [BitVec.toNat_add, BitVec.toNat_add]
+  simp only [BitVec.zeroExtend_eq_setWidth, BitVec.toNat_setWidth]
+  rw [BitVec.toNat_subSaturatingZero_eq_ite_toNat hewpos _ _
+        (by rw [hofIntT, hext]; exact hrt1) (by rw [hofIntT, hext]; exact hrt2),
+      BitVec.toNat_subSaturatingZero_eq_ite_toNat heupos _ _
+        (by rw [hofIntX]; exact hrx1) (by rw [hofIntX]; exact hrx2)]
+  rw [hofIntT, hofIntX, hext]
+
+/-- The cleared significand is invariant under `truncateFittingExponent`. -/
+theorem sig_blastClearSignificand_truncateFittingExponent
+    (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hnotunder : x.blastIsEarlyUnderflowNonneg ep sp = false) :
+    ((x.truncateFittingExponent ep sp).blastClearSignificand ep sp).sig
+      = (x.blastClearSignificand ep sp).sig := by
+  unfold UnpackedFloat.blastClearSignificand
+  simp only [sig_truncateFittingExponent]
+  rw [guardBitIndex_truncateFittingExponent he hs heu x hnotover hnotunder]
+
+@[simp]
+theorem sign_blastRoundTowardZero (uf : UnpackedFloat eu su) :
+    (uf.blastRoundTowardZero tep tsp).sign = uf.sign := by
+  simp [UnpackedFloat.blastRoundTowardZero]
+
+theorem sig_blastRoundTowardZero (uf : UnpackedFloat eu su) :
+    (uf.blastRoundTowardZero tep tsp).sig
+      = (uf.blastClearSignificand tep tsp).sig.extractMsb' 0 (tsp + 1) := rfl
+
+@[simp]
+theorem ex_blastRoundTowardZero (uf : UnpackedFloat eu su) :
+    (uf.blastRoundTowardZero tep tsp).ex = uf.ex := by
+  simp [UnpackedFloat.blastRoundTowardZero, UnpackedFloat.blastClearSignificand]
+
+/-- `needsRounding` is invariant under `truncateFittingExponent`
+(no early over/underflow). -/
+theorem needsRounding_truncateFittingExponent
+    (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hnotunder : x.blastIsEarlyUnderflowNonneg ep sp = false) :
+    (x.truncateFittingExponent ep sp).needsRounding ep sp = x.needsRounding ep sp := by
+  unfold UnpackedFloat.needsRounding UnpackedFloat.blastExtractGuardBit
+    UnpackedFloat.blastExtractStickyBit
+  rw [guardBitIndex_truncateFittingExponent he hs heu x hnotover hnotunder]
+  simp only [sig_truncateFittingExponent]
+
+@[simp]
+theorem sign_blastSuccessorAwayFromZero (uf : UnpackedFloat eu su) :
+    (uf.blastSuccessorAwayFromZero tep tsp).sign = uf.sign := by
+  simp [UnpackedFloat.blastSuccessorAwayFromZero, UnpackedFloat.blastClearSignificand]
+
+@[simp]
+theorem sign_blastSuccessorAwayFromZeroNonnegAux (uf : UnpackedFloat eu su) :
+    (uf.blastSuccessorAwayFromZeroNonnegAux tep tsp).sign = uf.sign := by
+  unfold UnpackedFloat.blastSuccessorAwayFromZeroNonnegAux
+  split <;> simp
+
+/-- The significand produced by `blastSuccessorAwayFromZero` is invariant under
+`truncateFittingExponent` (no early over/underflow). -/
+theorem sig_blastSuccessorAwayFromZero_truncateFittingExponent
+    (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hnotunder : x.blastIsEarlyUnderflowNonneg ep sp = false) :
+    ((x.truncateFittingExponent ep sp).blastSuccessorAwayFromZero ep sp).sig
+      = (x.blastSuccessorAwayFromZero ep sp).sig := by
+  unfold UnpackedFloat.blastSuccessorAwayFromZero
+  simp only [guardBitIndex_truncateFittingExponent he hs heu x hnotover hnotunder,
+    sig_blastClearSignificand_truncateFittingExponent he hs heu x hnotover hnotunder]
+
+/-- The exponent *value* produced by `blastSuccessorAwayFromZero` is invariant
+under `truncateFittingExponent` (no early over/underflow). -/
+theorem toInt_ex_blastSuccessorAwayFromZero_truncateFittingExponent
+    (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hnotunder : x.blastIsEarlyUnderflowNonneg ep sp = false) :
+    ((x.truncateFittingExponent ep sp).blastSuccessorAwayFromZero ep sp).ex.toInt
+      = (x.blastSuccessorAwayFromZero ep sp).ex.toInt := by
+  have hexhi : x.ex.toInt ≤ maxNormalExp ep := by
+    have := UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide he hs heu x
+    grind
+  have hexlo : minSubnormalExp ep sp - 1 ≤ x.ex.toInt := by
+    have := UnpackedFloat.blastIsEarlyUnderflowNonneg_eq_decide he hs heu x
+    grind
+  have hext := toInt_ex_truncateFittingExponent he hs heu x hnotover hnotunder
+  have hew1 : 1 < exponentWidth ep sp := one_lt_exponentWidth
+  have heu1 : 1 < eu := by omega
+  have hbias : bias ep + 1 < 2 ^ (exponentWidth ep sp - 1) :=
+    bias_plus_one_lt_two_pow_exponentWidth_minus_one ep sp he hs
+  have hminS := neg_two_pow_exponentWidth_lt_minSubnormalExp (e := ep) (s := sp) he hs
+  have hmaxN : maxNormalExp ep = (bias ep : Int) := rfl
+  have hpowle : (2 : Int) ^ (exponentWidth ep sp - 1) ≤ 2 ^ (eu - 1) := by
+    have h1 : (2 : Nat) ^ (exponentWidth ep sp - 1) ≤ 2 ^ (eu - 1) :=
+      Nat.pow_le_pow_right (by omega) (by omega)
+    have hc1 : ((2 ^ (exponentWidth ep sp - 1) : Nat) : Int)
+        = (2 : Int) ^ (exponentWidth ep sp - 1) := by push_cast; rfl
+    have hc2 : ((2 ^ (eu - 1) : Nat) : Int) = (2 : Int) ^ (eu - 1) := by push_cast; rfl
+    omega
+  have hcastBias : ((bias ep : Nat) : Int) + 1 < (2 : Int) ^ (exponentWidth ep sp - 1) := by
+    have : ((bias ep + 1 : Nat) : Int) < ((2 ^ (exponentWidth ep sp - 1) : Nat) : Int) := by
+      exact_mod_cast hbias
+    push_cast at this
+    omega
+  have h2pow : ∀ n : Nat, 0 < n → (2 : Int) ^ n = 2 * 2 ^ (n - 1) := by
+    intro n hn
+    obtain ⟨m, rfl⟩ := Nat.exists_eq_succ_of_ne_zero (Nat.pos_iff_ne_zero.mp hn)
+    rw [Int.pow_succ]
+    simp
+    omega
+  have h2eu : (2 : Int) ^ eu = 2 * 2 ^ (eu - 1) := h2pow eu (by omega)
+  have h2ew : (2 : Int) ^ (exponentWidth ep sp) = 2 * 2 ^ (exponentWidth ep sp - 1) :=
+    h2pow _ (by omega)
+  unfold UnpackedFloat.blastSuccessorAwayFromZero
+  simp only [guardBitIndex_truncateFittingExponent he hs heu x hnotover hnotunder,
+    sig_blastClearSignificand_truncateFittingExponent he hs heu x hnotover hnotunder,
+    clearSignificand_ex]
+  split
+  · -- carry: both exponents incremented by one
+    rw [BitVec.toInt_add, BitVec.toInt_add, hext]
+    have h1t : (1#(exponentWidth ep sp)).toInt = 1 := by
+      rw [BitVec.toInt_one_of_lt hew1]
+    have h1x : (1#eu).toInt = 1 := by
+      rw [BitVec.toInt_one_of_lt heu1]
+    rw [h1t, h1x]
+    rw [Int.bmod_eq_of_le, Int.bmod_eq_of_le] <;> push_cast <;> omega
+  · exact hext
+
+/-- The significand of `blastSuccessorAwayFromZeroNonnegAux` is invariant under
+`truncateFittingExponent`. -/
+theorem sig_blastSuccessorAwayFromZeroNonnegAux_truncateFittingExponent
+    (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hnotunder : x.blastIsEarlyUnderflowNonneg ep sp = false) :
+    ((x.truncateFittingExponent ep sp).blastSuccessorAwayFromZeroNonnegAux ep sp).sig
+      = (x.blastSuccessorAwayFromZeroNonnegAux ep sp).sig := by
+  unfold UnpackedFloat.blastSuccessorAwayFromZeroNonnegAux
+  rw [needsRounding_truncateFittingExponent he hs heu x hnotover hnotunder]
+  split
+  · exact sig_blastSuccessorAwayFromZero_truncateFittingExponent he hs heu x hnotover hnotunder
+  · rw [sig_blastRoundTowardZero, sig_blastRoundTowardZero,
+      sig_blastClearSignificand_truncateFittingExponent he hs heu x hnotover hnotunder]
+
+/-- The exponent value of `blastSuccessorAwayFromZeroNonnegAux` is invariant
+under `truncateFittingExponent`. -/
+theorem toInt_ex_blastSuccessorAwayFromZeroNonnegAux_truncateFittingExponent
+    (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hnotunder : x.blastIsEarlyUnderflowNonneg ep sp = false) :
+    ((x.truncateFittingExponent ep sp).blastSuccessorAwayFromZeroNonnegAux ep sp).ex.toInt
+      = (x.blastSuccessorAwayFromZeroNonnegAux ep sp).ex.toInt := by
+  unfold UnpackedFloat.blastSuccessorAwayFromZeroNonnegAux
+  rw [needsRounding_truncateFittingExponent he hs heu x hnotover hnotunder]
+  split
+  · exact toInt_ex_blastSuccessorAwayFromZero_truncateFittingExponent he hs heu x hnotover hnotunder
+  · rw [ex_blastRoundTowardZero, ex_blastRoundTowardZero]
+    exact toInt_ex_truncateFittingExponent he hs heu x hnotover hnotunder
+
+/-- Two extended unpacked floats (possibly of different widths) that agree on
+state, sign, and rational value at every precision are `Rel`-related to
+exactly the same packed floats. -/
+def EUnpackedFloat.PartsEq (a : EUnpackedFloat e1 s1) (b : EUnpackedFloat e2 s2) : Prop :=
+  a.state = b.state ∧ a.num.sign = b.num.sign ∧ ∀ w, a.num.toRat' w = b.num.toRat' w
+
+theorem EUnpackedFloat.Rel_iff_Rel_of_PartsEq
+    {a : EUnpackedFloat e1 s1} {b : EUnpackedFloat e2 s2}
+    {z : PackedFloat zep zsp}
+    (h : EUnpackedFloat.PartsEq a b) :
+    a.Rel z ↔ b.Rel z := by
+  obtain ⟨hstate, hsign, htoRat⟩ := h
+  unfold EUnpackedFloat.Rel UnpackedFloat.Rel EUnpackedFloat.sign
+  rw [hstate, htoRat zsp, hsign]
+
+theorem EUnpackedFloat.PartsEq.neg
+    {a : EUnpackedFloat e1 s1} {b : EUnpackedFloat e2 s2}
+    (h : EUnpackedFloat.PartsEq a b) :
+    EUnpackedFloat.PartsEq (-a) (-b) := by
+  obtain ⟨hstate, hsign, htoRat⟩ := h
+  refine ⟨?_, ?_, ?_⟩
+  · simpa using hstate
+  · rw [← EUnpackedFloat.neg_def, ← EUnpackedFloat.neg_def]
+    simp [EUnpackedFloat.neg]
+    grind
+  · intro w
+    rw [← EUnpackedFloat.neg_def, ← EUnpackedFloat.neg_def]
+    simp only [EUnpackedFloat.neg]
+    simp only [UnpackedFloat.toRat'_neg]
+    rw [htoRat w]
+
+/-- Two unpacked floats with equal sign, significand and exponent *value*
+have equal rational values at every precision. -/
+theorem UnpackedFloat.toRat'_eq_toRat'_of_parts
+    {a : UnpackedFloat e1 s} {b : UnpackedFloat e2 s}
+    (hsign : a.sign = b.sign) (hsig : a.sig = b.sig) (hex : a.ex.toInt = b.ex.toInt)
+    (w : Nat) :
+    a.toRat' w = b.toRat' w := by
+  simp [UnpackedFloat.toRat', UnpackedFloat.toExpInt, UnpackedFloat.toSigNat, hsig, hsign, hex]
+
+/-- `blastLowerNonneg` commutes with `truncateFittingExponent` up to `PartsEq`. -/
+theorem blastLowerNonneg_truncateFittingExponent_PartsEq
+    (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hnotunder : x.blastIsEarlyUnderflowNonneg ep sp = false) :
+    EUnpackedFloat.PartsEq
+      ((x.truncateFittingExponent ep sp).blastLowerNonneg ep sp)
+      (x.blastLowerNonneg ep sp) := by
+  have hcondU := blastIsUnderflowNonneg_truncateFittingExponent he hs heu x hnotover hnotunder
+  have hcondO := blastIsEarlyOverflowNonneg_truncateFittingExponent he hs heu x hnotover hnotunder
+  unfold UnpackedFloat.blastLowerNonneg
+  rw [hcondU, hcondO]
+  by_cases h1 : x.blastIsUnderflowNonneg ep sp
+  · simp only [h1, if_true]
+    exact ⟨rfl, by simp, fun w => by simp⟩
+  · simp only [h1, Bool.false_eq_true, if_false, hnotover]
+    refine ⟨rfl, ?_, ?_⟩
+    · simp only [EUnpackedFloat.num_mkNumber, sign_blastRoundTowardZero,
+        sign_truncateFittingExponent]
+    · intro w
+      simp only [EUnpackedFloat.num_mkNumber]
+      apply UnpackedFloat.toRat'_eq_toRat'_of_parts
+      · simp only [sign_blastRoundTowardZero, sign_truncateFittingExponent]
+      · rw [sig_blastRoundTowardZero, sig_blastRoundTowardZero,
+          sig_blastClearSignificand_truncateFittingExponent he hs heu x hnotover hnotunder]
+      · simp only [ex_blastRoundTowardZero]
+        exact toInt_ex_truncateFittingExponent he hs heu x hnotover hnotunder
+
+/-- `blastUpperNonneg` commutes with `truncateFittingExponent` up to `PartsEq`. -/
+theorem blastUpperNonneg_truncateFittingExponent_PartsEq
+    (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hnotunder : x.blastIsEarlyUnderflowNonneg ep sp = false) :
+    EUnpackedFloat.PartsEq
+      ((x.truncateFittingExponent ep sp).blastUpperNonneg ep sp)
+      (x.blastUpperNonneg ep sp) := by
+  have hsig := sig_blastSuccessorAwayFromZeroNonnegAux_truncateFittingExponent
+    he hs heu x hnotover hnotunder
+  have hexI := toInt_ex_blastSuccessorAwayFromZeroNonnegAux_truncateFittingExponent
+    he hs heu x hnotover hnotunder
+  have hcondU :
+      ((x.truncateFittingExponent ep sp).blastSuccessorAwayFromZeroNonnegAux ep sp).blastIsUnderflowNonneg ep sp
+        = (x.blastSuccessorAwayFromZeroNonnegAux ep sp).blastIsUnderflowNonneg ep sp := by
+    rw [UnpackedFloat.blastUnderflowNonneg_eq_decide he hs (Nat.le_refl _),
+        UnpackedFloat.blastUnderflowNonneg_eq_decide he hs heu, hexI]
+  have hcondO :
+      ((x.truncateFittingExponent ep sp).blastSuccessorAwayFromZeroNonnegAux ep sp).blastIsEarlyOverflowNonneg ep sp
+        = (x.blastSuccessorAwayFromZeroNonnegAux ep sp).blastIsEarlyOverflowNonneg ep sp := by
+    rw [UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide he hs (Nat.le_refl _),
+        UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide he hs heu, hexI]
+  simp only [UnpackedFloat.blastUpperNonneg]
+  rw [hcondU, hcondO]
+  by_cases h1 : (x.blastSuccessorAwayFromZeroNonnegAux ep sp).blastIsUnderflowNonneg ep sp
+  · simp only [h1, if_true]
+    refine ⟨rfl, by simp [UnpackedFloat.minSubnormalForPackedFloat], fun w => ?_⟩
+    simp only [EUnpackedFloat.num_mkNumber]
+    apply UnpackedFloat.toRat'_eq_toRat'_of_parts
+    · simp [UnpackedFloat.minSubnormalForPackedFloat]
+    · simp [UnpackedFloat.minSubnormalForPackedFloat]
+    · simp only [UnpackedFloat.minSubnormalForPackedFloat]
+      rw [toInt_ofInt_minSubnormalExp_eq_minSubnormalExp_of_le he hs (Nat.le_refl _),
+          toInt_ofInt_minSubnormalExp_eq_minSubnormalExp_of_le he hs heu]
+  · simp only [h1, Bool.false_eq_true, if_false]
+    by_cases h2 : (x.blastSuccessorAwayFromZeroNonnegAux ep sp).blastIsEarlyOverflowNonneg ep sp
+    · simp only [h2, if_true]
+      exact ⟨rfl, by simp [EUnpackedFloat.mkInfinity],
+        fun w => by simp [EUnpackedFloat.mkInfinity, UnpackedFloat.toRat']⟩
+    · simp only [h2, Bool.false_eq_true, if_false]
+      refine ⟨rfl, ?_, fun w => ?_⟩
+      · simp only [EUnpackedFloat.num_mkNumber, sign_blastSuccessorAwayFromZeroNonnegAux,
+          sign_truncateFittingExponent]
+      · simp only [EUnpackedFloat.num_mkNumber]
+        exact UnpackedFloat.toRat'_eq_toRat'_of_parts (by simp) hsig hexI w
+
+/-- Negation commutes with `truncateFittingExponent`. -/
+theorem neg_truncateFittingExponent (x : UnpackedFloat eu su) :
+    -(x.truncateFittingExponent ep sp) = (-x).truncateFittingExponent ep sp := by
+  simp [UnpackedFloat.truncateFittingExponent, UnpackedFloat.neg_def, UnpackedFloat.neg]
+
+@[simp]
+theorem blastIsEarlyOverflowNonneg_neg (x : UnpackedFloat eu su) :
+    (-x).blastIsEarlyOverflowNonneg tep tsp = x.blastIsEarlyOverflowNonneg tep tsp := rfl
+
+@[simp]
+theorem blastIsEarlyUnderflowNonneg_neg (x : UnpackedFloat eu su) :
+    (-x).blastIsEarlyUnderflowNonneg tep tsp = x.blastIsEarlyUnderflowNonneg tep tsp := rfl
+
+/--
+NOTE (statement corrected): the hypothesis `heu : exponentWidth ep sp ≤ eu`
+was ADDED. Without it the statement is FALSE: for `eu < exponentWidth ep sp`
+the constants `BitVec.ofInt eu (minSubnormalExp ep sp)` etc. wrap around, so
+`x.blastIsUnderflowNonneg` can disagree with the (faithful) condition computed
+at width `exponentWidth ep sp` after `truncateFittingExponent` (which *widens*
+losslessly in that case). E.g. at `(ep, sp) = (3, 2)`, `eu = 2`:
+`hnotover`/`hnotunder` force `x.ex.toInt = -1`, then `x` takes the underflow
+branch (`lower = +0`) while `truncateFittingExponent x` takes the normal
+branch (nonzero result). All call sites have `heu` in scope.
+-/
 @[simp]
 theorem blastLowerNonneg_truncateFittingExponent_Rel_eq_blastLower_Rel
     (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
     {x : UnpackedFloat eu su}
     (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
     (hnotunder : x.blastIsEarlyUnderflowNonneg ep sp = false) :
     ((x.truncateFittingExponent ep sp).blastLowerNonneg ep sp).Rel z ↔
-    (x.blastLowerNonneg ep sp).Rel z := by
-  sorry
+    (x.blastLowerNonneg ep sp).Rel z :=
+  EUnpackedFloat.Rel_iff_Rel_of_PartsEq
+    (blastLowerNonneg_truncateFittingExponent_PartsEq he hs heu x hnotover hnotunder)
 
+/--
+NOTE (statement corrected): the hypothesis `heu : exponentWidth ep sp ≤ eu`
+was ADDED (see `blastLowerNonneg_truncateFittingExponent_Rel_eq_blastLower_Rel`
+for why the statement is FALSE without it). All call sites have `heu` in scope.
+-/
 @[simp]
 theorem blastUpperNeg_truncateFittingExponent_Rel_eq_blastUpper_Rel
     (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
     {x : UnpackedFloat eu su}
     (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
     (hnotunder : x.blastIsEarlyUnderflowNonneg ep sp = false) :
     ((x.truncateFittingExponent ep sp).blastUpperNeg ep sp).Rel z ↔
     (x.blastUpperNeg ep sp).Rel z := by
   rw [UnpackedFloat.blastUpperNeg, UnpackedFloat.blastUpperNeg]
-  sorry
+  rw [neg_truncateFittingExponent]
+  exact EUnpackedFloat.Rel_iff_Rel_of_PartsEq
+    (EUnpackedFloat.PartsEq.neg
+      (blastLowerNonneg_truncateFittingExponent_PartsEq he hs heu (-x)
+        (by simpa using hnotover) (by simpa using hnotunder)))
 
 
+/--
+NOTE (statement corrected): the hypothesis `heu : exponentWidth ep sp ≤ eu`
+was ADDED (see `blastLowerNonneg_truncateFittingExponent_Rel_eq_blastLower_Rel`
+for why the statement is FALSE without it). All call sites have `heu` in scope.
+-/
 @[simp]
 theorem blastUpper_truncateFittingExponent_Rel_eq_blastUpper_Rel
     (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
     {x : UnpackedFloat eu su}
     (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
     (hnotunder : x.blastIsEarlyUnderflowNonneg ep sp = false) :
@@ -1308,14 +2256,21 @@ theorem blastUpper_truncateFittingExponent_Rel_eq_blastUpper_Rel
   rw [UnpackedFloat.blastUpper, UnpackedFloat.blastUpper]
   simp only [sign_truncateFittingExponent]
   by_cases hsign : x.sign
-  · simp [hsign]
-    sorry
-  · simp [hsign]
-    sorry
+  · simp only [hsign, if_true]
+    exact blastUpperNeg_truncateFittingExponent_Rel_eq_blastUpper_Rel he hs heu hnotover hnotunder
+  · simp only [hsign, Bool.false_eq_true, if_false]
+    exact EUnpackedFloat.Rel_iff_Rel_of_PartsEq
+      (blastUpperNonneg_truncateFittingExponent_PartsEq he hs heu x hnotover hnotunder)
 
+/--
+NOTE (statement corrected): the hypothesis `heu : exponentWidth ep sp ≤ eu`
+was ADDED (see `blastLowerNonneg_truncateFittingExponent_Rel_eq_blastLower_Rel`
+for why the statement is FALSE without it). All call sites have `heu` in scope.
+-/
 @[simp]
 theorem blastLower_truncateFittingExponent_Rel_eq_blastLower_Rel
     (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
     {x : UnpackedFloat eu su}
     (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
     (hnotunder : x.blastIsEarlyUnderflowNonneg ep sp = false) :
@@ -1324,12 +2279,34 @@ theorem blastLower_truncateFittingExponent_Rel_eq_blastLower_Rel
   rw [UnpackedFloat.blastLower, UnpackedFloat.blastLower]
   simp only [sign_truncateFittingExponent]
   by_cases hsign : x.sign
-  · simp [hsign]
-    sorry
-  · simp [hsign]
-    sorry
+  · simp only [hsign, if_true]
+    rw [UnpackedFloat.blastLowerNeg, UnpackedFloat.blastLowerNeg, neg_truncateFittingExponent]
+    exact EUnpackedFloat.Rel_iff_Rel_of_PartsEq
+      (EUnpackedFloat.PartsEq.neg
+        (blastUpperNonneg_truncateFittingExponent_PartsEq he hs heu (-x)
+          (by simpa using hnotover) (by simpa using hnotunder)))
+  · simp only [hsign, Bool.false_eq_true, if_false]
+    exact EUnpackedFloat.Rel_iff_Rel_of_PartsEq
+      (blastLowerNonneg_truncateFittingExponent_PartsEq he hs heu x hnotover hnotunder)
 
 
+
+/-- The significand width is below `2 ^ (exponentWidth e s - 1)`:
+`exponentWidth` reserves enough room for subnormal exponent stealing.
+Used to discharge the `hse` hypothesis of `EUnpackedFloat.normalize_Rel_of_Rel`
+at `(eu, su) = (exponentWidth ep sp, sp + 1)`. -/
+theorem sigWidth_lt_two_pow_exponentWidth_sub_one (e s : Nat) :
+    s < 2 ^ (exponentWidth e s - 1) := by
+  rw [exponentWidth]
+  rcases Nat.eq_zero_or_pos s with hs | hs
+  · subst hs
+    exact Nat.two_pow_pos _
+  · have hpow : 0 < 2 ^ (e - 1) := Nat.two_pow_pos _
+    have h0 : 2 ^ (e - 1) + s - 1 ≠ 0 := by omega
+    obtain ⟨k, hk, hle, hlt⟩ := Nat.log2_eq_exists _ h0
+    rw [hk]
+    show s < 2 ^ (k + 1)
+    omega
 
 /-# `blastSmtLibRound` matches `smtLibRound` for RNE rounding mode. -/
 
@@ -1376,9 +2353,12 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
         · grind
         · simp
       · simp [he]
+      · simp [hep]
       · simp [hs]
+      · -- the sign argument matches the sign of the rational value
+        exact UnpackedFloat.sign_eq_decide_toRat'_lt_zero x hx0
       · -- from hover
-        sorry
+        exact UnpackedFloat.two_pow_maxNormalExp_succ_le_abs_toRat' he hs heu x hxnorm hzero hover
     · simp [hover]
       -- rw [blastIsEarlyOverflowNonneg_eq_decide he hs heu x] at hover
       -- simp at hover
@@ -1401,8 +2381,10 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
             · grind only
           · simp [he]
           · simp [hs]
+          · -- the sign argument matches the sign of the rational value
+            exact UnpackedFloat.sign_eq_decide_toRat'_lt_zero x hx0
           · -- from hunder
-            sorry
+            exact UnpackedFloat.abs_toRat'_lt_two_pow_of_blastIsEarlyUnderflowNonneg he hs heu x hunder
         · simp [hunder]
           -- rw [blastIsEarlyUnderflowNonneg_eq_decide he hs heu x] at hunder
           -- -- simp at hunder
@@ -1423,26 +2405,26 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
           -- this should just be pure proof automation!
           split
           case neg.isTrue h1 =>
-            apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
-            rw [blastUpper_truncateFittingExponent_Rel_eq_blastUpper_Rel (by grind) (by grind) (by grind) (by grind)]
+            apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by have := sigWidth_lt_two_pow_exponentWidth_sub_one ep sp; omega) (by sorry)
+            rw [blastUpper_truncateFittingExponent_Rel_eq_blastUpper_Rel (by grind) (by grind) (by grind) (by grind) (by grind)]
             exact blastUpper_Rel_smtLibUpper hep hs hsu heu x hxnorm
           case neg.isFalse h1 =>
             split
             case isTrue h2 =>
-              apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
-              rw [blastUpper_truncateFittingExponent_Rel_eq_blastUpper_Rel (by grind) (by grind) (by grind) (by grind)]
+              apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by have := sigWidth_lt_two_pow_exponentWidth_sub_one ep sp; omega) (by sorry)
+              rw [blastUpper_truncateFittingExponent_Rel_eq_blastUpper_Rel (by grind) (by grind) (by grind) (by grind) (by grind)]
               exact blastUpper_Rel_smtLibUpper hep hs hsu heu x hxnorm
             case isFalse h2 =>
               split
               case isTrue h3 =>
-                apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
-                rw [blastLower_truncateFittingExponent_Rel_eq_blastLower_Rel (by grind) (by grind) (by grind) (by grind)]
+                apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by have := sigWidth_lt_two_pow_exponentWidth_sub_one ep sp; omega) (by sorry)
+                rw [blastLower_truncateFittingExponent_Rel_eq_blastLower_Rel (by grind) (by grind) (by grind) (by grind) (by grind)]
                 exact blastLower_Rel_smtLibLower hep hs hsu heu x hxnorm
               case isFalse h3 =>
                 split
                 case isTrue h4 =>
-                  apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by sorry) (by sorry)
-                  rw [blastLower_truncateFittingExponent_Rel_eq_blastLower_Rel (by grind) (by grind) (by grind) (by grind)]
+                  apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by have := sigWidth_lt_two_pow_exponentWidth_sub_one ep sp; omega) (by sorry)
+                  rw [blastLower_truncateFittingExponent_Rel_eq_blastLower_Rel (by grind) (by grind) (by grind) (by grind) (by grind)]
                   exact blastLower_Rel_smtLibLower hep hs hsu heu x hxnorm
                 case isFalse h4 =>
                   apply EUnpackedFloat.Rel_of_state_eq_NaN_of_isNaN
