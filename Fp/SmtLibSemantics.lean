@@ -460,12 +460,30 @@ def mul [Mul R] (x y : PackedFloat e s) : PackedFloat e s :=
       let sign : Bool := xorSign x y
       roundMethod.round rm sign z
 
+/--
+Division. The result sign is the xor of the operand signs, passed to `round` so
+that zero results carry the IEEE-754 sign (the embedding `v` collapses `±0`, so
+the sign of a zero *result* cannot be recovered from `z` itself).
+
+The divideByZero case (`y = ±0`, `x` finite nonzero) must be special-cased for the
+same reason: `v(y) = 0` forgets the divisor's sign, so the sign of the resulting
+infinity — which IEEE-754 §7.3 defines as the xor of the operand signs — is not a
+function of `z`. (An earlier transcription computed
+`if xorSign then neg (round rm true (-z)) else round rm false z`; that is the
+identity on the sign of `z` for both zero and infinite `z`, and therefore produced
+`+0` where IEEE-754 requires `-0` and `∞ / -0 = +∞` where IEEE-754 requires `-∞`.
+The present definition agrees with the implementation — itself validated bit-for-bit
+against symfpu — on all inputs of small formats; see `Fp/Theorems/Division.lean`.)
+-/
 def div [Div R] (x y : PackedFloat e s) : PackedFloat e s :=
       let z :=  ((roundMethod.embed x) / (roundMethod.embed y))
-      if xorSign x y then
-        neg (roundMethod.round rm true  (-z))
+      let sign : Bool := xorSign x y
+      if ExtendedNumber.isZero (roundMethod.embed y)
+          ∧ ¬ ExtendedNumber.isZero (roundMethod.embed x)
+          ∧ ¬ ExtendedNumber.isNaN (roundMethod.embed x) then
+        PackedFloat.getInfinity e s sign
       else
-        roundMethod.round rm false z
+        roundMethod.round rm sign z
 
 end Operations
 
