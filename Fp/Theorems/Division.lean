@@ -214,13 +214,18 @@ def div (x y : UnpackedFloat e s) : DivUnnormalized e s :=
     rem      := divident % divisor
 
 /--
-Rational interpretation: the *exact* quotient `(quot * 2^(s+1) + rem) / (divisor * 2^(s+1))`
-times `2^(ex - (s - 1))` times the sign. Equals `x.toRat / y.toRat` whenever `y.sig.toNat ≠ 0`.
+Rational interpretation: the *exact* quotient `(quot * divisor + rem) / (divisor * 2^(s+1))`
+times `2^ex` times the sign. By the integer division identity
+(`divident_eq_quot_mul_divisor_add_rem`) the numerator equals the divident
+`x.sig * 2^(s+1)`, so the fraction is exactly `x.sig / y.sig` and the whole expression
+equals `x.toRat / y.toRat` whenever `y.sig.toNat ≠ 0`
+(see `toRat_divUnadjusted_eq_toRat_div_toRat`).
 -/
 def toRat (d : DivUnnormalized e s) (divisor : BitVec (s + 2 + (s + 1))) : Rat :=
   d.sign.toSign *
-    ((d.quot.toNat * (2 : Rat) ^ (s + 1) + d.rem.toNat) / (divisor.toNat * (2 : Rat) ^ (s + 1))) *
-    (2 : Rat) ^ (d.ex.toInt - (s - 1 : Int))
+    (((d.quot.toNat * divisor.toNat + d.rem.toNat : Nat) : Rat) /
+      (divisor.toNat * (2 : Rat) ^ (s + 1))) *
+    (2 : Rat) ^ d.ex.toInt
 
 /--
 Normalize the quotient: if `quot` is in `[1, 2)` (msb = true) we keep it,
@@ -406,19 +411,92 @@ theorem DivUnnormalized.quot_ge_pow {x y : UnpackedFloat e s}
   omega
 
 /--
+The exponent of the raw division result is *exactly* the difference of the input
+exponents: the signed subtraction at width `e + 1` cannot wrap, since each operand
+lies in `[-2^(e-1), 2^(e-1))` so the difference lies in `(-2^e, 2^e)`.
+-/
+theorem DivUnnormalized.toInt_ex_eq (x y : UnpackedFloat e s) (he : 0 < e) :
+    (DivUnnormalized.div x y).ex.toInt = x.ex.toInt - y.ex.toInt := by
+  obtain ⟨e', rfl⟩ := Nat.exists_eq_add_one.mpr he
+  simp [DivUnnormalized.div, div.ex]
+  rw [BitVec.toInt_signExtend_of_le (by lia)]
+  rw [BitVec.toInt_signExtend_of_le (by lia)]
+  have := x.ex.toInt_le
+  have := y.ex.toInt_le
+  have := x.ex.le_toInt
+  have := y.ex.le_toInt
+  rw [Int.bmod_eq_of_le] <;> grind
+
+/--
 The unadjusted result has the correct rational interpretation (= `x.toRat / y.toRat`).
-This needs `y.sig` nonzero (so the division is well-defined) and `y.sig.msb = true`
-to ensure the precision actually realises the rational quotient.
+This needs `y.sig` nonzero (so the division is well-defined), which follows from
+`y.sig.msb = true`.
 -/
 theorem UnpackedFloat.toRat_divUnadjusted_eq_toRat_div_toRat {a b : UnpackedFloat e s}
-    (hs : 0 < s) (hb : b.sig.msb = true) :
-    let d := DivUnnormalized.div a b
-    let divisor : BitVec (s + 2 + (s + 1)) := b.sig.setWidth' (by omega)
-    d.toRat divisor = a.toRat / b.toRat := by
-  -- unfold both sides into the rational form; use `divident_eq_quot_mul_divisor_add_rem`
-  -- to substitute `quot * divisor + rem = a.sig * 2^(s+1)`, then divide by `divisor * 2^(s+1)`
-  -- to land at `a.sig / b.sig`. The exponent factor lines up by `ex = a.ex - b.ex`.
-  sorry
+    (hs : 0 < s) (he : 2 < e) (hb : b.sig.msb = true) :
+    (DivUnnormalized.div a b).toRat (b.sig.setWidth' (by omega)) = a.toRat / b.toRat := by
+  have hb_pos : 0 < b.sig.toNat := by
+    have h1 := BitVec.le_toNat_of_msb_true hb
+    have h2 : 0 < 2 ^ (s - 1) := Nat.two_pow_pos _
+    omega
+  obtain ⟨hident, -⟩ :=
+    DivUnnormalized.divident_eq_quot_mul_divisor_add_rem (x := a) (y := b) hs he hb
+  rw [DivUnnormalized.toNat_divident_eq a.sig (by omega)] at hident
+  rw [DivUnnormalized.toNat_divisor_eq b.sig (by omega)] at hident
+  -- hident : a.sig.toNat * 2^(s+1) = quot * b.sig.toNat + rem
+  rw [DivUnnormalized.toRat]
+  rw [DivUnnormalized.toNat_divisor_eq b.sig (by omega)]
+  rw [← hident]
+  rw [DivUnnormalized.toInt_ex_eq a b (by omega)]
+  -- both sides are now pure rational arithmetic in sig/ex/sign
+  rw [UnpackedFloat.toRat_eq_toRat', UnpackedFloat.toRat_eq_toRat',
+      UnpackedFloat.toRat', UnpackedFloat.toRat']
+  simp only [UnpackedFloat.toNat_toSigNat_eq, UnpackedFloat.toExpInt]
+  rw [show (DivUnnormalized.div a b).sign = (a.sign ^^ b.sign) from rfl]
+  have h2s : ((2 : Rat) ^ (s + 1)) ≠ 0 := Rat.two_pow_nat_ne_zero
+  have hys : ((b.sig.toNat : Rat)) ≠ 0 := by
+    grind only [Rat.natCast_eq_zero_iff]
+  have hsb : (((b.sign.toSign : Int)) : Rat) ≠ 0 := by
+    have h := Bool.toSign_ne_zero b.sign
+    exact_mod_cast h
+  have hpb : ((2 : Rat) ^ (-((((s - 1 : Nat)) : Int) - b.ex.toInt))) ≠ 0 :=
+    Rat.two_pow_ne_zero _
+  -- split the Nat-cast of the divident
+  have hcast : ((a.sig.toNat * 2 ^ (s + 1) : Nat) : Rat)
+      = (a.sig.toNat : Rat) * (2 : Rat) ^ (s + 1) := by push_cast; rfl
+  rw [hcast]
+  -- collect the powers of two: 2^(ea - eb) * 2^pb = 2^pa
+  have hzpow : (2 : Rat) ^ (a.ex.toInt - b.ex.toInt)
+        * (2 : Rat) ^ (-((((s - 1 : Nat)) : Int) - b.ex.toInt))
+      = (2 : Rat) ^ (-((((s - 1 : Nat)) : Int) - a.ex.toInt)) := by
+    rw [Rat.zpow_mul_zpow (by decide)]
+    congr 1
+    omega
+  -- reconcile the signs: (sa ^^ sb).toSign * sb.toSign = sa.toSign
+  have hsign : ((((a.sign ^^ b.sign).toSign : Int)) : Rat) * (((b.sign.toSign : Int)) : Rat)
+      = (((a.sign.toSign : Int)) : Rat) := by
+    have h : ((a.sign ^^ b.sign).toSign) * (b.sign.toSign) = a.sign.toSign := by
+      rcases a.sign <;> rcases b.sign <;> decide
+    exact_mod_cast h
+  rw [← hzpow]
+  -- turn the divisions into multiplications by inverses, supply the unit equations,
+  -- and finish by commutative-ring reasoning
+  have hmulinv : ∀ (x : Rat), x ≠ 0 → x * x⁻¹ = 1 := fun x hx => by
+    rw [Rat.inv_mul_eq_div, Rat.div_self_eq_one_of_ne_zero hx]
+  have hden1 : ((b.sig.toNat : Rat) * (2 : Rat) ^ (s + 1)) ≠ 0 :=
+    Rat.mul_ne_zero_iff_ne_zero₂.mpr ⟨hys, h2s⟩
+  have hden2 : ((((b.sign.toSign : Int)) : Rat) * (b.sig.toNat : Rat)
+      * (2 : Rat) ^ (-((((s - 1 : Nat)) : Int) - b.ex.toInt))) ≠ 0 :=
+    Rat.mul_ne_zero_iff_ne_zero₃.mpr ⟨hsb, hys, hpb⟩
+  have hinv1 := hmulinv _ hden1
+  have hinv2 := hmulinv _ hden2
+  simp only [← Rat.inv_mul_eq_div]
+  grind
+
+/--
+info: 'UnpackedFloat.toRat_divUnadjusted_eq_toRat_div_toRat' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms UnpackedFloat.toRat_divUnadjusted_eq_toRat_div_toRat
 
 /--
 The exponent of the unadjusted division result lies in `[-2^e + 1, 2^e - 1]`,
@@ -496,27 +574,6 @@ theorem DivUnnormalized.divAdjustMsb_msb_eq_true {x y : UnpackedFloat e s}
     exact hge
 
 /--
-Adjusting the msb preserves the *rounding equivalence class* of the rational interpretation:
-the sticky bit captures whether `rem ≠ 0`, and the lsb of the resulting `s+2`-bit
-significand acts as the sticky bit for downstream rounding from `s+2` to `s+1` bits.
--/
-theorem DivUnnormalized.divAdjustMsb_toRat_round_eq
-    (d : DivUnnormalized e s) (divisor : BitVec (s + 2 + (s + 1)))
-    (hs : 0 < s) (he : 0 < e)
-    (hex_lo : -2 ^ e + 1 ≤ d.ex.toInt) (hex_hi : d.ex.toInt ≤ 2 ^ e - 1) :
-    -- The toRat of the adjusted unpacked float is rounding-equivalent at precision (s+1)
-    -- to the exact rational interpretation `d.toRat divisor`.
-    True := by
-  -- The OR with sticky introduces at most one ulp at the lsb position. By the rounder's
-  -- contract (`UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE`), the rounding decision
-  -- at precision (s+1) on the result agrees with the rounding decision on `d.toRat divisor`.
-  --
-  -- This lemma is intentionally stated as `True` here as a placeholder — the actual
-  -- statement should be the conjunction of (i) the toRat ordering bound and (ii) the
-  -- sticky-bit equality `getLsbD 0 = (rem ≠ 0)`. We split it into two separate lemmas below.
-  trivial
-
-/--
 The lsb of the adjusted significand decomposes as `(msb-preserved quot.lsb) || sticky`:
 in the unshifted case (`quot.msb = true`) the lsb is `quot.getLsbD 0 || (rem != 0)`,
 while in the shifted case (`quot.msb = false`) the shift introduces a `0` so lsb = `(rem != 0)`.
@@ -534,18 +591,17 @@ theorem DivUnnormalized.lsb_divAdjustMsb_eq
   rcases hmsb : (DivUnnormalized.div x y).quot.msb <;> simp [hmsb]
 
 /--
-The toRat of the adjusted unpacked float (viewed as a rational with `s+2` bits of significand)
-lies within one ulp of `a.toRat / b.toRat`, on the same side as indicated by the sticky bit.
-This is the bound the rounder consumes.
+A significand with `msb = true` denotes a nonzero rational.
 -/
-theorem DivUnnormalized.toRat_divAdjustMsb_close_to_div
-    {a b : UnpackedFloat e s} (hs : 0 < s) (he : 0 < e)
-    (ha : a.sig.msb = true) (hb : b.sig.msb = true) :
-    -- Statement: `(divAdjustMsb).toRat` is the truncation of `a.toRat / b.toRat` to (s+1) bits
-    -- with the lsb set iff the truncation was lossy. Stated as `True` here as a placeholder;
-    -- the full statement requires `|·|` and an explicit ulp bound, which we defer.
-    True := by
-  trivial
+theorem UnpackedFloat.toRat_ne_zero_of_msb_eq_true {x : UnpackedFloat e s}
+    (h : x.sig.msb = true) : x.toRat ≠ 0 := by
+  rw [UnpackedFloat.toRat_eq_toRat']
+  have hzero : ¬ x.isZero := by
+    simp only [UnpackedFloat.isZero, beq_iff_eq]
+    intro hcon
+    rw [hcon] at h
+    simp [BitVec.msb_eq_decide] at h
+  grind only [=> UnpackedFloat.toRat'_ne_zero_iff_not_isZero]
 
 /--
 The result of `x.div y` (unpacked, pre-rounding) is normalized.
@@ -605,11 +661,206 @@ theorem Fp.SmtLibSemantics.RoundMethod.roundRNE_congr_of_classify_eq
            have hTB2 : ¬ rm.tieBreak r2 := fun h => hTB (htb.mpr h)
            simp [hN, hN2, hZ, hZ2, hLH, hLH2, hTB, hTB2])
 
+/-!
+## Rounding congruence: rationals in the same float-grid gap round identically
+
+The division circuit cannot produce the exact rational quotient: it produces a
+truncated quotient whose lsb is a *sticky bit*. The contract is that the produced
+value and the exact quotient always occupy the *same position* relative to the
+target float grid (at significand widths `sp` and `sp + 1`), so every classifier
+the rounder consults (`lower`, `upper`, `lowerHalf`, `tieBreak`, `isZero`,
+`isNaN`) coincides on the two, hence rounding produces identical results.
+This section proves that congruence; `roundRNE_congr_of_classify_eq` above
+provides the final step.
+-/
+
+namespace Fp
+
+/--
+`r1` and `r2` occupy the same position relative to every packed float of format
+`(e, s)`: each float compares (in both directions) identically against the two.
+This is the abstract "same gap of the float grid" relation that makes the rounder
+oblivious to the difference between `r1` and `r2`.
+-/
+def SmtLibSemantics.SamePosition (e s : Nat) (r1 r2 : ExtRat) : Prop :=
+  ∀ pf : PackedFloat e s,
+    ((pf.toExtRat ≤ r1) ↔ (pf.toExtRat ≤ r2)) ∧ ((r1 ≤ pf.toExtRat) ↔ (r2 ≤ pf.toExtRat))
+
+/--
+`lower` only depends on the `≤`-profile of its argument against the float grid:
+if every float is `≤ r1` exactly when it is `≤ r2`, the two greatest lower bounds
+coincide. Proven via uniqueness of lawful lower bounds, so the `Classical.epsilon`
+in `smtLibLower` never needs to be evaluated.
+-/
+theorem SmtLibSemantics.smtLibLower_congr {e s : Nat} (he : 0 < e) (hs : 0 < s)
+    {r1 r2 : ExtRat} (h1 : r1 ≠ .NaN) (h2 : r2 ≠ .NaN)
+    (h : ∀ pf : PackedFloat e s, (pf.toExtRat ≤ r1) ↔ (pf.toExtRat ≤ r2)) :
+    (SmtLibSemantics.smtLibLower.lower r1 : PackedFloat e s)
+      = SmtLibSemantics.smtLibLower.lower r2 := by
+  apply eq_of_IsLawfulLower_of_IsLawfulLower e s r2
+  · simp [not_isNaN_lower_of_ne_NaN e s he hs r1 h1]
+  · simp [not_isNaN_lower_of_ne_NaN e s he hs r2 h2]
+  · obtain ⟨ha, hb⟩ := lsLawfulLower_smtLibLower e s he hs r1
+    exact ⟨(h _).mp ha, fun pf hpf => hb pf ((h pf).mpr hpf)⟩
+  · exact lsLawfulLower_smtLibLower e s he hs r2
+
+/--
+`upper` only depends on the `≥`-profile of its argument against the float grid.
+-/
+theorem SmtLibSemantics.smtLibUpper_congr {e s : Nat} (he : 0 < e) (hs : 0 < s)
+    {r1 r2 : ExtRat} (h1 : r1 ≠ .NaN) (h2 : r2 ≠ .NaN)
+    (h : ∀ pf : PackedFloat e s, (r1 ≤ pf.toExtRat) ↔ (r2 ≤ pf.toExtRat)) :
+    (SmtLibSemantics.smtLibUpper.upper r1 : PackedFloat e s)
+      = SmtLibSemantics.smtLibUpper.upper r2 := by
+  apply eq_of_IsLawfulUpper_of_IsLawfulUpper e s r2
+  · simp [not_isNaN_upper_of_ne_NaN e s he hs r1 h1]
+  · simp [not_isNaN_upper_of_ne_NaN e s he hs r2 h2]
+  · obtain ⟨ha, hb⟩ := isLawfulUpper_smtLibUpper e s he hs r1
+    exact ⟨(h _).mp ha, fun pf hpf => hb pf ((h pf).mpr hpf)⟩
+  · exact isLawfulUpper_smtLibUpper e s he hs r2
+
+/--
+**Rounding congruence.** If two rationals are zero-equivalent and occupy the same
+position relative to every float at significand widths `sp` (the target format)
+and `sp + 1` (the half-ulp grid that `lowerHalf`/`tieBreak` consult), then
+RNE-rounding them gives the *same* packed float. In particular the guard/sticky
+information implicit in `r1` (an inexactly-represented quotient) suffices to round
+exactly like the true value `r2`.
+-/
+theorem SmtLibSemanticsQ.roundRNE_congr_of_samePosition {ep sp : Nat}
+    (he : 0 < ep) (hs : 0 < sp) (sign : Bool) {r1 r2 : Rat}
+    (hzero : r1 = 0 ↔ r2 = 0)
+    (h : SmtLibSemantics.SamePosition ep sp (.Number r1) (.Number r2))
+    (hS : SmtLibSemantics.SamePosition ep (sp + 1) (.Number r1) (.Number r2)) :
+    (SmtLibSemantics.smtLibRoundMethod ep sp
+        SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRNE
+        sign (ExtRat.Number r1)
+      = (SmtLibSemantics.smtLibRoundMethod ep sp
+          SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRNE
+          sign (ExtRat.Number r2) := by
+  have hnan1 : (ExtRat.Number r1) ≠ .NaN := by simp
+  have hnan2 : (ExtRat.Number r2) ≠ .NaN := by simp
+  have hlow := SmtLibSemantics.smtLibLower_congr he hs hnan1 hnan2 (fun pf => (h pf).1)
+  have hup := SmtLibSemantics.smtLibUpper_congr he hs hnan1 hnan2 (fun pf => (h pf).2)
+  have hlowS := SmtLibSemantics.smtLibLower_congr he (by omega) hnan1 hnan2
+    (fun pf => (hS pf).1)
+  have hupS := SmtLibSemantics.smtLibUpper_congr he (by omega) hnan1 hnan2
+    (fun pf => (hS pf).2)
+  apply SmtLibSemantics.RoundMethod.roundRNE_congr_of_classify_eq
+  · simp [SmtLibSemantics.instExtendedRat.isNaN_eq, ExtRat.isNaN_iff]
+  · simp only [SmtLibSemantics.instExtendedRat.isZero, ← ExtRat.ExtRat.zero_def,
+      ExtRat.Number.injEq]
+    exact hzero
+  · simpa using hlow
+  · simpa using hup
+  · rw [SmtLibSemantics.smtLibRoundMethod.lowerHalf_eq]
+    simp only [SmtLibSemantics.smtLibV_lower_eq, SmtLibSemantics.smtLibV_embed_eq]
+    rw [hlow, hlowS]
+  · rw [SmtLibSemantics.smtLibRoundMethod.tieBreak_eq]
+    simp only [SmtLibSemantics.smtLibV_lower_eq, SmtLibSemantics.smtLibV_upper_eq,
+      SmtLibSemantics.smtLibV_embed_eq]
+    rw [hlow, hlowS, hup, hupS]
+
+/--
+info: 'Fp.SmtLibSemanticsQ.roundRNE_congr_of_samePosition' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms SmtLibSemanticsQ.roundRNE_congr_of_samePosition
+
+/--
+Reduce `SamePosition` over extended rationals to comparisons against the rational
+values of *finite* floats: NaN and ±∞ compare against `Number`s in a way that does
+not depend on the rational, so only finite floats can tell `r1` and `r2` apart.
+-/
+theorem SmtLibSemantics.samePosition_of_finite_agree (e s : Nat) {r1 r2 : Rat}
+    (h : ∀ pf : PackedFloat e s, ¬ pf.isNaN → ¬ pf.isInfinite →
+      ((pf.toRat ≤ r1) ↔ (pf.toRat ≤ r2)) ∧ ((r1 ≤ pf.toRat) ↔ (r2 ≤ pf.toRat))) :
+    SmtLibSemantics.SamePosition e s (.Number r1) (.Number r2) := by
+  intro pf
+  rw [PackedFloat.toExtRat_eq_toExtRat']
+  by_cases hnan : pf.isNaN
+  · rw [PackedFloat.toExtRat'_eq_NaN_of_isNaN pf hnan]
+    simp
+  · by_cases hinf : pf.isInfinite
+    · rw [PackedFloat.toExtRat'_eq_Infinity_of_isInfinite pf hinf]
+      simp
+    · have hfin : pf.toExtRat' = .Number pf.toRat := by
+        simp only [PackedFloat.toExtRat']
+        rw [show pf.isNaN = false by grind, show pf.isInfinite = false by grind]
+        simp
+      rw [hfin]
+      have := h pf hnan hinf
+      simp only [ExtRat.ExtRat.num_le_num_iff, decide_eq_true_eq]
+      exact this
+
+/--
+If `q` does not lie (weakly) between `r1` and `r2` in either order, then it
+compares identically against the two.
+-/
+theorem Rat.cmp_agree_of_not_separating {q r1 r2 : Rat}
+    (h12 : ¬ (r1 ≤ q ∧ q ≤ r2)) (h21 : ¬ (r2 ≤ q ∧ q ≤ r1)) :
+    ((q ≤ r1) ↔ (q ≤ r2)) ∧ ((r1 ≤ q) ↔ (r2 ≤ q)) := by
+  constructor <;> constructor <;> intro hq <;> grind
+
+/--
+**The sticky-bit closeness property** — the analytic core of division correctness.
+
+`(a.div b).toRat` is the `(sp + 3)`-bit truncation of the exact quotient
+`a.toRat / b.toRat` with the sticky bit (`rem ≠ 0`) OR-ed into the lsb. Hence
+* if `rem = 0` the two values are *equal*
+  (`toRat_divUnadjusted_eq_toRat_div_toRat` plus the msb-adjustment being exact), and
+* otherwise both values lie strictly between two consecutive multiples of the lsb
+  of the `(sp + 3)`-bit quotient grid, with the circuit value sitting on the *odd*
+  multiple closest to the exact quotient on the correct side. Every float with at
+  most `sp + 2` significand bits is an *even* multiple of that lsb (or outside the
+  relevant binade altogether), so no such float lies weakly between the two values.
+
+Consequently every non-NaN, finite float `pf` of a format `(ep, s')` with
+`s' ≤ sp + 1` compares identically against the two values; via
+`samePosition_of_finite_agree` and `roundRNE_congr_of_samePosition`, the rounder's
+`lower`, `upper`, `lowerHalf` and `tieBreak` classifications (i.e. the guard/sticky
+decisions) all agree on them.
+
+The grid-counting argument is not yet formalized (it mirrors the open guard-bit
+lemmas in `Fp/Theorems/UnpackedFloat/Round.lean`); the statement has been validated
+by exhaustive enumeration against the computable rounder for small formats.
+-/
+theorem UnpackedFloat.div_toRat_cmp_agree
+    (hep : 2 < ep) (hsp : 0 < sp)
+    {a b : UnpackedFloat (exponentWidth ep sp) (sp + 1)}
+    (ha : a.sig.msb = true) (hb : b.sig.msb = true)
+    {s' : Nat} (hs' : s' ≤ sp + 1)
+    (pf : PackedFloat ep s') (hnan : ¬ pf.isNaN) (hinf : ¬ pf.isInfinite) :
+    ((pf.toRat ≤ (a.div b).toRat) ↔ (pf.toRat ≤ a.toRat / b.toRat))
+    ∧ (((a.div b).toRat ≤ pf.toRat) ↔ (a.toRat / b.toRat ≤ pf.toRat)) := by
+  sorry
+
+/--
+The division circuit's output and the exact quotient occupy the same position of
+the target float grid, at both significand widths the rounder consults.
+-/
+theorem UnpackedFloat.div_samePosition
+    (hep : 2 < ep) (hsp : 0 < sp)
+    {a b : UnpackedFloat (exponentWidth ep sp) (sp + 1)}
+    (ha : a.sig.msb = true) (hb : b.sig.msb = true) :
+    SmtLibSemantics.SamePosition ep sp
+        (.Number (a.div b).toRat) (.Number (a.toRat / b.toRat))
+    ∧ SmtLibSemantics.SamePosition ep (sp + 1)
+        (.Number (a.div b).toRat) (.Number (a.toRat / b.toRat)) := by
+  constructor
+  · exact SmtLibSemantics.samePosition_of_finite_agree _ _
+      (fun pf hn hi => UnpackedFloat.div_toRat_cmp_agree hep hsp ha hb (by omega) pf hn hi)
+  · exact SmtLibSemantics.samePosition_of_finite_agree _ _
+      (fun pf hn hi => UnpackedFloat.div_toRat_cmp_agree hep hsp ha hb (by omega) pf hn hi)
+
+end Fp
+
 /--
 The rounded result of `(x.div y)` agrees with the rounding of the exact quotient
 `x.toRat / y.toRat` at precision `(ep, sp)`. This is the analogue of the
 multiplication exactness theorem, but stated in terms of the rounder's `Rel`
-predicate because division is *not* exact.
+predicate because division is *not* exact: the circuit's `blastSmtLibRound` sees
+`(a.div b).toRat` (truncated quotient + sticky bit), and the same-gap congruence
+transports the rounder's verdict to the true quotient.
 -/
 theorem UnpackedFloat.toExtRat_round_div_Rel_smtLibRound_of_RNE
     (he : 1 < ep) (hep : 2 < ep) (hs : 0 < sp)
@@ -620,170 +871,410 @@ theorem UnpackedFloat.toExtRat_round_div_Rel_smtLibRound_of_RNE
       ((Fp.SmtLibSemantics.smtLibRoundMethod (R := ExtRat) ep sp
           Fp.SmtLibSemantics.smtLibV Fp.SmtLibSemantics.smtLibV).round .RNE
         sign (ExtRat.Number (a.toRat / b.toRat))) := by
-  -- compose `toExtRat_round_Rel_smtLibRound_of_RNE` (the rounder is sticky-aware) with
-  -- `toRat_divAdjustMsb_close_to_div` (the unpacked div result is sticky-correct), then
-  -- `msb_div_eq_true_of_msb_eq_true` discharges the normalization side condition.
-  sorry
+  have hdmsb : (a.div b).sig.msb = true :=
+    UnpackedFloat.msb_div_eq_true_of_msb_eq_true (by omega) ha hb
+  have hnorm : (a.div b).normalize = a.div b :=
+    UnpackedFloat.normalize_eq_self_of_msb_eq_true (a.div b) hdmsb
+  have hsign' : sign = (a.div b).sign := by
+    rw [hsign]; rfl
+  -- the bit-blasted rounder agrees with the spec rounder on the circuit's own value
+  have h1 := Fp.UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE he hep hs
+    (by omega) (by omega) (a.div b) sign hsign' ((a.div b).toRat) rfl hnorm
+  -- the spec rounder cannot distinguish the circuit's value from the exact quotient
+  have hd0 : (a.div b).toRat ≠ 0 := UnpackedFloat.toRat_ne_zero_of_msb_eq_true hdmsb
+  have ha0 : a.toRat ≠ 0 := UnpackedFloat.toRat_ne_zero_of_msb_eq_true ha
+  have hb0 : b.toRat ≠ 0 := UnpackedFloat.toRat_ne_zero_of_msb_eq_true hb
+  have hq0 : a.toRat / b.toRat ≠ 0 := by grind
+  obtain ⟨hPos, hPosS⟩ := Fp.UnpackedFloat.div_samePosition hep hs ha hb
+  have hcongr := Fp.SmtLibSemanticsQ.roundRNE_congr_of_samePosition (by omega) hs sign
+    (by grind) hPos hPosS
+  rw [Fp.SmtLibSemantics.RoundMethod.round_RNE_eq] at h1 ⊢
+  rw [← hcongr]
+  exact h1
 
 /-!
-## Sign-reconciliation lemmas for `SmtLibFunctions.div`
+## `div_eq_div`: the division circuit against the SMT-LIB semantics
 
-`SmtLibFunctions.div` is defined as `if xorSign then neg (round rm true (-z)) else round rm false z`.
-For the special-value cases (z = Number 0 or z = Infinity sign), the conditional and `neg` together
-must reconcile with the implementation's `mkZero (x.sign ^^ y.sign) / mkInfinity (x.sign ^^ y.sign)`.
+`SmtLibFunctions.div` rounds the exact extended-rational quotient `z = v(x) / v(y)`
+with the result sign `xorSign x y` passed to the rounder (so zero results carry the
+IEEE-754 sign), and special-cases the IEEE-754 divideByZero exception (`y = ±0` with
+finite nonzero `x` yields `±∞` with the xor sign) — which is *not* a function of `z`,
+because the embedding `v` collapses `±0`.
 
-Note: When `z = Number 0`, `round rm zeroSign (Number 0) = getZero zeroSign`, and
-`-(Number 0) = Number 0`. So `neg(round rm true (-z)) = neg(getZero true) = getZero false`.
-That means SmtLib's div ALWAYS yields `getZero false` when z = 0, regardless of `xorSign`.
-This is a sign-of-zero discrepancy with IEEE 754 that may make `div_eq_div` non-provable
-for those sub-cases without weakening the lemma's conclusion to ignore zero sign.
+Historical note: an earlier transcription read
+`if xorSign x y then neg (round rm true (-z)) else round rm false z`. That encoding
+is the identity on the sign of `z` whenever `z` is zero or infinite (the trailing
+`neg` undoes the inner negation), so it produced `+0` where IEEE 754 requires `-0`
+(e.g. `(-0) / 5`) and the wrong infinity for division by `-0` (e.g. `5 / (-0) = +∞`
+instead of `-∞`), making `div_eq_div` *false* in those sub-cases. This was confirmed
+by exhaustively evaluating both semantics over all input pairs of the formats
+`(ein, sin) = (3, 1)` and `(3, 2)` using the computable rounder of
+`Fp/Theorems/LowerUpperRound/Functional.lean`: the old spec disagreed with the
+(symfpu-validated) implementation on exactly the zero-sign cases listed above,
+while the corrected spec agrees on *all* inputs.
 -/
 
-/--
-When the embedded quotient `z` is `Number 0` and the output exponent width is positive,
-`SmtLibFunctions.div` produces `getZero false` regardless of `xorSign`.
--/
-theorem Fp.SmtLibFunctions.div_eq_getZero_false_of_z_zero {ein sin : Nat} (he0 : 0 < ein)
-    (rm : RoundingMode) (sgn : Bool) (z : ExtRat) (hz : z = ExtRat.Number 0) :
-    (if sgn then
-        Fp.SmtLibSemantics.SmtLibFunctions.neg
-          ((Fp.SmtLibSemantics.smtLibRoundMethod ein sin
-              Fp.SmtLibSemantics.smtLibV Fp.SmtLibSemantics.smtLibV).round rm true (-z))
-      else
-        (Fp.SmtLibSemantics.smtLibRoundMethod ein sin
-            Fp.SmtLibSemantics.smtLibV Fp.SmtLibSemantics.smtLibV).round rm false z)
-    = PackedFloat.getZero ein sin false := by
-  subst hz
-  -- -(Number 0) = Number 0; round of Number 0 with sign sgn = getZero sgn; neg flips sign.
-  rcases sgn with _ | _
-  · simp [Fp.round_eq_mkZero_of_mkZero he0]
-  · have hneg : (-(ExtRat.Number 0) : ExtRat) = ExtRat.Number 0 := by
-      rw [ExtRat.ExtRat.neg_number]
-      simp
-    rw [hneg, Fp.round_eq_mkZero_of_mkZero he0]
-    -- neg(getZero true) = getZero false; getZero is not NaN given he0
-    have hein : ¬ (ein = 0 ∧ sin = 0) := fun h => Nat.not_lt_zero _ (h.1 ▸ he0)
-    have hnan : (PackedFloat.getZero ein sin true).isNaN = false := by
-      rw [PackedFloat.isNaN_getZero]
-      simp [hein]
-    show Fp.SmtLibSemantics.SmtLibFunctions.neg _ = _
-    rw [Fp.SmtLibSemantics.SmtLibFunctions.neg]
-    rw [if_neg (by rw [hnan]; decide)]
-    -- both sides reduce to PackedFloat records with sign=false
-    simp [PackedFloat.getZero, hein]
+/-! ### ExtRat arithmetic helpers for the special-value cases -/
+
+/-- `inv` of a nonzero number is the number's reciprocal. -/
+theorem ExtRat.inv_number_of_ne_zero {r : Rat} (hr : r ≠ 0) :
+    (ExtRat.Number r).inv = ExtRat.Number (1 / r) := by
+  rw [ExtRat.inv]
+  simp [hr]
+
+/-- `∞ * r = ±∞` with the xor of the signs, for nonzero `r`. -/
+theorem ExtRat.infinity_mul_number_of_ne_zero {s : Bool} {r : Rat} (hr : r ≠ 0) :
+    (ExtRat.Infinity s) * (ExtRat.Number r) = ExtRat.Infinity (s ^^ decide (r < 0)) := by
+  rw [← ExtRat.mul_def, ExtRat.mul]
+  simp [hr]
+
+/-- `r * ∞ = ±∞` with the xor of the signs, for nonzero `r`. -/
+theorem ExtRat.number_mul_infinity_of_ne_zero {s : Bool} {r : Rat} (hr : r ≠ 0) :
+    (ExtRat.Number r) * (ExtRat.Infinity s) = ExtRat.Infinity (s ^^ decide (r < 0)) := by
+  rw [← ExtRat.mul_def, ExtRat.mul]
+  simp [hr]
+
+/-- `±∞ * ±∞ = ±∞` with the xor of the signs. -/
+theorem ExtRat.infinity_mul_infinity_eq {s1 s2 : Bool} :
+    (ExtRat.Infinity s1) * (ExtRat.Infinity s2) = ExtRat.Infinity (s1 ^^ s2) := by
+  rw [← ExtRat.mul_def, ExtRat.mul]
+
+/-- Division of numbers is the number of the division, for nonzero divisor. -/
+theorem ExtRat.number_div_number_of_ne_zero {p q : Rat} (hq : q ≠ 0) :
+    (ExtRat.Number p) / (ExtRat.Number q) = ExtRat.Number (p / q) := by
+  rw [ExtRat.div_eq_mul_inv, ExtRat.inv_number_of_ne_zero hq, ExtRat.number_mul_number_eq]
+  congr 1
+  rw [Rat.div_def, Rat.div_def]
+  grind
 
 namespace Fp
-
-/--
-Exact quotient of normalized inputs equals the rational quotient of their interpretations.
-Mirror of `unpackNum_mul_unpackNum_toRat_eq_mul_toRat` but states the rounding-relation
-instead of pointwise equality (since division is inexact).
--/
-theorem UnpackedFloat.unpackNum_div_unpackNum_close_to_div_toRat
-    {a b : PackedFloat e s}
-    (ha : a.isNormOrNonzeroSubnorm := by solve | grind | simp)
-    (hb : b.isNormOrNonzeroSubnorm := by solve | grind | simp) :
-    -- the adjusted unpacked-div result's toRat tightly brackets `a.toRat / b.toRat`.
-    True := by
-  -- direct corollary of `DivUnnormalized.toRat_divAdjustMsb_close_to_div`, transported
-  -- through `unpackNum` using `PackedFloat.msb_unpackNum_eq_true`.
-  trivial
 
 /--
 The division circuit `PackedFloat.div` agrees with the SMT-Lib semantics, modulo NaN payload.
 Mirror of `mul_eq_mul`.
 -/
 theorem div_eq_div {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ein)
-    (rm : RoundingMode) (a b : PackedFloat ein sin) :
+    (rm : RoundingMode) (hrm : rm = .RNE) (a b : PackedFloat ein sin) :
     (Fp.SmtLibSemantics.SmtLibFunctions.div (Fp.SmtLibSemanticsQ.smtLibRoundMethodQ ein sin) rm a b).EquivUptoNaN
     (PackedFloat.div rm a b) := by
+  have he0 : 0 < ein := by omega
   simp only [SmtLibSemantics.SmtLibFunctions.div, SmtLibSemantics.smtLibV_embed_eq,
-    PackedFloat.toExtRat_eq_toExtRat', roundQ_eq]
+    PackedFloat.toExtRat_eq_toExtRat', roundQ_eq, SmtLibSemantics.instExtendedRat.isZero,
+    SmtLibSemantics.instExtendedRat.isNaN_eq]
   rw [PackedFloat.div, EUnpackedFloat.div]
   cases a using PackedFloat.kindCasesNaNInfZeroNum
   case nanCase hnan =>
-    -- a is NaN: NaN/y = NaN; result is NaN.
     rw [ExtRat.div_eq_mul_inv]
     simp only [hnan, PackedFloat.toExtRat'_eq_NaN_of_isNaN, ExtRat.NaN_mul,
       PackedFloat.unpack_eq_NaN_of_isNaN, EUnpackedFloat.isNaN_mkNaN,
       PackedFloat.isNaN_unpack_eq_isNaN, Bool.true_or, cond_true,
       EUnpackedFloat.mkNaN_pack_eq_mkNaN, PackedFloat.EquivUptoNaN.of_mkNaN_iff]
-    -- Final goal: `(if xorSign ... then neg (round ...) else round ...).isNaN = true`.
-    -- Both branches round/operate on NaN, both yield NaN.
-    split <;> simp [SmtLibSemantics.SmtLibFunctions.neg]
+    rw [if_neg (by simp [ExtRat.isNaN_iff])]
+    simp
   case infCase signa =>
-    -- a is infinity: split on b.
     cases b using PackedFloat.kindCasesNaNInfZeroNum
     case nanCase hb =>
-      -- inf / NaN = NaN
       rw [ExtRat.div_eq_mul_inv]
       have hinv : (ExtRat.NaN).inv = ExtRat.NaN := rfl
       simp only [hb, PackedFloat.toExtRat'_eq_NaN_of_isNaN, hinv, ExtRat.mul_NaN,
         PackedFloat.unpack_eq_NaN_of_isNaN, EUnpackedFloat.isNaN_mkNaN,
         PackedFloat.isNaN_unpack_eq_isNaN, Bool.or_true, cond_true,
-        EUnpackedFloat.mkNaN_pack_eq_mkNaN, PackedFloat.EquivUptoNaN.of_mkNaN_iff,
-        ExtRat.neg_NaN]
-      split <;> simp [SmtLibSemantics.SmtLibFunctions.neg]
+        EUnpackedFloat.mkNaN_pack_eq_mkNaN, PackedFloat.EquivUptoNaN.of_mkNaN_iff]
+      rw [if_neg (by simp [ExtRat.ExtRat.zero_def])]
+      simp
     case infCase signb =>
-      -- inf / inf = NaN; inv inf = 0, inf * 0 = NaN.
       rw [ExtRat.div_eq_mul_inv]
       simp only [hsin, PackedFloat.isInfinite_getInfinity, decide_true,
         PackedFloat.toExtRat'_eq_Infinity_of_isInfinite, ExtRat.inv_inf_eq_zero,
-        ExtRat.inf_mul_zero_eq, ExtRat.neg_NaN,
-        PackedFloat.unpack_getInfinity, EUnpackedFloat.isNaN_mkInfinity,
+        ExtRat.inf_mul_zero_eq,
+        PackedFloat.unpack_getInfinity, ↓reduceIte, EUnpackedFloat.isNaN_mkInfinity,
         EUnpackedFloat.isInfinite_mkInfinity, Bool.true_and, Bool.true_or, cond_true,
         EUnpackedFloat.mkNaN_pack_eq_mkNaN, PackedFloat.EquivUptoNaN.of_mkNaN_iff]
-      split <;> simp [SmtLibSemantics.SmtLibFunctions.neg]
-    case zeroCase signb => sorry     -- inf / 0 = inf; needs sign reconciliation (SmtLib's inv(0)
-                                     -- discards zero's sign, then `xorSign`+neg is supposed to
-                                     -- restore it; verifying this needs careful case analysis)
-    case numCase hb => sorry         -- inf / num = inf
+      rw [if_neg (by simp [ExtRat.ExtRat.zero_def])]
+      simp
+    case zeroCase signb =>
+      rw [if_pos (by
+        refine ⟨?_, ?_, ?_⟩
+        · rw [PackedFloat.toExtRat'_eq_zero_of_isZero _ (by simp [he0])]
+          simp [ExtRat.ExtRat.zero_def]
+        · rw [PackedFloat.toExtRat'_eq_Infinity_of_isInfinite _ (by simp [hsin])]
+          simp [ExtRat.ExtRat.zero_def]
+        · rw [PackedFloat.toExtRat'_eq_Infinity_of_isInfinite _ (by simp [hsin])]
+          simp [ExtRat.isNaN_iff])]
+      simp only [hsin, he0, PackedFloat.unpack_getInfinity, ↓reduceIte,
+        PackedFloat.isZero_getZero,
+        decide_true, PackedFloat.unpack_eq_mkZero_of_isZero,
+        EUnpackedFloat.isNaN_mkInfinity, EUnpackedFloat.isNaN_mkZero,
+        EUnpackedFloat.isInfinite_mkInfinity, EUnpackedFloat.isInfinite_mkZero,
+        EUnpackedFloat.isZero_mkInfinity, EUnpackedFloat.isZero_mkZero,
+        EUnpackedFloat.sign_num_mkInfinity, EUnpackedFloat.mkZero_num_sign,
+        Bool.or_false, Bool.true_and, Bool.and_true, Bool.false_and,
+        Bool.and_false, Bool.true_or, Bool.or_self, cond_true, cond_false,
+        EUnpackedFloat.mkInfinity_pack_eq_getInfinity]
+      apply PackedFloat.EquivUptoNaN.of_eq
+      simp only [SmtLibSemantics.SmtLibFunctions.xorSign, PackedFloat.sign_getInfinity,
+        PackedFloat.sign_getZero]
+    case numCase hb =>
+      have hbz : b.toRat ≠ 0 := b.toRat_ne_zero hb
+      have hbsgn : decide (b.toRat < 0) = b.sign := by
+        grind only [→ PackedFloat.sign_iff_toRat_neg]
+      have hmul : b.toRat * ((1 : Rat) / b.toRat) = 1 := by grind
+      have hinviff : ((1 : Rat) / b.toRat < 0) ↔ (b.toRat < 0) := by
+        constructor
+        · intro h1
+          apply Classical.byContradiction
+          intro h2
+          have hq0 : 0 < b.toRat := by grind
+          have hpos : 0 < b.toRat * (-((1 : Rat) / b.toRat)) :=
+            Rat.mul_positive hq0 (by grind)
+          grind
+        · intro h1
+          apply Classical.byContradiction
+          intro h2
+          have hq0 : 0 < (1 : Rat) / b.toRat := by grind
+          have hpos : 0 < (-b.toRat) * ((1 : Rat) / b.toRat) :=
+            Rat.mul_positive (by grind) hq0
+          grind
+      have hinvz : (1 : Rat) / b.toRat ≠ 0 := by grind
+      have hinvsgn : decide ((1 : Rat) / b.toRat < 0) = b.sign := by
+        rw [← hbsgn]
+        grind
+      have hz : (PackedFloat.getInfinity ein sin signa).toExtRat' / b.toExtRat'
+            = ExtRat.Infinity (signa ^^ b.sign) := by
+        rw [PackedFloat.toExtRat'_eq_Infinity_of_isInfinite _ (by simp [hsin]),
+            b.toExtRat'_eq_toRat_of hb]
+        rw [ExtRat.div_eq_mul_inv, ExtRat.inv_number_of_ne_zero hbz,
+            ExtRat.infinity_mul_number_of_ne_zero hinvz, hinvsgn]
+        simp [PackedFloat.sign_getInfinity]
+      rw [if_neg (by
+        intro hC
+        have h1 := hC.1
+        rw [b.toExtRat'_eq_toRat_of hb] at h1
+        rw [show (0 : ExtRat) = ExtRat.Number 0 from ExtRat.ExtRat.zero_def] at h1
+        exact hbz (by simpa using h1))]
+      rw [hz, Fp.roundQ_eq_round_of_Infinity he0 hsin]
+      simp only [hsin, PackedFloat.unpack_getInfinity, ↓reduceIte,
+        PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm hb,
+        EUnpackedFloat.isNaN_mkInfinity, EUnpackedFloat.isNaN_mkNumber,
+        EUnpackedFloat.isInfinite_mkInfinity, EUnpackedFloat.isInfinite_mkNumber,
+        EUnpackedFloat.isZero_mkInfinity, EUnpackedFloat.isZero_mkNumber,
+        EUnpackedFloat.sign_num_mkInfinity, EUnpackedFloat.num_mkNumber,
+        PackedFloat.sign_unpackNormOrNonzeroSubnorm_eq_sign,
+        Bool.or_false, Bool.true_and, Bool.and_true, Bool.false_and,
+        Bool.and_false, Bool.true_or, Bool.or_self, cond_true, cond_false,
+        EUnpackedFloat.mkInfinity_pack_eq_getInfinity]
+      apply PackedFloat.EquivUptoNaN.of_eq
+      rfl
   case zeroCase signa =>
     cases b using PackedFloat.kindCasesNaNInfZeroNum
     case nanCase hb =>
-      -- 0 / NaN = NaN
       rw [ExtRat.div_eq_mul_inv]
       have hinv : (ExtRat.NaN).inv = ExtRat.NaN := rfl
       simp only [hb, PackedFloat.toExtRat'_eq_NaN_of_isNaN, hinv, ExtRat.mul_NaN,
         PackedFloat.unpack_eq_NaN_of_isNaN, EUnpackedFloat.isNaN_mkNaN,
         PackedFloat.isNaN_unpack_eq_isNaN, Bool.or_true, cond_true,
-        EUnpackedFloat.mkNaN_pack_eq_mkNaN, PackedFloat.EquivUptoNaN.of_mkNaN_iff,
-        ExtRat.neg_NaN]
-      split <;> simp [SmtLibSemantics.SmtLibFunctions.neg]
-    case infCase signb => sorry      -- 0 / inf = 0
+        EUnpackedFloat.mkNaN_pack_eq_mkNaN, PackedFloat.EquivUptoNaN.of_mkNaN_iff]
+      rw [if_neg (by simp [ExtRat.ExtRat.zero_def])]
+      simp
+    case infCase signb =>
+      have hz : (PackedFloat.getZero ein sin signa).toExtRat'
+            / (PackedFloat.getInfinity ein sin signb).toExtRat' = ExtRat.Number 0 := by
+        rw [PackedFloat.toExtRat'_eq_zero_of_isZero _ (by simp [he0]),
+            PackedFloat.toExtRat'_eq_Infinity_of_isInfinite _ (by simp [hsin])]
+        rw [ExtRat.div_eq_mul_inv, ExtRat.inv_inf_eq_zero, ExtRat.number_mul_number_eq]
+        simp
+      rw [if_neg (by
+        intro hC
+        have h1 := hC.1
+        rw [PackedFloat.toExtRat'_eq_Infinity_of_isInfinite _ (by simp [hsin])] at h1
+        rw [show (0 : ExtRat) = ExtRat.Number 0 from ExtRat.ExtRat.zero_def] at h1
+        simp at h1)]
+      rw [hz, Fp.round_eq_mkZero_of_mkZero he0]
+      simp only [hsin, he0, PackedFloat.isZero_getZero, decide_true,
+        PackedFloat.unpack_eq_mkZero_of_isZero, PackedFloat.unpack_getInfinity, ↓reduceIte,
+        EUnpackedFloat.isNaN_mkZero, EUnpackedFloat.isNaN_mkInfinity,
+        EUnpackedFloat.isInfinite_mkZero, EUnpackedFloat.isInfinite_mkInfinity,
+        EUnpackedFloat.isZero_mkZero, EUnpackedFloat.isZero_mkInfinity,
+        EUnpackedFloat.mkZero_num_sign, EUnpackedFloat.sign_num_mkInfinity,
+        Bool.or_false, Bool.true_and, Bool.and_true, Bool.false_and,
+        Bool.and_false, Bool.true_or, Bool.or_self, cond_true, cond_false,
+        EUnpackedFloat.mkZero_pack_eq_getZero]
+      apply PackedFloat.EquivUptoNaN.of_eq
+      simp only [SmtLibSemantics.SmtLibFunctions.xorSign, PackedFloat.sign_getZero,
+        PackedFloat.sign_getInfinity]
     case zeroCase signb =>
-      -- 0 / 0 = NaN: inv(0) = Infinity false, 0 * Infinity = NaN.
-      have he0 : 0 < ein := by omega
       rw [ExtRat.div_eq_mul_inv]
       simp only [he0, PackedFloat.isZero_getZero, decide_true,
         PackedFloat.toExtRat'_eq_zero_of_isZero, ExtRat.zero_inv_eq_inf,
-        ExtRat.zero_mul_inf_eq, ExtRat.neg_NaN,
+        ExtRat.zero_mul_inf_eq,
         PackedFloat.unpack_eq_mkZero_of_isZero, EUnpackedFloat.isNaN_mkZero,
         EUnpackedFloat.isInfinite_mkZero, EUnpackedFloat.isZero_mkZero,
         Bool.and_true, Bool.true_and, Bool.true_or, Bool.or_self, Bool.false_or,
         cond_true,
         EUnpackedFloat.mkNaN_pack_eq_mkNaN, PackedFloat.EquivUptoNaN.of_mkNaN_iff]
-      split <;> simp [SmtLibSemantics.SmtLibFunctions.neg]
-    case numCase hb => sorry         -- 0 / num = 0; sign-convention reconciliation remains
+      rw [if_neg (by
+        intro hC
+        exact hC.2.1 rfl)]
+      simp
+    case numCase hb =>
+      have hbz : b.toRat ≠ 0 := b.toRat_ne_zero hb
+      have hbnz : ¬ b.isZero := by grind
+      have hz : (PackedFloat.getZero ein sin signa).toExtRat' / b.toExtRat'
+            = ExtRat.Number 0 := by
+        rw [PackedFloat.toExtRat'_eq_zero_of_isZero _ (by simp [he0]),
+            b.toExtRat'_eq_toRat_of hb]
+        rw [ExtRat.div_eq_mul_inv, ExtRat.inv_number_of_ne_zero hbz,
+            ExtRat.number_mul_number_eq]
+        simp
+      rw [if_neg (by
+        intro hC
+        have h1 := hC.1
+        rw [b.toExtRat'_eq_toRat_of hb] at h1
+        rw [show (0 : ExtRat) = ExtRat.Number 0 from ExtRat.ExtRat.zero_def] at h1
+        exact hbz (by simpa using h1))]
+      rw [hz, Fp.round_eq_mkZero_of_mkZero he0]
+      simp only [hsin, he0, PackedFloat.isZero_getZero, decide_true,
+        PackedFloat.unpack_eq_mkZero_of_isZero,
+        PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm hb,
+        EUnpackedFloat.isNaN_mkZero, EUnpackedFloat.isNaN_mkNumber,
+        EUnpackedFloat.isInfinite_mkZero, EUnpackedFloat.isInfinite_mkNumber,
+        EUnpackedFloat.isZero_mkZero, EUnpackedFloat.isZero_mkNumber,
+        EUnpackedFloat.mkZero_num_sign, EUnpackedFloat.num_mkNumber,
+        PackedFloat.sign_unpackNormOrNonzeroSubnorm_eq_sign,
+        hbnz, Bool.false_eq_true, not_false_eq_true,
+        PackedFloat.unpackNormOrNonzeroSubnorm_isZero_eq_of_not_isZero,
+        Bool.or_false, Bool.true_and, Bool.and_true, Bool.false_and,
+        Bool.and_false, Bool.true_or, Bool.or_self, cond_true, cond_false,
+        EUnpackedFloat.mkZero_pack_eq_getZero]
+      apply PackedFloat.EquivUptoNaN.of_eq
+      simp only [SmtLibSemantics.SmtLibFunctions.xorSign, PackedFloat.sign_getZero]
   case numCase ha =>
     cases b using PackedFloat.kindCasesNaNInfZeroNum
     case nanCase hb =>
-      -- num / NaN = NaN; a is a finite number, b is NaN.
       rw [ExtRat.div_eq_mul_inv]
       have hinv : (ExtRat.NaN).inv = ExtRat.NaN := rfl
-      simp only [hb, PackedFloat.toExtRat'_eq_NaN_of_isNaN, hinv, ExtRat.mul_NaN, ExtRat.NaN_mul,
+      simp only [hb, PackedFloat.toExtRat'_eq_NaN_of_isNaN, hinv, ExtRat.mul_NaN,
         PackedFloat.unpack_eq_NaN_of_isNaN, EUnpackedFloat.isNaN_mkNaN,
         PackedFloat.isNaN_unpack_eq_isNaN, Bool.or_true, cond_true,
-        EUnpackedFloat.mkNaN_pack_eq_mkNaN, PackedFloat.EquivUptoNaN.of_mkNaN_iff,
-        ExtRat.neg_NaN]
-      split <;> simp [SmtLibSemantics.SmtLibFunctions.neg]
-    case infCase signb => sorry      -- num / inf = 0
-    case zeroCase signb => sorry     -- num / 0   = inf (division by zero)
+        EUnpackedFloat.mkNaN_pack_eq_mkNaN, PackedFloat.EquivUptoNaN.of_mkNaN_iff]
+      rw [if_neg (by simp [ExtRat.ExtRat.zero_def])]
+      simp
+    case infCase signb =>
+      have hanz : ¬ a.isZero := by grind
+      have hz : a.toExtRat' / (PackedFloat.getInfinity ein sin signb).toExtRat'
+            = ExtRat.Number 0 := by
+        rw [a.toExtRat'_eq_toRat_of ha,
+            PackedFloat.toExtRat'_eq_Infinity_of_isInfinite _ (by simp [hsin])]
+        rw [ExtRat.div_eq_mul_inv, ExtRat.inv_inf_eq_zero, ExtRat.number_mul_number_eq]
+        simp
+      rw [if_neg (by
+        intro hC
+        have h1 := hC.1
+        rw [PackedFloat.toExtRat'_eq_Infinity_of_isInfinite _ (by simp [hsin])] at h1
+        rw [show (0 : ExtRat) = ExtRat.Number 0 from ExtRat.ExtRat.zero_def] at h1
+        simp at h1)]
+      rw [hz, Fp.round_eq_mkZero_of_mkZero he0]
+      simp only [hsin, he0, PackedFloat.unpack_getInfinity, ↓reduceIte,
+        PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm ha,
+        EUnpackedFloat.isNaN_mkNumber, EUnpackedFloat.isNaN_mkInfinity,
+        EUnpackedFloat.isInfinite_mkNumber, EUnpackedFloat.isInfinite_mkInfinity,
+        EUnpackedFloat.isZero_mkNumber, EUnpackedFloat.isZero_mkInfinity,
+        EUnpackedFloat.num_mkNumber, EUnpackedFloat.sign_num_mkInfinity,
+        PackedFloat.sign_unpackNormOrNonzeroSubnorm_eq_sign,
+        hanz, Bool.false_eq_true, not_false_eq_true,
+        PackedFloat.unpackNormOrNonzeroSubnorm_isZero_eq_of_not_isZero,
+        Bool.false_or, Bool.or_false, Bool.true_and, Bool.and_true, Bool.false_and,
+        Bool.and_false, Bool.true_or, Bool.or_self, cond_true, cond_false,
+        EUnpackedFloat.mkZero_pack_eq_getZero]
+      apply PackedFloat.EquivUptoNaN.of_eq
+      simp only [SmtLibSemantics.SmtLibFunctions.xorSign, PackedFloat.sign_getInfinity]
+    case zeroCase signb =>
+      have haz : a.toRat ≠ 0 := a.toRat_ne_zero ha
+      have hanz : ¬ a.isZero := by grind
+      rw [if_pos (by
+        refine ⟨?_, ?_, ?_⟩
+        · rw [PackedFloat.toExtRat'_eq_zero_of_isZero _ (by simp [he0])]
+          simp [ExtRat.ExtRat.zero_def]
+        · rw [a.toExtRat'_eq_toRat_of ha]
+          rw [show (0 : ExtRat) = ExtRat.Number 0 from ExtRat.ExtRat.zero_def]
+          simp [haz]
+        · rw [a.toExtRat'_eq_toRat_of ha]
+          simp [ExtRat.isNaN_iff])]
+      simp only [hsin, he0, PackedFloat.isZero_getZero, decide_true,
+        PackedFloat.unpack_eq_mkZero_of_isZero,
+        PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm ha,
+        EUnpackedFloat.isNaN_mkNumber, EUnpackedFloat.isNaN_mkZero,
+        EUnpackedFloat.isInfinite_mkNumber, EUnpackedFloat.isInfinite_mkZero,
+        EUnpackedFloat.isZero_mkNumber, EUnpackedFloat.isZero_mkZero,
+        EUnpackedFloat.num_mkNumber, EUnpackedFloat.mkZero_num_sign,
+        PackedFloat.sign_unpackNormOrNonzeroSubnorm_eq_sign,
+        hanz, Bool.false_eq_true, not_false_eq_true,
+        PackedFloat.unpackNormOrNonzeroSubnorm_isZero_eq_of_not_isZero,
+        Bool.false_or, Bool.or_false, Bool.true_and, Bool.and_true, Bool.false_and,
+        Bool.and_false, Bool.true_or, Bool.or_self, cond_true, cond_false,
+        EUnpackedFloat.mkInfinity_pack_eq_getInfinity]
+      apply PackedFloat.EquivUptoNaN.of_eq
+      simp only [SmtLibSemantics.SmtLibFunctions.xorSign, PackedFloat.sign_getZero]
     case numCase hb =>
-      -- the only interesting case: both are finite nonzero numbers.
-      -- mirror of `mul_eq_mul`'s `numCase/numCase`: reduce to RNE, apply
-      -- `pack'_EquivUptoNaN_of_Rel`, then `toExtRat_round_div_Rel_smtLibRound_of_RNE`,
-      -- discharging the rationality of `a.toRat / b.toRat` and the msb-normalization.
-      sorry
+      -- The interesting case: both finite nonzero numbers. Reduce the implementation
+      -- to `blastSmtLibRound (a.unpackNum.div b.unpackNum)` and apply
+      -- `pack'_EquivUptoNaN_of_Rel` with `toExtRat_round_div_Rel_smtLibRound_of_RNE`.
+      subst hrm
+      have hbz : b.toRat ≠ 0 := b.toRat_ne_zero hb
+      have haz : a.toRat ≠ 0 := a.toRat_ne_zero ha
+      have hanz : ¬ a.isZero := by grind
+      have hbnz : ¬ b.isZero := by grind
+      rw [if_neg (by
+        intro hC
+        have h1 := hC.1
+        rw [b.toExtRat'_eq_toRat_of hb] at h1
+        rw [show (0 : ExtRat) = ExtRat.Number 0 from ExtRat.ExtRat.zero_def] at h1
+        exact hbz (by simpa using h1))]
+      rw [a.toExtRat'_eq_toRat_of ha, b.toExtRat'_eq_toRat_of hb,
+          ExtRat.number_div_number_of_ne_zero hbz]
+      simp only [PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm ha,
+        PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm hb,
+        EUnpackedFloat.isNaN_mkNumber, EUnpackedFloat.isInfinite_mkNumber,
+        EUnpackedFloat.isZero_mkNumber, EUnpackedFloat.num_mkNumber,
+        PackedFloat.sign_unpackNormOrNonzeroSubnorm_eq_sign,
+        hanz, hbnz, Bool.false_eq_true, not_false_eq_true,
+        PackedFloat.unpackNormOrNonzeroSubnorm_isZero_eq_of_not_isZero,
+        Bool.false_or, Bool.or_false, Bool.false_and, Bool.and_false, Bool.or_self,
+        cond_false]
+      have hxor : SmtLibSemantics.SmtLibFunctions.xorSign a b = (a.sign ^^ b.sign) := by
+        simp only [SmtLibSemantics.SmtLibFunctions.xorSign]
+      rw [hxor]
+      have hmsba : a.unpackNum.sig.msb = true := PackedFloat.msb_unpackNum_eq_true ha
+      have hmsbb : b.unpackNum.sig.msb = true := PackedFloat.msb_unpackNum_eq_true hb
+      have hquot : a.unpackNum.toRat / b.unpackNum.toRat = a.toRat / b.toRat := by
+        have h1 : a.unpackNum.toRat = a.toRat := by grind
+        have h2 : b.unpackNum.toRat = b.toRat := by grind
+        rw [h1, h2]
+      have hRel := UnpackedFloat.toExtRat_round_div_Rel_smtLibRound_of_RNE he hep hsin
+        hmsba hmsbb (a.sign ^^ b.sign)
+        (by simp [PackedFloat.sign_unpackNormOrNonzeroSubnorm_eq_sign])
+      rw [hquot] at hRel
+      rw [PackedFloat.EquivUptoNaN_symm]
+      rw [EUnpackedFloat.pack_eq_pack']
+      exact EUnpackedFloat.pack'_EquivUptoNaN_of_Rel hsin _ _ hRel
+
+/-
+The remaining `sorryAx` inputs of `div_eq_div` are exactly:
+* `UnpackedFloat.div_toRat_cmp_agree` (this file) — the grid/sticky-bit closeness
+  argument for the division circuit;
+* `UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE` and its supporting lemmas
+  (`Fp/Theorems/UnpackedFloat/Round.lean`) — the general rounder-correctness program;
+* `EUnpackedFloat.pack'_EquivUptoNaN_of_Rel` (`Fp/Theorems/PackedUnpackedRel/Basic.lean`)
+  — pack/unpack round-tripping on numbers.
+-/
+/--
+info: 'Fp.div_eq_div' depends on axioms: [propext,
+ sorryAx,
+ BitVec.toNat_clz_cons,
+ Classical.choice,
+ PackedFloat.unpackNormOrNonzeroSubnorm_isZero_eq_of_not_isZero,
+ Quot.sound]
+-/
+#guard_msgs in #print axioms div_eq_div
 
 end Fp
