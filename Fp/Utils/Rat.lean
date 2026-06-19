@@ -1,6 +1,7 @@
 import Lean
 import Std.Tactic.BVDecide
 import Fp.Tactics
+import Fp.Utils.Nat
 import Fp.Grind
 
 open Lean
@@ -38,6 +39,11 @@ theorem Rat.ofNat_eq_zero_iff (n : Nat) :
 theorem Rat.self_mul_add_div (a b c : Rat) (hb : b ≠ 0) :
     (b * a + c) / b = a + c / b  := by
   grind
+
+theorem Rat.ofNat_eq_coe ( n : Nat) :
+    Rat.ofNat n = (n : Rat) := by
+  simp [ofNat, ofInt]
+  norm_cast
 
 theorem Rat.ofNat_div_ofNat_eq_ofNat_div_add_ofNat_mod (a b : Nat) (hb : b ≠ 0):
     ((Rat.ofNat a) / (Rat.ofNat b)) =
@@ -540,3 +546,111 @@ theorem Rat.mul_ne_zero_iff_ne_zero₃ {a b c : Rat} :
 @[simp]
 theorem neg_eq_neg_iff_eq {a b : Rat} : -a = -b ↔ a = b := by
   grind
+
+/-! ## Utilities ported from DivisionFixed.lean
+
+These support `fixedWidthDivideAtPrecision_abs_delta_eq` and similar
+"truncated quotient is within one ULP of the real division" arguments. -/
+
+theorem Rat.add_div (a b c : Rat) :
+    (a + b) / c = a / c + b / c := by
+  grind
+
+theorem Rat.mul_div_cancel_left
+    (a c : Rat) (hc : c ≠ 0) :
+    (c * a) / c = a := by
+  grind
+
+theorem Rat.mul_div_cancel_right
+    (a c : Rat) (hc : c ≠ 0) :
+    (a * c) / c = a := by
+  grind
+
+@[simp]
+theorem Rat.ofNat_one_eq_one :
+    Rat.ofNat 1 = 1 := by
+  simp [Rat.ofNat, Rat.ofInt]
+
+theorem Rat.ofNat_one_div_eq_inv_ofNat
+    (b : Nat) :
+    Rat.ofNat 1 / Rat.ofNat b  = (Rat.ofNat b)⁻¹ := by
+  rw [Rat.ofNat_one_eq_one]
+  rw [Rat.div_def]
+  grind
+
+theorem Rat.twoPowInv_eq_inv (prec : Nat) :
+    Rat.twoPowInv prec = (Rat.ofNat (2 ^ prec))⁻¹ := by
+  simp only [Rat.twoPowInv]
+  rw [Rat.ofNat_one_eq_one]
+  rw [Rat.div_def]
+  grind
+
+theorem Rat.ofNat_two_pow_mul_twoPowInv_eq (n : Nat) (prec : Nat) :
+    Rat.ofNat (n * 2 ^ prec) * Rat.twoPowInv prec = Rat.ofNat n := by
+  rw [Rat.twoPowInv]
+  rw [Rat.ofNat_mul]
+  simp only [ofNat_one_eq_one]
+  rw [Rat.div_def]
+  simp only [Rat.one_mul]
+  grind
+
+theorem Rat.mul_inv_cancel_right'
+    {a b : Rat} (hb : b ≠ 0 := by grind) :
+    a * b * b⁻¹ = a := by
+  rw [Rat.mul_assoc]
+  rw [Rat.mul_inv_cancel]
+  · grind
+  · grind
+
+/-- The gap between `y` and the floor approximation `⌊y*k⌋ * k⁻¹` is at most `k⁻¹`. -/
+theorem Rat.self_sub_mul_floor_inv_le {y k  : Rat} (hk : 0 < k := by grind) :
+    y  - (y * k).floor * k⁻¹ ≤ k⁻¹ := by
+  have : (y * k) < (((y * k).floor + 1) : Int) := by
+    apply Rat.lt_floor_add_one
+  have := (calc
+    (y * k) * k⁻¹ < (((y * k).floor + 1) : Int) * k⁻¹ := by
+      apply Rat.mul_lt_mul_right .. |>.mpr
+      · grind
+      · apply Rat.inv_pos.mpr
+        grind)
+  have : y < (((y * k).floor + 1) : Int) * k⁻¹ := by
+    rw [Rat.mul_assoc] at this
+    rw [Rat.mul_inv_cancel] at this
+    · grind
+    · grind
+  simp at this
+  rw [Rat.add_mul] at this
+  simp at this
+  grind
+
+@[simp]
+theorem Rat.num_ofNat' (n : Nat) :
+    (Rat.ofNat n).num = n := by
+  simp [Rat.ofNat, Rat.ofInt]
+
+@[simp]
+theorem Rat.den_ofNat' (n : Nat) :
+    (Rat.ofNat n).den = 1 := by
+  simp [Rat.ofNat, Rat.ofInt]
+
+theorem Rat.ofNat_div_ofNat_eq_mkRat {a b : Nat}  :
+      Rat.ofNat a / Rat.ofNat b = mkRat a b := by
+  rw [Rat.mkRat_eq_div]
+  simp [Rat.ofNat, Rat.ofInt]
+  by_cases hb : b  = 0
+  · simp [hb]
+  · norm_cast
+
+/-- Natural number division agrees with the floor of the rational division. -/
+theorem Rat.ofNat_div_ofNat_eq_floor_div {a b : Nat} (hb : b > 0 := by grind):
+      Rat.ofNat (a / b) = (Rat.ofNat a / Rat.ofNat b).floor := by
+  rw [Rat.floor_def]
+  rw [Rat.ofNat_div_ofNat_eq_mkRat]
+  simp [Rat.num_mkRat, Rat.den_mkRat]
+  by_cases hb : b = 0
+  · grind
+  · simp only [hb, ↓reduceIte]
+    rw [Nat.gcd_comm b a]
+    norm_cast
+    rw [Nat.gcd_div_gcd_eq]
+    rfl
