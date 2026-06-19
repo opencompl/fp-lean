@@ -9,3 +9,4 @@ import Fp.Theorems.UnpackedFloat.Round
 import Fp.Theorems.Multiplication
 import Fp.Theorems.Addition
 import Fp.Theorems.DivisionFixed
+import Fp.Theorems.Division
