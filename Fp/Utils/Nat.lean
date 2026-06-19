@@ -54,3 +54,22 @@ theorem Nat.two_pow_succ_div_two {n : Nat} :
 theorem Nat.two_pow_plus_one_div_two_eq_two_pow (e : Nat) :
    (2^e + 1) / 2 = 2 ^ (e - 1) := by
   exact Nat.two_pow_succ_div_two
+
+theorem Nat.mul_add_div'
+    (a b c : Nat) (hc : c ≠ 0) :
+    (c * a + b) / c = a + b / c := by
+  apply Nat.mul_add_div
+  omega
+
+@[grind .]
+theorem Nat.two_pow_ne_zero' (n : Nat) :
+    2 ^ n ≠ 0 := by grind
+
+/-- 'a/b' equals '(a/gcd(a, b)) / (b/gcd(a, b))'. -/
+theorem Nat.gcd_div_gcd_eq (a b : Nat) :
+    (a / Nat.gcd a b) / (b / Nat.gcd a b) = a / b := by
+  by_cases hb : b = 0
+  · simp [hb]
+  · rw [Nat.div_div_eq_div_mul]
+    rw [Nat.mul_div_cancel']
+    exact gcd_dvd_right a b
