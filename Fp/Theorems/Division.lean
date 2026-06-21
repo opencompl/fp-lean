@@ -34,6 +34,32 @@ This file mirrors the layering of `Fp/Theorems/Addition.lean`:
 * Layer 1 — the big theorem `div_eq_div`.
 -/
 
+/-! ## ExtRat arithmetic helpers for the special-value cases
+
+Mirror the helpers used by `Fp.mul_eq_mul`'s special-value dispatch, specialised
+to division/inverse.  Declared outside `namespace Fp` so they live in the
+`ExtRat` namespace. -/
+
+/-- `inv` of a nonzero number is the number's reciprocal. -/
+theorem ExtRat.inv_number_of_ne_zero {r : Rat} (hr : r ≠ 0) :
+    (ExtRat.Number r).inv = ExtRat.Number (1 / r) := by
+  rw [ExtRat.inv]
+  simp [hr]
+
+/-- `∞ * r = ±∞` with the xor of the signs, for nonzero `r`. -/
+theorem ExtRat.infinity_mul_number_of_ne_zero {s : Bool} {r : Rat} (hr : r ≠ 0) :
+    (ExtRat.Infinity s) * (ExtRat.Number r) = ExtRat.Infinity (s ^^ decide (r < 0)) := by
+  rw [← ExtRat.mul_def, ExtRat.mul]
+  simp [hr]
+
+/-- Division of numbers is the number of the division, for nonzero divisor. -/
+theorem ExtRat.number_div_number_of_ne_zero {p q : Rat} (hq : q ≠ 0) :
+    (ExtRat.Number p) / (ExtRat.Number q) = ExtRat.Number (p / q) := by
+  rw [ExtRat.div_eq_mul_inv, ExtRat.inv_number_of_ne_zero hq, ExtRat.number_mul_number_eq]
+  congr 1
+  rw [Rat.div_def, Rat.div_def]
+  grind
+
 namespace Fp
 
 open SmtLibSemantics
