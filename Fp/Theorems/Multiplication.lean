@@ -433,8 +433,9 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
         EUnpackedFloat.num_mkNumber, PackedFloat.sign_unpackNormOrNonzeroSubnorm_eq_sign,
         EUnpackedFloat.sign_num_mkInfinity, Bool.or_false, cond_true]
       have : ¬ a.isZero := by grind
-      simp only [this, Bool.false_eq_true, not_false_eq_true,
-        PackedFloat.unpackNormOrNonzeroSubnorm_isZero_eq_of_not_isZero, cond_false,
+      have haz : a.unpackNum.isZero = false :=
+        PackedFloat.unpackNormOrNonzeroSubnorm_isZero_eq_of_not_isZero a ha
+      simp only [this, haz, Bool.false_eq_true, not_false_eq_true, cond_false,
         EUnpackedFloat.mkInfinity_pack_eq_getInfinity]
       rw [← ExtRat.mul_def, ExtRat.mul]
       simp only [SmtLibSemantics.instExtendedRat, roundQ_eq]
@@ -467,10 +468,13 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
         cond_false]
       rw [b.toExtRat'_eq_toRat_of hb]
       have : ¬ a.isZero := by grind
-      simp [this]
+      have haz : a.unpackNum.isZero = false :=
+        PackedFloat.unpackNormOrNonzeroSubnorm_isZero_eq_of_not_isZero a ha
+      simp [this, haz]
       have : ¬ b.isZero := by grind
-      simp only [this, Bool.false_eq_true, not_false_eq_true,
-        PackedFloat.unpackNormOrNonzeroSubnorm_isZero_eq_of_not_isZero, cond_false]
+      have hbz : b.unpackNum.isZero = false :=
+        PackedFloat.unpackNormOrNonzeroSubnorm_isZero_eq_of_not_isZero b hb
+      simp only [this, hbz, Bool.false_eq_true, not_false_eq_true, cond_false]
       -- apply PackedFloat.EquivUptoNaN.of_eq
       rw [PackedFloat.EquivUptoNaN_symm]
       subst hrm

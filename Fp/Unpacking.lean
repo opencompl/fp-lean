@@ -24,14 +24,6 @@ def PackedFloat.unpackNum (pf : PackedFloat e s) :
       : UnpackedFloat _ _
     }.normalize
 
-/--
-If we start with a packedFloat whose 'isZero' predicate says 'false',
-then we know that the unpacked version of it is also not zero. This is a useful fact to have when we want to rewrite
--/
-@[simp, grind! →]
-axiom PackedFloat.unpackNormOrNonzeroSubnorm_isZero_eq_of_not_isZero (pf : PackedFloat e s) (hpf : ¬ pf.isZero := by grind) :
-  pf.unpackNum.isZero = false
-
 @[simp]
 theorem PackedFloat.sign_unpackNormOrNonzeroSubnorm_eq_sign (pf : PackedFloat e s) :
     pf.unpackNum.sign = pf.sign := by
@@ -68,24 +60,6 @@ theorem PackedFloat.isInfinite_unpack_eq_isInfinite (pf : PackedFloat e s) :
   · by_cases hinf : pf.isInfinite <;> simp [hinf]
     · by_cases hzero : pf.isZero <;> simp [hzero]
 
-@[simp, grind! .]
-theorem PackedFloat.isZero_unpack_eq_isZero (pf : PackedFloat e s) :
-    pf.unpack.isZero = pf.isZero := by
-  simp [PackedFloat.unpack]
-  by_cases hnan : pf.isNaN <;> simp [hnan]
-  · grind
-  · by_cases hinf : pf.isInfinite <;> simp [hinf]
-    · grind
-    · by_cases hzero : pf.isZero <;> simp [hzero]
-
-
-@[simp, grind =]
-theorem PackedFloat.unpack_eq_unpackNum_of (pf : PackedFloat e s)
-    (hpf : pf.isNormOrNonzeroSubnorm) :
-     pf.unpack = EUnpackedFloat.mkNumber pf.unpackNum := by
-  unfold unpack
-  grind
-
 /-- Unpacking a packed float always results in a normalized float. -/
 @[simp, grind =]
 theorem PackedFloat.msb_unpackNum_eq_true {pf : PackedFloat e s}
@@ -95,6 +69,45 @@ theorem PackedFloat.msb_unpackNum_eq_true {pf : PackedFloat e s}
   by_cases hf : pf.isNorm <;> simp only [hf, ↓reduceIte, BitVec.msb_cons]
   have : pf.sig ≠ 0#s := by grind
   simp [this]
+
+/--
+If we start with a packed float that is a normal or a nonzero subnormal,
+then we know that the unpacked version of it is also not zero. This is a useful fact to have when we want to rewrite.
+
+Note that `isNormOrNonzeroSubnorm` (rather than merely `¬ pf.isZero`) is required: an
+infinity has `isZero = false` but `unpackNum` produces a zero, since `unpackNum` ignores
+the possibility of NaN/±infinity.
+-/
+@[simp, grind! →]
+theorem PackedFloat.unpackNormOrNonzeroSubnorm_isZero_eq_of_not_isZero (pf : PackedFloat e s)
+    (hpf : pf.isNormOrNonzeroSubnorm := by grind) :
+    pf.unpackNum.isZero = false := by
+  have hmsb : pf.unpackNum.sig.msb = true := PackedFloat.msb_unpackNum_eq_true hpf
+  simp only [UnpackedFloat.isZero, beq_eq_false_iff_ne, ne_eq]
+  rintro hcontra
+  rw [hcontra, BitVec.msb_zero] at hmsb
+  exact Bool.noConfusion hmsb
+
+@[simp, grind! .]
+theorem PackedFloat.isZero_unpack_eq_isZero (pf : PackedFloat e s) :
+    pf.unpack.isZero = pf.isZero := by
+  simp [PackedFloat.unpack]
+  by_cases hnan : pf.isNaN <;> simp [hnan]
+  · grind
+  · by_cases hinf : pf.isInfinite <;> simp [hinf]
+    · grind
+    · by_cases hzero : pf.isZero
+      · simp [hzero]
+      · simp [hzero]
+        exact PackedFloat.unpackNormOrNonzeroSubnorm_isZero_eq_of_not_isZero pf (by grind)
+
+
+@[simp, grind =]
+theorem PackedFloat.unpack_eq_unpackNum_of (pf : PackedFloat e s)
+    (hpf : pf.isNormOrNonzeroSubnorm) :
+     pf.unpack = EUnpackedFloat.mkNumber pf.unpackNum := by
+  unfold unpack
+  grind
 
 
 @[bv_normalize]
