@@ -163,18 +163,106 @@ theorem EUnpackedFloat.mkZero_Rel_of_isZero
   · simp [hsign]
 
 /--
+The Number-case content of `pack'_EquivUptoNaN_of_Rel`: packing a normalized,
+in-range finite number `uf` that is related to a *finite* packed float `pf`
+recovers exactly `pf`.
+
+The `hpfNaN`/`hpfInf` hypotheses are necessary because `Rel` only fixes the rational
+value and sign: an infinity has `toRat = 0` and a NaN has a nonzero `toRat`, so without
+them `Rel` could wrongly relate a number to a NaN/Infinity bit pattern. The
+`hnorm`/`hexp1`/`hexp2` hypotheses are exactly those of `toRat_pack_mkNumber_eq_toRat`.
+-/
+theorem EUnpackedFloat.packNumber'_eq_of_Rel
+    (hep : 1 < ep) (hsp : 0 < sp)
+    (uf : UnpackedFloat (exponentWidth ep sp) (sp + 1))
+    (pf : PackedFloat ep sp)
+    (hpfNaN : ¬ pf.isNaN) (hpfInf : ¬ pf.isInfinite)
+    (hnorm : uf.normalize = uf)
+    (hexp1 : uf.ex.toInt ≤ maxNormalExp ep)
+    (hexp2 : minNormalExp ep ≤ uf.ex.toInt ∨
+        2 ^ (minNormalExp ep - uf.ex.toInt).toNat ∣ uf.sig.toNat)
+    (hRel : uf.Rel pf) :
+    (EUnpackedFloat.mkNumber uf).pack' = pf := by
+  obtain ⟨hval, hsign⟩ := hRel
+  have hufRat : uf.toRat = pf.toRat := by
+    rw [UnpackedFloat.toRat_eq_toRat']; exact hval
+  by_cases hzero : uf.isZero
+  · -- zero sub-case: `pack'` produces `getZero`, and `pf` (finite, value 0) is a zero too.
+    have hpf0 : pf.toRat = 0 := by
+      rw [← hufRat, UnpackedFloat.toRat_eq_toRat']
+      exact uf.toRat'_eq_zero_of_isZero hzero
+    have hpfZero : pf.isZero := by
+      by_contra hc
+      exact PackedFloat.toRat_ne_zero
+        (PackedFloat.isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero hpfNaN hpfInf hc) hpf0
+    rw [EUnpackedFloat.pack'_eq_getZero_of_isZero _ (by simp [EUnpackedFloat.isZero_mkNumber, hzero])]
+    simp only [EUnpackedFloat.sign, EUnpackedFloat.num_mkNumber]
+    exact ((PackedFloat.eq_mkZero_of_isZero' (sign := uf.sign) (by omega)).mp ⟨hpfZero, hsign⟩).symm
+  · -- nonzero sub-case: both sides are finite numbers with equal value, so equal bits.
+    have hpfRatNe : pf.toRat ≠ 0 := by
+      rw [← hufRat, UnpackedFloat.toRat_eq_toRat']
+      exact (uf.toRat'_ne_zero_iff_not_isZero).mp hzero
+    have hpfZ : ¬ pf.isZero := by
+      intro hc
+      exact hpfRatNe (by simp [PackedFloat.toRat, PackedFloat.toRatSig_eq_zero_of_isZero pf hc])
+    have hpfFin : pf.isNormOrNonzeroSubnorm :=
+      PackedFloat.isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero hpfNaN hpfInf hpfZ
+    -- the packed value equals `uf.toRat = pf.toRat`
+    have hpackRat : (EUnpackedFloat.mkNumber uf).pack'.toRat = pf.toRat := by
+      rw [← EUnpackedFloat.pack_eq_pack',
+        toRat_pack_mkNumber_eq_toRat hep hsp uf hnorm hexp1 hexp2, hufRat]
+    -- unfold `pack'` to `packNumber'` for the non-zero case
+    have hpackEq : (EUnpackedFloat.mkNumber uf).pack'
+        = EUnpackedFloat.packNumber' uf.sign uf.sig uf.ex := by
+      simp only [EUnpackedFloat.pack', EUnpackedFloat.isNaN_mkNumber,
+        EUnpackedFloat.isInfinite_mkNumber, EUnpackedFloat.isZero_mkNumber, hzero,
+        Bool.false_eq_true, ↓reduceIte, EUnpackedFloat.sign, EUnpackedFloat.sig,
+        EUnpackedFloat.exp, EUnpackedFloat.num_mkNumber]
+    -- the packed number is itself a finite number (not NaN, not Inf, not zero)
+    have hLnaN : ¬ (EUnpackedFloat.mkNumber uf).pack'.isNaN := by
+      rw [hpackEq]
+      simp [EUnpackedFloat.not_isNaN_packNumber' hsp hep uf.sign uf.sig uf.ex hexp1]
+    have hLinf : ¬ (EUnpackedFloat.mkNumber uf).pack'.isInfinite := by
+      rw [hpackEq]
+      simp only [PackedFloat.isInfinite, EUnpackedFloat.packNumber', Bool.and_eq_true,
+        beq_iff_eq, not_and]
+      intro hcontra
+      exact absurd hcontra
+        (EUnpackedFloat.packNumber'.exPacked_ne_allOnes hsp hep uf.sign uf.ex hexp1)
+    have hLzero : ¬ (EUnpackedFloat.mkNumber uf).pack'.isZero := by
+      intro hc
+      exact hpfRatNe (by rw [← hpackRat]; simp [PackedFloat.toRat,
+        PackedFloat.toRatSig_eq_zero_of_isZero _ hc])
+    have hLfin : (EUnpackedFloat.mkNumber uf).pack'.isNormOrNonzeroSubnorm :=
+      PackedFloat.isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero hLnaN hLinf hLzero
+    apply PackedFloat.eq_of_toExtRat'_eq _ _ hLnaN hpfNaN hLzero hpfZ
+    rw [PackedFloat.toExtRat'_eq_toRat_of hLfin, PackedFloat.toExtRat'_eq_toRat_of hpfFin,
+      hpackRat]
+
+/--
 If an extended unpacked float is related to a packed float,
 then packing the extended unpacked gives a packed float that is equal
 to the related one according to SMT-LIB equality.
 This allows the 'NaN' bit pattern to change, but requires all else to remain equal.
 Thus, all our theorems will be stated in terms of SMT-LIB equality.
+
+When `euf` is a finite number, `Rel` alone is too weak (it fixes only the value and sign),
+so `hnum` supplies the missing structural facts: that `pf` is finite and that `euf.num` is
+normalized and in range. These are vacuous when `euf` is NaN/Infinity.
 -/
 theorem EUnpackedFloat.pack'_EquivUptoNaN_of_Rel
-    (hsp : 0 < sp)
+    (hep : 1 < ep) (hsp : 0 < sp)
     (euf : EUnpackedFloat (exponentWidth ep sp) (sp + 1))
     (pf : PackedFloat ep sp)
-    (hRel : euf.Rel pf) :
+    (hRel : euf.Rel pf)
+    (hnum : euf.state = .Number →
+        ¬ pf.isNaN ∧ ¬ pf.isInfinite ∧
+        euf.num.normalize = euf.num ∧
+        euf.num.ex.toInt ≤ maxNormalExp ep ∧
+        (minNormalExp ep ≤ euf.num.ex.toInt ∨
+          2 ^ (minNormalExp ep - euf.num.ex.toInt).toNat ∣ euf.num.sig.toNat)) :
     euf.pack'.EquivUptoNaN pf := by
+  have hRel0 := hRel
   simp [EUnpackedFloat.Rel] at hRel
   simp [PackedFloat.EquivUptoNaN]
   rcases heuf : euf.state
