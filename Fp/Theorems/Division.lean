@@ -112,12 +112,26 @@ theorem UnpackedFloat.stickyEquiv_div {e s : Nat} (x y : UnpackedFloat e s)
 /--
 **The division circuit produces a normalized result** (for normalized inputs).
 
-Pen-and-paper proof.  With `x.sig, y.sig ∈ [2^(s-1), 2^s)` the exact quotient
-lies in `(1/2, 2)`, so `quot` (computed at `s + 2` bits) has either its top bit
-set (quotient in `[1, 2)`) or its second bit set (quotient in `[1/2, 1)`).  In
-the first case the msb is already `true`; in the second the conditional shift
-`quot <<< !quot.msb` shifts left by one, setting the msb.  OR-ing the sticky bit
-into the bottom never clears the msb.
+This is a statement about the *post-normalization* significand
+`(x.div y).sig = quot <<< !quot.msb`, **not** about the raw quotient `quot`,
+whose msb is genuinely `false` in one of the two cases below.
+
+Pen-and-paper proof.  As `s`-bit numbers, `msb = true` means
+`x.sig, y.sig ∈ [2^(s-1), 2^s)`, so the exact ratio `x.sig / y.sig ∈ (1/2, 2)`.
+The circuit forms `quot = ⌊x.sig · 2^(s+1) / y.sig⌋` at `s + 2` bits — where the
+msb is bit `s+1` — so `quot ∈ (2^s, 2^(s+2))`.  Two cases:
+
+* **Ratio ∈ [1, 2)**: `quot ∈ [2^(s+1), 2^(s+2))`, bit `s+1` is set, so
+  `quot.msb = true` already and `!quot.msb = false` (the shift is by `0`).
+* **Ratio ∈ (1/2, 1)**: `quot ∈ (2^s, 2^(s+1))`, bit `s` is set but bit `s+1`
+  is clear — i.e. **the raw `quot.msb` is `false`**.  Then `!quot.msb = true`,
+  so `quot <<< 1` moves bit `s` up to bit `s+1`; since `quot < 2^(s+1)` this
+  cannot overflow `s+2` bits, so the shifted value lies in `(2^(s+1), 2^(s+2))`
+  and its msb is `true`.  The matching exponent decrement is the `- !quot.msb`
+  term on `ex` (`Fp/Division.lean`).
+
+In both cases the normalized significand has msb `true`, and OR-ing the sticky
+bit `rem != 0` into bit `0` never clears it.
 -/
 theorem UnpackedFloat.msb_div_eq_true {e s : Nat} (x y : UnpackedFloat e s)
     (hs : 0 < s)
