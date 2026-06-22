@@ -185,9 +185,40 @@ theorem EUnpackedFloat.packNumber'.exPacked_ne_allOnes
     simp only [show min e (exponentWidth e s) = e by grind, Int.reduceNeg, ne_eq]
     rw [Int.bmod_bmod_of_dvd]
     · simp [maxNormalExp, bias] at hexp ⊢
-      have : 0 < 2 ^ (e - 1) := by grind only [!Nat.two_pow_pos]
-      have := exp.toInt_le
-      sorry -- TODO: sorry
+      have h1le : 1 ≤ (2:Nat) ^ (e - 1) := Nat.one_le_two_pow
+      have hbias_pos : 0 < bias e := bias_pos_of_one_lt e ‹1 < e›
+      have hminN : minNormalExp e = 1 - (bias e : Int) := by
+        rw [minNormalExp]; omega
+      have hbias_num : (bias e : Int) = (2:Int) ^ (e - 1) - 1 := by
+        simp only [bias]; push_cast [h1le]; ring
+      -- 2 * bias e = 2^e - 2 gives us h2e: 2^e = 2 * 2^(e-1)
+      have h2b : 2 * (bias e : Int) = (2:Int) ^ e - 2 := by
+        have h := two_mul_bias_eq_twoPow_minus_two e ‹1 < e›
+        have h4 : 2 ≤ 2 ^ e := le_trans (by norm_num) (Nat.pow_le_pow_right (by decide) (by omega))
+        push_cast [h4] at h; linarith
+      have h2e : (2:Int) ^ e = 2 * (2:Int) ^ (e - 1) := by linarith [hbias_num, h2b]
+      -- Lower bound from inNormalRange
+      have hlb : minNormalExp e ≤ exp.toInt :=
+        (EUnpackedFloat.packNumber'.inNormalRange_iff ‹1 < e› hs exp).mp hrange
+      -- Compute numeric bounds on exp.toInt
+      have hub : exp.toInt ≤ (2:Int) ^ (e - 1) - 1 := by
+        push_cast [h1le] at hexp; linarith
+      have hge2 : 2 - (2:Int) ^ (e - 1) ≤ exp.toInt := by
+        rw [hminN, hbias_num] at hlb; linarith
+      -- exp.toInt + 2^(e-1) lies strictly in (0, 2^e)
+      have hge : 0 < exp.toInt + (2:Int) ^ (e - 1) := by linarith
+      have hlt : exp.toInt + (2:Int) ^ (e - 1) < (2:Int) ^ e := by linarith
+      -- Assume bmod = -1 and derive a contradiction
+      intro heq
+      obtain ⟨-, -, hdvd⟩ := (Int.bmod_eq_iff (Nat.pos_pow_of_pos _ (by decide))).mp heq
+      push_cast [h1le] at hdvd
+      -- hdvd : (2:Int)^e ∣ -1 - (exp.toInt + ((2:Int)^(e-1) - 1))
+      --      = -(exp.toInt + (2:Int)^(e-1))
+      have hdvd' : (2:Int) ^ e ∣ exp.toInt + (2:Int) ^ (e - 1) := by
+        have h : (-1:Int) - (exp.toInt + ((2:Int)^(e-1) - 1)) =
+                 -(exp.toInt + (2:Int)^(e-1)) := by ring
+        rw [h] at hdvd; exact dvd_neg.mp hdvd
+      linarith [Int.le_of_dvd hge hdvd']
     · refine (Nat.pow_dvd_pow_iff_le_right ?_).mpr ?_
       · decide
       · grind only
