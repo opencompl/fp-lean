@@ -101,17 +101,47 @@ theorem BitVec.orderEncode_eq_allOnes_of_le {w : Nat} (x : BitVec w)
   · simp [BitVec.neg_one_eq_allOnes]
   · omega
 
-axiom AxOrderEncode {P : Prop} : P
-
 theorem BitVec.getLsbD_orderEncode_of_lt (x : BitVec w) (i : Nat) (hi : i < w) :
     (orderEncode x).getLsbD i = (decide (i < x.toNat)) := by
   by_cases hi : x.toNat < w
   · rw [orderEncode]
     · -- ⊢ (1#w <<< x - 1).getLsbD i = decide (i < x.toNat)
-      exact AxOrderEncode
+      have hw0 : 0 < w := by grind
+      have h1mod : 1 % 2^w = 1 := by grind only [= Nat.mod_eq_of_lt, usr Nat.pow_pos, usr Nat.div_pow_of_pos]
+      have hshiftx  : (1 <<< x.toNat) % 2^w = 2 ^x.toNat := by
+        rw [Nat.shiftLeft_eq]
+        rw [Nat.mod_eq_of_lt]
+        · simp
+        · simp only [Nat.one_mul]
+          apply Nat.pow_lt_pow_of_lt
+          · grind only
+          · grind only
+      by_cases hw : w = 1
+      · subst hw 
+        simp [oneHotBV, show x.toNat = 0 by grind]
+      · simp [oneHotBV]
+        rw [BitVec.getLsbD]
+        rw [BitVec.toNat_sub_of_le]
+        · simp [h1mod]
+          rw [hshiftx]
+          rw [Nat.testBit_two_pow_sub_one]
+        · rw [BitVec.le_def]
+          simp [h1mod]
+          rw [Nat.mod_eq_of_lt]
+          · grind only [= Nat.shiftLeft_eq, usr Nat.pow_pos]
+          · rw [Nat.shiftLeft_eq]
+            simp
+            apply Nat.pow_lt_pow_of_lt
+            · grind only
+            · grind only
   · rw [BitVec.orderEncode_eq_allOnes_of_le]
     · simp; omega
     · omega
+
+/--
+info: 'BitVec.getLsbD_orderEncode_of_lt' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms BitVec.getLsbD_orderEncode_of_lt
 
 theorem BitVec.getElem_orderEncode_of_lt {w : Nat} (x : BitVec w) (i : Nat) (hi : i < w) :
     (orderEncode x)[i] = (decide (i < x.toNat)) := by

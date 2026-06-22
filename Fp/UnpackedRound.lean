@@ -234,8 +234,6 @@ def UnpackedFloat.truncateFittingExponent {eu su : Nat} (tep tsp : Nat)
     ex := uf.ex.signExtend (exponentWidth tep tsp),
     sig := uf.sig }
 
-axiom AxRoundPreconditions {P : Prop} : P
-
 def mkPackedFloats (E : Nat) (S : Nat) : Array (PackedFloat E S) := Id.run do
   let mut res := #[]
   for expVal in [0:Nat.pow 2 E] do
