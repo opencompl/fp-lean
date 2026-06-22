@@ -1032,3 +1032,72 @@ theorem PackedFloat.unpackNum_packable {e s : Nat} (he : 1 < e) (hs : 0 < s)
         exact ⟨sig0.toNat, Nat.mul_comm _ _⟩
   exact ⟨UnpackedFloat.normalize_eq_self_of_msb_eq_true _
     (PackedFloat.msb_unpackNum_eq_true hpf), key.1, key.2⟩
+
+/--
+The round trip `pack ∘ unpack` is the identity on normal / nonzero-subnormal packed floats,
+given a well-formed format (`1 < e`, `0 < s`).
+
+`unpackNum` lands a normalized, exactly-packable Number (`unpackNum_packable`), so `pack`
+preserves its rational value (`toRat_pack_mkNumber_eq_toRat`) and stays in the
+normal/subnormal class; injectivity of `toRat` on that class
+(`sig_eq_and_ex_eq_of_toRat_eq`) then recovers the original bits.
+
+(For NaN the round trip is *not* the identity: `unpack` discards the NaN payload, so
+packing returns the canonical NaN — hence the `isNormOrNonzeroSubnorm` hypothesis.)
+-/
+theorem PackedFloat.unpack_pack_eq_self_of_isNormOrNonzeroSubnorm
+    {e s : Nat} (he : 1 < e) (hs : 0 < s)
+    (pf : PackedFloat e s) (hpf : pf.isNormOrNonzeroSubnorm) :
+    pf.unpack.pack = pf := by
+  -- 1. `unpack` lands in the Number state.
+  have hunpack : pf.unpack = EUnpackedFloat.mkNumber pf.unpackNum :=
+    pf.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm hpf
+  -- 2. `unpackNum` is exactly packable; pull out the exponent bound.
+  have hpack : pf.unpackNum.Packable := PackedFloat.unpackNum_packable he hs pf hpf
+  obtain ⟨hnorm, hexpbound, hexp2⟩ := hpack
+  -- 3. `pack` preserves the rational value.
+  have htoRat : pf.unpack.pack.toRat = pf.toRat := by
+    rw [hunpack, EUnpackedFloat.toRat_pack_mkNumber_eq_toRat he hs pf.unpackNum
+      ⟨hnorm, hexpbound, hexp2⟩]
+    exact pf.unpackNum_toRat_eq_toRat hpf
+  -- 4. `pack` reduces to `packNumber'` (the result is a nonzero Number).
+  have hpacked : pf.unpack.pack
+      = EUnpackedFloat.packNumber' pf.unpackNum.sign pf.unpackNum.sig pf.unpackNum.ex := by
+    rw [hunpack, EUnpackedFloat.pack_eq_pack', EUnpackedFloat.pack']
+    have hz : (EUnpackedFloat.mkNumber pf.unpackNum).isZero = false := by
+      rw [EUnpackedFloat.isZero_mkNumber]
+      exact pf.unpackNormOrNonzeroSubnorm_isZero_eq_of_not_isZero hpf
+    simp only [EUnpackedFloat.isNaN_mkNumber, EUnpackedFloat.isInfinite_mkNumber, hz,
+      Bool.false_eq_true, ↓reduceIte]
+    rfl
+  -- 5. Classify the packed result as normal / nonzero subnormal.
+  have hnotNaN : ¬ pf.unpack.pack.isNaN := by
+    rw [hpacked, EUnpackedFloat.not_isNaN_packNumber' hs he _ _ _ hexpbound]
+    simp
+  have hnotInf : ¬ pf.unpack.pack.isInfinite := by
+    rw [hpacked]
+    have hne := EUnpackedFloat.packNumber'.exPacked_ne_allOnes hs he pf.unpackNum.ex hexpbound
+    simp only [PackedFloat.isInfinite, EUnpackedFloat.packNumber']
+    grind
+  have hnotZero : ¬ pf.unpack.pack.isZero := by
+    intro hzero
+    have h0 := PackedFloat.toRat_eq_Zero_of_isZero _ hzero
+    rw [htoRat] at h0
+    have hpfne : pf.toRat ≠ 0 := by
+      intro hc
+      exact (by grind : ¬ pf.isZero)
+        ((PackedFloat.isZero_iff_toRat_eq_zero_of_isNormOrNonzeroSubnorm hpf (by omega)).mpr hc)
+    exact hpfne h0
+  have hresnorm : pf.unpack.pack.isNormOrNonzeroSubnorm :=
+    PackedFloat.isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero hnotNaN hnotInf hnotZero
+  -- 6. Equal rational value + both normal ⇒ equal sign/sig/exp ⇒ equal.
+  have hinj := PackedFloat.sig_eq_and_ex_eq_of_toRat_eq hresnorm hpf htoRat
+  apply PackedFloat.ext <;> grind
+
+/--
+info: 'PackedFloat.unpack_pack_eq_self_of_isNormOrNonzeroSubnorm' depends on axioms: [propext,
+ BitVec.toNat_clz_cons,
+ Classical.choice,
+ Quot.sound]
+-/
+#guard_msgs in #print axioms PackedFloat.unpack_pack_eq_self_of_isNormOrNonzeroSubnorm
