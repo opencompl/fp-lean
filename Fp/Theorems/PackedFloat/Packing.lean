@@ -736,8 +736,9 @@ theorem toRat_pack_mkNumber_eq_toRat
     by_cases hrange : minNormalExp e ≤ uf.ex.toInt
     case pos =>
       -- normal case
-      have hinr : EUnpackedFloat.packNumber'.inNormalRange (s := s) (e := e) uf.ex = true :=
-        (EUnpackedFloat.packNumber'.inNormalRange_iff he hs uf.ex).mpr hrange
+      have hinr : EUnpackedFloat.packNumber'.inNormalRange (s := s) (e := e) uf.ex = true := by
+        have := EUnpackedFloat.packNumber'.inNormalRange_iff he hs uf.ex
+        grind only
       have hexW : e < exponentWidth e s := self_lt_exponentWidth e s he hs
       have h2bias : bias e + bias e = 2 ^ e - 2 := bias_plus_bias_eq_twoPow_minus_two e he
       have h2e4 : 4 ≤ 2 ^ e := by
@@ -804,9 +805,9 @@ theorem toRat_pack_mkNumber_eq_toRat
       rw [Rat.div_def, Rat.inv_zpow_natCast_eq_zpow_neg, Rat.mul_assoc]
     case neg =>
       -- subnormal case
-      have hinr : EUnpackedFloat.packNumber'.inNormalRange (s := s) (e := e) uf.ex = false :=
-        Bool.eq_false_iff.mpr
-          (fun hc => hrange ((EUnpackedFloat.packNumber'.inNormalRange_iff he hs uf.ex).mp hc))
+      have hinr : EUnpackedFloat.packNumber'.inNormalRange (s := s) (e := e) uf.ex = false := by
+          have := (EUnpackedFloat.packNumber'.inNormalRange_iff he hs uf.ex)
+          grind only
       have hdvd : 2 ^ (minNormalExp e - uf.ex.toInt).toNat ∣ uf.sig.toNat := by
         rcases hexp2 with h | h
         · exact absurd h hrange
@@ -890,6 +891,10 @@ theorem toRat_pack_mkNumber_eq_toRat
         UnpackedFloat.two_pow_mul_two_pow_neg_intCast_eq_one d
       grind
 
+/--
+info: 'EUnpackedFloat.toRat_pack_mkNumber_eq_toRat' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms toRat_pack_mkNumber_eq_toRat
 
 end EUnpackedFloat
 
