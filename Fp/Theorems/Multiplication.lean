@@ -434,7 +434,7 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
         EUnpackedFloat.sign_num_mkInfinity, Bool.or_false, cond_true]
       have : ¬ a.isZero := by grind
       have haz : a.unpackNum.isZero = false :=
-        PackedFloat.unpackNormOrNonzeroSubnorm_isZero_eq_of_not_isZero a ha
+        PackedFloat.isZero_unpackNum_eq_false a ha
       simp only [this, haz, Bool.false_eq_true, not_false_eq_true, cond_false,
         EUnpackedFloat.mkInfinity_pack_eq_getInfinity]
       rw [← ExtRat.mul_def, ExtRat.mul]
@@ -469,11 +469,11 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
       rw [b.toExtRat'_eq_toRat_of hb]
       have : ¬ a.isZero := by grind
       have haz : a.unpackNum.isZero = false :=
-        PackedFloat.unpackNormOrNonzeroSubnorm_isZero_eq_of_not_isZero a ha
+        PackedFloat.isZero_unpackNum_eq_false a ha
       simp [this, haz]
       have : ¬ b.isZero := by grind
       have hbz : b.unpackNum.isZero = false :=
-        PackedFloat.unpackNormOrNonzeroSubnorm_isZero_eq_of_not_isZero b hb
+        PackedFloat.isZero_unpackNum_eq_false b hb
       simp only [this, hbz, Bool.false_eq_true, not_false_eq_true, cond_false]
       -- apply PackedFloat.EquivUptoNaN.of_eq
       rw [PackedFloat.EquivUptoNaN_symm]

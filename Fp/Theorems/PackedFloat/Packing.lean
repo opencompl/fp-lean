@@ -1066,7 +1066,7 @@ theorem PackedFloat.unpack_pack_eq_self_of_isNormOrNonzeroSubnorm
     rw [hunpack, EUnpackedFloat.pack_eq_pack', EUnpackedFloat.pack']
     have hz : (EUnpackedFloat.mkNumber pf.unpackNum).isZero = false := by
       rw [EUnpackedFloat.isZero_mkNumber]
-      exact pf.unpackNormOrNonzeroSubnorm_isZero_eq_of_not_isZero hpf
+      exact pf.isZero_unpackNum_eq_false hpf
     simp only [EUnpackedFloat.isNaN_mkNumber, EUnpackedFloat.isInfinite_mkNumber, hz,
       Bool.false_eq_true, ↓reduceIte]
     rfl

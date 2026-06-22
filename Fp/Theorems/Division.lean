@@ -355,7 +355,7 @@ theorem div_eq_div {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
         exact hbz (by simpa using h1))]
       rw [hz, Fp.round_eq_mkZero_of_mkZero he0]
       have hbiz : b.unpackNum.isZero = false :=
-        PackedFloat.unpackNormOrNonzeroSubnorm_isZero_eq_of_not_isZero b hb
+        PackedFloat.isZero_unpackNum_eq_false b hb
       simp only [hsin, he0, PackedFloat.isZero_getZero, decide_true,
         PackedFloat.unpack_eq_mkZero_of_isZero,
         PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm hb,
@@ -398,7 +398,7 @@ theorem div_eq_div {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
         simp at h1)]
       rw [hz, Fp.round_eq_mkZero_of_mkZero he0]
       have haiz : a.unpackNum.isZero = false :=
-        PackedFloat.unpackNormOrNonzeroSubnorm_isZero_eq_of_not_isZero a ha
+        PackedFloat.isZero_unpackNum_eq_false a ha
       simp only [hsin, he0, PackedFloat.unpack_getInfinity, ↓reduceIte,
         PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm ha,
         EUnpackedFloat.isNaN_mkNumber, EUnpackedFloat.isNaN_mkInfinity,
@@ -426,7 +426,7 @@ theorem div_eq_div {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
           rw [show (0 : ExtRat) = ExtRat.Number 0 from ExtRat.ExtRat.zero_def]
           simp [haz])]
       have haiz : a.unpackNum.isZero = false :=
-        PackedFloat.unpackNormOrNonzeroSubnorm_isZero_eq_of_not_isZero a ha
+        PackedFloat.isZero_unpackNum_eq_false a ha
       simp only [hsin, he0, PackedFloat.isZero_getZero, decide_true,
         PackedFloat.unpack_eq_mkZero_of_isZero,
         PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm ha,
@@ -463,9 +463,9 @@ theorem div_eq_div {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
       rw [a.toExtRat'_eq_toRat_of ha, b.toExtRat'_eq_toRat_of hb,
           ExtRat.number_div_number_of_ne_zero hbz]
       have haiz : a.unpackNum.isZero = false :=
-        PackedFloat.unpackNormOrNonzeroSubnorm_isZero_eq_of_not_isZero a ha
+        PackedFloat.isZero_unpackNum_eq_false a ha
       have hbiz : b.unpackNum.isZero = false :=
-        PackedFloat.unpackNormOrNonzeroSubnorm_isZero_eq_of_not_isZero b hb
+        PackedFloat.isZero_unpackNum_eq_false b hb
       simp only [PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm ha,
         PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm hb,
         EUnpackedFloat.isNaN_mkNumber, EUnpackedFloat.isInfinite_mkNumber,

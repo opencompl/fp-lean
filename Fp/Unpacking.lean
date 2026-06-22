@@ -79,7 +79,7 @@ infinity has `isZero = false` but `unpackNum` produces a zero, since `unpackNum`
 the possibility of NaN/±infinity.
 -/
 @[simp, grind! →]
-theorem PackedFloat.unpackNormOrNonzeroSubnorm_isZero_eq_of_not_isZero (pf : PackedFloat e s)
+theorem PackedFloat.isZero_unpackNum_eq_false (pf : PackedFloat e s)
     (hpf : pf.isNormOrNonzeroSubnorm := by grind) :
     pf.unpackNum.isZero = false := by
   have hmsb : pf.unpackNum.sig.msb = true := PackedFloat.msb_unpackNum_eq_true hpf
@@ -99,7 +99,7 @@ theorem PackedFloat.isZero_unpack_eq_isZero (pf : PackedFloat e s) :
     · by_cases hzero : pf.isZero
       · simp [hzero]
       · simp [hzero]
-        exact PackedFloat.unpackNormOrNonzeroSubnorm_isZero_eq_of_not_isZero pf (by grind)
+        exact PackedFloat.isZero_unpackNum_eq_false pf (by grind)
 
 
 @[simp, grind =]
