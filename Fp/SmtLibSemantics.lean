@@ -465,10 +465,19 @@ def mul [Mul R] (x y : PackedFloat e s) : PackedFloat e s :=
 
 def div [Div R] (x y : PackedFloat e s) : PackedFloat e s :=
       let z :=  ((roundMethod.embed x) / (roundMethod.embed y))
-      if xorSign x y then
-        neg (roundMethod.round rm true  (-z))
+      let sign : Bool := xorSign x y
+      -- Divide-by-zero of a non-NaN, nonzero numerator yields a signed infinity.
+      -- We special-case it because `ExtRat.inv 0` hardcodes the `+∞` sign, and
+      -- `round` reads an infinity's sign from the infinity itself (not from the
+      -- `sign` argument, cf. `roundQ_eq_round_of_Infinity`); routing `x / ±0`
+      -- through `z` would therefore drop the divisor's sign.  Otherwise we mirror
+      -- `mul`: round the exact extended quotient with the xor of the input signs.
+      -- (`0/0`, `NaN/_` fall through to `round`, which yields NaN as required.)
+      if inst.isZero (roundMethod.embed y) ∧ ¬ inst.isNaN (roundMethod.embed x)
+          ∧ ¬ inst.isZero (roundMethod.embed x) then
+        PackedFloat.getInfinity e s sign
       else
-        roundMethod.round rm false z
+        roundMethod.round rm sign z
 
 end Operations
 
