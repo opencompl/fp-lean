@@ -469,7 +469,11 @@ theorem div_eq_div {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
         simp only [SmtLibSemantics.SmtLibFunctions.xorSign]
       rw [hxor]
       rw [PackedFloat.EquivUptoNaN_symm, EUnpackedFloat.pack_eq_pack']
-      apply EUnpackedFloat.pack'_EquivUptoNaN_of_Rel hsin
+      -- TODO(packing): rounder-output `Packable` (same gap as the addition/multiplication sites);
+      -- the bit-blasted rounder output, when a Number, is normalized + in-range and the SMT spec
+      -- result is finite. Analogue of `PackedFloat.unpackNum_packable` for `blastSmtLibRound`.
+      refine EUnpackedFloat.pack'_EquivUptoNaN_of_Rel he hsin _ _ ?_
+        (by sorry) (by sorry)
       apply UnpackedFloat.blastSmtLibRound_Rel_round_of_RNE_of_stickyEquiv he hep hsin
         (eu := exponentWidth ein sin + 1) (su := sin + 1 + 2) (by omega) (by omega)
         (a.unpackNum.div b.unpackNum) _ _ hqne

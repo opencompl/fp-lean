@@ -1,6 +1,8 @@
 import Fp.Basic
 import Fp.Unpacking
 import Fp.Theorems.PackedFloat.ToExtRat
+import Fp.UnpackedFloat.packable
+import Fp.EUnpackedFloat.packable
 
 -- TODO: upstream
 theorem BitVec.toNat_clz_le {x : BitVec w} : x.clz.toNat ≤ w := by
@@ -700,11 +702,9 @@ The proof is the corresponding 3-way case split.
 theorem toRat_pack_mkNumber_eq_toRat
     (he : 1 < e) (hs : 0 < s)
     (uf : UnpackedFloat (exponentWidth e s) (s + 1))
-    (hnorm : uf.normalize = uf)
-    (hexp1 : uf.ex.toInt ≤ maxNormalExp e)
-    (hexp2 : minNormalExp e ≤ uf.ex.toInt ∨
-      2 ^ (minNormalExp e - uf.ex.toInt).toNat ∣ uf.sig.toNat) :
+    (hpack : uf.Packable) :
     (EUnpackedFloat.mkNumber uf).pack.toRat = uf.toRat := by
+  obtain ⟨hnorm, hexp1, hexp2⟩ := hpack
   rw [EUnpackedFloat.pack_eq_pack']
   by_cases hzero : uf.sig = 0#(s + 1)
   case pos =>
@@ -897,3 +897,138 @@ info: 'EUnpackedFloat.toRat_pack_mkNumber_eq_toRat' depends on axioms: [propext,
 #guard_msgs in #print axioms toRat_pack_mkNumber_eq_toRat
 
 end EUnpackedFloat
+
+/--
+`pf.unpackNum` is exactly packable: it is normalized, its exponent does not exceed
+`maxNormalExp`, and (for subnormals) the significand is divisible by the shift amount
+needed to express it at `minNormalExp`. These are precisely the hypotheses of
+`toRat_pack_mkNumber_eq_toRat`, so this lemma lets call sites that pack `pf.unpackNum`
+discharge that theorem's structural side conditions.
+-/
+theorem PackedFloat.unpackNum_packable {e s : Nat} (he : 1 < e) (hs : 0 < s)
+    (pf : PackedFloat e s) (hpf : pf.isNormOrNonzeroSubnorm) :
+    pf.unpackNum.Packable := by
+  have hbias_pos : 0 < bias e := bias_pos_of_one_lt e he
+  have hmin_eq : minNormalExp e = -((bias e - 1 : Nat) : Int) := rfl
+  have hmax_eq : maxNormalExp e = (bias e : Int) := rfl
+  have hbias_def : bias e = 2 ^ (e - 1) - 1 := rfl
+  have h2e : 2 ^ e = 2 ^ (e - 1) * 2 := by rw [← Nat.pow_succ]; congr 1; omega
+  have key : pf.unpackNum.ex.toInt ≤ maxNormalExp e ∧
+      (minNormalExp e ≤ pf.unpackNum.ex.toInt ∨
+        2 ^ (minNormalExp e - pf.unpackNum.ex.toInt).toNat ∣ pf.unpackNum.sig.toNat) := by
+    by_cases hnorm : pf.isNorm
+    · -- normal case: `ex = pf.ex.toNat - bias`, which lands in `[minNormalExp, maxNormalExp]`.
+      have hexeq : pf.unpackNum.ex.toInt = (pf.ex.toNat : Int) - bias e := by
+        unfold PackedFloat.unpackNum
+        simp only [hnorm, if_true]
+        simp only [BitVec.truncate_eq_setWidth, bias, BitVec.toInt_sub, BitVec.toInt_setWidth,
+          BitVec.toInt_ofNat', Int.natCast_sub (Nat.two_pow_pos _), Int.natCast_pow,
+          Int.cast_ofNat_Int, Nat.succ_eq_add_one, Nat.zero_add, Int.sub_bmod_bmod,
+          Int.bmod_sub_bmod]
+        rewrite [Int.bmod_eq_of_le]
+        · rfl
+        · apply Int.le_of_neg_le_neg
+          simp only [Int.neg_sub, Int.natCast_pow, Int.cast_ofNat_Int, Int.neg_neg]
+          apply Int.le_trans (b := 2 ^ (e - 1))
+          · omega
+          · norm_cast
+            apply Nat.le_of_mul_le_mul_right (c := 2) _ (by decide)
+            have he' : 2 ^ 1 ∣ 2 ^ e := Nat.pow_dvd_pow 2 (by omega)
+            have hexpWidth : 2 ^ 1 ∣ 2 ^ exponentWidth e s :=
+              Nat.pow_dvd_pow 2 (by grind [UnpackedFloat.expWidth_le_exponentWidth])
+            simp only [Nat.pow_pred_div (by omega : 0 < e), Nat.div_mul_cancel he',
+              Nat.div_mul_cancel hexpWidth]
+            apply Nat.pow_le_pow_of_le (by decide)
+            apply UnpackedFloat.expWidth_le_exponentWidth
+        · simp [Int.two_pow_succ_div_two]
+          apply Int.lt_of_lt_of_le (b := 2 ^ (e - 1))
+          · simp only [Int.sub_eq_add_neg, Int.reduceNeg, Int.neg_add, Int.neg_neg]
+            norm_cast
+            have : pf.ex.toNat < 2 ^ e - 1 := PackedFloat.exp_lt_max_of_isNorm hnorm
+            have : 2 ^ 1 ∣ 2 ^ e := Nat.pow_dvd_pow 2 (by omega)
+            simp only [Nat.pow_pred_div (by omega : 0 < e), Int.natCast_ediv]
+            simp
+            grind
+          · norm_cast
+            apply Nat.pow_le_pow_of_le (by decide)
+            grind [UnpackedFloat.expWidth_le_exponentWidth]
+      have hexlo : 1 ≤ pf.ex.toNat := by
+        have := PackedFloat.ex_ne_zero_if_isNorm hnorm
+        simp only [bne_iff_ne, ne_eq] at this
+        have h0 : pf.ex.toNat ≠ 0 := by
+          intro hc; apply this; apply BitVec.eq_of_toNat_eq; simpa using hc
+        omega
+      have hexhi : pf.ex.toNat < 2 ^ e - 1 := PackedFloat.exp_lt_max_of_isNorm hnorm
+      refine ⟨?_, ?_⟩
+      · rw [hexeq, hmax_eq]; omega
+      · left; rw [hexeq, hmin_eq]; omega
+    · -- subnormal case: `unpackNum = (… cons false …).normalize`, shifted left by `clz`.
+      have hsigne : pf.sig ≠ 0#s := by
+        simp only [PackedFloat.isNorm, PackedFloat.isNormOrNonzeroSubnorm, Bool.and_eq_true,
+          bne_iff_ne, ne_eq, Bool.not_eq_true, Bool.or_eq_true, BitVec.zero_eq] at hnorm hpf
+        grind
+      obtain ⟨sig0, hsig0⟩ : ∃ x : BitVec (s + 1), x = pf.sig.cons false := ⟨_, rfl⟩
+      have hsig0ne : sig0 ≠ 0#(s + 1) := by
+        intro hc
+        apply hsigne
+        have := congrArg BitVec.toNat hc
+        simp only [hsig0, BitVec.toNat_cons, Bool.toNat, cond_false, Nat.zero_shiftLeft,
+          Nat.zero_add, BitVec.toNat_zero] at this
+        apply BitVec.eq_of_toNat_eq; simpa using this
+      have hclz_lt : pf.sig.clz.toNat < s := BitVec.toNat_clz_lt_iff_ne_zero.mpr (by
+        intro hc; apply hsigne; apply BitVec.eq_of_toNat_eq; simpa using hc)
+      have hclz0 : sig0.clz.toNat = pf.sig.clz.toNat + 1 := by
+        rw [hsig0, BitVec.toNat_clz_cons]; simp
+      -- the normalized record
+      have hnormrec : pf.unpackNum =
+          { sign := pf.sign, ex := BitVec.ofInt _ (minNormalExp e) - sig0.clz.setWidth _,
+            sig := sig0 <<< sig0.clz : UnpackedFloat (exponentWidth e s) (s + 1) } := by
+        have hbeq : (sig0 == 0#(s + 1)) = false := by simpa using hsig0ne
+        unfold PackedFloat.unpackNum
+        rw [if_neg hnorm]
+        unfold UnpackedFloat.normalize
+        dsimp only
+        rw [← hsig0, hbeq]
+        rfl
+      have hclz_setWidth : (sig0.clz.setWidth (exponentWidth e s)).toInt = (sig0.clz.toNat : Int) := by
+        rw [BitVec.toInt_eq_toNat_of_msb]
+        · rw [BitVec.toNat_setWidth, Nat.mod_eq_of_lt]
+          have := UnpackedFloat.sigWidth_lt_exponentWidth_sub_one (e := e) (s := s)
+          have hpow : 2 ^ (exponentWidth e s - 1) ≤ 2 ^ exponentWidth e s :=
+            Nat.pow_le_pow_of_le (by decide) (by omega)
+          omega
+        · rw [BitVec.msb_eq_decide, BitVec.toNat_setWidth, Nat.mod_eq_of_lt]
+          · have := UnpackedFloat.sigWidth_lt_exponentWidth_sub_one (e := e) (s := s)
+            have hpowsucc : 2 ^ (exponentWidth e s - 1) * 2 = 2 ^ exponentWidth e s :=
+              Nat.two_pow_pred_mul_two (zero_lt_exponentWidth (e := e) (s := s))
+            simp only [decide_eq_false_iff_not, Nat.not_le]
+            omega
+          · have := UnpackedFloat.sigWidth_lt_exponentWidth_sub_one (e := e) (s := s)
+            have hpow : 2 ^ (exponentWidth e s - 1) ≤ 2 ^ exponentWidth e s :=
+              Nat.pow_le_pow_of_le (by decide) (by omega)
+            omega
+      have hexeq : pf.unpackNum.ex.toInt = minNormalExp e - (sig0.clz.toNat : Int) := by
+        rw [hnormrec]
+        dsimp only
+        rw [BitVec.toInt_sub, toInt_ofInt_minNormalExp_eq_minNormalExp he hs, hclz_setWidth]
+        rw [Int.bmod_eq_of_le]
+        · have := UnpackedFloat.sigWidth_add_bias_le_exponentWidth_sub_one (e := e) (s := s)
+          have hpowsucc : 2 ^ (exponentWidth e s - 1) * 2 = 2 ^ exponentWidth e s :=
+            Nat.two_pow_pred_mul_two (zero_lt_exponentWidth (e := e) (s := s))
+          rw [hmin_eq]; simp only [bias]; omega
+        · have := UnpackedFloat.sigWidth_add_bias_le_exponentWidth_sub_one (e := e) (s := s)
+          have hpowsucc : 2 ^ (exponentWidth e s - 1) * 2 = 2 ^ exponentWidth e s :=
+            Nat.two_pow_pred_mul_two (zero_lt_exponentWidth (e := e) (s := s))
+          rw [hmin_eq]; simp only [bias]; omega
+      refine ⟨?_, ?_⟩
+      · rw [hexeq, hmax_eq, hmin_eq]; omega
+      · right
+        have hsigeq : pf.unpackNum.sig.toNat = sig0.toNat * 2 ^ sig0.clz.toNat := by
+          rw [hnormrec]; dsimp only
+          rw [BitVec.toNat_shiftLeft_clz, Nat.shiftLeft_eq]
+        have hd : (minNormalExp e - pf.unpackNum.ex.toInt).toNat = sig0.clz.toNat := by
+          rw [hexeq]; omega
+        rw [hd, hsigeq]
+        exact ⟨sig0.toNat, Nat.mul_comm _ _⟩
+  exact ⟨UnpackedFloat.normalize_eq_self_of_msb_eq_true _
+    (PackedFloat.msb_unpackNum_eq_true hpf), key.1, key.2⟩
