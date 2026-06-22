@@ -148,18 +148,15 @@ Note that the minimum normal exponent is negative, so this is really saying that
 theorem EUnpackedFloat.packNumber'.inNormalRange_iff
     (he : 1 < e) (hs : 0 < s)
     (exp : BitVec (exponentWidth e s)) :
-    EUnpackedFloat.packNumber'.inNormalRange exp ↔ ((minNormalExp e) ≤ exp.toInt) := by
+    EUnpackedFloat.packNumber'.inNormalRange exp = decide ((minNormalExp e) ≤ exp.toInt) := by
   simp [EUnpackedFloat.packNumber'.inNormalRange]
-  constructor
-  · intros h
-    rw [BitVec.sle_eq_decide] at h
-    rw [toInt_ofInt_minNormalExp_eq_minNormalExp he hs] at h
-    grind only
-  · intros h
-    rw [BitVec.sle_eq_decide]
-    rw [toInt_ofInt_minNormalExp_eq_minNormalExp he hs]
-    grind only
+  rw [BitVec.sle_eq_decide]
+  rw [toInt_ofInt_minNormalExp_eq_minNormalExp he hs]
 
+
+theorem ge_of_dvd_of_pos (k : Int) (n : Int) (hn0 : 0 < n) (hk : 1 < k)
+    (hdvd : k ∣ n) : n ≥ k := by
+  exact Int.le_of_dvd hn0 hdvd
 
 /--
 we never produce an 'allOnes' exponent,
@@ -168,7 +165,6 @@ since that would be reserved for NaN and infinity, and we only use `packNumber'`
 theorem EUnpackedFloat.packNumber'.exPacked_ne_allOnes
     (hs : 0 < s)
     (he : 1 < e)
-    (sign : Bool)
     (exp : BitVec (exponentWidth e s))
     (hexp : exp.toInt ≤ maxNormalExp e) :
     EUnpackedFloat.packNumber'.exPacked exp ≠ BitVec.allOnes e := by
@@ -188,55 +184,74 @@ theorem EUnpackedFloat.packNumber'.exPacked_ne_allOnes
       have h1le : 1 ≤ (2:Nat) ^ (e - 1) := Nat.one_le_two_pow
       have hbias_pos : 0 < bias e := bias_pos_of_one_lt e ‹1 < e›
       have hminN : minNormalExp e = 1 - (bias e : Int) := by
-        rw [minNormalExp]; omega
+        rw [minNormalExp]; grind only
       have hbias_num : (bias e : Int) = (2:Int) ^ (e - 1) - 1 := by
-        simp only [bias]; push_cast [h1le]; ring
+        simp only [bias]; push_cast [h1le]; grind only
       -- 2 * bias e = 2^e - 2 gives us h2e: 2^e = 2 * 2^(e-1)
+      simp at hrange
       have h2b : 2 * (bias e : Int) = (2:Int) ^ e - 2 := by
         have h := two_mul_bias_eq_twoPow_minus_two e ‹1 < e›
-        have h4 : 2 ≤ 2 ^ e := le_trans (by norm_num) (Nat.pow_le_pow_right (by decide) (by omega))
-        push_cast [h4] at h; linarith
-      have h2e : (2:Int) ^ e = 2 * (2:Int) ^ (e - 1) := by linarith [hbias_num, h2b]
+        have h4 : 2 ≤ 2 ^ e := by grind only
+        push_cast [h4] at h; grind only
+      have h2e : (2:Int) ^ e = 2 * (2:Int) ^ (e - 1) := by grind only
       -- Lower bound from inNormalRange
-      have hlb : minNormalExp e ≤ exp.toInt :=
-        (EUnpackedFloat.packNumber'.inNormalRange_iff ‹1 < e› hs exp).mp hrange
+      have hlb : minNormalExp e ≤ exp.toInt := by
+        rw [EUnpackedFloat.packNumber'.inNormalRange_iff (by grind only) (by grind only)] at hrange
+        grind only
       -- Compute numeric bounds on exp.toInt
       have hub : exp.toInt ≤ (2:Int) ^ (e - 1) - 1 := by
-        push_cast [h1le] at hexp; linarith
+        push_cast [h1le] at hexp; grind only
       have hge2 : 2 - (2:Int) ^ (e - 1) ≤ exp.toInt := by
-        rw [hminN, hbias_num] at hlb; linarith
+        rw [hminN, hbias_num] at hlb; grind only
       -- exp.toInt + 2^(e-1) lies strictly in (0, 2^e)
-      have hge : 0 < exp.toInt + (2:Int) ^ (e - 1) := by linarith
-      have hlt : exp.toInt + (2:Int) ^ (e - 1) < (2:Int) ^ e := by linarith
+      have hge : 0 < exp.toInt + (2:Int) ^ (e - 1) := by grind only
+      have hlt : exp.toInt + (2:Int) ^ (e - 1) < (2:Int) ^ e := by grind only
       -- Assume bmod = -1 and derive a contradiction
       intro heq
-      obtain ⟨-, -, hdvd⟩ := (Int.bmod_eq_iff (Nat.pos_pow_of_pos _ (by decide))).mp heq
+      obtain ⟨-, -, hdvd⟩ := (Int.bmod_eq_iff <| by grind only).mp heq
       push_cast [h1le] at hdvd
       -- hdvd : (2:Int)^e ∣ -1 - (exp.toInt + ((2:Int)^(e-1) - 1))
       --      = -(exp.toInt + (2:Int)^(e-1))
       have hdvd' : (2:Int) ^ e ∣ exp.toInt + (2:Int) ^ (e - 1) := by
         have h : (-1:Int) - (exp.toInt + ((2:Int)^(e-1) - 1)) =
-                 -(exp.toInt + (2:Int)^(e-1)) := by ring
-        rw [h] at hdvd; exact dvd_neg.mp hdvd
-      linarith [Int.le_of_dvd hge hdvd']
+                 -(exp.toInt + (2:Int)^(e-1)) := by grind only
+        rw [h] at hdvd
+        grind only [Int.dvd_neg]
+      -- 2^e divides exp.toInt + 2^(e-1).
+      have := Int.le_of_dvd (a := 2^e) (b := exp.toInt + 2^(e - 1))
+          (by grind only)
+          (by grind only)
+      grind only
     · refine (Nat.pow_dvd_pow_iff_le_right ?_).mpr ?_
       · decide
       · grind only
-
   · simp [hrange]
     grind only
 
+/--
+info: 'EUnpackedFloat.packNumber'.exPacked_ne_allOnes' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms EUnpackedFloat.packNumber'.exPacked_ne_allOnes
+
+/--
+Packing a non-NaN number never produces a NaN.
+-/
 @[simp, grind =]
 theorem EUnpackedFloat.not_isNaN_packNumber'  (hs : 0 < s) (he : 1 < e)
     (sign : Bool) (sig : BitVec (s + 1))
     (exp : BitVec (exponentWidth e s))
-    (hexplt : exp.toInt ≤ maxNormalExp e) :
+    (hexp : exp.toInt ≤ maxNormalExp e) :
     (EUnpackedFloat.packNumber' sign sig exp).isNaN = false := by
   simp [EUnpackedFloat.packNumber', PackedFloat.isNaN]
   intros hexp
   simp [show ¬ s = 0 by grind only]
-  have := EUnpackedFloat.packNumber'.exPacked_ne_allOnes hs he sign exp hexplt
+  have := EUnpackedFloat.packNumber'.exPacked_ne_allOnes hs he exp (by grind only) (by grind only)
   grind only
+
+/--
+info: 'EUnpackedFloat.not_isNaN_packNumber'' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms EUnpackedFloat.not_isNaN_packNumber'
 
 /--
 Alternative definition of `EUnpackedFloat.pack`
