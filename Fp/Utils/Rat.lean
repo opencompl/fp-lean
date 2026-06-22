@@ -275,11 +275,6 @@ theorem Rat.mul_sub (b x y : Rat) : b * (x - y) = b * x - b * y := by
 theorem Rat.sub_mul (b x y : Rat) : (x - y) * b = x * b - y * b := by
   grind only
 
--- axiom Rat.pow_mul_pow_eq_pow_add (b : Rat) (hb : b ≠ 0) (x y : Int) : b ^ x *  b ^ y = b ^ (x + y)
-
--- theorem Rat.pow_eq_pow_mul_pow {b : Rat} (hb : b ≠ 0) (x y : Int) : b ^ (x + y) = b ^ x * b ^ y := by
---   rw [Rat.pow_mul_pow_eq_pow_add b hb x y]
-
 
 @[simp, grind .]
 theorem Rat.one_le_two_pow_nat {n : Nat} : 1 ≤ (2 : Rat) ^ n := by
