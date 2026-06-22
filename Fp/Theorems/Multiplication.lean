@@ -474,18 +474,21 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
       -- apply PackedFloat.EquivUptoNaN.of_eq
       rw [PackedFloat.EquivUptoNaN_symm]
       subst hrm
-      apply EUnpackedFloat.pack'_EquivUptoNaN_of_Rel
-      · grind
-      · apply UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
-        · grind only
-        · grind only
-        · grind only
-        · grind only
-        · simp [Nat.mul_add]; grind only
-        · simp [SmtLibSemantics.SmtLibFunctions.xorSign]
-        · rw [UnpackedFloat.unpackNum_mul_unpackNum_toRat_eq_mul_toRat]
-        · apply UnpackedFloat.normalize_eq_self_of_msb_eq_true
-          apply UnpackedFloat.msb_mul_eq_true_of_msb_eq_true
-          · exact PackedFloat.msb_unpackNum_eq_true ha
-          · exact PackedFloat.msb_unpackNum_eq_true hb
+      -- TODO(packing): rounder-output `Packable` (same gap as the addition site); the
+      -- bit-blasted rounder output, when a Number, is normalized + in-range and the SMT spec
+      -- result is finite. Analogue of `PackedFloat.unpackNum_packable` for `blastSmtLibRound`.
+      refine EUnpackedFloat.pack'_EquivUptoNaN_of_Rel (by grind) (by grind) _ _ ?_
+        (by sorry) (by sorry)
+      apply UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
+      · grind only
+      · grind only
+      · grind only
+      · grind only
+      · simp [Nat.mul_add]; grind only
+      · simp [SmtLibSemantics.SmtLibFunctions.xorSign]
+      · rw [UnpackedFloat.unpackNum_mul_unpackNum_toRat_eq_mul_toRat]
+      · apply UnpackedFloat.normalize_eq_self_of_msb_eq_true
+        apply UnpackedFloat.msb_mul_eq_true_of_msb_eq_true
+        · exact PackedFloat.msb_unpackNum_eq_true ha
+        · exact PackedFloat.msb_unpackNum_eq_true hb
 end Fp

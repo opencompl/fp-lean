@@ -893,7 +893,9 @@ theorem add_eq_add {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
       simp only [cond_false]
       rw [round_number_toRat_eq_self he0 hsin rm _ b hb]
       rw [PackedFloat.EquivUptoNaN_symm, EUnpackedFloat.pack_eq_pack']
-      apply EUnpackedFloat.pack'_EquivUptoNaN_of_Rel hsin
+      refine EUnpackedFloat.pack'_EquivUptoNaN_of_Rel he hsin _ _ ?_
+        (by intro _; exact PackedFloat.unpackNum_packable he hsin b hb)
+        (by intro _; exact ⟨by grind, by grind⟩)
       apply EUnpackedFloat.Rel_of_Rel_of_state_eq_Number _ _ (by simp [EUnpackedFloat.mkNumber])
       apply UnpackedFloat.Rel_of_toRat_eq_toRat_and_sign
       · rw [EUnpackedFloat.num_mkNumber]
@@ -944,7 +946,9 @@ theorem add_eq_add {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
       simp only [hazero, Bool.false_eq_true, cond_false]
       rw [round_number_toRat_eq_self he0 hsin rm _ a ha]
       rw [PackedFloat.EquivUptoNaN_symm, EUnpackedFloat.pack_eq_pack']
-      apply EUnpackedFloat.pack'_EquivUptoNaN_of_Rel hsin
+      refine EUnpackedFloat.pack'_EquivUptoNaN_of_Rel he hsin _ _ ?_
+        (by intro _; exact PackedFloat.unpackNum_packable he hsin a ha)
+        (by intro _; exact ⟨by grind, by grind⟩)
       apply EUnpackedFloat.Rel_of_Rel_of_state_eq_Number _ _ (by simp [EUnpackedFloat.mkNumber])
       apply UnpackedFloat.Rel_of_toRat_eq_toRat_and_sign
       · rw [EUnpackedFloat.num_mkNumber]
@@ -995,7 +999,11 @@ theorem add_eq_add {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
         simp only [hcancel, cond_false, EUnpackedFloat.isZero_mkNumber, hazero, hbzero]
         rw [PackedFloat.EquivUptoNaN_symm, EUnpackedFloat.pack_eq_pack']
         subst hrm
-        apply EUnpackedFloat.pack'_EquivUptoNaN_of_Rel hsin
+        -- TODO(packing): rounder-output `Packable`. The bit-blasted rounder output is `Packable`
+        -- (normalized + in-range) and the SMT spec result is finite — the `blastSmtLibRound`
+        -- analogue of `PackedFloat.unpackNum_packable` used at sites 1/2.
+        refine EUnpackedFloat.pack'_EquivUptoNaN_of_Rel he hsin _ _ ?_
+          (by sorry) (by sorry)
         apply UnpackedFloat.blastSmtLibRound_Rel_round_of_RNE_of_stickyEquiv he hep hsin
           (eu := exponentWidth ein sin + 1) (su := sin + 1 + 2) (by omega) (by omega)
           (a.unpackNum.add b.unpackNum) _ _ hsumne
