@@ -283,6 +283,3 @@ theorem EUnpackedFloat.pack'_EquivUptoNaN_of_Rel
     rw [heqMk]
     exact EUnpackedFloat.packNumber'_eq_of_Rel hep hsp euf.num pf
       hpfNaN hpfInf hnumPack hnumRel
-
--- theorem unpack_eq_of_Rel (euf : EUnpackedFloat ef uf) (pf : PackedFloat (exponentWidth ef uf) (uf + 1)) (hRel : euf.Rel pf) :
---   pf.unpack = euf := sorry

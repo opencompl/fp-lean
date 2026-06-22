@@ -603,7 +603,7 @@ theorem unpack_pack_of_isNaN
 /-! ### Helper lemmas for the Number round-trip
 
 The main `unpack_pack_of_isNumber` proof below is a 3-way case split (zero / normal / subnormal).
-Each branch is pushed into its own `sorry` lemma below; those are the "real" content left to prove.
+Each branch is pushed into its own lemma, and those are the "real" content left to prove.
 -/
 
 /--
