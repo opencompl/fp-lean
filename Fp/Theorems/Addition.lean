@@ -942,7 +942,7 @@ theorem add_eq_add {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
         (by simp [PackedFloat.msb_unpackNum_eq_true ha, UnpackedFloat.mkZero])]
       simp only [cond_false]
       have hazero : a.unpackNum.isZero = false :=
-        PackedFloat.unpackNormOrNonzeroSubnorm_isZero_eq_of_not_isZero a (by grind)
+        PackedFloat.isZero_unpackNum_eq_false a (by grind)
       simp only [hazero, Bool.false_eq_true, cond_false]
       rw [round_number_toRat_eq_self he0 hsin rm _ a ha]
       rw [PackedFloat.EquivUptoNaN_symm, EUnpackedFloat.pack_eq_pack']
@@ -993,9 +993,9 @@ theorem add_eq_add {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
           rwa [PackedFloat.unpackNum_toRat_eq_toRat ha,
             PackedFloat.unpackNum_toRat_eq_toRat hb]
         have hazero : a.unpackNum.isZero = false :=
-          PackedFloat.unpackNormOrNonzeroSubnorm_isZero_eq_of_not_isZero a (by grind)
+          PackedFloat.isZero_unpackNum_eq_false a (by grind)
         have hbzero : b.unpackNum.isZero = false :=
-          PackedFloat.unpackNormOrNonzeroSubnorm_isZero_eq_of_not_isZero b (by grind)
+          PackedFloat.isZero_unpackNum_eq_false b (by grind)
         simp only [hcancel, cond_false, EUnpackedFloat.isZero_mkNumber, hazero, hbzero]
         rw [PackedFloat.EquivUptoNaN_symm, EUnpackedFloat.pack_eq_pack']
         subst hrm

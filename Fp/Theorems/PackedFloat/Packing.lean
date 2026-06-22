@@ -1066,7 +1066,7 @@ theorem PackedFloat.unpack_pack_eq_self_of_isNormOrNonzeroSubnorm
     rw [hunpack, EUnpackedFloat.pack_eq_pack', EUnpackedFloat.pack']
     have hz : (EUnpackedFloat.mkNumber pf.unpackNum).isZero = false := by
       rw [EUnpackedFloat.isZero_mkNumber]
-      exact pf.unpackNormOrNonzeroSubnorm_isZero_eq_of_not_isZero hpf
+      exact pf.isZero_unpackNum_eq_false hpf
     simp only [EUnpackedFloat.isNaN_mkNumber, EUnpackedFloat.isInfinite_mkNumber, hz,
       Bool.false_eq_true, ↓reduceIte]
     rfl
@@ -1101,3 +1101,58 @@ info: 'PackedFloat.unpack_pack_eq_self_of_isNormOrNonzeroSubnorm' depends on axi
  Quot.sound]
 -/
 #guard_msgs in #print axioms PackedFloat.unpack_pack_eq_self_of_isNormOrNonzeroSubnorm
+
+/--
+`isNaN` is preserved by the `pack ∘ unpack` round trip.
+
+The number case is the bit-for-bit round trip
+(`unpack_pack_eq_self_of_isNormOrNonzeroSubnorm`); the NaN / infinity / zero cases
+unpack-and-repack to the canonical representative of the same kind.
+-/
+@[simp, grind =]
+theorem PackedFloat.isNaN_unpack_pack_eq_isNaN {e s : Nat} (he : 1 < e) (hs : 0 < s)
+    (pf : PackedFloat e s) :
+    pf.unpack.pack.isNaN = pf.isNaN := by
+  by_cases hnan : pf.isNaN
+  · rw [pf.unpack_eq_NaN_of_isNaN hnan, EUnpackedFloat.mkNaN_pack_eq_mkNaN]
+    simp [hnan]
+  · by_cases hinf : pf.isInfinite
+    · obtain ⟨sign, rfl⟩ := eq_mkInfinity_of_isInfinite hinf
+      rw [PackedFloat.unpack_getInfinity]
+      simp [hs]
+    · by_cases hzero : pf.isZero
+      · obtain ⟨sign, rfl⟩ := eq_mkZero_of_isZero hzero
+        rw [PackedFloat.unpack_getZero]
+        simp [show 0 < e by omega]
+      · have hpf : pf.isNormOrNonzeroSubnorm :=
+          PackedFloat.isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero hnan hinf hzero
+        rw [pf.unpack_pack_eq_self_of_isNormOrNonzeroSubnorm he hs hpf]
+
+/--
+The `pack ∘ unpack` round trip is the identity *up to NaN payload*
+(`EquivUptoNaN`) on every packed float.  For non-NaN inputs it is bit-for-bit
+equality; for NaN inputs both sides are NaN.
+-/
+theorem PackedFloat.unpack_pack_EquivUptoNaN {e s : Nat} (he : 1 < e) (hs : 0 < s)
+    (pf : PackedFloat e s) :
+    EquivUptoNaN pf.unpack.pack pf := by
+  by_cases hnan : pf.isNaN
+  · refine EquivUptoNaN.of_isNaN_isNaN _ _ ?_ hnan
+    rw [PackedFloat.isNaN_unpack_pack_eq_isNaN he hs]; exact hnan
+  · apply EquivUptoNaN.of_eq
+    by_cases hinf : pf.isInfinite
+    · obtain ⟨sign, rfl⟩ := eq_mkInfinity_of_isInfinite hinf
+      rw [PackedFloat.unpack_getInfinity]
+      simp [hs]
+    · by_cases hzero : pf.isZero
+      · obtain ⟨sign, rfl⟩ := eq_mkZero_of_isZero hzero
+        rw [PackedFloat.unpack_getZero]
+        simp [show 0 < e by omega]
+      · have hpf : pf.isNormOrNonzeroSubnorm :=
+          PackedFloat.isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero hnan hinf hzero
+        exact pf.unpack_pack_eq_self_of_isNormOrNonzeroSubnorm he hs hpf
+
+/--
+info: 'PackedFloat.unpack_pack_EquivUptoNaN' depends on axioms: [propext, BitVec.toNat_clz_cons, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms PackedFloat.unpack_pack_EquivUptoNaN
