@@ -568,40 +568,6 @@ theorem isInfinite_pack'_of_isInfinite
   simp [pack', PackedFloat.isInfinite, huf, hnan]
   grind
 
-/-
-FALSE as stated: without an upper bound on the exponent, a `Number`-state input whose
-biased exponent overflows into `allOnes e` (and whose significand loses its only set bit
-when the leading bit is dropped) packs to the infinity bit pattern.
-Concrete counterexample at `e = 2`, `s = 1` (so `exponentWidth e s = 3`):
-  `uf = { state := .Number, num := { sign := false, ex := 2#3, sig := 2#2 } }`
-Here `uf.exp.toInt = 2 > maxNormalExp 2 = 1`, the packed exponent is
-`(2#3 + bias 2).signExtend 2 = 3#2 = allOnes 2` and the packed significand is
-`(2#2).truncate 1 = 0#1`, so `uf.pack'.isInfinite = true` while `uf.isInfinite = false`.
-Exhaustive enumeration confirms the statement *with* the additional hypothesis
-`uf.exp.toInt ≤ maxNormalExp e` has no counterexamples at small widths.
--/
-theorem isInfinite_of_isInfinite_pack' (he : 1 < e) (hs : 0 < s)
-    (uf : EUnpackedFloat (exponentWidth e s) (s + 1))
-    (huf : uf.pack'.isInfinite) :
-    uf.isInfinite = true := by
-  sorry
-
-
-/-
-FALSE as stated, by the same counterexample as `isInfinite_of_isInfinite_pack'` above
-(`pack = pack'`): at `e = 2`, `s = 1`,
-  `uf = { state := .Number, num := { sign := false, ex := 2#3, sig := 2#2 } }`
-has `uf.pack.isInfinite = true` but `uf.isInfinite = false`, because the out-of-range
-exponent `uf.exp.toInt = 2 > maxNormalExp 2 = 1` wraps the packed exponent to `allOnes`.
-Exhaustive enumeration confirms the equation *with* the additional hypothesis
-`uf.exp.toInt ≤ maxNormalExp e` has no counterexamples at small widths.
--/
-@[simp, grind .]
-theorem pack_isInfinite_eq_isInfinite (he : 1 < e) (hs : 0 < s)
-    (uf : EUnpackedFloat (exponentWidth e s) (s + 1)) :
-    uf.pack.isInfinite = uf.isInfinite := by
-  sorry
-
 /-- Packing preseves the sign of non-NaN variables. -/
 @[simp, grind .]
 theorem sign_pack
