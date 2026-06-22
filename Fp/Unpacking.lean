@@ -153,11 +153,6 @@ theorem EUnpackedFloat.packNumber'.inNormalRange_iff
   rw [BitVec.sle_eq_decide]
   rw [toInt_ofInt_minNormalExp_eq_minNormalExp he hs]
 
-
-theorem ge_of_dvd_of_pos (k : Int) (n : Int) (hn0 : 0 < n) (hk : 1 < k)
-    (hdvd : k ∣ n) : n ≥ k := by
-  exact Int.le_of_dvd hn0 hdvd
-
 /--
 we never produce an 'allOnes' exponent,
 since that would be reserved for NaN and infinity, and we only use `packNumber'` for normal/subnormal numbers.
