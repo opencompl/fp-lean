@@ -474,10 +474,11 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
       -- apply PackedFloat.EquivUptoNaN.of_eq
       rw [PackedFloat.EquivUptoNaN_symm]
       subst hrm
-      -- TODO(packing): rounder-output packability (same gap as the addition site); the
+      -- TODO(packing): rounder-output `Packable` (same gap as the addition site); the
       -- bit-blasted rounder output, when a Number, is normalized + in-range and the SMT spec
       -- result is finite. Analogue of `PackedFloat.unpackNum_packable` for `blastSmtLibRound`.
-      refine EUnpackedFloat.pack'_EquivUptoNaN_of_Rel (by grind) (by grind) _ _ ?_ (by sorry)
+      refine EUnpackedFloat.pack'_EquivUptoNaN_of_Rel (by grind) (by grind) _ _ ?_
+        (by sorry) (by sorry)
       apply UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
       · grind only
       · grind only

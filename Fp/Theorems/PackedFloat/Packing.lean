@@ -2,6 +2,30 @@ import Fp.Basic
 import Fp.Unpacking
 import Fp.Theorems.PackedFloat.ToExtRat
 
+/--
+The conditions under which an `UnpackedFloat` of the unpacked width for target format `(e, s)`
+packs losslessly into a `PackedFloat e s`:
+* it is normalized (`normalize` is the identity),
+* its exponent does not exceed `maxNormalExp e` (no overflow to infinity), and
+* it is exactly representable: either it sits in the normal range, or (in the subnormal range)
+  the significand is divisible by the shift used to express it at `minNormalExp e`, so no bits
+  are lost.
+
+These are exactly the side conditions of `toRat_pack_mkNumber_eq_toRat`.
+-/
+def UnpackedFloat.Packable {e s : Nat} (uf : UnpackedFloat (exponentWidth e s) (s + 1)) : Prop :=
+  uf.normalize = uf ∧
+  uf.ex.toInt ≤ maxNormalExp e ∧
+  (minNormalExp e ≤ uf.ex.toInt ∨
+    2 ^ (minNormalExp e - uf.ex.toInt).toNat ∣ uf.sig.toNat)
+
+/--
+An `EUnpackedFloat` is packable iff, whenever it is a finite number, its numeric payload is
+`UnpackedFloat.Packable`. The NaN/∞/zero states impose no condition (they always pack).
+-/
+def EUnpackedFloat.Packable {e s : Nat} (euf : EUnpackedFloat (exponentWidth e s) (s + 1)) : Prop :=
+  euf.state = .Number → euf.num.Packable
+
 -- TODO: upstream
 theorem BitVec.toNat_clz_le {x : BitVec w} : x.clz.toNat ≤ w := by
   suffices h : x.clz.toNat ≤ (BitVec.ofNat w w).toNat from by
@@ -700,11 +724,9 @@ The proof is the corresponding 3-way case split.
 theorem toRat_pack_mkNumber_eq_toRat
     (he : 1 < e) (hs : 0 < s)
     (uf : UnpackedFloat (exponentWidth e s) (s + 1))
-    (hnorm : uf.normalize = uf)
-    (hexp1 : uf.ex.toInt ≤ maxNormalExp e)
-    (hexp2 : minNormalExp e ≤ uf.ex.toInt ∨
-      2 ^ (minNormalExp e - uf.ex.toInt).toNat ∣ uf.sig.toNat) :
+    (hpack : uf.Packable) :
     (EUnpackedFloat.mkNumber uf).pack.toRat = uf.toRat := by
+  obtain ⟨hnorm, hexp1, hexp2⟩ := hpack
   rw [EUnpackedFloat.pack_eq_pack']
   by_cases hzero : uf.sig = 0#(s + 1)
   case pos =>
@@ -902,10 +924,7 @@ discharge that theorem's structural side conditions.
 -/
 theorem PackedFloat.unpackNum_packable {e s : Nat} (he : 1 < e) (hs : 0 < s)
     (pf : PackedFloat e s) (hpf : pf.isNormOrNonzeroSubnorm) :
-    pf.unpackNum.normalize = pf.unpackNum ∧
-    pf.unpackNum.ex.toInt ≤ maxNormalExp e ∧
-    (minNormalExp e ≤ pf.unpackNum.ex.toInt ∨
-      2 ^ (minNormalExp e - pf.unpackNum.ex.toInt).toNat ∣ pf.unpackNum.sig.toNat) := by
+    pf.unpackNum.Packable := by
   have hbias_pos : 0 < bias e := bias_pos_of_one_lt e he
   have hmin_eq : minNormalExp e = -((bias e - 1 : Nat) : Int) := rfl
   have hmax_eq : maxNormalExp e = (bias e : Int) := rfl
