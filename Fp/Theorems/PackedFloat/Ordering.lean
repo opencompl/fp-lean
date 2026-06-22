@@ -42,54 +42,6 @@ theorem PackedFloat.toRatExp_le_toRatExp_of_le (a b : PackedFloat e s)
       grind
     · simp [hb, ha]
 
-/-
-theorem PackedFloat.toRatExp_lt_toRatExp_of_lt (a b : PackedFloat e s)
-    (he : 0 < e)
-    (hanan : ¬ a.isNaN)
-    (hainf : ¬ a.isInfinite)
-    (hazero : ¬ a.isZero)
-    (hbnan : ¬ b.isNaN)
-    (hbinf : ¬ b.isInfinite)
-    (hbzero : ¬ b.isZero)
-    (hle : a.ex < b.ex)
-    : a.toRatExp < b.toRatExp := by
-  simp [PackedFloat.toRatExp]
-  by_cases ha : a.isNorm
-  · simp [ha]
-    by_cases hb : b.isNorm
-    · simp [hb]
-      rw [← BitVec.lt_def]
-      apply hle
-    · simp [hb]
-      have haexp := a.ex_ne_zero_if_isNorm
-      simp at haexp
-      have : b.isNonzeroSubnorm = true := by grind only [=
-          isZero_iff_toRat_eq_zero_of_isNormOrNonzeroSubnorm,
-        = isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero,
-        isNormOrSubnorm_eq_isNorm_or_isSubnorm]
-      have := b.exp_eq_of_isNonzeroSubnorm
-      rw [this] at hle
-      simp at hle
-  · by_cases hb : b.isNorm
-    · simp [ha]
-      simp [hb]
-      have haexp := a.exp_eq_of_isNonzeroSubnorm
-      have hbexp := b.ex_ne_zero_if_isNorm
-      simp at haexp hbexp
-      have : 0 < b.ex.toNat := by exact BitVec.toNat_pos_of_ne_zero hbexp
-      have hbias : bias e = 0 ∨ 0 < bias e  := by grind
-      rcases hbias with (hbias | hbias)
-      · simp [hbias]
-        grind
-      · rw [show (((bias e - 1) : Nat) : Int) = bias e - 1 by grind]
-        rw [Int.neg_sub]
-        simp
-        sorry
-    · simp [hb, ha]
-      have := b.exp_eq_of_isNonzeroSubnorm
-      have := a.exp_eq_of_isNonzeroSubnorm
-      grind only
--/
 
 @[simp]
 theorem PackedFloat.toRatExp_eq_toRatExp_of_ex_eq_ex (a b : PackedFloat e s)
@@ -1823,3 +1775,4 @@ info: 'PackedFloat.lt_iff_toExtRat'_lt_toExtRat'_of_not_isZero_or_not_isZero' de
 #guard_msgs in #print axioms lt_iff_toExtRat'_lt_toExtRat'_of_not_isZero_or_not_isZero
 
 end PackedFloat
+
