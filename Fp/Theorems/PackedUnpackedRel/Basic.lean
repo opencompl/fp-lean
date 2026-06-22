@@ -227,7 +227,7 @@ theorem EUnpackedFloat.packNumber'_eq_of_Rel
         beq_iff_eq, not_and]
       intro hcontra
       exact absurd hcontra
-        (EUnpackedFloat.packNumber'.exPacked_ne_allOnes hsp hep uf.sign uf.ex hexp1)
+        (EUnpackedFloat.packNumber'.exPacked_ne_allOnes hsp hep uf.ex hexp1)
     have hLzero : ¬ (EUnpackedFloat.mkNumber uf).pack'.isZero := by
       intro hc
       exact hpfRatNe (by rw [← hpackRat]; simp [PackedFloat.toRat,

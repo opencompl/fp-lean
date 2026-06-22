@@ -3,8 +3,6 @@ import Fp.Theorems.LowerUpperRound.Functional
 
 namespace Fp
 
-#check PackedFloat.eq_getInfinity_of_lt_maxNormalNumber_of_isNaN_of_nonneg
-
 /-- Negating `maxNormalNumber` flips the sign field and nothing else. -/
 private theorem neg_maxNormalNumber_false {ep sp : Nat} :
     - PackedFloat.maxNormalNumber ep sp false = PackedFloat.maxNormalNumber ep sp true := rfl
