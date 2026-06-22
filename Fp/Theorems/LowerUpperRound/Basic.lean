@@ -320,41 +320,6 @@ theorem isZero_round_zero {eout sout : Nat} {zeroSign : Bool} {rm : RoundingMode
     rm zeroSign (ExtRat.Number 0)).isZero = true := by
   rcases rm <;> simp [heout]
 
-/-- rounding a number never produces NaN. -/
-theorem isNaN_round_number_eq_false {eout sout : Nat} {zeroSign : Bool} {rm : RoundingMode} {r : Rat}
-  (heout : 0 < eout) :
-  ((SmtLibSemantics.smtLibRoundMethod eout sout SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round
-    rm zeroSign (ExtRat.Number r)).isNaN = false := by
-  /- BLOCKED, in three ways (in increasing order of severity):
-
-     1. As stated (without a `0 < sout` hypothesis) this is *independent of
-        Lean's axioms*, hence unprovable: at `sout = 0` every float with an
-        all-ones exponent is NaN (`isNaN pf = (pf.ex == allOnes) && (s == 0 || ...)`),
-        so there is no `-∞` and `#eval decide (∃ x : PackedFloat 2 0,
-        x.toExtRat' ≤ ExtRat.Number (-1000))` is `false`. Thus
-        `IsLawfulLower (.Number (-1000))` is unsatisfiable at `(eout, sout) = (2, 0)`
-        and `smtLibLower.lower (.Number (-1000)) = Classical.epsilon (unsatisfiable)`
-        is an unconstrained element, whose `isNaN` cannot be proven `false`
-        (nor `true`). Taking `rm := .RTN`, `r := -1000` makes `round` return
-        exactly that epsilon. Fix: add `(hsout : 0 < sout)`.
-
-     2. Given `0 < sout`, the cases other than RNE need
-        "`(smtLibLower.lower (.Number r)).isNaN = false`" (and the `upper`
-        analogue), which requires *existence* of lawful lower bounds for
-        arbitrary rationals. That machinery lives in
-        `Fp.Theorems.LowerUpperRound.Functional` (`IsLawfulLower_lower`,
-        `not_isNaN_lower_of_ne_NaN`), which *imports this file* — so it cannot
-        be used here. Either move this theorem after `Functional`, or
-        replicate a max-of-all-floats existence argument privately here.
-
-     3. The `roundRNE` fall-through branch `.getNaN e s -- does not occur`
-        is reached when `¬isZero ∧ tieBreak ∧ ¬lowerHalf ∧ ¬isEven upper ∧
-        ¬isEven lower`. Ruling it out needs the midpoint-parity fact that
-        adjacent floats have significands of opposite parity
-        (`upper r = succ (lower r)` at non-representable `r`), which is the
-        not-yet-mechanized `PackedFloat.succ` theory described in
-        `docs/lower-pen-and-paper.typ`, § "Correctness of isEvenUpper". -/
-  sorry
 
 @[simp]
 theorem round_eq_mkZero_of_mkZero {zeroSign : Bool} {eout sout : Nat} {rm : RoundingMode}
