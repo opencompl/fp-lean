@@ -192,10 +192,11 @@ theorem EUnpackedFloat.packNumber'_eq_of_Rel
       rw [← hufRat, UnpackedFloat.toRat_eq_toRat']
       exact uf.toRat'_eq_zero_of_isZero hzero
     have hpfZero : pf.isZero := by
-      by_contra hc
+      apply Classical.byContradiction
+      intro hc
       exact PackedFloat.toRat_ne_zero
         (PackedFloat.isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero hpfNaN hpfInf hc) hpf0
-    rw [EUnpackedFloat.pack'_eq_getZero_of_isZero _ (by simp [EUnpackedFloat.isZero_mkNumber, hzero])]
+    rw [pack'_eq_getZero_of_isZero _ (by simp [EUnpackedFloat.isZero_mkNumber, hzero])]
     simp only [EUnpackedFloat.sign, EUnpackedFloat.num_mkNumber]
     exact ((PackedFloat.eq_mkZero_of_isZero' (sign := uf.sign) (by omega)).mp ⟨hpfZero, hsign⟩).symm
   · -- nonzero sub-case: both sides are finite numbers with equal value, so equal bits.
@@ -277,10 +278,15 @@ theorem EUnpackedFloat.pack'_EquivUptoNaN_of_Rel
     rw [this]
     simp [hsp]
   case Number =>
-    simp [heuf] at hRel ⊢
+    obtain ⟨hpfNaN, hpfInf, hnorm, hexp1, hexp2⟩ := hnum heuf
+    have hnumRel : euf.num.Rel pf :=
+      EUnpackeDFloat.num_Rel_of_Rel_of_eq_Number euf pf hRel0 heuf
     left
-    -- this needs an actual proof, that packing and unpacking a number returns the number.
-    sorry
+    have heqMk : euf = EUnpackedFloat.mkNumber euf.num := by
+      apply EUnpackedFloat.ext <;> simp [heuf, EUnpackedFloat.mkNumber]
+    rw [heqMk]
+    exact EUnpackedFloat.packNumber'_eq_of_Rel hep hsp euf.num pf
+      hpfNaN hpfInf hnorm hexp1 hexp2 hnumRel
 
 -- theorem unpack_eq_of_Rel (euf : EUnpackedFloat ef uf) (pf : PackedFloat (exponentWidth ef uf) (uf + 1)) (hRel : euf.Rel pf) :
 --   pf.unpack = euf := sorry

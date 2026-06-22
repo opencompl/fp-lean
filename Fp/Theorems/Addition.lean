@@ -893,7 +893,10 @@ theorem add_eq_add {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
       simp only [cond_false]
       rw [round_number_toRat_eq_self he0 hsin rm _ b hb]
       rw [PackedFloat.EquivUptoNaN_symm, EUnpackedFloat.pack_eq_pack']
-      apply EUnpackedFloat.pack'_EquivUptoNaN_of_Rel hsin
+      refine EUnpackedFloat.pack'_EquivUptoNaN_of_Rel he hsin _ _ ?_ (by
+        intro _
+        have hpack := PackedFloat.unpackNum_packable he hsin b hb
+        exact ⟨by grind, by grind, hpack.1, hpack.2.1, hpack.2.2⟩)
       apply EUnpackedFloat.Rel_of_Rel_of_state_eq_Number _ _ (by simp [EUnpackedFloat.mkNumber])
       apply UnpackedFloat.Rel_of_toRat_eq_toRat_and_sign
       · rw [EUnpackedFloat.num_mkNumber]
@@ -944,7 +947,10 @@ theorem add_eq_add {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
       simp only [hazero, Bool.false_eq_true, cond_false]
       rw [round_number_toRat_eq_self he0 hsin rm _ a ha]
       rw [PackedFloat.EquivUptoNaN_symm, EUnpackedFloat.pack_eq_pack']
-      apply EUnpackedFloat.pack'_EquivUptoNaN_of_Rel hsin
+      refine EUnpackedFloat.pack'_EquivUptoNaN_of_Rel he hsin _ _ ?_ (by
+        intro _
+        have hpack := PackedFloat.unpackNum_packable he hsin a ha
+        exact ⟨by grind, by grind, hpack.1, hpack.2.1, hpack.2.2⟩)
       apply EUnpackedFloat.Rel_of_Rel_of_state_eq_Number _ _ (by simp [EUnpackedFloat.mkNumber])
       apply UnpackedFloat.Rel_of_toRat_eq_toRat_and_sign
       · rw [EUnpackedFloat.num_mkNumber]
@@ -995,7 +1001,7 @@ theorem add_eq_add {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
         simp only [hcancel, cond_false, EUnpackedFloat.isZero_mkNumber, hazero, hbzero]
         rw [PackedFloat.EquivUptoNaN_symm, EUnpackedFloat.pack_eq_pack']
         subst hrm
-        apply EUnpackedFloat.pack'_EquivUptoNaN_of_Rel hsin
+        refine EUnpackedFloat.pack'_EquivUptoNaN_of_Rel he hsin _ _ ?_ (by sorry)
         apply UnpackedFloat.blastSmtLibRound_Rel_round_of_RNE_of_stickyEquiv he hep hsin
           (eu := exponentWidth ein sin + 1) (su := sin + 1 + 2) (by omega) (by omega)
           (a.unpackNum.add b.unpackNum) _ _ hsumne
