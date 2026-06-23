@@ -242,21 +242,21 @@ def IsNearestEven (e s : Nat) (perfect : Dyadic) (closest : Dyadic) : Prop :=
   ∀ (other : Dyadic), IsRounded e s perfect other →
     (other.numerator % 2 = 0 → other = closest)
 
-/-- The result of the 'round' function is well-rounded. -/
-axiom IsRounded_round_RNE {width exOffset}
-  (exWidth sigWidth : Nat) (mode : RoundingMode)
-  (x : EFixedPoint width exOffset) (xd : Dyadic) (hxd : x.toDyadic? = some xd)
-  (f : PackedFloat exWidth sigWidth) (hf : EFixedPoint.round exWidth sigWidth .RNE x = f)
-  (fd : Dyadic) (hfd : f.toDyadic? = some fd) :
-  IsRounded exWidth sigWidth xd fd
-
-/-- The result of the 'round' function is well-rounded. -/
-axiom IsNearestEven_round_RNE {width exOffset}
-  (exWidth sigWidth : Nat) (mode : RoundingMode)
-  (x : EFixedPoint width exOffset) (xd : Dyadic) (hxd : x.toDyadic? = some xd)
-  (f : PackedFloat exWidth sigWidth) (hf : EFixedPoint.round exWidth sigWidth .RNE x = f)
-  (fd : Dyadic) (hfd : f.toDyadic? = some fd) :
-  IsNearestEven exWidth sigWidth xd fd
+-- /-- The result of the 'round' function is well-rounded. -/
+-- theorem IsRounded_round_RNE {width exOffset}
+--   (exWidth sigWidth : Nat) (mode : RoundingMode)
+--   (x : EFixedPoint width exOffset) (xd : Dyadic) (hxd : x.toDyadic? = some xd)
+--   (f : PackedFloat exWidth sigWidth) (hf : EFixedPoint.round exWidth sigWidth .RNE x = f)
+--   (fd : Dyadic) (hfd : f.toDyadic? = some fd) :
+--   IsRounded exWidth sigWidth xd fd
+-- 
+-- /-- The result of the 'round' function is well-rounded. -/
+-- theorem IsNearestEven_round_RNE {width exOffset}
+--   (exWidth sigWidth : Nat) (mode : RoundingMode)
+--   (x : EFixedPoint width exOffset) (xd : Dyadic) (hxd : x.toDyadic? = some xd)
+--   (f : PackedFloat exWidth sigWidth) (hf : EFixedPoint.round exWidth sigWidth .RNE x = f)
+--   (fd : Dyadic) (hfd : f.toDyadic? = some fd) :
+--   IsNearestEven exWidth sigWidth xd fd
 
 /--
 Determine if a fixed-point number has an exact representation in the
