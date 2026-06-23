@@ -520,27 +520,17 @@ This matches the paper's `eq_{ε,σ}` which "does not contain (NaN, NaN)". -/
 def FpIeeeEqRel (f g : X) : Prop :=
   inst.ieeeEq (v.embed f) (v.embed g)
 
-/-- `FpLeqRel v f g` holds iff `v(f) ≤ v(g)` in the extended number system, with
-neither side NaN.
-
-The NaN exclusion matches both the BTRW15 paper (whose `leq_{ε,σ}` "does not
-contain (NaN, NaN)") and the SMT-LIB standard (`fp.leq` returns false whenever
-an argument is NaN, as confirmed by bitwuzla). We cannot read it off `≤` alone
-because `ExtRat`'s order makes `NaN ≤ NaN = true` (so that `≤` is a genuine
-partial order, as needed by the rounding theory). -/
+/-- `FpLeqRel v f g` holds iff `v(f) ≤ v(g)` in the extended number system. -/
 def FpLeqRel (f g : X) : Prop :=
-  ¬ inst.isNaN (v.embed f) ∧ ¬ inst.isNaN (v.embed g) ∧ v.embed f ≤ v.embed g
+  v.embed f ≤ v.embed g
 
-/-- `FpLtRel v f g` holds iff `v(f) < v(g)` in the extended number system.
-Strict `<` already excludes NaN (since `NaN < NaN` is false), matching the
-paper and SMT-LIB `fp.lt`. -/
+/-- `FpLtRel v f g` holds iff `v(f) < v(g)` in the extended number system. -/
 def FpLtRel (f g : X) : Prop :=
   v.embed f < v.embed g
 
-/-- `FpGeqRel v f g` holds iff `v(f) ≥ v(g)` in the extended number system, with
-neither side NaN. See `FpLeqRel` for why the NaN exclusion is explicit. -/
+/-- `FpGeqRel v f g` holds iff `v(f) ≥ v(g)` in the extended number system. -/
 def FpGeqRel (f g : X) : Prop :=
-  ¬ inst.isNaN (v.embed f) ∧ ¬ inst.isNaN (v.embed g) ∧ v.embed g ≤ v.embed f
+  v.embed g ≤ v.embed f
 
 /-- `FpGtRel v f g` holds iff `v(f) > v(g)` in the extended number system. -/
 def FpGtRel (f g : X) : Prop :=
@@ -563,15 +553,13 @@ instance [DecidablePred inst.isNaN] [DecidableRel inst.smtLibEq] :
     Decidable (FpIeeeEqRel v f g) := by
   unfold FpIeeeEqRel ExtendedNumber.ieeeEq; infer_instance
 
-instance [DecidablePred inst.isNaN] [DecidableRel ((· ≤ ·) : R → R → Prop)] :
-    Decidable (FpLeqRel v f g) := by
+instance [DecidableRel ((· ≤ ·) : R → R → Prop)] : Decidable (FpLeqRel v f g) := by
   unfold FpLeqRel; infer_instance
 
 instance [DecidableRel ((· < ·) : R → R → Prop)] : Decidable (FpLtRel v f g) := by
   unfold FpLtRel; infer_instance
 
-instance [DecidablePred inst.isNaN] [DecidableRel ((· ≤ ·) : R → R → Prop)] :
-    Decidable (FpGeqRel v f g) := by
+instance [DecidableRel ((· ≤ ·) : R → R → Prop)] : Decidable (FpGeqRel v f g) := by
   unfold FpGeqRel; infer_instance
 
 instance [DecidableRel ((· < ·) : R → R → Prop)] : Decidable (FpGtRel v f g) := by
