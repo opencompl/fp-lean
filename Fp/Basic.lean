@@ -829,6 +829,26 @@ theorem EquivUptoNaN.of_mkNaN_iff (x : PackedFloat e s) : EquivUptoNaN x (Packed
   subst hx
   simp
 
+theorem EquivUptoNaN.refl (x : PackedFloat e s) : EquivUptoNaN x x :=
+  EquivUptoNaN.of_eq x x rfl
+
+theorem EquivUptoNaN.symm {x y : PackedFloat e s} (h : EquivUptoNaN x y) : EquivUptoNaN y x :=
+  (EquivUptoNaN_symm x y).mp h
+
+theorem EquivUptoNaN.trans {x y z : PackedFloat e s}
+    (hxy : EquivUptoNaN x y) (hyz : EquivUptoNaN y z) : EquivUptoNaN x z := by
+  unfold EquivUptoNaN at *
+  grind
+
+/--
+`EquivUptoNaN` is an equivalence relation, so it induces a `Setoid` on
+`PackedFloat`. This is the relation we quotient by to obtain `SmtLibPackedFloat`
+(see `Fp/SmtLibPackedFloat.lean`).
+-/
+instance instSetoidEquivUptoNaN (e s : Nat) : Setoid (PackedFloat e s) where
+  r := EquivUptoNaN
+  iseqv := ⟨EquivUptoNaN.refl, EquivUptoNaN.symm, EquivUptoNaN.trans⟩
+
 
 /--
 Returns the `PackedFloat` representation for the given `BitVec`.
