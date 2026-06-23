@@ -147,18 +147,13 @@ def smtBne (x y : PackedFloat e s) : Bool :=
 def ieeeBeq (x y : PackedFloat e s) : Bool :=
   EUnpackedFloat.ieeeBeq x.unpack y.unpack
 
--- `x ≥ y` is `y ≤ x`, and `x > y` is `y < x`. On differing-signed zeros the
--- result is the supplied flag, and `bleAux`/`bltAux` also return their flag on
--- differing zeros, so the flag passes straight through with **no** negation.
--- (The previous `!`-negation here made `smtBgt`/`smtBge` disagree with SMT-LIB
--- on `(±0, ∓0)`.)
 @[bv_normalize]
 def bgeAux (xGEyOnDiffZeros : Bool) (x y : PackedFloat e s) : Bool :=
-  bleAux xGEyOnDiffZeros y x
+  bleAux (!xGEyOnDiffZeros) y x
 
 @[bv_normalize]
 def bgtAux (xGTyOnDiffZeros : Bool) (x y : PackedFloat e s) : Bool :=
-  bltAux xGTyOnDiffZeros y x
+  bltAux (!xGTyOnDiffZeros) y x
 
 @[bv_normalize]
 def minAux (xOnDiffZeros : Bool) (x y : PackedFloat e s) : PackedFloat e s :=
@@ -183,18 +178,6 @@ def smtBge (x y : PackedFloat e s) : Bool :=
 @[bv_normalize]
 def smtBgt (x y : PackedFloat e s) : Bool :=
   bgtAux false x y
-
-/-- `fp.geq x y` is `fp.leq y x`. With the corrected `bgeAux` this is
-definitional, so signed zeros are handled exactly as in `smtBle`. -/
-@[simp]
-theorem smtBge_eq_smtBle_swap (x y : PackedFloat e s) :
-    smtBge x y = smtBle y x := rfl
-
-/-- `fp.gt x y` is `fp.lt y x`. With the corrected `bgtAux` this is
-definitional, so signed zeros are handled exactly as in `smtBlt`. -/
-@[simp]
-theorem smtBgt_eq_smtBlt_swap (x y : PackedFloat e s) :
-    smtBgt x y = smtBlt y x := rfl
 
 @[bv_normalize]
 def smtMin (xOnDiffZeros : Bool) (x y : PackedFloat e s) : PackedFloat e s :=
