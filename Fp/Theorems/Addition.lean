@@ -206,14 +206,64 @@ theorem UnpackedFloat.toRat_add_toRat_eq_zero_of_structBeq_neg
     UnpackedFloat.toRat'_neg]
   grind
 
+/-- Uniqueness of the normalized binary representation: if `a · 2^p = b · 2^q`
+with the significands `a, b` in the normalized band `[2^(s-1), 2^s)`, then both
+the significand and the binary exponent are determined (`a = b` and `p = q`).
+
+Proof: WLOG `p ≤ q`. Cancelling `2^p` gives `a = b · 2^(q-p)` as naturals; if
+`q - p ≥ 1` then `a = b · 2^(q-p) ≥ 2^(s-1) · 2 = 2^s`, contradicting `a < 2^s`.
+So `p = q`, and then `a = b`. -/
+theorem Rat.mul_two_zpow_inj {s a b : Nat} {p q : Int}
+    (ha : 2 ^ (s - 1) ≤ a) (ha' : a < 2 ^ s)
+    (hb : 2 ^ (s - 1) ≤ b) (hb' : b < 2 ^ s)
+    (h : (a : Rat) * (2 : Rat) ^ p = (b : Rat) * (2 : Rat) ^ q) :
+    a = b ∧ p = q := by
+  -- a one-sided helper, applied in both orders to get the symmetric statement.
+  suffices aux : ∀ (a b : Nat) (p q : Int), a < 2 ^ s → 2 ^ (s - 1) ≤ b →
+      (a : Rat) * (2 : Rat) ^ p = (b : Rat) * (2 : Rat) ^ q → p ≤ q → a = b ∧ p = q by
+    rcases (by omega : p ≤ q ∨ q ≤ p) with hpq | hqp
+    · exact aux a b p q ha' hb h hpq
+    · obtain ⟨hba, hqp'⟩ := aux b a q p hb' ha h.symm hqp
+      exact ⟨hba.symm, hqp'.symm⟩
+  clear ha ha' hb hb' h a b p q
+  intro a b p q ha' hb h hpq
+  have hkk : (((q - p).toNat : Nat) : Int) = q - p := Int.toNat_of_nonneg (by omega)
+  -- cancel `2^p`: `a = b * 2^(q-p)` over `Rat`
+  have hcancel : (a : Rat) = (b : Rat) * (2 : Rat) ^ (q - p) := by
+    have hp0 : (2 : Rat) ^ p ≠ 0 := by have := Rat.two_pow_pos p; grind
+    have hzeq : (2 : Rat) ^ q = (2 : Rat) ^ (q - p) * (2 : Rat) ^ p := by
+      rw [← Rat.zpow_add (by decide : (2 : Rat) ≠ 0)]; congr 1; omega
+    rw [hzeq, ← Rat.mul_assoc] at h
+    grind
+  -- convert to the natural-number equation `a = b * 2^(q-p).toNat`
+  have hzc : (2 : Rat) ^ (q - p) = ((2 ^ (q - p).toNat : Nat) : Rat) := by
+    rw [show q - p = (((q - p).toNat : Nat) : Int) from hkk.symm, Rat.zpow_natCast]
+    norm_cast
+  rw [hzc] at hcancel
+  have hnat : a = b * 2 ^ (q - p).toNat := by exact_mod_cast hcancel
+  -- the band bounds force the exponent gap to be `0`
+  have hk0 : (q - p).toNat = 0 := by
+    rcases Nat.eq_zero_or_pos (q - p).toNat with h0 | hk1
+    · exact h0
+    · exfalso
+      have hge : 2 ^ (s - 1) * 2 ^ (q - p).toNat ≤ b * 2 ^ (q - p).toNat :=
+        Nat.mul_le_mul_right _ hb
+      have hadd : 2 ^ (s - 1) * 2 ^ (q - p).toNat = 2 ^ (s - 1 + (q - p).toNat) :=
+        (Nat.pow_add 2 (s - 1) (q - p).toNat).symm
+      have hmono : 2 ^ s ≤ 2 ^ (s - 1 + (q - p).toNat) := Nat.pow_le_pow_right (by omega) (by omega)
+      have : 2 ^ s ≤ a := by rw [hnat]; omega
+      omega
+  refine ⟨?_, by omega⟩
+  rw [hnat, hk0]; simp
+
 /--
 The normalized representation of a nonzero value is unique: two
 `UnpackedFloat`s with set msb and the same nonzero rational value are
 structurally equal.
 
-Pen-and-paper proof: `|toRat| = sig · 2^(ex - (s-1))` with
-`sig ∈ [2^(s-1), 2^s)`, so the binade of the value determines `ex.toInt`
-(hence `ex`), then `sig`, and the sign of the value determines `sign`.
+Proof: `|toRat| = sig · 2^(ex - (s-1))` with `sig ∈ [2^(s-1), 2^s)`, so the
+binade of the value determines `ex.toInt` (hence `ex`), then `sig`, and the sign
+of the value determines `sign` — discharged by `Rat.mul_two_zpow_inj`.
 -/
 theorem UnpackedFloat.eq_of_toRat_eq_toRat_of_msb {e s : Nat}
     (x y : UnpackedFloat e s)
@@ -1051,12 +1101,7 @@ theorem add_eq_add {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
         · exact UnpackedFloat.unpackNum_add_unpackNum_stickyEquiv hsin ha hb hsumne
 
 /--
-info: 'Fp.add_eq_add' depends on axioms: [propext,
- sorryAx,
- BitVec.toNat_clz_cons,
- Classical.choice,
- Quot.sound,
- Fp.Rat.mul_two_zpow_inj]
+info: 'Fp.add_eq_add' depends on axioms: [propext, sorryAx, BitVec.toNat_clz_cons, Classical.choice, Quot.sound]
 -/
 #guard_msgs in #print axioms add_eq_add
 

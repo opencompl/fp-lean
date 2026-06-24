@@ -26,8 +26,9 @@ every statement below is guarded by `¬ a.isNaN ∧ ¬ b.isNaN`. On that domain 
 `whenBothNaN` choice carried by the `smt*` order operators is irrelevant.
 
 `smtBeq` (the `eq` relation) is proved and is `sorry`-free (it rests on
-`UnpackedFloat.eq_of_toRat_eq_toRat_of_msb`, now discharged via the sensible
-axiom `Fp.Rat.mul_two_zpow_inj`). The order relations (`smtBle`, `smtBgt`,
+`UnpackedFloat.eq_of_toRat_eq_toRat_of_msb`, now discharged via the proven
+binade-uniqueness lemma `Fp.Rat.mul_two_zpow_inj`). The order relations
+(`smtBle`, `smtBgt`,
 `smtBge`, `ieeeBeq`) are stated and left as `sorry` pending the ordering
 analogue, the unpacked-level structural-vs-rational comparison
 `UnpackedFloat.bltAux false a b = decide (a.toRat < b.toRat)` for normalized
@@ -146,14 +147,9 @@ theorem smtBeq_iff_toExtRat_eq {e s : Nat} (a b : PackedFloat e s)
         UnpackedFloat.beq_iff_toRat_eq a.unpackNum b.unpackNum hams hbms, hra, hrb]
 
 -- `smtBeq_iff_toExtRat_eq` is `sorry`-free: it rests only on the standard axioms
--- plus the project's `BitVec.toNat_clz_cons` and the sensible
--- `Fp.Rat.mul_two_zpow_inj` (normalized-representation uniqueness).
+-- plus the project's `BitVec.toNat_clz_cons`.
 /--
-info: 'PackedFloat.smtBeq_iff_toExtRat_eq' depends on axioms: [propext,
- BitVec.toNat_clz_cons,
- Classical.choice,
- Quot.sound,
- Fp.Rat.mul_two_zpow_inj]
+info: 'PackedFloat.smtBeq_iff_toExtRat_eq' depends on axioms: [propext, BitVec.toNat_clz_cons, Classical.choice, Quot.sound]
 -/
 #guard_msgs in #print axioms smtBeq_iff_toExtRat_eq
 
