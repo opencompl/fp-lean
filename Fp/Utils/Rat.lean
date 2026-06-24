@@ -699,3 +699,60 @@ theorem Rat.mul_two_zpow_inj {s a b : Nat} {p q : Int}
       omega
   refine ⟨?_, by omega⟩
   rw [hnat, hk0]; simp
+
+/-- Ordering of normalized binary representations: with significands `a, b` in
+the normalized band `[2^(s-1), 2^s)`, the magnitude `a · 2^p` is ordered
+lexicographically by `(p, a)`. This is the strict-ordering analogue of
+`Rat.mul_two_zpow_inj`.
+
+Proof: the only nontrivial step is `p < q ⇒ a·2^p < b·2^q`, which holds because
+`a·2^p < 2^s·2^p = 2^(s+p) ≤ 2^((s-1)+q) = 2^(s-1)·2^q ≤ b·2^q` (using `p+1 ≤ q`
+and `s ≤ (s-1)+1`). The full iff then follows by trichotomy on `p` vs `q`. -/
+theorem Rat.mul_two_zpow_lt {s a b : Nat} {p q : Int}
+    (ha : 2 ^ (s - 1) ≤ a) (ha' : a < 2 ^ s)
+    (hb : 2 ^ (s - 1) ≤ b) (hb' : b < 2 ^ s) :
+    ((a : Rat) * (2 : Rat) ^ p < (b : Rat) * (2 : Rat) ^ q) ↔ (p < q ∨ (p = q ∧ a < b)) := by
+  -- the strict step `p < q ⇒ a·2^p < b·2^q`, applied in both orders below.
+  have aux : ∀ (a b : Nat) (p q : Int), a < 2 ^ s → 2 ^ (s - 1) ≤ b → p < q →
+      (a : Rat) * (2 : Rat) ^ p < (b : Rat) * (2 : Rat) ^ q := by
+    intro a b p q ha' hb hpq
+    have h2p : (0 : Rat) < (2 : Rat) ^ p := Fp.Rat.two_pow_pos p
+    have h2q : (0 : Rat) < (2 : Rat) ^ q := Fp.Rat.two_pow_pos q
+    -- `a·2^p < 2^s·2^p`
+    have step1 : (a : Rat) * (2 : Rat) ^ p < ((2 ^ s : Nat) : Rat) * (2 : Rat) ^ p :=
+      (Rat.mul_lt_mul_cancel_right_of_lt h2p).mpr (by exact_mod_cast ha')
+    -- collapse the `2^k · 2^r` products into single powers
+    have e1 : ((2 ^ s : Nat) : Rat) * (2 : Rat) ^ p = (2 : Rat) ^ ((s : Int) + p) := by
+      rw [Rat.zpow_add (by decide : (2 : Rat) ≠ 0)]
+      congr 1
+      rw [Rat.zpow_natCast]; norm_cast
+    have e2 : ((2 ^ (s - 1) : Nat) : Rat) * (2 : Rat) ^ q
+        = (2 : Rat) ^ (((s - 1 : Nat) : Int) + q) := by
+      rw [Rat.zpow_add (by decide : (2 : Rat) ≠ 0)]
+      congr 1
+      rw [Rat.zpow_natCast]; norm_cast
+    have hmono : (2 : Rat) ^ ((s : Int) + p) ≤ (2 : Rat) ^ (((s - 1 : Nat) : Int) + q) :=
+      Rat.two_pow_le_two_pow_of_le (by omega)
+    have hbq : ((2 ^ (s - 1) : Nat) : Rat) * (2 : Rat) ^ q ≤ (b : Rat) * (2 : Rat) ^ q :=
+      (Rat.mul_le_mul_cancel_right_of_lt h2q).mpr (by exact_mod_cast hb)
+    have key : ((2 ^ s : Nat) : Rat) * (2 : Rat) ^ p ≤ (b : Rat) * (2 : Rat) ^ q :=
+      calc ((2 ^ s : Nat) : Rat) * (2 : Rat) ^ p
+          = (2 : Rat) ^ ((s : Int) + p) := e1
+        _ ≤ (2 : Rat) ^ (((s - 1 : Nat) : Int) + q) := hmono
+        _ = ((2 ^ (s - 1) : Nat) : Rat) * (2 : Rat) ^ q := e2.symm
+        _ ≤ (b : Rat) * (2 : Rat) ^ q := hbq
+    grind
+  constructor
+  · intro h
+    rcases (by omega : p < q ∨ p = q ∨ q < p) with hlt | heq | hgt
+    · exact Or.inl hlt
+    · subst heq
+      have h2p : (0 : Rat) < (2 : Rat) ^ p := Fp.Rat.two_pow_pos p
+      have : (a : Rat) < (b : Rat) := (Rat.mul_lt_mul_cancel_right_of_lt h2p).mp h
+      exact Or.inr ⟨rfl, by exact_mod_cast this⟩
+    · exact absurd (aux b a q p hb' ha hgt) (by grind)
+  · rintro (hlt | ⟨heq, hab⟩)
+    · exact aux a b p q ha' hb hlt
+    · subst heq
+      have h2p : (0 : Rat) < (2 : Rat) ^ p := Fp.Rat.two_pow_pos p
+      exact (Rat.mul_lt_mul_cancel_right_of_lt h2p).mpr (by exact_mod_cast hab)
