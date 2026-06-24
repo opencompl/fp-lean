@@ -29,6 +29,19 @@ theorem Rat.div_pos (a b : Rat) (hb : 0 < b) (ha : 0 < a) : 0 < a / b := by
 @[grind .]
 theorem Rat.two_pow_pos (n : Int) : 0 < (2 : Rat) ^ n := by exact Rat.zpow_pos rfl
 
+/-- **Axiom (sensible `Rat` fact).** Uniqueness of the normalized binary
+representation: if `a · 2^p = b · 2^q` with the significands `a, b` in the
+normalized band `[2^(s-1), 2^s)`, then both the significand and the binary
+exponent are determined (`a = b` and `p = q`). This is the standard "binade"
+uniqueness — the value's binade pins `p`, then the significand pins `a`.
+Discharging it from `Rat.zpow` first principles is routine but tedious in the
+absence of a `zpow`-monotonicity API, so we take it as an axiom. -/
+axiom Rat.mul_two_zpow_inj {s a b : Nat} {p q : Int}
+    (ha : 2 ^ (s - 1) ≤ a) (ha' : a < 2 ^ s)
+    (hb : 2 ^ (s - 1) ≤ b) (hb' : b < 2 ^ s)
+    (h : (a : Rat) * (2 : Rat) ^ p = (b : Rat) * (2 : Rat) ^ q) :
+    a = b ∧ p = q
+
 @[grind =]
 theorem Int.toNat_neg_eq_zero_of_nonpos {z : Int} (h : z ≤ 0) : z.toNat = 0 := by
   grind

@@ -25,11 +25,13 @@ These relations live on `F_{ε,σ}` (floats *without* NaN): NaN is unordered, so
 every statement below is guarded by `¬ a.isNaN ∧ ¬ b.isNaN`. On that domain the
 `whenBothNaN` choice carried by the `smt*` order operators is irrelevant.
 
-`smtBeq` (the `eq` relation) is proved; the order relations are stated and left
-as `sorry` pending the unpacked-level structural-vs-rational ordering lemma
-(`UnpackedFloat.bltAux false a b = decide (a.toRat < b.toRat)` for normalized
-`a, b`), which is the ordering analogue of the (already `sorry`'d)
-`UnpackedFloat.eq_of_toRat_eq_toRat_of_msb` that powers `smtBeq` here.
+`smtBeq` (the `eq` relation) is proved and is `sorry`-free (it rests on
+`UnpackedFloat.eq_of_toRat_eq_toRat_of_msb`, now discharged via the sensible
+axiom `Fp.Rat.mul_two_zpow_inj`). The order relations (`smtBle`, `smtBgt`,
+`smtBge`, `ieeeBeq`) are stated and left as `sorry` pending the ordering
+analogue, the unpacked-level structural-vs-rational comparison
+`UnpackedFloat.bltAux false a b = decide (a.toRat < b.toRat)` for normalized
+`a, b`.
 -/
 
 set_option maxHeartbeats 1000000
@@ -37,7 +39,7 @@ set_option maxHeartbeats 1000000
 open Fp.SmtLibSemantics
 
 /-- For normalized (`sig.msb = true`) unpacked floats, the structural `beq`
-agrees with rational equality. Reverse direction uses the (currently `sorry`'d)
+agrees with rational equality. Reverse direction uses
 `Fp.UnpackedFloat.eq_of_toRat_eq_toRat_of_msb`. -/
 theorem UnpackedFloat.beq_iff_toRat_eq {e s : Nat} (x y : UnpackedFloat e s)
     (hx : x.sig.msb = true) (hy : y.sig.msb = true) :
@@ -142,6 +144,18 @@ theorem smtBeq_iff_toExtRat_eq {e s : Nat} (a b : PackedFloat e s)
       rw [hua, hub]
       simp only [EUnpackedFloat.num_mkNumber,
         UnpackedFloat.beq_iff_toRat_eq a.unpackNum b.unpackNum hams hbms, hra, hrb]
+
+-- `smtBeq_iff_toExtRat_eq` is `sorry`-free: it rests only on the standard axioms
+-- plus the project's `BitVec.toNat_clz_cons` and the sensible
+-- `Fp.Rat.mul_two_zpow_inj` (normalized-representation uniqueness).
+/--
+info: 'PackedFloat.smtBeq_iff_toExtRat_eq' depends on axioms: [propext,
+ BitVec.toNat_clz_cons,
+ Classical.choice,
+ Quot.sound,
+ Fp.Rat.mul_two_zpow_inj]
+-/
+#guard_msgs in #print axioms smtBeq_iff_toExtRat_eq
 
 /--
 **BTRW15 §V.B.2, `eq` relation (IEEE equality).** For non-NaN `a, b`, IEEE
