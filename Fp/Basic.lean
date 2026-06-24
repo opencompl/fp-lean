@@ -3569,6 +3569,10 @@ theorem mkZero_sign {e s} (sign : Bool) : (mkZero sign : EUnpackedFloat e s).sig
   simp [mkZero, EUnpackedFloat.sign, UnpackedFloat.mkZero]
 
 @[simp, grind =]
+theorem num_mkZero {e s} (sign : Bool) :
+    (mkZero sign : EUnpackedFloat e s).num = UnpackedFloat.mkZero sign := rfl
+
+@[simp, grind =]
 theorem mkZero_num_sign {e s} (sign : Bool) : (mkZero sign : EUnpackedFloat e s).num.sign = sign := by
   simp [mkZero, UnpackedFloat.mkZero]
 

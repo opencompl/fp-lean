@@ -163,21 +163,33 @@ def minAux (xOnDiffZeros : Bool) (x y : PackedFloat e s) : PackedFloat e s :=
 def maxAux (xOnDiffZeros : Bool) (x y : PackedFloat e s) : PackedFloat e s :=
   (EUnpackedFloat.maxAux xOnDiffZeros x.unpack y.unpack).pack
 
+-- The SMT-LIB order comparisons are *partial* relations only at NaN, which is
+-- unordered: on `(NaN, NaN)` the result is the implementation's choice, exposed
+-- as `whenBothNaN` (when exactly one side is NaN the result is the determined
+-- `false`). Differing-signed zeros `(±0, ∓0)` are NOT ambiguous: `±0` and `∓0`
+-- compare as numerically equal (`-0 ≤ +0` and `+0 ≤ -0`, `-0 < +0` false, etc.),
+-- so the on-differing-zeros flag is hardcoded to that determined value:
+--   * `lt`/`gt` → `false` (zeros are not strictly ordered);
+--   * `le`/`ge` → `true`  (zeros are `≤`/`≥` each other).
+-- `smtBgt`/`smtBge` pass the flag through `bgtAux`/`bgeAux`, which negate it, so
+-- the hardcoded value there is the complement of the `lt`/`le` one.
+-- The equivalence proofs (`Fp/Theorems/Comparison.lean`) are then guarded only
+-- by non-NaN-ness of the inputs.
 @[bv_normalize]
-def smtBlt (x y : PackedFloat e s) : Bool :=
-  bltAux false x y
+def smtBlt (whenBothNaN : Bool) (x y : PackedFloat e s) : Bool :=
+  bif x.isNaN && y.isNaN then whenBothNaN else bltAux false x y
 
 @[bv_normalize]
-def smtBle (x y : PackedFloat e s) : Bool :=
-  bleAux true x y
+def smtBle (whenBothNaN : Bool) (x y : PackedFloat e s) : Bool :=
+  bif x.isNaN && y.isNaN then whenBothNaN else bleAux true x y
 
 @[bv_normalize]
-def smtBge (x y : PackedFloat e s) : Bool :=
-  bgeAux true x y
+def smtBge (whenBothNaN : Bool) (x y : PackedFloat e s) : Bool :=
+  bif x.isNaN && y.isNaN then whenBothNaN else bgeAux false x y
 
 @[bv_normalize]
-def smtBgt (x y : PackedFloat e s) : Bool :=
-  bgtAux false x y
+def smtBgt (whenBothNaN : Bool) (x y : PackedFloat e s) : Bool :=
+  bif x.isNaN && y.isNaN then whenBothNaN else bgtAux true x y
 
 @[bv_normalize]
 def smtMin (xOnDiffZeros : Bool) (x y : PackedFloat e s) : PackedFloat e s :=

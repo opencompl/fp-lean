@@ -251,21 +251,26 @@ def testBinaryRel (e s : Nat) (opName : String)
         }
   return summary
 
+-- The `smtB*` order comparisons take a `whenBothNaN` boolean resolving the only
+-- ambiguous case `(NaN,NaN)`; differing-signed zeros are determined. Here we
+-- bake in the `(NaN,NaN)` value that reproduces each total `FpXRel` so the
+-- exhaustive test exercises the full domain (including NaN and ±0 pairs).
+
 /-- Test that `PackedFloat.smtBlt` satisfies `FpLtRel`. -/
 def testFpLtRel (e s : Nat) : IO (BinaryRelTestSummary e s) :=
-  testBinaryRel e s "FpLtRel (smtBlt)" PackedFloat.smtBlt FpLtRel
+  testBinaryRel e s "FpLtRel (smtBlt)" (PackedFloat.smtBlt false) FpLtRel
 
 /-- Test that `PackedFloat.smtBle` satisfies `FpLeqRel`. -/
 def testFpLeqRel (e s : Nat) : IO (BinaryRelTestSummary e s) :=
-  testBinaryRel e s "FpLeqRel (smtBle)" PackedFloat.smtBle FpLeqRel
+  testBinaryRel e s "FpLeqRel (smtBle)" (PackedFloat.smtBle true) FpLeqRel
 
 /-- Test that `PackedFloat.smtBgt` satisfies `FpGtRel`. -/
 def testFpGtRel (e s : Nat) : IO (BinaryRelTestSummary e s) :=
-  testBinaryRel e s "FpGtRel (smtBgt)" PackedFloat.smtBgt FpGtRel
+  testBinaryRel e s "FpGtRel (smtBgt)" (PackedFloat.smtBgt false) FpGtRel
 
 /-- Test that `PackedFloat.smtBge` satisfies `FpGeqRel`. -/
 def testFpGeqRel (e s : Nat) : IO (BinaryRelTestSummary e s) :=
-  testBinaryRel e s "FpGeqRel (smtBge)" PackedFloat.smtBge FpGeqRel
+  testBinaryRel e s "FpGeqRel (smtBge)" (PackedFloat.smtBge true) FpGeqRel
 
 /-- Test that `PackedFloat.smtBeq` satisfies `FpSmtLibEqRel`. -/
 def testFpSmtLibEqRel (e s : Nat) : IO (BinaryRelTestSummary e s) :=

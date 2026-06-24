@@ -29,6 +29,7 @@ theorem Rat.div_pos (a b : Rat) (hb : 0 < b) (ha : 0 < a) : 0 < a / b := by
 @[grind .]
 theorem Rat.two_pow_pos (n : Int) : 0 < (2 : Rat) ^ n := by exact Rat.zpow_pos rfl
 
+
 @[grind =]
 theorem Int.toNat_neg_eq_zero_of_nonpos {z : Int} (h : z ≤ 0) : z.toNat = 0 := by
   grind

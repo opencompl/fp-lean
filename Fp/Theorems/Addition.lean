@@ -211,15 +211,54 @@ The normalized representation of a nonzero value is unique: two
 `UnpackedFloat`s with set msb and the same nonzero rational value are
 structurally equal.
 
-Pen-and-paper proof: `|toRat| = sig · 2^(ex - (s-1))` with
-`sig ∈ [2^(s-1), 2^s)`, so the binade of the value determines `ex.toInt`
-(hence `ex`), then `sig`, and the sign of the value determines `sign`.
+Proof: `|toRat| = sig · 2^(ex - (s-1))` with `sig ∈ [2^(s-1), 2^s)`, so the
+binade of the value determines `ex.toInt` (hence `ex`), then `sig`, and the sign
+of the value determines `sign` — discharged by `Rat.mul_two_zpow_inj`.
 -/
 theorem UnpackedFloat.eq_of_toRat_eq_toRat_of_msb {e s : Nat}
     (x y : UnpackedFloat e s)
     (hx : x.sig.msb = true) (hy : y.sig.msb = true)
     (h : x.toRat = y.toRat) : x = y := by
-  sorry
+  -- normalized significands sit in the band `[2^(s-1), 2^s)`
+  have hxlo : 2 ^ (s - 1) ≤ x.sig.toNat := BitVec.le_toNat_of_msb_true hx
+  have hylo : 2 ^ (s - 1) ≤ y.sig.toNat := BitVec.le_toNat_of_msb_true hy
+  have hxhi : x.sig.toNat < 2 ^ s := x.sig.isLt
+  have hyhi : y.sig.toNat < 2 ^ s := y.sig.isLt
+  have hxpos : 0 < x.sig.toNat := by have := Nat.two_pow_pos (s - 1); omega
+  have hypos : 0 < y.sig.toNat := by have := Nat.two_pow_pos (s - 1); omega
+  -- equal values ⇒ equal magnitudes `a·2^p = b·2^q`
+  rw [UnpackedFloat.toRat_eq_toRat', UnpackedFloat.toRat_eq_toRat'] at h
+  have habs : (x.sig.toNat : Rat) * (2 : Rat) ^ x.toExpInt
+      = (y.sig.toNat : Rat) * (2 : Rat) ^ y.toExpInt := by
+    have hx' := UnpackedFloat.abs_toRat'_eq x (prec := s - 1)
+    have hy' := UnpackedFloat.abs_toRat'_eq y (prec := s - 1)
+    rw [← hx', ← hy', h]
+  -- binade uniqueness pins the significand and exponent
+  obtain ⟨hsigeq, hexpeq⟩ := Rat.mul_two_zpow_inj hxlo hxhi hylo hyhi habs
+  -- the sign bit is recovered from the (nonzero) value
+  have hxnz : x.toRat' ≠ 0 := by
+    intro hz
+    have hpos : (0 : Rat) < (x.sig.toNat : Rat) * (2 : Rat) ^ x.toExpInt :=
+      Rat.mul_positive (by exact_mod_cast hxpos) (Rat.two_pow_pos _)
+    rw [← UnpackedFloat.abs_toRat'_eq, hz] at hpos
+    simp [Rat.abs] at hpos
+  have hynz : y.toRat' ≠ 0 := by
+    intro hz
+    have hpos : (0 : Rat) < (y.sig.toNat : Rat) * (2 : Rat) ^ y.toExpInt :=
+      Rat.mul_positive (by exact_mod_cast hypos) (Rat.two_pow_pos _)
+    rw [← UnpackedFloat.abs_toRat'_eq, hz] at hpos
+    simp [Rat.abs] at hpos
+  have hsign : x.sign = y.sign := by
+    rw [UnpackedFloat.sign_eq_decide_toRat'_lt_zero x hxnz,
+        UnpackedFloat.sign_eq_decide_toRat'_lt_zero y hynz, h]
+  -- exponent equality ⇒ `ex` equality
+  have hex : x.ex = y.ex := by
+    apply BitVec.toInt_inj.mp
+    simp only [UnpackedFloat.toExpInt] at hexpeq
+    omega
+  have hsig : x.sig = y.sig := BitVec.toNat_inj.mp hsigeq
+  rw [UnpackedFloat.ext_iff]
+  exact ⟨hsign, hex, hsig⟩
 
 /--
 `structBeq` is complete for cancellation detection on normalized inputs:
