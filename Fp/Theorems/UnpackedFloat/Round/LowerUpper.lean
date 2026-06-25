@@ -474,6 +474,20 @@ theorem UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero
   -- (`blastRoundTowardZero` keeps the input exponent width, so we adjust first.)
   let r : UnpackedFloat (exponentWidth ep sp) (sp + 1) :=
     (x.truncateFittingExponent ep sp).blastRoundTowardZero ep sp
+  -- Shared facts: `r` agrees with the width-`eu` round on sign, significand and
+  -- exponent value (the `truncateFittingExponent` invariances).
+  have hrsign : r.sign = false := by
+    simp only [r, sign_blastRoundTowardZero, sign_truncateFittingExponent, hxsign]
+  have hrsig : r.sig = (x.blastRoundTowardZero ep sp).sig := by
+    simp only [r, sig_blastRoundTowardZero]
+    rw [sig_blastClearSignificand_truncateFittingExponent he hs heu x hnotover hnotearlyunder]
+  have hrex : r.ex.toInt = (x.blastRoundTowardZero ep sp).ex.toInt := by
+    simp only [r, ex_blastRoundTowardZero]
+    exact toInt_ex_truncateFittingExponent he hs heu x hnotover hnotearlyunder
+  -- the two rounds have equal `toRat'` at every precision.
+  have hrtoRat : ∀ w, r.toRat' w = (x.blastRoundTowardZero ep sp).toRat' w := fun w =>
+    UnpackedFloat.toRat'_eq_toRat'_of_parts
+      (by rw [hrsign, sign_blastRoundTowardZero, hxsign]) hrsig hrex w
   -- (P) `r` is `Packable`: (1) normalized (rounding keeps the top significand bit),
   -- (2) `ex ≤ maxNormalExp` (from `hnotover`), (3) subnormal divisibility — the bits
   -- `blastClearSignificand` zeroes are exactly the divisibility witness.
@@ -481,23 +495,17 @@ theorem UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero
     sorry
   refine ⟨(EUnpackedFloat.mkNumber r).pack, ?_, ?_, ?_, ?_⟩
   · -- ¬ isNaN: `pack` of a `Number` whose exponent is `≤ maxNormalExp` is never NaN.
-    --   `EUnpackedFloat.not_isNaN_packNumber'` (needs `hPack.2.1`) / `sign_pack`.
     sorry
-  · -- IsLawfulLower — the crux. With `pf := pack r`, apply
-    --   `PackedFloat.isLawfulLower_of_toRat_le_of_lt_add_ulp`, feeding:
-    --     • `hle : pf.toRat ≤ x.toRat'` from round-toward-zero lowering the value
-    --       (`blastClearSignificand_toRat_le_of_nonneg` + the truncation step);
-    --     • `hlt : x.toRat' < pf.toRat + ulp` from
-    --       `UnpackedFloat.toRat'_lt_blastRoundTowardZero_toRat'_add_ulp` (U) after the
-    --       ulp bridge `2^(-sp)·2^(pf.toRatExp) = 2^(x.ex.toInt - sp)`.
+  · -- IsLawfulLower — the crux.
     sorry
-  · -- value: `pf.toRat = r.toRat = r.toRat' sp = (x.blastRoundTowardZero ep sp).toRat'`.
-    --   `toRat_pack_mkNumber_eq_toRat he hs r hPack`, then the `truncateFittingExponent`
-    --   invariance (`toRat'_eq_toRat'_of_parts`, as in `…_PartsEq`, Round.lean:2091).
-    sorry
-  · -- sign: LHS `= x.sign = false` (`sign_blastRoundTowardZero`); RHS `= r.sign = false`
-    --   (`sign_pack` + ¬isNaN, `sign_blastRoundTowardZero`, `sign_truncateFittingExponent`).
-    sorry
+  · -- value: `pf.toRat = r.toRat = r.toRat' = (x.blastRoundTowardZero ep sp).toRat'`.
+    rw [EUnpackedFloat.toRat_pack_mkNumber_eq_toRat he hs r hPack,
+      UnpackedFloat.toRat_eq_toRat']
+    exact (hrtoRat _).symm
+  · -- sign: both sides are `false`.
+    rw [sign_blastRoundTowardZero, hxsign, EUnpackedFloat.sign_pack]
+    simp only [EUnpackedFloat.isNaN_mkNumber, Bool.false_eq_true, if_false,
+      EUnpackedFloat.sign, EUnpackedFloat.num_mkNumber, hrsign]
 
 theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_normal
     (he : 1 < ep) (hs : 0 < sp)
