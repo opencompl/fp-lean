@@ -62,6 +62,8 @@ structure UnpackedFloat (e s : Nat) where
   sig : BitVec s
   deriving Inhabited, Repr
 
+attribute [bv_normalize] UnpackedFloat.ext_iff
+
 namespace UnpackedFloat
 
 @[bv_normalize]
