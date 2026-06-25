@@ -274,14 +274,16 @@ info: 'Fp.UnpackedFloat.not_blastIsEarlyUnderflowNonneg_of_not_blastIsUnderflowN
 /-- (U) The sub-ulp gap — the heart of round-toward-zero correctness.
 
 The bits discarded by `blastRoundTowardZero` are worth strictly less than one ulp
-`2 ^ (x.ex.toInt - sp)`, so the rounded value plus one ulp strictly overshoots `x`.
-The inequality is strict even when `x` is already representable (the gap is then
-`0 < 2^(…)`).
+of the *target* grid, so the rounded value plus one ulp strictly overshoots `x`.
+The ulp exponent is `x.ex.toInt - sp + off` where `off = (minNormalExp ep - x.ex.toInt).toNat`
+is the subnormal shift: in the normal range `off = 0` (ulp `2^(ex-sp)`), in the
+subnormal range `off = minNormalExp - ex` (ulp `2^(minNormalExp-sp)`, the subnormal
+quantum). The inequality is strict even when `x` is already representable.
 
-Proof: expand `toRat'`; `x.toRat' - round.toRat'` is the value of the cleared
-guard+sticky bits, a nonnegative integer `< 2 ^ (#dropped bits)` scaled by the lsb
-weight `2 ^ (ex - sp)`. Use the `blastClearSignificand` / `extractMsb'` `toNat`
-bounds. -/
+Proof: factor out the common weight `2^(ex-(su-1))`; the goal reduces to
+`x.sig.toNat < cleared.sig.toNat + 2^L` with `L = lsbIndex.toNat = (su-(sp+1))+off`,
+which holds because `blastClearSignificand` zeroes exactly the low `L` bits and
+`extractMsb'` then re-reads `cleared / 2^(su-(sp+1))`. -/
 theorem UnpackedFloat.toRat'_lt_blastRoundTowardZero_toRat'_add_ulp
     (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
@@ -291,7 +293,8 @@ theorem UnpackedFloat.toRat'_lt_blastRoundTowardZero_toRat'_add_ulp
     (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
     (hnotover  : x.blastIsEarlyOverflowNonneg ep sp = false) :
     x.toRat' <
-      (x.blastRoundTowardZero ep sp).toRat' + (2 : Rat) ^ (x.ex.toInt - (sp : Int)) := by
+      (x.blastRoundTowardZero ep sp).toRat'
+        + (2 : Rat) ^ (x.ex.toInt - (sp : Int) + ((minNormalExp ep - x.ex.toInt).toNat : Int)) := by
   sorry
 
 /-- (GLB) A non-NaN nonnegative packed float that is `≤ R` and lies within one ulp
