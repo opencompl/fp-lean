@@ -132,4 +132,11 @@ theorem Nat.two_pow_dvd_div_mul_two_pow (n : Nat) {m L : Nat} (h : m ≤ L) :
     2 ^ m ∣ n / 2 ^ L * 2 ^ L :=
   Nat.dvd_trans (Nat.pow_dvd_pow 2 h) ⟨n / 2 ^ L, Nat.mul_comm _ _⟩
 
+/-- Re-reading a value rounded to a multiple of `2 ^ (a+b)` through a division by the
+smaller `2 ^ b`: the result is the high part times `2 ^ a`. -/
+theorem Nat.div_mul_two_pow_add_div_two_pow (n a b : Nat) :
+    n / 2 ^ (a + b) * 2 ^ (a + b) / 2 ^ b = n / 2 ^ (a + b) * 2 ^ a := by
+  rw [Nat.mul_div_assoc _ (Nat.pow_dvd_pow 2 (Nat.le_add_left b a)),
+    Nat.pow_div (Nat.le_add_left b a) (by grind), Nat.add_sub_cancel]
+
 end Fp
