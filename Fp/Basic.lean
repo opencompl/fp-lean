@@ -204,12 +204,6 @@ theorem BitVec.allOnes_ne_zero {e : Nat} :
 
 namespace PackedFloat
 
-@[bv_normalize]
-def isNaN (pf : PackedFloat e s) : Bool :=
-  -- Prioritize `NaN` over `Infinity`.
-  pf.ex == .allOnes e && (s == 0 || pf.sig != .zero s)
-
-
 @[grind =>]
 theorem isNaN_iff_ex_eq_sig_eq (pf : PackedFloat e s) (hs : 0 < s) :
     pf.isNaN ↔ (pf.ex = .allOnes e ∧ pf.sig ≠ 0#s) := by
@@ -221,11 +215,6 @@ theorem not_isNaN_iff_ex_ne_or_sig_ne (pf : PackedFloat e s) (hs : 0 < s) :
     (¬ pf.isNaN) ↔ (pf.ex ≠ .allOnes e ∨ pf.sig = 0#s) := by
   simp [isNaN]
   grind
-
-@[bv_normalize]
-def isInfinite (pf : PackedFloat e s) : Bool :=
-  -- Prioritize `Infinity` over `0`. This is somewhat arbitrary.
-  pf.ex == .allOnes e && (s != 0 && pf.sig == .zero s)
 
 @[grind =>]
 theorem isInfinite_iff_ex_eq_sig_eq (pf : PackedFloat e s) (hs : 0 < s) :
@@ -242,13 +231,6 @@ theorem eq_mkInfinity_of_isInfinite {pf : PackedFloat e s} :
   rcases pf with ⟨sign, ex, sig⟩
   simp_all
 
-
--- TODO: delete the 'e=0' case, since a lot of the basic theory
--- just breaks down.
-@[bv_normalize]
-def isZero (pf : PackedFloat e s) : Bool :=
-  -- Prioritize `0` over `Subnormals`.
-  e != 0 && pf.ex == .zero e && pf.sig == .zero s
 
 @[simp, grind .]
 theorem ex_eq_of_isZero {pf : PackedFloat e s} (h : pf.isZero) :
@@ -331,10 +313,6 @@ theorem isZero_getInfinity {exWidth sigWidth : Nat} (sign : Bool) :
     (PackedFloat.getInfinity exWidth sigWidth sign).isZero = false := by
   simp [PackedFloat.getInfinity, isZero]
 
-@[bv_normalize]
-def isNonzeroSubnorm (pf : PackedFloat e s) : Bool :=
-  e != 0 && pf.ex == .zero e && pf.sig != .zero s
-
 @[simp, grind .]
 theorem exp_eq_of_isNonzeroSubnorm {pf : PackedFloat e s}
     (h : pf.isNonzeroSubnorm := by solve | simp | grind) :
@@ -350,14 +328,6 @@ theorem toNat_ex_eq_of_isNonzeroSubnorm {pf : PackedFloat e s}
   simp [h]
 
 
--- See that this means that it is a number.
--- We need a different one to say that it is nonzero.
--- | does this also need a 'e != 0' condition?
-@[bv_normalize]
-def isNorm {e s} (pf : PackedFloat e s) : Bool :=
-  pf.ex != .allOnes e && pf.ex != .zero e
-
-
 @[grind ., simp ←]
 theorem isNorm_iff_ex_ne_allOnes_and_ex_ne_zero {pf : PackedFloat e s} :
     pf.isNorm ↔ (pf.ex ≠ .allOnes e ∧ pf.ex ≠ .zero e) := by
@@ -369,10 +339,6 @@ theorem ex_ne_zero_if_isNorm {pf : PackedFloat e s} (h : pf.isNorm := by solve |
   simp [isNorm] at h
   simp [h]
 
-@[simp, bv_normalize]
-def isNormOrNonzeroSubnorm (pf : PackedFloat e s) : Bool :=
-  pf.ex != .allOnes e && (pf.ex != .zero e || pf.sig != .zero s)
-  -- e != 0 && pf.ex != BitVec.allOnes e
 @[simp]
 theorem sig_ne_zero_of_isNormOrNonzeroSubnorm_of_isNorm
     (pf : PackedFloat e s)
@@ -393,23 +359,6 @@ theorem ex_ne_zero_of_isNormOrNonzeroSubnorm_of_isNorm
   simp [isNormOrNonzeroSubnorm] at hsubnorm
   grind
 
-
-@[simp, bv_normalize]
-def isZeroOrSubnorm (pf : PackedFloat e s) : Bool :=
-  pf.ex == 0
-
-@[simp, bv_normalize]
-def isNZero (pf : PackedFloat e s) : Bool :=
-  e != 0 && pf.ex == 0 && pf.sig == 0 && pf.sign
-
-@[simp, bv_normalize]
-def isPZero (pf : PackedFloat e s) : Bool :=
-  e != 0 && pf.ex == 0 && pf.sig == 0 && !pf.sign
-
-
-@[simp, bv_normalize]
-def isSignMinus (pf : PackedFloat e s) : Bool :=
-  pf.sign
 
 @[grind →]
 theorem isZeroOrSubnorm_of_isZero {pf : PackedFloat e s} :

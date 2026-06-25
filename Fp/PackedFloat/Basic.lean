@@ -216,4 +216,53 @@ theorem inj (a b : PackedFloat e s)
   intro h
   simp_all only [← injEq]
 
+@[bv_normalize]
+def isNaN (pf : PackedFloat e s) : Bool :=
+  -- Prioritize `NaN` over `Infinity`.
+  pf.ex == .allOnes e && (s == 0 || pf.sig != .zero s)
+
+@[bv_normalize]
+def isInfinite (pf : PackedFloat e s) : Bool :=
+  -- Prioritize `Infinity` over `0`. This is somewhat arbitrary.
+  pf.ex == .allOnes e && (s != 0 && pf.sig == .zero s)
+
+-- TODO: delete the 'e=0' case, since a lot of the basic theory
+-- just breaks down.
+@[bv_normalize]
+def isZero (pf : PackedFloat e s) : Bool :=
+  -- Prioritize `0` over `Subnormals`.
+  e != 0 && pf.ex == .zero e && pf.sig == .zero s
+
+@[bv_normalize]
+def isNonzeroSubnorm (pf : PackedFloat e s) : Bool :=
+  e != 0 && pf.ex == .zero e && pf.sig != .zero s
+
+-- See that this means that it is a number.
+-- We need a different one to say that it is nonzero.
+-- | does this also need a 'e != 0' condition?
+@[bv_normalize]
+def isNorm {e s} (pf : PackedFloat e s) : Bool :=
+  pf.ex != .allOnes e && pf.ex != .zero e
+
+@[simp, bv_normalize]
+def isNormOrNonzeroSubnorm (pf : PackedFloat e s) : Bool :=
+  pf.ex != .allOnes e && (pf.ex != .zero e || pf.sig != .zero s)
+  -- e != 0 && pf.ex != BitVec.allOnes e
+
+@[simp, bv_normalize]
+def isZeroOrSubnorm (pf : PackedFloat e s) : Bool :=
+  pf.ex == 0
+
+@[simp, bv_normalize]
+def isNZero (pf : PackedFloat e s) : Bool :=
+  e != 0 && pf.ex == 0 && pf.sig == 0 && pf.sign
+
+@[simp, bv_normalize]
+def isPZero (pf : PackedFloat e s) : Bool :=
+  e != 0 && pf.ex == 0 && pf.sig == 0 && !pf.sign
+
+@[simp, bv_normalize]
+def isSignMinus (pf : PackedFloat e s) : Bool :=
+  pf.sign
+
 end PackedFloat
