@@ -1,0 +1,1248 @@
+import Fp.Theorems.UnpackedFloat.Round.TruncateFittingExponent
+
+namespace Fp
+
+
+/-# `blastLowerNonneg` matches `lower` -/
+
+
+
+/--
+Helper: Reduce `result.Rel (smtLibLower.lower (Number r))` to producing a
+witness `pf` that is a lawful lower with matching `toRat'` and `sign`.
+-/
+theorem EUnpackedFloat.Rel_smtLibLower_of_witness
+    (he : 0 < ep) (hs : 0 < sp)
+    (r : Rat)
+    (result : EUnpackedFloat eu su)
+    (hres : result.state = .Number)
+    (pf : PackedFloat ep sp)
+    (hpfNotNaN : ¬ pf.isNaN)
+    (hpfLower : SmtLibSemantics.IsLawfulLower (ExtRat.Number r) pf)
+    (hToRat : result.num.toRat' sp = pf.toRat)
+    (hSign  : result.num.sign  = pf.sign) :
+    result.Rel (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat ep sp) := by
+  -- The smtLib lower is also a lawful lower; by uniqueness it equals `pf`.
+  have hSmtLower : SmtLibSemantics.IsLawfulLower (ExtRat.Number r)
+      (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat ep sp) :=
+    lsLawfulLower_smtLibLower ep sp he hs _
+  have hSmtNotNaN : ¬ (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat ep sp).isNaN := by
+    have := not_isNaN_lower_of_ne_NaN ep sp he hs (ExtRat.Number r) (by simp)
+    grind only
+  have hpf_eq : pf = SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) := by
+    apply eq_of_IsLawfulLower_of_IsLawfulLower
+    · exact hpfNotNaN
+    · exact hSmtNotNaN
+    · exact hpfLower
+    · exact hSmtLower
+  apply EUnpackedFloat.Rel_of_Rel_of_state_eq_Number
+  · simp [hres]
+  · refine UnpackedFloat.Rel_of_toRat_eq_toRat_and_sign _ _ ?_ ?_
+    · rw [hToRat, hpf_eq]
+    · rw [hSign, hpf_eq]
+
+  /--
+info: 'Fp.EUnpackedFloat.Rel_smtLibLower_of_witness' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms EUnpackedFloat.Rel_smtLibLower_of_witness
+
+/-- A normalized float that does not underflow is nonzero, so its significand msb is set.
+(A zero would have `ex = intMin`, whose value `-2^(eu-1)` is below `minSubnormalExp`, i.e.
+underflow — contradicting `hnotunder`.) -/
+theorem UnpackedFloat.msb_eq_true_of_normalize_of_not_blastIsUnderflowNonneg
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su) (hxnorm : x.normalize = x)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false) :
+    x.sig.msb = true := by
+  have hsig0 : x.sig ≠ 0#su := by
+    intro h0
+    have hmk : x = UnpackedFloat.mkZero x.sign := by
+      have h := hxnorm; rw [UnpackedFloat.normalize] at h
+      simpa only [h0, beq_self_eq_true, cond_true] using h.symm
+    have hunderE : minSubnormalExp ep sp ≤ x.ex.toInt := by
+      have := UnpackedFloat.blastUnderflowNonneg_eq_decide he hs heu x; grind
+    have heupos : 0 < eu := by have := @zero_lt_exponentWidth ep sp; grind
+    have hexval : x.ex.toInt = -2 ^ (eu - 1) := by
+      have hmod : (2 : Nat) ^ (eu - 1) % 2 ^ eu = 2 ^ (eu - 1) :=
+        Nat.mod_eq_of_lt (Nat.pow_lt_pow_of_lt (by grind) (by grind))
+      rw [hmk, UnpackedFloat.ex_mkZero, BitVec.toInt_intMin, hmod]
+      push_cast; grind
+    have hlt := neg_two_pow_exponentWidth_lt_minSubnormalExp (e := ep) (s := sp) he hs
+    have hpow : (2 : Int) ^ (exponentWidth ep sp - 1) ≤ 2 ^ (eu - 1) := by
+      have h1 : (2 : Nat) ^ (exponentWidth ep sp - 1) ≤ 2 ^ (eu - 1) :=
+        Nat.pow_le_pow_right (by grind) (by grind)
+      have hc1 : ((2 ^ (exponentWidth ep sp - 1) : Nat) : Int) = (2 : Int) ^ (exponentWidth ep sp - 1) := by
+        push_cast; rfl
+      have hc2 : ((2 ^ (eu - 1) : Nat) : Int) = (2 : Int) ^ (eu - 1) := by push_cast; rfl
+      grind
+    grind
+  exact (UnpackedFloat.normalize_eq_self_iff x hsig0).mp hxnorm
+
+/-! ### Binade bounds (shared API) -/
+
+/-- A nonnegative packed float lies strictly below the top of its binade:
+`pf.toRat < 2 ^ (toRatExp + 1)` (since `toRatSig < 2`). -/
+theorem PackedFloat.toRat_lt_two_pow_toRatExp_succ_of_sign_false {e s : Nat}
+    (pf : PackedFloat e s) (hsign : pf.sign = false) :
+    pf.toRat < 2 ^ (pf.toRatExp + 1) := by
+  have hsg : (Bool.toSign false : Rat) = 1 := by simp [Bool.toSign]
+  rw [PackedFloat.toRat, hsign, hsg, Rat.one_mul]
+  have h2 := pf.toRatSig_lt_two
+  have hpow : (0 : Rat) < 2 ^ pf.toRatExp := Rat.two_pow_pos _
+  rw [← Rat.mul_self_zpow_eq_zpow_succ (a := (2 : Rat)) (n := pf.toRatExp) (by grind)]
+  exact (Rat.mul_lt_mul_cancel_right_of_lt hpow).mpr h2
+
+/-- The rational exponent of any packed float is at least `minNormalExp` (subnormals
+all share that exponent; normals have `ex.toNat ≥ 1` since `isNorm` forbids `ex = 0`). -/
+theorem PackedFloat.minNormalExp_le_toRatExp {e s : Nat} (pf : PackedFloat e s) (he : 0 < e) :
+    minNormalExp e ≤ pf.toRatExp := by
+  rw [PackedFloat.toRatExp, minNormalExp]
+  split
+  · case isTrue hnorm =>
+    have hne : pf.ex ≠ BitVec.zero e := by
+      simp only [PackedFloat.isNorm, Bool.and_eq_true, bne_iff_ne] at hnorm; exact hnorm.2
+    have : 1 ≤ pf.ex.toNat := by
+      rcases Nat.eq_zero_or_pos pf.ex.toNat with h | h
+      · exact absurd (by apply BitVec.eq_of_toNat_eq; simpa using h) hne
+      · exact h
+    grind
+  · case isFalse _ => grind
+
+/-- A nonnegative unpacked float whose significand msb is set is at least `2 ^ ex`
+(the bottom of its binade). -/
+theorem UnpackedFloat.two_pow_ex_le_toRat'_of_msb_of_sign_false {e s : Nat}
+    (uf : UnpackedFloat e s) (hs : 0 < s) (hsign : uf.sign = false) (hmsb : uf.sig.msb = true) :
+    (2 : Rat) ^ uf.ex.toInt ≤ uf.toRat' := by
+  have hsg : (Bool.toSign false : Rat) = 1 := by simp [Bool.toSign]
+  rw [UnpackedFloat.toRat', hsign, hsg, Rat.one_mul, UnpackedFloat.toExpInt,
+    UnpackedFloat.toNat_toSigNat_eq]
+  have hge : 2 ^ (s - 1) ≤ uf.sig.toNat := by
+    rw [BitVec.msb_eq_decide] at hmsb; simpa using hmsb
+  have hgeR : (2 : Rat) ^ (s - 1 : Nat) ≤ (uf.sig.toNat : Rat) := by exact_mod_cast hge
+  have hpow : (0 : Rat) < 2 ^ (-(↑(s - 1) - uf.ex.toInt)) := Rat.two_pow_pos _
+  have hfac : (2 : Rat) ^ uf.ex.toInt
+      = (2 : Rat) ^ (s - 1 : Nat) * 2 ^ (-(↑(s - 1) - uf.ex.toInt)) := by
+    rw [← Rat.zpow_natCast (2 : Rat) (s - 1), Rat.zpow_mul_zpow (by grind)]
+    congr 1; grind
+  rw [hfac]
+  exact Rat.mul_le_mul_of_nonneg_right hgeR (Rat.le_of_lt hpow)
+
+/-- A nonnegative unpacked float is strictly below the top of its binade: `toRat' < 2^(ex+1)`
+(holds for *any* significand since `sig.toNat < 2^s`). -/
+theorem UnpackedFloat.toRat'_lt_two_pow_ex_succ_of_sign_false {e s : Nat}
+    (uf : UnpackedFloat e s) (hs : 0 < s) (hsign : uf.sign = false) :
+    uf.toRat' < (2 : Rat) ^ (uf.ex.toInt + 1) := by
+  have hsg : (Bool.toSign false : Rat) = 1 := by simp [Bool.toSign]
+  rw [UnpackedFloat.toRat', hsign, hsg, Rat.one_mul, UnpackedFloat.toExpInt,
+    UnpackedFloat.toNat_toSigNat_eq]
+  have hlt : (uf.sig.toNat : Rat) < (2 : Rat) ^ (s : Nat) := by
+    have := uf.sig.isLt; exact_mod_cast this
+  have hpow : (0 : Rat) < 2 ^ (-(↑(s - 1) - uf.ex.toInt)) := Rat.two_pow_pos _
+  have hfac : (2 : Rat) ^ (uf.ex.toInt + 1)
+      = (2 : Rat) ^ (s : Nat) * 2 ^ (-(↑(s - 1) - uf.ex.toInt)) := by
+    rw [← Rat.zpow_natCast (2 : Rat) s, Rat.zpow_mul_zpow (by grind)]
+    congr 1
+    rw [Int.natCast_sub (show 1 ≤ s by grind)]; push_cast; grind
+  rw [hfac]
+  exact (Rat.mul_lt_mul_cancel_right_of_lt hpow).mpr hlt
+
+/-- A nonnegative unpacked float has nonnegative value. -/
+theorem UnpackedFloat.toRat'_nonneg_of_sign_false {e s : Nat}
+    (uf : UnpackedFloat e s) (hsign : uf.sign = false) :
+    0 ≤ uf.toRat' prec := by
+  have hsg : (Bool.toSign false : Rat) = 1 := by simp [Bool.toSign]
+  rw [UnpackedFloat.toRat', hsign, hsg, Rat.one_mul, UnpackedFloat.toNat_toSigNat_eq]
+  have h1 : (0 : Rat) ≤ (uf.sig.toNat : Rat) := by exact_mod_cast Nat.zero_le _
+  have h2 : (0 : Rat) < 2 ^ uf.toExpInt prec := Rat.two_pow_pos _
+  exact Rat.mul_nonneg h1 (Rat.le_of_lt h2)
+
+/-- `minSubnormalNumber` is a nonzero subnormal (hence normal-or-nonzero-subnormal). -/
+theorem PackedFloat.isNormOrNonzeroSubnorm_minSubnormalNumber (e s : Nat) (sign : Bool)
+    (he : 0 < e) (hs : 0 < s) :
+    (PackedFloat.minSubnormalNumber e s sign).isNormOrNonzeroSubnorm := by
+  apply PackedFloat.isNormOrSubnorm_of_isSubnorm
+  rw [PackedFloat.isNonzeroSubnorm_minSubnormalNumber_eq_decide]
+  simp [he, hs]
+
+/-- `minSubnormalNumber` is not NaN. -/
+theorem PackedFloat.not_isNaN_minSubnormalNumber (e s : Nat) (sign : Bool)
+    (he : 0 < e) (hs : 0 < s) :
+    ¬ (PackedFloat.minSubnormalNumber e s sign).isNaN := by
+  simpa using PackedFloat.not_isNaN_of_isNormOrSubnorm
+    (PackedFloat.isNormOrNonzeroSubnorm_minSubnormalNumber e s sign he hs)
+
+/-! ## Branch (1): underflow
+
+When `x` is positive but smaller in magnitude than the smallest representable
+subnormal (i.e. `blastIsUnderflowNonneg`), the greatest representable PF ≤ x
+is `+0`. -/
+
+/--
+Spec-side: when `x` underflows the target format, `+0` is a lawful lower
+for `Number x.toRat'`.
+
+This is hard: it requires knowing `x.toRat' < (minSubnormal target).toRat`
+and that no negative PF can be `> x`'s value (since `x ≥ 0`).
+-/
+theorem isLawfulLower_Number_getZero_of_underflowNonneg
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : 0 < su)
+    (x : UnpackedFloat eu su)
+    (hxsign : x.sign = false)
+    (hunder : x.blastIsUnderflowNonneg ep sp = true) :
+    SmtLibSemantics.IsLawfulLower (ExtRat.Number x.toRat')
+      (PackedFloat.getZero ep sp false) := by
+  have hnn : 0 ≤ x.toRat' := UnpackedFloat.toRat'_nonneg_of_sign_false x hxsign
+  -- `x.toRat' < minSubnormalNumber.toRat = 2^minSubnormalExp`.
+  have hlt : x.toRat' < (PackedFloat.minSubnormalNumber ep sp false).toRat := by
+    rw [PackedFloat.toExtRat_minSubnormal_eq ep sp he hs]
+    have hub := UnpackedFloat.toRat'_lt_two_pow_ex_succ_of_sign_false x hsu hxsign
+    have hexub : x.ex.toInt + 1 ≤ minNormalExp ep - (sp : Int) := by
+      rw [UnpackedFloat.blastUnderflowNonneg_eq_decide he hs heu] at hunder
+      simp only [decide_eq_true_eq] at hunder
+      have : minSubnormalExp ep sp = minNormalExp ep - sp := by
+        simp only [minSubnormalExp, maxSubnormalExp]; grind
+      grind
+    have hmono := Rat.two_pow_le_two_pow_of_le hexub
+    grind
+  have hgz : (PackedFloat.getZero ep sp false).toExtRat = ExtRat.Number 0 := by
+    rw [PackedFloat.toExtRat_eq_toExtRat',
+      PackedFloat.toExtRat'_eq_zero_of_isZero _ (by simp [PackedFloat.isZero_getZero] <;> grind)]
+  constructor
+  · -- `getZero ≤ x` in the embedding: `0 ≤ x.toRat'`.
+    show (PackedFloat.getZero ep sp false).toExtRat ≤ ExtRat.Number x.toRat'
+    rw [hgz]
+    simp only [ExtRat.ExtRat.num_le_num_iff, decide_eq_true_eq]; exact hnn
+  · -- anything `≤ x` is at most `+0` (positives are `≥ minSubnormal > x.toRat'`).
+    intro y hy
+    have hy' : y.toExtRat' ≤ ExtRat.Number x.toRat' := by
+      rw [← PackedFloat.toExtRat_eq_toExtRat']; exact hy
+    clear hy
+    induction y using PackedFloat.kindCasesNaNInfZeroNum with
+    | nanCase n hn =>
+      exfalso; rw [PackedFloat.toExtRat'_eq_NaN_of_isNaN n hn] at hy'; simp at hy'
+    | infCase sign =>
+      cases sign
+      case false =>
+        exfalso; rw [PackedFloat.toExtRat'_getInfinity hs] at hy'; simp at hy'
+      case true =>
+        exact PackedFloat.le_of_nonneg_of_neg _ _ (by simp [PackedFloat.sign_getInfinity])
+          (by simp [PackedFloat.sign_getZero])
+          (by simp [PackedFloat.isNaN_getInfinity_eq_false] <;> grind)
+          (by simp [PackedFloat.isNaN_getZero] <;> grind)
+    | zeroCase sign =>
+      cases sign
+      case false => exact PackedFloat.le_refl _
+      case true =>
+        exact PackedFloat.le_of_nonneg_of_neg _ _ (by simp [PackedFloat.sign_getZero])
+          (by simp [PackedFloat.sign_getZero]) (by simp [PackedFloat.isNaN_getZero] <;> grind)
+          (by simp [PackedFloat.isNaN_getZero] <;> grind)
+    | numCase n hn =>
+      by_cases hnsign : n.sign
+      · exact PackedFloat.le_of_nonneg_of_neg n _ hnsign (by simp [PackedFloat.sign_getZero])
+          (by simpa using PackedFloat.not_isNaN_of_isNormOrSubnorm hn)
+          (by simp [PackedFloat.isNaN_getZero] <;> grind)
+      · exfalso
+        simp only [Bool.not_eq_true] at hnsign
+        have hnNaN : ¬ n.isNaN := by simpa using PackedFloat.not_isNaN_of_isNormOrSubnorm hn
+        have hnzero : ¬ n.isZero := by simpa using PackedFloat.not_isZero_of_isNormOrSubnorm hn
+        have hminNaN : ¬ (PackedFloat.minSubnormalNumber ep sp false).isNaN :=
+          PackedFloat.not_isNaN_minSubnormalNumber ep sp false (by grind) hs
+        have hminfin : (PackedFloat.minSubnormalNumber ep sp false).isNormOrNonzeroSubnorm :=
+          PackedFloat.isNormOrNonzeroSubnorm_minSubnormalNumber ep sp false (by grind) hs
+        -- `¬(n < minSubnormal)` (since `¬ n.isZero`) ⇒ `minSubnormal ≤ n`.
+        have hnotlt : ¬ (n < PackedFloat.minSubnormalNumber ep sp false) := by
+          rw [PackedFloat.isZero_iff_lt_minSubnormalNumber_of_isNaN_of_nonneg n he hs hnNaN hnsign]
+          exact hnzero
+        have hge : PackedFloat.minSubnormalNumber ep sp false ≤ n := by
+          apply Classical.byContradiction
+          intro hcon
+          exact hnotlt (PackedFloat.lt_of_not_le _ _ (by grind) hcon)
+        -- transport to `toRat`: `minSubnormal.toRat ≤ n.toRat`.
+        have hgeR : (PackedFloat.minSubnormalNumber ep sp false).toRat ≤ n.toRat := by
+          have hmin := PackedFloat.toExtRat'_le_toExtRat'_of_le (by grind) hs _ _ hminNaN hnNaN hge
+          rw [PackedFloat.toExtRat'_eq_toRat_of hminfin, PackedFloat.toExtRat'_eq_toRat_of hn,
+            ExtRat.ExtRat.num_le_num_iff] at hmin
+          simpa using hmin
+        have hnle : n.toRat ≤ x.toRat' := by
+          rw [PackedFloat.toExtRat'_eq_toRat_of hn] at hy'
+          simpa only [ExtRat.ExtRat.num_le_num_iff, decide_eq_true_eq] using hy'
+        grind
+
+theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_underflow
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : 0 < su)
+    (x : UnpackedFloat eu su)
+    (hxsign : x.sign = false)
+    (hunder : x.blastIsUnderflowNonneg ep sp = true) :
+    (EUnpackedFloat.mkNumber (UnpackedFloat.mkZero false) :
+      EUnpackedFloat eu (sp+1)).Rel
+      (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
+  apply EUnpackedFloat.Rel_smtLibLower_of_witness
+      (pf := PackedFloat.getZero ep sp false)
+      (he := by grind) (hs := hs)
+  · simp
+  · simp; grind only
+  · exact isLawfulLower_Number_getZero_of_underflowNonneg he hs heu hsu x hxsign hunder
+  · -- `(mkZero false).num.toRat' = 0 = (getZero ep sp false).toRat`
+    simp only [EUnpackedFloat.num_mkNumber]
+    rw [UnpackedFloat.toRat'_mkZero,
+        PackedFloat.toRat_eq_Zero_of_isZero _ (by simp [PackedFloat.isZero_getZero]; grind)]
+  · -- `(mkZero false).num.sign = false = (getZero ep sp false).sign`
+    simp [UnpackedFloat.mkZero, PackedFloat.sign_getZero]
+
+/-! ### `maxNormalNumber` facts (shared by the overflow branch) -/
+
+/-- `maxNormalNumber` is not NaN: its exponent is `allOnes - 1`, never `allOnes`
+    (when `0 < ep`). -/
+theorem PackedFloat.not_isNaN_maxNormalNumber (ep sp : Nat) (sign : Bool) (hep : 0 < ep) :
+    ¬ (PackedFloat.maxNormalNumber ep sp sign).isNaN := by
+  -- The exponent of `maxNormalNumber` is `allOnes - 1`, which differs from `allOnes`
+  -- whenever `0 < ep`. `isNaN` requires `ex = allOnes`, so this case is excluded.
+  simp [PackedFloat.maxNormalNumber, PackedFloat.isNaN]
+  intros hcontra
+  rw [BitVec.sub_eq_iff_eq_add] at hcontra
+  simp at hcontra
+  grind
+
+/-- `maxNormalNumber` is a normal number when `1 < e`. -/
+theorem PackedFloat.isNormOrNonzeroSubnorm_maxNormalNumber'
+    {e s : Nat} (he : 1 < e) (sign : Bool) :
+    (PackedFloat.maxNormalNumber e s sign).isNormOrNonzeroSubnorm := by
+  have h := PackedFloat.isNorm_maxNormalNumber_of_lt_e e s he sign
+  simp only [PackedFloat.isNormOrNonzeroSubnorm]
+  simp only [PackedFloat.isNorm] at h
+  grind
+
+/-- Negating the positive `maxNormalNumber` gives the negative one. -/
+theorem PackedFloat.neg_maxNormalNumber_false' {ep sp : Nat} :
+    - PackedFloat.maxNormalNumber ep sp false = PackedFloat.maxNormalNumber ep sp true := rfl
+
+/-- The value of `maxNormalNumber` is strictly below `2 ^ (maxNormalExp + 1)`. -/
+theorem PackedFloat.toRat_maxNormalNumber_lt_two_pow
+    {ep sp : Nat} (hep : 2 < ep) (hs : 0 < sp) :
+    (PackedFloat.maxNormalNumber ep sp false).toRat < (2 : Rat) ^ (maxNormalExp ep + 1) := by
+  rw [PackedFloat.toRat, PackedFloat.toRatSig_maxNormalNumber ep sp hep,
+    PackedFloat.toRatExp_maxNormalNumber ep sp hep]
+  simp [Bool.toSign]
+  have h2 : (2 : Rat) * (2 : Rat) ^ maxNormalExp ep = (2 : Rat) ^ (maxNormalExp ep + 1) :=
+    Rat.mul_self_zpow_eq_zpow_succ (by grind)
+  rw [← h2, Rat.sub_mul]
+  have hpos : (0 : Rat) < 2 ^ maxNormalExp ep := Rat.two_pow_pos _
+  have hsub : (0 : Rat) < 2 ^ (-(sp : Int)) := Rat.two_pow_pos _
+  have : (0 : Rat) < 2 ^ (-(sp : Int)) * 2 ^ maxNormalExp ep := Rat.mul_positive hsub hpos
+  grind
+
+/-- The value of the positive `maxNormalNumber` is nonnegative. -/
+theorem PackedFloat.toRat_maxNormalNumber_nonneg
+    {ep sp : Nat} (he : 1 < ep) :
+    (0 : Rat) ≤ (PackedFloat.maxNormalNumber ep sp false).toRat := by
+  have h := PackedFloat.sign_iff_toRat_neg
+    (PackedFloat.isNormOrNonzeroSubnorm_maxNormalNumber' (e := ep) (s := sp) he false)
+  rw [PackedFloat.sign_maxNormalNumber] at h
+  have h3 : ¬ ((PackedFloat.maxNormalNumber ep sp false).toRat < 0) := by
+    simpa using h.symm
+  grind
+
+/-- The max normal value strictly increases with the significand width. -/
+theorem PackedFloat.toRat_maxNormalNumber_lt_toRat_maxNormalNumber_succ
+    {ep sp : Nat} (hep : 2 < ep) (hs : 0 < sp) :
+    (PackedFloat.maxNormalNumber ep sp false).toRat
+      < (PackedFloat.maxNormalNumber ep (sp + 1) false).toRat := by
+  rw [PackedFloat.toRat, PackedFloat.toRat,
+    PackedFloat.toRatSig_maxNormalNumber ep sp hep,
+    PackedFloat.toRatExp_maxNormalNumber ep sp hep,
+    PackedFloat.toRatSig_maxNormalNumber ep (sp + 1) hep,
+    PackedFloat.toRatExp_maxNormalNumber ep (sp + 1) hep]
+  simp [Bool.toSign]
+  have hpos : (0 : Rat) < 2 ^ maxNormalExp ep := Rat.two_pow_pos _
+  rw [Rat.sub_mul, Rat.sub_mul]
+  have hppos : (0 : Rat) < 2 ^ (-((sp : Int) + 1)) := Rat.two_pow_pos _
+  have hstep : (2 : Rat) * (2 : Rat) ^ (-((sp : Int) + 1)) = 2 ^ (-((sp : Int) + 1) + 1) :=
+    Rat.mul_self_zpow_eq_zpow_succ (by grind)
+  have hexp : (-((sp : Int) + 1) + 1) = -(sp : Int) := by grind
+  rw [hexp] at hstep
+  have hlt : (2 : Rat) ^ (-((sp : Int) + 1)) < 2 ^ (-(sp : Int)) := by
+    rw [← hstep]
+    grind
+  have h1 : (2 : Rat) ^ (-((sp : Int) + 1)) * 2 ^ maxNormalExp ep
+      < 2 ^ (-(sp : Int)) * 2 ^ maxNormalExp ep := by
+    rw [Rat.mul_lt_mul_cancel_right_of_lt hpos]
+    exact hlt
+  grind
+
+/-- For `R` at or above `maxNormalNumber`, the greatest float `≤ R` is
+`maxNormalNumber` itself. -/
+theorem lower_Number_eq_maxNormalNumber_of_toRat_le
+    {ep sp : Nat} (hep : 1 < ep) (hep0 : 0 < ep) (hsp : 0 < sp) (R : Rat)
+    (hmax : (PackedFloat.maxNormalNumber ep sp false).toRat ≤ R) :
+    lower ep sp hep0 hsp (ExtRat.Number R) = PackedFloat.maxNormalNumber ep sp false := by
+  have hfin := PackedFloat.isNormOrNonzeroSubnorm_maxNormalNumber' (e := ep) (s := sp) hep false
+  have hnan := PackedFloat.not_isNaN_maxNormalNumber ep sp false hep0
+  symm
+  apply eq_lower_of_IsLawfulLower ep sp hep0 hsp _ _ (by simp)
+  constructor
+  · -- `maxNormalNumber ≤ R` in the embedding
+    show (PackedFloat.maxNormalNumber ep sp false).toExtRat ≤ ExtRat.Number R
+    rw [PackedFloat.toExtRat_eq_toExtRat', PackedFloat.toExtRat'_eq_toRat_of hfin]
+    simp only [ExtRat.ExtRat.num_le_num_iff, decide_eq_true_eq]
+    exact hmax
+  · -- anything `≤ R` is at most `maxNormalNumber`
+    intro y hy
+    have hy' : y.toExtRat' ≤ ExtRat.Number R := by
+      rw [← PackedFloat.toExtRat_eq_toExtRat']
+      exact hy
+    clear hy
+    induction y using PackedFloat.kindCasesNaNInfZeroNum with
+    | nanCase n hn =>
+      exfalso
+      rw [PackedFloat.toExtRat'_eq_NaN_of_isNaN n hn] at hy'
+      simp at hy'
+    | infCase sign =>
+      cases sign
+      case false =>
+        exfalso
+        rw [PackedFloat.toExtRat'_getInfinity hsp] at hy'
+        simp at hy'
+      case true =>
+        exact PackedFloat.le_of_nonneg_of_neg _ _ (by simp)
+          (by simp [PackedFloat.sign_maxNormalNumber]) (by simp [hsp]) hnan
+    | zeroCase sign =>
+      cases sign
+      case true =>
+        exact PackedFloat.le_of_nonneg_of_neg _ _ (by simp [PackedFloat.sign_getZero])
+          (by simp [PackedFloat.sign_maxNormalNumber]) (by simp [hsp] <;> grind) hnan
+      case false =>
+        apply PackedFloat.le_of_toExtRat'_le_toExtRat' hep0 hsp
+          (PackedFloat.getZero ep sp false) (PackedFloat.maxNormalNumber ep sp false)
+          (by simp [hsp] <;> grind) hnan
+        · intro h1 h2 h3
+          simp [PackedFloat.sign_getZero] at h3
+        · intro h1 _ _
+          exfalso
+          have h2 := PackedFloat.not_isZero_of_isNormOrSubnorm hfin
+          simp at h2
+          simp [h2] at h1
+        · rw [PackedFloat.toExtRat'_eq_zero_of_isZero _ (by simp [hsp] <;> grind),
+            PackedFloat.toExtRat'_eq_toRat_of hfin]
+          simp only [ExtRat.ExtRat.num_le_num_iff, decide_eq_true_eq]
+          exact PackedFloat.toRat_maxNormalNumber_nonneg hep
+    | numCase n hn =>
+      by_cases hsign : n.sign
+      · exact PackedFloat.le_of_nonneg_of_neg _ _ hsign
+          (by simp [PackedFloat.sign_maxNormalNumber])
+          (by simpa using PackedFloat.not_isNaN_of_isNormOrSubnorm hn) hnan
+      · apply PackedFloat.le_maxNormalNumber_of_isNormOrNonzeroSubnorm_of_nonneg _ hep hn
+        simpa using hsign
+
+/-! ## Branch (2): overflow
+
+When `x.toRat'` exceeds `maxNormalNumber`, the greatest representable PF ≤ x
+is `maxNormalNumber ep sp false` (since +∞ would be > x in the embedding,
+and there is no PF strictly between maxNormal and +∞). -/
+
+/--
+Spec-side: when `x` overflows the target format positively, `maxNormalNumber`
+is a lawful lower for `Number x.toRat'`.
+
+Proof: overflow forces `2^(maxNormalExp+1) ≤ x.toRat'` while
+`maxNormalNumber.toRat < 2^(maxNormalExp+1)`, so `maxNormalNumber.toRat ≤ x.toRat'`;
+then the greatest float `≤ x.toRat'` is `maxNormalNumber`
+(`lower_Number_eq_maxNormalNumber_of_toRat_le`), and `lower` is lawful. -/
+theorem isLawfulLower_Number_maxNormalNumber_of_overflowNonneg
+    (hep : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su)
+    (hxsign : x.sign = false) (hxnorm : x.normalize = x)
+    (hover  : x.blastIsEarlyOverflowNonneg ep sp = true) :
+    SmtLibSemantics.IsLawfulLower (ExtRat.Number x.toRat')
+      (PackedFloat.maxNormalNumber ep sp false) := by
+  -- overflow ⇒ ¬underflow ⇒ (normalized) msb set ⇒ nonzero.
+  have hnotunder : x.blastIsUnderflowNonneg ep sp = false := by
+    rw [UnpackedFloat.blastUnderflowNonneg_eq_decide (by grind) hs heu]
+    rw [UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide (by grind) hs heu] at hover
+    have : minSubnormalExp ep sp ≤ maxNormalExp ep := by
+      simp only [minSubnormalExp, maxSubnormalExp, minNormalExp, maxNormalExp]; grind
+    simp only [decide_eq_true_eq] at hover; grind
+  have hmsb := UnpackedFloat.msb_eq_true_of_normalize_of_not_blastIsUnderflowNonneg
+    (by grind) hs heu x hxnorm hnotunder
+  have hzero : ¬ x.isZero := by
+    simp only [UnpackedFloat.isZero, beq_eq_false_iff_ne, ne_eq, Bool.not_eq_true]
+    intro h0
+    rw [h0, BitVec.msb_eq_getMsbD_zero] at hmsb
+    simp at hmsb
+  have hsu0 : 0 < su := by
+    rcases Nat.eq_zero_or_pos su with h | h
+    · subst h; rw [BitVec.msb_eq_getMsbD_zero] at hmsb; simp at hmsb
+    · exact h
+  -- `maxNormalNumber.toRat ≤ x.toRat'`, via the binade lower bound `2^x.ex ≤ x.toRat'`
+  -- and the overflow fact `maxNormalExp < x.ex.toInt`.
+  have hle : (PackedFloat.maxNormalNumber ep sp false).toRat ≤ x.toRat' := by
+    have h1 := PackedFloat.toRat_maxNormalNumber_lt_two_pow hep hs
+    have hexlb : maxNormalExp ep + 1 ≤ x.ex.toInt := by
+      rw [UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide (by grind) hs heu] at hover
+      simp only [decide_eq_true_eq] at hover; grind
+    have hxlb := UnpackedFloat.two_pow_ex_le_toRat'_of_msb_of_sign_false x hsu0 hxsign hmsb
+    have hmono := Rat.two_pow_le_two_pow_of_le hexlb
+    grind
+  -- `lower (Number x.toRat') = maxNormalNumber`, and `lower` is lawful.
+  have heq := lower_Number_eq_maxNormalNumber_of_toRat_le (by grind) (by grind) hs x.toRat' hle
+  have hlaw := IsLawfulLower_lower ep sp (by grind) hs (ExtRat.Number x.toRat')
+  rw [heq] at hlaw
+  exact hlaw
+
+/--
+The unpacked `maxNormal` and packed `maxNormalNumber` agree under `toRat`.
+-/
+theorem UnpackedFloat.toRat'_maxNormal_eq_toRat_maxNormalNumber
+    {eu su ep sp : Nat}
+    {sign : Bool}
+    (hsp : 0 < sp)
+    (hsu : sp + 1 ≤ su)
+    (hep : 2 < ep)
+    (heu : exponentWidth ep sp ≤ eu) :
+    (UnpackedFloat.maxNormal eu su ep sp sign).toRat' (sp)
+      = (PackedFloat.maxNormalNumber ep sp sign).toRat := by
+  rw [UnpackedFloat.maxNormal, UnpackedFloat.toRat']
+  simp [UnpackedFloat.toExpInt]
+  rw [PackedFloat.toRat]
+  rw [PackedFloat.toRatSig_maxNormalNumber]
+  rw [PackedFloat.toRatExp_maxNormalNumber]
+  rw [Nat.mod_eq_of_lt]
+  · rw [Int.bmod_eq_of_le]
+    · simp
+      rw [Int.neg_sub]
+      rw [Rat.zpow_sub_eq_zpow_mul_zpow (by grind)]
+      rw [Rat.natCast_sub_of_le (by grind)]
+      push_cast
+      have : ((2 : Rat) ^ (sp + 1) - 1) * (2 : Rat) ^ (-sp : Int) = (2 - (2 : Rat) ^ (-sp : Int)) := by
+        rw [Rat.sub_mul]
+        simp only [Rat.one_mul]
+        norm_cast
+        rw [Nat.pow_succ]
+        simp only [Rat.natCast_mul, Rat.natCast_pow, Rat.natCast_ofNat]
+        have := Rat.zpow_mul_zpow (show 2 ≠ 0 by grind) sp (-sp)
+        simp only [Rat.zpow_natCast] at this
+        grind only
+      rw [← this]
+      grind
+    · simp [maxNormalExp]
+      grind
+    · simp [maxNormalExp]
+      norm_cast
+      apply Nat.lt_trans <| bias_lt_two_pow_exponent_sub_one ep
+      apply Nat.pow_lt_pow_of_lt
+      · grind
+      · have := self_lt_exponentWidth ep sp (by grind) (by grind)
+        grind
+  · rw [Nat.pow_add]
+    have : 2 ^ (sp + 1) ≤ 2 ^ su := by
+      apply Nat.pow_le_pow_of_le
+      · grind
+      · grind
+    have : 2 * 2 ^ sp ≤ 2 ^ su := by
+      grind
+    grind
+  · grind
+  · grind
+
+/--
+info: 'Fp.UnpackedFloat.toRat'_maxNormal_eq_toRat_maxNormalNumber' depends on axioms:
+[propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms UnpackedFloat.toRat'_maxNormal_eq_toRat_maxNormalNumber
+
+theorem UnpackedFloat.mkNumber_maxNormal_Rel_smtLibLower_of_overflow
+    (hep : 2 < ep)
+    (hsp : 0 < sp)
+    (x : UnpackedFloat eu su)
+    (hsu : sp + 1 ≤ sm)
+    (heu : exponentWidth ep sp ≤ em)
+    (heu' : exponentWidth ep sp ≤ eu)
+    (hxsign : x.sign = false)
+    (hxnorm : x.normalize = x)
+    (hover : x.blastIsEarlyOverflowNonneg ep sp = true) :
+    (EUnpackedFloat.mkNumber (UnpackedFloat.maxNormal em sm ep sp false)).Rel
+      (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
+  apply EUnpackedFloat.Rel_smtLibLower_of_witness
+      (pf := PackedFloat.maxNormalNumber ep sp false)
+      (by grind) (by grind)
+  · simp
+  · exact PackedFloat.not_isNaN_maxNormalNumber ep sp false (by grind)
+  · exact isLawfulLower_Number_maxNormalNumber_of_overflowNonneg (by grind) (by grind) heu' x hxsign hxnorm hover
+  · -- `num.toRat'` of the unpacked `maxNormal` equals `toRat` of the packed `maxNormalNumber`.
+    simp only [EUnpackedFloat.num_mkNumber]
+    apply UnpackedFloat.toRat'_maxNormal_eq_toRat_maxNormalNumber
+    · grind
+    · grind
+    · grind
+    · grind
+  · -- sign is `false` on both sides
+    simp [UnpackedFloat.maxNormal, PackedFloat.sign_maxNormalNumber]
+
+/--
+info: 'Fp.UnpackedFloat.mkNumber_maxNormal_Rel_smtLibLower_of_overflow' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+-/
+#guard_msgs in #print axioms UnpackedFloat.mkNumber_maxNormal_Rel_smtLibLower_of_overflow
+
+/-! ## Branch (3): normal range — `blastRoundTowardZero` is a lawful lower
+
+When `x` is in the normal range (no under/overflow), the bit-blasted
+round-toward-zero `next := blastRoundTowardZero x ep sp` produces an
+`UnpackedFloat (exponentWidth ep sp) (sp+1)` whose value is the greatest PF representable
+in `(ep, sp)` that is ≤ `x.toRat'`.
+
+To use the helper we need *some* `PackedFloat ep sp` `pf` such that
+  • `IsLawfulLower (Number x.toRat') pf`
+  • `next.toRat' = pf.toRat`
+  • `next.sign  = pf.sign`
+
+Such a `pf` exists because `next` is by construction representable in the
+target format (its exponent and significand are within `(ep, sp)` bounds in
+this branch); we don't have a single named constructor for it, so we
+existentially extract one. -/
+
+/-
+Key facts:
+
+- the packed float will be the one given by 'blastLowerNonneg.pack'
+- pack preserves the toRat, nor does it change the sign
+- we need a lemma that says that it's a lawful lower if the 'toRat' is equal, and then distance
+  btween 'pf.toRat' and 'x.toRat' is less than 1 ulp of 'pf' (which is the same as 1 ulp of 'blastRoundTowardZero x').
+  This needs a separate lemma or two.
+- These key facts establish the existence of the 'pf'.
+- TODO: maybe worth it to replace the existential with the concrete pf we know.
+-/
+/-- (M) Full not-underflow ⇒ early not-underflow.
+
+`blastIsEarlyUnderflowNonneg` is the coarser test (exponent strictly below the
+subnormal range), so it is subsumed by `blastIsUnderflowNonneg`. This lets the
+`truncateFittingExponent` invariance lemmas — which are stated with the `Early`
+form — apply under the hypothesis the keystone is actually given.
+
+Proof: discharge via `blastUnderflowNonneg_eq_decide` and
+`blastIsEarlyUnderflowNonneg_eq_decide` + `grind` on the exponent bounds. -/
+theorem UnpackedFloat.not_blastIsEarlyUnderflowNonneg_of_not_blastIsUnderflowNonneg
+    (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false) :
+    x.blastIsEarlyUnderflowNonneg ep sp = false := by
+  -- `not-underflow` says `minSubnormalExp ≤ x.ex.toInt`; since `minSubnormalExp - 1`
+  -- is strictly smaller, `early-underflow` (testing `< minSubnormalExp - 1`) is false.
+  rw [UnpackedFloat.blastIsEarlyUnderflowNonneg_eq_decide he hs heu]
+  rw [UnpackedFloat.blastUnderflowNonneg_eq_decide he hs heu] at hnotunder
+  simp only [decide_eq_false_iff_not] at hnotunder ⊢
+  grind
+
+/--
+info: 'Fp.UnpackedFloat.not_blastIsEarlyUnderflowNonneg_of_not_blastIsUnderflowNonneg' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+-/
+#guard_msgs in #print axioms UnpackedFloat.not_blastIsEarlyUnderflowNonneg_of_not_blastIsUnderflowNonneg
+
+/-- (U) The sub-ulp gap — the heart of round-toward-zero correctness.
+
+The bits discarded by `blastRoundTowardZero` are worth strictly less than one ulp
+of the *target* grid, so the rounded value plus one ulp strictly overshoots `x`.
+The ulp exponent is `x.ex.toInt - sp + off` where `off = (minNormalExp ep - x.ex.toInt).toNat`
+is the subnormal shift: in the normal range `off = 0` (ulp `2^(ex-sp)`), in the
+subnormal range `off = minNormalExp - ex` (ulp `2^(minNormalExp-sp)`, the subnormal
+quantum). The inequality is strict even when `x` is already representable.
+
+Proof: factor out the common weight `2^(ex-(su-1))`; the goal reduces to
+`x.sig.toNat < cleared.sig.toNat + 2^L` with `L = lsbIndex.toNat = (su-(sp+1))+off`,
+which holds because `blastClearSignificand` zeroes exactly the low `L` bits and
+`extractMsb'` then re-reads `cleared / 2^(su-(sp+1))`. -/
+theorem UnpackedFloat.toRat'_lt_blastRoundTowardZero_toRat'_add_ulp
+    (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su)
+    (hxsign : x.sign = false)
+    (hxnorm : x.normalize = x)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover  : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    x.toRat' <
+      (x.blastRoundTowardZero ep sp).toRat'
+        + (2 : Rat) ^ (x.ex.toInt - (sp : Int) + ((minNormalExp ep - x.ex.toInt).toNat : Int)) := by
+  -- Exponent / guard-index bounds from "no early over/underflow".
+  have hoverE : x.ex.toInt ≤ maxNormalExp ep := by
+    have := UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide he hs heu x; grind
+  have hunderE : minSubnormalExp ep sp ≤ x.ex.toInt := by
+    have := UnpackedFloat.blastUnderflowNonneg_eq_decide he hs heu x; grind
+  have hminrel : minNormalExp ep - minSubnormalExp ep sp = (sp : Int) := by
+    simp only [minSubnormalExp, maxSubnormalExp]; grind
+  have hdNat : (minNormalExp ep - x.ex.toInt).toNat ≤ sp := by grind
+  obtain ⟨hdL, hdU⟩ := shift_range he hs heu (exInt := x.ex.toInt) (by grind) hoverE
+  have hG := UnpackedFloat.toNat_guardBitIndex_eq he hs heu hsu x hdL hdU hdNat
+  -- `L = guardBitIndex + 1 = (su-(sp+1)) + off`, `m = su-(sp+1) ≤ L`.
+  have hLeq : (x.guardBitIndex ep sp).toNat + 1
+      = (minNormalExp ep - x.ex.toInt).toNat + (su - (sp + 1)) := by rw [hG]; grind
+  -- Clearing rounds the significand down to a multiple of `2^L`; `extractMsb'` re-reads
+  -- `cleared / 2^m`, and since `m ≤ L` this recovers `cleared` exactly.
+  have hcl := UnpackedFloat.blastClearSignificand_sig_toNat_eq x ep sp
+  have hdvd : 2 ^ (su - (sp + 1)) ∣ (x.blastClearSignificand ep sp).sig.toNat := by
+    rw [hcl]; exact Nat.two_pow_dvd_div_mul_two_pow x.sig.toNat (by grind)
+  have hrm : (x.blastRoundTowardZero ep sp).sig.toNat * 2 ^ (su - (sp + 1))
+      = (x.blastClearSignificand ep sp).sig.toNat := by
+    rw [sig_blastRoundTowardZero, BitVec.toNat_extractMsb'_zero _ (by grind)]
+    exact Nat.div_mul_cancel hdvd
+  -- The core Nat gap: `x.sig.toNat < cleared.sig.toNat + 2^L`.
+  have hnatN : x.sig.toNat
+      < (x.blastClearSignificand ep sp).sig.toNat
+          + 2 ^ ((minNormalExp ep - x.ex.toInt).toNat + (su - (sp + 1))) := by
+    rw [hcl, hLeq]
+    have hk : 0 < 2 ^ ((minNormalExp ep - x.ex.toInt).toNat + (su - (sp + 1))) :=
+      Nat.two_pow_pos _
+    have h1 := Nat.div_add_mod x.sig.toNat
+      (2 ^ ((minNormalExp ep - x.ex.toInt).toNat + (su - (sp + 1))))
+    have h2 := Nat.mod_lt x.sig.toNat hk
+    grind
+  have hnat : (x.sig.toNat : Rat)
+      < (x.blastClearSignificand ep sp).sig.toNat
+          + (2 : Rat) ^ ((minNormalExp ep - x.ex.toInt).toNat + (su - (sp + 1))) := by
+    exact_mod_cast hnatN
+  -- Expand both `toRat'` and factor the common weight `C = 2^(ex - (su-1))`.
+  rw [UnpackedFloat.toRat', UnpackedFloat.toRat', sign_blastRoundTowardZero, hxsign,
+    UnpackedFloat.toExpInt, UnpackedFloat.toExpInt, ex_blastRoundTowardZero,
+    UnpackedFloat.toNat_toSigNat_eq, UnpackedFloat.toNat_toSigNat_eq]
+  have hCpos : (0 : Rat) < 2 ^ (x.ex.toInt - ((su : Int) - 1)) := Rat.two_pow_pos _
+  have hsg : (Bool.toSign false : Rat) = 1 := by simp [Bool.toSign]
+  -- rewrite the three scaled terms onto the base weight `C = 2^(ex-(su-1))`.
+  have hround : (Bool.toSign false : Rat) * (x.blastRoundTowardZero ep sp).sig.toNat
+        * 2 ^ (-((↑((sp + 1) - 1) : Int) - x.ex.toInt))
+      = (x.blastClearSignificand ep sp).sig.toNat * 2 ^ (x.ex.toInt - ((su : Int) - 1)) := by
+    have hrmR : (↑(x.blastRoundTowardZero ep sp).sig.toNat : Rat) * 2 ^ (su - (sp + 1))
+        = ↑(x.blastClearSignificand ep sp).sig.toNat := by exact_mod_cast hrm
+    have hexp : (-((↑((sp + 1) - 1) : Int) - x.ex.toInt))
+        = (↑(su - (sp + 1)) : Int) + (x.ex.toInt - ((su : Int) - 1)) := by
+      rw [Int.natCast_sub (show sp + 1 ≤ su by grind)]
+      have e1 : ((sp + 1) - 1 : Nat) = sp := by grind
+      rw [e1]; push_cast; grind
+    rw [hexp, ← Rat.zpow_mul_zpow (by grind), Rat.zpow_natCast, hsg, ← hrmR]
+    grind
+  have hulp : (2 : Rat) ^ (x.ex.toInt - (sp : Int) + ((minNormalExp ep - x.ex.toInt).toNat : Int))
+      = (2 : Rat) ^ ((minNormalExp ep - x.ex.toInt).toNat + (su - (sp + 1)))
+          * 2 ^ (x.ex.toInt - ((su : Int) - 1)) := by
+    rw [← Rat.zpow_natCast (2 : Rat) ((minNormalExp ep - x.ex.toInt).toNat + (su - (sp + 1))),
+      Rat.zpow_mul_zpow (by grind)]
+    congr 1
+    push_cast [Int.natCast_sub (show sp + 1 ≤ su by grind)]; grind
+  have hx : (Bool.toSign false : Rat) * x.sig.toNat * 2 ^ (-((↑(su - 1) : Int) - x.ex.toInt))
+      = (x.sig.toNat : Rat) * 2 ^ (x.ex.toInt - ((su : Int) - 1)) := by
+    have hexp : (-((↑(su - 1) : Int) - x.ex.toInt)) = x.ex.toInt - ((su : Int) - 1) := by
+      rw [Int.natCast_sub (show 1 ≤ su by grind)]; push_cast; grind
+    rw [hexp, hsg]; grind
+  rw [hround, hulp, hx]
+  -- `x.sig.toNat * C < cleared.sig.toNat * C + (2^L) * C`, cancel `C > 0`.
+  have hmul := (Rat.mul_lt_mul_cancel_right_of_lt hCpos).mpr hnat
+  grind
+
+/--
+info: 'Fp.UnpackedFloat.toRat'_lt_blastRoundTowardZero_toRat'_add_ulp' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+-/
+#guard_msgs in #print axioms UnpackedFloat.toRat'_lt_blastRoundTowardZero_toRat'_add_ulp
+
+/-- (GLB) A non-NaN nonnegative packed float that is `≤ R` and lies within one ulp
+below `R` is the greatest lower bound of `R`.
+
+Reusable spec-side lemma. Proof: `constructor`.
+  * clause 1 (`embed pf ≤ R`): from `hle` via `toExtRat'_eq_toRat_of` + `num_le_num_iff`.
+  * clause 2 (`∀ pf', embed pf' ≤ R → pf' ≤ pf`): case-split `pf'` with
+    `PackedFloat.kindCasesNaNInfZeroNum`; NaN and `+∞` are excluded by `embed ≤ R`,
+    the negative kinds are `≤` the nonnegative `pf`, and for the positive-finite case
+    a `pf < pf'` would force `pf.toRat + ulp ≤ pf'.toRat ≤ R` (via
+    `toRat_le_plus_toRat_of_toRat_le_toRat_of_sign_eq_false`), contradicting `hlt`.
+Mirror the body of `lower_Number_eq_maxNormalNumber_of_toRat_le`. -/
+theorem PackedFloat.isLawfulLower_of_toRat_le_of_lt_add_ulp
+    (he : 1 < ep) (hs : 0 < sp)
+    (R : Rat) (pf : PackedFloat ep sp)
+    (hsign : pf.sign = false)
+    (hfin : pf.isNormOrNonzeroSubnorm)
+    (hle : pf.toRat ≤ R)
+    (hlt : R < pf.toRat + (2 : Rat) ^ (-(sp : Int)) * 2 ^ pf.toRatExp) :
+    SmtLibSemantics.IsLawfulLower (ExtRat.Number R) pf := by
+  have hpfNaN : ¬ pf.isNaN := by simpa using PackedFloat.not_isNaN_of_isNormOrSubnorm hfin
+  constructor
+  · -- `pf ≤ R` in the embedding.
+    show pf.toExtRat ≤ ExtRat.Number R
+    rw [PackedFloat.toExtRat_eq_toExtRat', PackedFloat.toExtRat'_eq_toRat_of hfin]
+    simp only [ExtRat.ExtRat.num_le_num_iff, decide_eq_true_eq]
+    exact hle
+  · -- Any representable `y` with embedded value `≤ R` is at most `pf`.
+    intro y hy
+    have hy' : y.toExtRat' ≤ ExtRat.Number R := by
+      rw [← PackedFloat.toExtRat_eq_toExtRat']; exact hy
+    clear hy
+    induction y using PackedFloat.kindCasesNaNInfZeroNum with
+    | nanCase n hn =>
+      exfalso
+      rw [PackedFloat.toExtRat'_eq_NaN_of_isNaN n hn] at hy'
+      simp at hy'
+    | infCase sign =>
+      cases sign
+      case false =>
+        -- `+∞` cannot be `≤ Number R`.
+        exfalso
+        rw [PackedFloat.toExtRat'_getInfinity hs] at hy'
+        simp at hy'
+      case true =>
+        -- `-∞ ≤` the nonnegative `pf`.
+        exact PackedFloat.le_of_nonneg_of_neg _ _ (by simp) hsign (by simp [hs]) hpfNaN
+    | zeroCase sign =>
+      -- `±0 ≤` the nonnegative `pf`.
+      exact PackedFloat.getZero_le_of_nonneg (by grind) hs pf hsign hpfNaN
+    | numCase n hn =>
+      have hnNaN : ¬ n.isNaN := by simpa using PackedFloat.not_isNaN_of_isNormOrSubnorm hn
+      by_cases hnsign : n.sign
+      · -- `n` negative, `pf` nonnegative.
+        exact PackedFloat.le_of_nonneg_of_neg n pf hnsign hsign hnNaN hpfNaN
+      · -- `n` nonnegative: the one-ulp gap above `pf` rules out `pf < n ≤ R`.
+        simp only [Bool.not_eq_true] at hnsign
+        apply Classical.byContradiction
+        intro hcon
+        have hltn : pf < n := PackedFloat.lt_of_not_le n pf (by grind) hcon
+        have hulp := PackedFloat.toRat_le_plus_toRat_of_toRat_le_toRat_of_sign_eq_false
+          (by grind) hs pf n hsign hnsign
+          (by simpa using PackedFloat.not_isZero_of_isNormOrSubnorm hfin)
+          (by simpa using PackedFloat.not_isZero_of_isNormOrSubnorm hn)
+          hpfNaN hnNaN
+          (by simpa using PackedFloat.not_isInfinite_of_isNormOrNonzeroSubnorm hfin)
+          (by simpa using PackedFloat.not_isInfinite_of_isNormOrNonzeroSubnorm hn)
+          hltn
+        have hnR : n.toRat ≤ R := by
+          rw [PackedFloat.toExtRat'_eq_toRat_of hn] at hy'
+          simpa only [ExtRat.ExtRat.num_le_num_iff, decide_eq_true_eq] using hy'
+        grind
+
+/--
+info: 'Fp.PackedFloat.isLawfulLower_of_toRat_le_of_lt_add_ulp' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms PackedFloat.isLawfulLower_of_toRat_le_of_lt_add_ulp
+
+/-- Round-toward-zero never increases the (nonnegative) value: `round ≤ x`.
+The rounded value equals the cleared significand re-read at precision `sp`, and clearing
+only drops low bits. -/
+theorem UnpackedFloat.blastRoundTowardZero_toRat'_le_toRat'
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxsign : x.sign = false)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    (x.blastRoundTowardZero ep sp).toRat' ≤ x.toRat' := by
+  have hnotearlyunder : x.blastIsEarlyUnderflowNonneg ep sp = false :=
+    UnpackedFloat.not_blastIsEarlyUnderflowNonneg_of_not_blastIsUnderflowNonneg he hs heu x hnotunder
+  have hoverE : x.ex.toInt ≤ maxNormalExp ep := by
+    have := UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide he hs heu x; grind
+  have hunderE : minSubnormalExp ep sp ≤ x.ex.toInt := by
+    have := UnpackedFloat.blastUnderflowNonneg_eq_decide he hs heu x; grind
+  have hminrel : minNormalExp ep - minSubnormalExp ep sp = (sp : Int) := by
+    simp only [minSubnormalExp, maxSubnormalExp]; grind
+  have hdNat : (minNormalExp ep - x.ex.toInt).toNat ≤ sp := by grind
+  obtain ⟨hdL, hdU⟩ := shift_range he hs heu (exInt := x.ex.toInt) (by grind) hoverE
+  have hG := UnpackedFloat.toNat_guardBitIndex_eq he hs heu hsu x hdL hdU hdNat
+  have hLeq : (x.guardBitIndex ep sp).toNat + 1
+      = (minNormalExp ep - x.ex.toInt).toNat + (su - (sp + 1)) := by rw [hG]; grind
+  -- `round.sig.toNat * 2^m = cleared.sig.toNat ≤ x.sig.toNat`.
+  have hdvd : 2 ^ (su - (sp + 1)) ∣ (x.blastClearSignificand ep sp).sig.toNat := by
+    rw [UnpackedFloat.blastClearSignificand_sig_toNat_eq]
+    exact Nat.two_pow_dvd_div_mul_two_pow x.sig.toNat (by grind)
+  have hrm : (x.blastRoundTowardZero ep sp).sig.toNat * 2 ^ (su - (sp + 1))
+      = (x.blastClearSignificand ep sp).sig.toNat := by
+    rw [sig_blastRoundTowardZero, BitVec.toNat_extractMsb'_zero _ (by grind)]
+    exact Nat.div_mul_cancel hdvd
+  have hcllen : (x.blastClearSignificand ep sp).sig.toNat ≤ x.sig.toNat :=
+    UnpackedFloat.blastClearSignificand_sig_toNat_le x ep sp
+  -- expand both `toRat'` onto the base weight `C = 2^(ex - (su-1))`.
+  rw [UnpackedFloat.toRat', UnpackedFloat.toRat', sign_blastRoundTowardZero, hxsign,
+    UnpackedFloat.toExpInt, UnpackedFloat.toExpInt, ex_blastRoundTowardZero,
+    UnpackedFloat.toNat_toSigNat_eq, UnpackedFloat.toNat_toSigNat_eq]
+  have hsg : (Bool.toSign false : Rat) = 1 := by simp [Bool.toSign]
+  have hCpos : (0 : Rat) < 2 ^ (x.ex.toInt - ((su : Int) - 1)) := Rat.two_pow_pos _
+  have hround : (Bool.toSign false : Rat) * (x.blastRoundTowardZero ep sp).sig.toNat
+        * 2 ^ (-((↑((sp + 1) - 1) : Int) - x.ex.toInt))
+      = (x.blastClearSignificand ep sp).sig.toNat * 2 ^ (x.ex.toInt - ((su : Int) - 1)) := by
+    have hrmR : (↑(x.blastRoundTowardZero ep sp).sig.toNat : Rat) * 2 ^ (su - (sp + 1))
+        = ↑(x.blastClearSignificand ep sp).sig.toNat := by exact_mod_cast hrm
+    have hexp : (-((↑((sp + 1) - 1) : Int) - x.ex.toInt))
+        = (↑(su - (sp + 1)) : Int) + (x.ex.toInt - ((su : Int) - 1)) := by
+      rw [Int.natCast_sub (show sp + 1 ≤ su by grind)]
+      have e1 : ((sp + 1) - 1 : Nat) = sp := by grind
+      rw [e1]; push_cast; grind
+    rw [hexp, ← Rat.zpow_mul_zpow (by grind), Rat.zpow_natCast, hsg, ← hrmR]; grind
+  have hx : (Bool.toSign false : Rat) * x.sig.toNat * 2 ^ (-((↑(su - 1) : Int) - x.ex.toInt))
+      = (x.sig.toNat : Rat) * 2 ^ (x.ex.toInt - ((su : Int) - 1)) := by
+    have hexp : (-((↑(su - 1) : Int) - x.ex.toInt)) = x.ex.toInt - ((su : Int) - 1) := by
+      rw [Int.natCast_sub (show 1 ≤ su by grind)]; push_cast; grind
+    rw [hexp, hsg]; grind
+  rw [hround, hx]
+  have hle : (↑(x.blastClearSignificand ep sp).sig.toNat : Rat) ≤ x.sig.toNat := by
+    exact_mod_cast hcllen
+  exact (Rat.mul_le_mul_of_nonneg_right hle (Rat.le_of_lt hCpos))
+
+/-- The width-adjusted round-toward-zero of a normalized, in-range nonnegative float is
+itself normalized (needed for `Packable`).
+
+The rounded significand's msb equals the input's (set) msb: `blastClearSignificand` and
+`extractMsb' 0 (sp+1)` both keep the top bit (`guardBitIndex < su - 1`), and the input is
+nonzero since `ex ≥ minSubnormalExp > (intMin).toInt`. -/
+theorem UnpackedFloat.normalize_truncateFittingExponent_blastRoundTowardZero_eq_self
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    ((x.truncateFittingExponent ep sp).blastRoundTowardZero ep sp).normalize
+      = (x.truncateFittingExponent ep sp).blastRoundTowardZero ep sp := by
+  have hnotearlyunder : x.blastIsEarlyUnderflowNonneg ep sp = false :=
+    UnpackedFloat.not_blastIsEarlyUnderflowNonneg_of_not_blastIsUnderflowNonneg he hs heu x hnotunder
+  have hoverE : x.ex.toInt ≤ maxNormalExp ep := by
+    have := UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide he hs heu x; grind
+  have hunderE : minSubnormalExp ep sp ≤ x.ex.toInt := by
+    have := UnpackedFloat.blastUnderflowNonneg_eq_decide he hs heu x; grind
+  have hminrel : minNormalExp ep - minSubnormalExp ep sp = (sp : Int) := by
+    simp only [minSubnormalExp, maxSubnormalExp]; grind
+  have hdNat : (minNormalExp ep - x.ex.toInt).toNat ≤ sp := by grind
+  obtain ⟨hdL, hdU⟩ := shift_range he hs heu (exInt := x.ex.toInt) (by grind) hoverE
+  have hG := UnpackedFloat.toNat_guardBitIndex_eq he hs heu hsu x hdL hdU hdNat
+  have hglt : (x.guardBitIndex ep sp).toNat < su - 1 := by grind
+  have hxmsb := UnpackedFloat.msb_eq_true_of_normalize_of_not_blastIsUnderflowNonneg
+    he hs heu x hxnorm hnotunder
+  apply UnpackedFloat.normalize_eq_self_of_msb_eq_true
+  -- msb of the round = top bit of the cleared significand = `x`'s (set) msb.
+  rw [sig_blastRoundTowardZero,
+    sig_blastClearSignificand_truncateFittingExponent he hs heu x hnotover hnotearlyunder,
+    BitVec.msb_eq_getMsbD_zero, BitVec.getLsbD_extractMsb']
+  simp only [Nat.add_zero, Nat.zero_add, show (0 : Nat) < sp + 1 by grind,
+    show (0 : Nat) < su by grind, decide_true, Bool.and_true, Bool.true_and,
+    ← BitVec.msb_eq_getMsbD_zero, UnpackedFloat.blastClearSignificand, BitVec.msb_and]
+  -- `(x.sig &&& mask).msb = x.sig.msb && mask.msb`, and `mask.msb = true`.
+  rw [hxmsb, Bool.true_and, BitVec.msb_eq_getMsbD_zero, BitVec.getMsbD_not]
+  simp only [show (0 : Nat) < su by grind, Nat.sub_zero, decide_true, Bool.true_and,
+    BitVec.getMsbD_eq_getLsbD, BitVec.getLsbD_or, BitVec.getlsbD_oneHotBV,
+    BitVec.getLsbD_orderEncode]
+  grind
+
+theorem UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero
+    (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)   -- ADDED (needed by `truncateFittingExponent`)
+    (x : UnpackedFloat eu su)
+    (hxsign : x.sign = false)
+    (hxnorm : x.normalize = x)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover  : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    ∃ pf : PackedFloat ep sp,
+      ¬ pf.isNaN ∧
+      SmtLibSemantics.IsLawfulLower (ExtRat.Number x.toRat') pf ∧
+      (x.blastRoundTowardZero ep sp).toRat' = pf.toRat ∧
+      (x.blastRoundTowardZero ep sp).sign  = pf.sign := by
+  -- (M) Full not-underflow ⇒ early not-underflow, so the `truncateFittingExponent`
+  -- invariance lemmas (stated with the `Early` form) apply.
+  have hnotearlyunder : x.blastIsEarlyUnderflowNonneg ep sp = false :=
+    UnpackedFloat.not_blastIsEarlyUnderflowNonneg_of_not_blastIsUnderflowNonneg
+      he hs heu x hnotunder
+  -- Width-adjust into the packable exponent width `exponentWidth ep sp`, then round.
+  -- (`blastRoundTowardZero` keeps the input exponent width, so we adjust first.)
+  let r : UnpackedFloat (exponentWidth ep sp) (sp + 1) :=
+    (x.truncateFittingExponent ep sp).blastRoundTowardZero ep sp
+  -- Shared facts: `r` agrees with the width-`eu` round on sign, significand and
+  -- exponent value (the `truncateFittingExponent` invariances).
+  have hrsign : r.sign = false := by
+    simp only [r, sign_blastRoundTowardZero, sign_truncateFittingExponent, hxsign]
+  have hrsig : r.sig = (x.blastRoundTowardZero ep sp).sig := by
+    simp only [r, sig_blastRoundTowardZero]
+    rw [sig_blastClearSignificand_truncateFittingExponent he hs heu x hnotover hnotearlyunder]
+  have hrex : r.ex.toInt = (x.blastRoundTowardZero ep sp).ex.toInt := by
+    simp only [r, ex_blastRoundTowardZero]
+    exact toInt_ex_truncateFittingExponent he hs heu x hnotover hnotearlyunder
+  -- the two rounds have equal `toRat'` at every precision.
+  have hrtoRat : ∀ w, r.toRat' w = (x.blastRoundTowardZero ep sp).toRat' w := fun w =>
+    UnpackedFloat.toRat'_eq_toRat'_of_parts
+      (by rw [hrsign, sign_blastRoundTowardZero, hxsign]) hrsig hrex w
+  -- (P) `r` is `Packable`: (1) normalized (rounding keeps the top significand bit),
+  -- (2) `ex ≤ maxNormalExp` (from `hnotover`), (3) subnormal divisibility — the bits
+  -- `blastClearSignificand` zeroes are exactly the divisibility witness.
+  -- Index machinery (as in U) feeding the `Packable` divisibility/exponent conditions.
+  have hoverE : x.ex.toInt ≤ maxNormalExp ep := by
+    have := UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide he hs heu x; grind
+  have hunderE : minSubnormalExp ep sp ≤ x.ex.toInt := by
+    have := UnpackedFloat.blastUnderflowNonneg_eq_decide he hs heu x; grind
+  have hminrel : minNormalExp ep - minSubnormalExp ep sp = (sp : Int) := by
+    simp only [minSubnormalExp, maxSubnormalExp]; grind
+  have hdNat : (minNormalExp ep - x.ex.toInt).toNat ≤ sp := by grind
+  obtain ⟨hdL, hdU⟩ := shift_range he hs heu (exInt := x.ex.toInt) (by grind) hoverE
+  have hG := UnpackedFloat.toNat_guardBitIndex_eq he hs heu hsu x hdL hdU hdNat
+  have hLeq : (x.guardBitIndex ep sp).toNat + 1
+      = (minNormalExp ep - x.ex.toInt).toNat + (su - (sp + 1)) := by rw [hG]; grind
+  have hrexX : r.ex.toInt = x.ex.toInt := by rw [hrex, ex_blastRoundTowardZero]
+  -- `r.sig.toNat = x.sig.toNat / 2^L * 2^off`, hence divisible by `2^off` (the gap-closer).
+  have hrsigval : r.sig.toNat
+      = x.sig.toNat / 2 ^ ((minNormalExp ep - x.ex.toInt).toNat + (su - (sp + 1)))
+          * 2 ^ (minNormalExp ep - x.ex.toInt).toNat := by
+    rw [hrsig, sig_blastRoundTowardZero, BitVec.toNat_extractMsb'_zero _ (by grind),
+      UnpackedFloat.blastClearSignificand_sig_toNat_eq, hLeq,
+      Nat.div_mul_two_pow_add_div_two_pow]
+  have hPack : r.Packable := by
+    refine ⟨?_, ?_, ?_⟩
+    · -- (1) normalized — extracted as a named lemma.
+      exact UnpackedFloat.normalize_truncateFittingExponent_blastRoundTowardZero_eq_self
+        he hs heu hsu x hxsign hxnorm hnotunder hnotover
+    · -- (2) `ex ≤ maxNormalExp`.
+      rw [hrexX]; exact hoverE
+    · -- (3) subnormal divisibility — `2^off ∣ r.sig.toNat`.
+      right
+      rw [hrexX, hrsigval]
+      exact ⟨x.sig.toNat / 2 ^ ((minNormalExp ep - x.ex.toInt).toNat + (su - (sp + 1))),
+        Nat.mul_comm _ _⟩
+  -- `r` is nonzero (msb set ⇒ `x.sig ≥ 2^(su-1) ≥ 2^L`, so the high quotient is positive).
+  have hrsigne : r.sig ≠ 0#(sp + 1) := by
+    have hxmsb := UnpackedFloat.msb_eq_true_of_normalize_of_not_blastIsUnderflowNonneg
+      he hs heu x hxnorm hnotunder
+    have hge : 2 ^ (su - 1) ≤ x.sig.toNat := by
+      rw [BitVec.msb_eq_decide] at hxmsb; simpa using hxmsb
+    have hdivpos : 0 < x.sig.toNat / 2 ^ ((minNormalExp ep - x.ex.toInt).toNat + (su - (sp + 1))) := by
+      apply Nat.div_pos _ (Nat.two_pow_pos _)
+      exact Nat.le_trans (Nat.pow_le_pow_right (by grind) (by grind)) hge
+    intro h0
+    have hz : r.sig.toNat = 0 := by rw [h0]; simp
+    rw [hrsigval] at hz
+    have := Nat.mul_pos hdivpos (Nat.two_pow_pos (minNormalExp ep - x.ex.toInt).toNat)
+    grind
+  -- `pf = pack r` is a normal / nonzero-subnormal float (gives ¬isNaN and GLB's `hfin`).
+  have hfin : (EUnpackedFloat.mkNumber r).pack.isNormOrNonzeroSubnorm := by
+    have hexpb : r.ex.toInt ≤ maxNormalExp ep := hPack.2.1
+    have hpacked : (EUnpackedFloat.mkNumber r).pack
+        = EUnpackedFloat.packNumber' r.sign r.sig r.ex := by
+      rw [EUnpackedFloat.pack_eq_pack', EUnpackedFloat.pack']
+      have hz : (EUnpackedFloat.mkNumber r).isZero = false := by
+        rw [EUnpackedFloat.isZero_mkNumber]; simp [UnpackedFloat.isZero, hrsigne]
+      simp only [EUnpackedFloat.isNaN_mkNumber, EUnpackedFloat.isInfinite_mkNumber, hz,
+        Bool.false_eq_true, ↓reduceIte]
+      rfl
+    have hnotNaN : ¬ (EUnpackedFloat.mkNumber r).pack.isNaN := by
+      rw [hpacked, EUnpackedFloat.not_isNaN_packNumber' hs he _ _ _ hexpb]; simp
+    have hnotInf : ¬ (EUnpackedFloat.mkNumber r).pack.isInfinite := by
+      rw [hpacked]
+      have hne := EUnpackedFloat.packNumber'.exPacked_ne_allOnes hs he r.ex hexpb
+      simp only [PackedFloat.isInfinite, EUnpackedFloat.packNumber']; grind
+    have hnotZero : ¬ (EUnpackedFloat.mkNumber r).pack.isZero := by
+      intro hz0
+      have h0 := PackedFloat.toRat_eq_Zero_of_isZero _ hz0
+      rw [EUnpackedFloat.toRat_pack_mkNumber_eq_toRat he hs r hPack,
+        UnpackedFloat.toRat_eq_toRat'] at h0
+      have := (UnpackedFloat.toRat'_isZero r).mpr h0
+      simp [UnpackedFloat.isZero, hrsigne] at this
+    exact PackedFloat.isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero
+      hnotNaN hnotInf hnotZero
+  have hpfRat : (EUnpackedFloat.mkNumber r).pack.toRat = (x.blastRoundTowardZero ep sp).toRat' := by
+    rw [EUnpackedFloat.toRat_pack_mkNumber_eq_toRat he hs r hPack, UnpackedFloat.toRat_eq_toRat']
+    exact hrtoRat _
+  refine ⟨(EUnpackedFloat.mkNumber r).pack, ?_, ?_, ?_, ?_⟩
+  · -- ¬ isNaN, from `isNormOrNonzeroSubnorm`.
+    simpa using PackedFloat.not_isNaN_of_isNormOrSubnorm hfin
+  · -- IsLawfulLower via the GLB lemma.
+    have hpfsign : (EUnpackedFloat.mkNumber r).pack.sign = false := by
+      rw [EUnpackedFloat.sign_pack]
+      simp only [EUnpackedFloat.isNaN_mkNumber, Bool.false_eq_true, if_false,
+        EUnpackedFloat.sign, EUnpackedFloat.num_mkNumber, hrsign]
+    apply PackedFloat.isLawfulLower_of_toRat_le_of_lt_add_ulp he hs _ _ hpfsign hfin
+    · -- `pf.toRat = round.toRat' ≤ x.toRat'`.
+      rw [hpfRat]
+      exact UnpackedFloat.blastRoundTowardZero_toRat'_le_toRat'
+        he hs heu hsu x hxsign hnotunder hnotover
+    · -- `x.toRat' < pf.toRat + ulp`: from (U), bridging the unpacked ulp `2^(ex-sp+off)`
+      -- to the packed ulp `2^(-sp)·2^(pf.toRatExp)` via `x.ex + off ≤ pf.toRatExp`.
+      rw [hpfRat]
+      have hU := UnpackedFloat.toRat'_lt_blastRoundTowardZero_toRat'_add_ulp
+        he hs heu hsu x hxsign hxnorm hnotunder hnotover
+      have hexpbridge : x.ex.toInt + ((minNormalExp ep - x.ex.toInt).toNat : Int)
+          ≤ (EUnpackedFloat.mkNumber r).pack.toRatExp := by
+        -- `pf.toRat = r.toRat'`, with `r` in the same binade: `2^x.ex ≤ pf.toRat < 2^(pf.toRatExp+1)`.
+        have hpfRatR : (EUnpackedFloat.mkNumber r).pack.toRat = r.toRat' := by
+          rw [EUnpackedFloat.toRat_pack_mkNumber_eq_toRat he hs r hPack,
+            UnpackedFloat.toRat_eq_toRat']
+        have hrmsb : r.sig.msb = true := (UnpackedFloat.normalize_eq_self_iff r hrsigne).mp hPack.1
+        -- (lower) `2^x.ex ≤ pf.toRat`.
+        have hlow : (2 : Rat) ^ x.ex.toInt ≤ (EUnpackedFloat.mkNumber r).pack.toRat := by
+          rw [hpfRatR, ← hrexX]
+          exact UnpackedFloat.two_pow_ex_le_toRat'_of_msb_of_sign_false r (by grind) hrsign hrmsb
+        -- (upper) `pf.toRat < 2^(pf.toRatExp+1)`.
+        have hhigh := PackedFloat.toRat_lt_two_pow_toRatExp_succ_of_sign_false
+          (EUnpackedFloat.mkNumber r).pack hpfsign
+        -- combine: `2^x.ex < 2^(pf.toRatExp+1)` ⇒ `x.ex ≤ pf.toRatExp`.
+        have hexA : x.ex.toInt ≤ (EUnpackedFloat.mkNumber r).pack.toRatExp := by
+          apply Classical.byContradiction
+          intro hlt
+          have hstep : (EUnpackedFloat.mkNumber r).pack.toRatExp + 1 ≤ x.ex.toInt := by grind
+          have := Rat.two_pow_le_two_pow_of_le hstep
+          grind
+        have hexB : minNormalExp ep ≤ (EUnpackedFloat.mkNumber r).pack.toRatExp :=
+          PackedFloat.minNormalExp_le_toRatExp _ (by grind)
+        -- `x.ex + off = max(x.ex, minNormalExp)`, bounded by both.
+        grind
+      have hbridge : (2 : Rat) ^ (x.ex.toInt - (sp : Int) + ((minNormalExp ep - x.ex.toInt).toNat : Int))
+          ≤ 2 ^ (-(sp : Int)) * 2 ^ ((EUnpackedFloat.mkNumber r).pack.toRatExp) := by
+        rw [Rat.zpow_mul_zpow (by grind)]
+        apply Rat.two_pow_le_two_pow_of_le
+        grind
+      grind
+  · -- value: `pf.toRat = r.toRat = r.toRat' = (x.blastRoundTowardZero ep sp).toRat'`.
+    rw [EUnpackedFloat.toRat_pack_mkNumber_eq_toRat he hs r hPack,
+      UnpackedFloat.toRat_eq_toRat']
+    exact (hrtoRat _).symm
+  · -- sign: both sides are `false`.
+    rw [sign_blastRoundTowardZero, hxsign, EUnpackedFloat.sign_pack]
+    simp only [EUnpackedFloat.isNaN_mkNumber, Bool.false_eq_true, if_false,
+      EUnpackedFloat.sign, EUnpackedFloat.num_mkNumber, hrsign]
+
+/--
+info: 'Fp.UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+-/
+#guard_msgs in #print axioms UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero
+
+theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_normal
+    (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ e) (hsu : sp + 2 ≤ s)   -- ADDED (forwarded to the keystone)
+    (x : UnpackedFloat e s)
+    (hxsign : x.sign = false)
+    (hxnorm : x.normalize = x)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover  : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    (EUnpackedFloat.mkNumber (x.blastRoundTowardZero ep sp) :
+      EUnpackedFloat e (sp+1)).Rel
+      (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
+  obtain ⟨pf, hpfNotNaN, hpfLower, hToRat, hSign⟩ :=
+    UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero
+      he hs heu hsu x hxsign hxnorm hnotunder hnotover
+  apply EUnpackedFloat.Rel_smtLibLower_of_witness
+      (pf := pf) (he := by grind) (hs := hs)
+  · simp
+  · exact hpfNotNaN
+  · exact hpfLower
+  · simpa using hToRat
+  · simpa using hSign
+
+/-- Main theorem: the bit-blasted lower-rounding circuit for nonnegative floats
+    matches the SMT-LIB greatest lower bound. The proof unfolds
+    `blastLowerNonneg` and dispatches to one of the three branch lemmas.
+
+    Requires `x.normalize = x` (i.e. `x` is already in normalized form) so that
+    the normal-range branch can identify `blastRoundTowardZero x` with a packed
+    float — without normalization, multiple unpacked representations share the
+    same value and the bit-level "extract top sp+1 bits" step does not commute
+    with `toRat'`. -/
+theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower (he : 2 < ep) (hsp : 0 < sp)
+  (hsu : sp + 2 ≤ su) (heu : exponentWidth ep sp ≤ eu)
+  (x : UnpackedFloat eu su)
+  (hxsign : x.sign = false)
+  (hxnorm : x.normalize = x) :
+  (x.blastLowerNonneg ep sp).Rel (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
+  unfold UnpackedFloat.blastLowerNonneg
+  by_cases hunder : x.blastIsUnderflowNonneg ep sp = true
+  · simp [hunder]
+    exact UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_underflow (by grind only) hsp heu (by grind) x hxsign hunder
+  · simp only [Bool.not_eq_true] at hunder
+    simp [hunder]
+    by_cases hover : x.blastIsEarlyOverflowNonneg ep sp = true
+    · simp [hover]
+      -- The witness lemma must be instantiated at `em := eu` (not `exponentWidth ep sp`):
+      -- `blastLowerNonneg` returns an `EUnpackedFloat eu (sp+1)`, so the goal mentions
+      -- `UnpackedFloat.maxNormal eu (sp+1) ep sp false`.
+      have := mkNumber_maxNormal_Rel_smtLibLower_of_overflow (x := x) (ep := ep) (sp := sp) (sm := sp + 1) (em := eu)
+          (by grind)
+          (by grind)
+          (by grind)
+          (by grind)
+          (by grind)
+          (by grind)
+          (by grind)
+          (by grind)
+      exact this
+    · simp only [Bool.not_eq_true] at hover
+      simp [hover]
+      exact UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_normal (by grind only) hsp heu hsu x hxsign hxnorm hunder hover
+
+/--
+info: 'Fp.UnpackedFloat.blastLowerNonneg_Rel_smtLibLower' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms UnpackedFloat.blastLowerNonneg_Rel_smtLibLower
+
+/-# `blastUpperNonneg` matches `upper` -/
+
+theorem UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper (he : 1 < ep) (hs : 0 < sp)
+  (x : UnpackedFloat eu su)
+  (hxsign : x.sign = false) :
+  (x.blastUpperNonneg ep sp).Rel (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
+  simp [UnpackedFloat.blastUpperNonneg]
+  sorry
+
+
+/-# `blastLower` matches `lower` -/
+
+theorem UnpackedFloat.blastLower_Rel_smtLibLower (hep : 2 < ep)
+  (hsp : 0 < sp)
+  (hsu : sp + 2 ≤ su)
+  (heu : exponentWidth ep sp ≤ eu)
+  (x : UnpackedFloat eu su)
+  (hxnorm : x.normalize = x) :
+  (x.blastLower ep sp).Rel (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
+  simp [UnpackedFloat.blastLower]
+  by_cases hsign : x.sign
+  · simp [hsign]
+    simp [UnpackedFloat.blastLowerNeg]
+    rw [smtLibLower_eq_neg_smtLibUpper_neg]
+    · apply EUnpackedFloat.neg_Rel_neg
+      simp
+      rw [show - x.toRat' = (-x).toRat' by simp]
+      apply UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper
+      · grind
+      · grind
+      · simp [hsign]
+    · grind only
+    · grind only
+    · grind only
+  · simp [hsign]
+    apply UnpackedFloat.blastLowerNonneg_Rel_smtLibLower
+    · grind only
+    · grind only
+    · grind
+    · grind
+    · grind only
+    · grind only
+
+/-# `blastUpper` matches `upper` -/
+
+
+theorem UnpackedFloat.blastUpper_Rel_smtLibUpper (hep : 2 < ep) (hsp : 0 < sp)
+    (hsu : sp + 2 ≤ su)
+    (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su)
+    (hxnorm : x.normalize = x) :
+    (x.blastUpper ep sp).Rel (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
+  simp [UnpackedFloat.blastUpper]
+  by_cases hsign : x.sign
+  · simp [hsign]
+    simp [UnpackedFloat.blastUpperNeg]
+    rw [smtLibUpper_eq_neg_smtLibLower_neg]
+    · apply EUnpackedFloat.neg_Rel_neg
+      simp
+      rw [show - x.toRat' = (-x).toRat' by simp]
+      apply UnpackedFloat.blastLowerNonneg_Rel_smtLibLower
+      · grind
+      · grind
+      · grind
+      · grind
+      · simp; grind only
+      · exact normalize_neg_eq_neg_of_normalize_eq x hxnorm
+    · grind only
+    · grind only
+    · grind only
+  · simp [hsign]
+    apply UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper
+    · grind only
+    · grind only
+    · simp [hsign]
+
+end Fp

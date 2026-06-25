@@ -840,6 +840,28 @@ theorem EquivUptoNaN.trans {x y z : PackedFloat e s}
   unfold EquivUptoNaN at *
   grind
 
+@[elab_as_elim]
+theorem kindCasesNaNInfZeroNum {P : PackedFloat e s → Prop}
+    (x : PackedFloat e s)
+    (nanCase : ∀ (n : PackedFloat e s), n.isNaN → P n)
+    (infCase : ∀ sign, P (PackedFloat.getInfinity e s sign))
+    (zeroCase : ∀ sign, P (PackedFloat.getZero e s sign))
+    (numCase : ∀ (n : PackedFloat e s), n.isNormOrNonzeroSubnorm → P n) :
+    P x := by
+  have := x.classification_exhaustive
+  simp at this
+  by_cases h1 : x.isNaN
+  · grind
+  · by_cases h2 : x.isInfinite
+    · grind
+    · by_cases h3 : x.isZero
+      · grind
+      · by_cases h4 : x.isNonzeroSubnorm
+        · grind
+        · by_cases h5 : x.isNorm
+          · grind
+          · grind
+
 /--
 `EquivUptoNaN` is an equivalence relation, so it induces a `Setoid` on
 `PackedFloat`. This is the relation we quotient by to obtain `SmtLibPackedFloat`

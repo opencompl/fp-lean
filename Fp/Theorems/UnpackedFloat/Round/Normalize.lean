@@ -1,0 +1,79 @@
+import Fp.Theorems.UnpackedFloat.Round.ExtractStickyBit
+
+namespace Fp
+
+
+
+/-! # Normalization commutes with negation -/
+
+/-- Negating an `UnpackedFloat` commutes with `normalize` (passing the negated sign). -/
+@[simp]
+theorem UnpackedFloat.neg_normalize_eq_neg_normalize (x : UnpackedFloat e s) :
+    (-x).normalize = -(x.normalize) := by
+  simp only [UnpackedFloat.neg_def, UnpackedFloat.normalize, UnpackedFloat.neg,
+    UnpackedFloat.mkZero]
+  by_cases h : x.sig = 0#s
+  · simp only [h, beq_self_eq_true, cond_true]
+  · have : (x.sig == 0#s) = false := by simp [h]
+    simp only [this, cond_false]
+
+/-- If `x` is already normalized, so is `-x`. -/
+theorem UnpackedFloat.normalize_neg_eq_neg_of_normalize_eq (x : UnpackedFloat e s)
+    (hxnorm : x.normalize = x) :
+    (-x).normalize = -x := by
+  rw [UnpackedFloat.neg_normalize_eq_neg_normalize, hxnorm]
+
+/-# normalize -/
+
+/--
+`normalize` preserves `Rel`, provided normalizing does not underflow the
+exponent. The precondition `hssub` is "the BitVec subtraction `ex - clz` does
+not signed-underflow at width `eu`"; semantically this is the "no underflow at
+normalize" condition. At the call sites this should follow from being in the
+`¬ blastIsOverflowNonneg` branch combined with the value fitting in the
+destination `(ep, sp)` format — but discharging that derivation is a separate
+sorry to fill.
+-/
+theorem UnpackedFloat.normalize_Rel_of_Rel (_he : 1 < ep) (_hs : 0 < sp)
+    (_heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su) (pf : PackedFloat ep sp)
+    (hse : su - 1 < 2 ^ (eu - 1))
+    (hssub : !x.ex.ssubOverflow (BitVec.setWidth eu x.sig.clz))
+    (h : x.Rel pf) :
+    x.normalize.Rel pf := by
+  obtain ⟨hToRat, hSign⟩ := h
+  apply UnpackedFloat.Rel_of_toRat_eq_toRat_and_sign
+  · rw [UnpackedFloat.toRat'_normalize_eq_toRat' hse hssub]
+    exact hToRat
+  · simp only [UnpackedFloat.sign_normalize, beq_iff_eq, ite_self]
+    exact hSign
+
+/--
+info: 'Fp.UnpackedFloat.normalize_Rel_of_Rel' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms UnpackedFloat.normalize_Rel_of_Rel
+
+theorem EUnpackedFloat.normalize_Rel_of_Rel (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu)
+    (x : EUnpackedFloat eu su) (pf : PackedFloat ep sp)
+    (hse : su - 1 < 2 ^ (eu - 1))
+    (hssub : !x.num.ex.ssubOverflow (BitVec.setWidth eu x.num.sig.clz))
+    (h : x.Rel pf) :
+    x.normalize.Rel pf := by
+  unfold EUnpackedFloat.normalize
+  rcases hstate : x.state with rfl | rfl | rfl
+  · simp [hstate, h]
+  · simp [hstate, h]
+  · simp [hstate]
+    have hnumNorm :=
+      UnpackedFloat.normalize_Rel_of_Rel he hs heu x.num pf hse hssub (by
+        grind only [EUnpackeDFloat.num_Rel_of_Rel_of_eq_Number]
+      )
+    exact
+      EUnpackedFloat.Rel_of_Rel_of_state_eq_Number x.num.normalize.toEUnpackedFloat pf rfl hnumNorm
+/--
+info: 'Fp.EUnpackedFloat.normalize_Rel_of_Rel' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms EUnpackedFloat.normalize_Rel_of_Rel
+
+end Fp

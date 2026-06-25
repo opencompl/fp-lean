@@ -7,28 +7,6 @@ import Fp.Theorems.PackedFloat.Ordering
 
 namespace Fp
 
-@[elab_as_elim]
-theorem PackedFloat.kindCasesNaNInfZeroNum {P : PackedFloat e s → Prop}
-    (x : PackedFloat e s)
-    (nanCase : ∀ (n : PackedFloat e s), n.isNaN → P n)
-    (infCase : ∀ sign, P (PackedFloat.getInfinity e s sign))
-    (zeroCase : ∀ sign, P (PackedFloat.getZero e s sign))
-    (numCase : ∀ (n : PackedFloat e s), n.isNormOrNonzeroSubnorm → P n) :
-    P x := by
-  have := x.classification_exhaustive
-  simp at this
-  by_cases h1 : x.isNaN
-  · grind
-  · by_cases h2 : x.isInfinite
-    · grind
-    · by_cases h3 : x.isZero
-      · grind
-      · by_cases h4 : x.isNonzeroSubnorm
-        · grind
-        · by_cases h5 : x.isNorm
-          · grind
-          · grind
-
 
 @[simp]
 theorem roundQ_eq (eout sout : Nat) (rm : RoundingMode) (sign : Bool) (r : ExtRat):

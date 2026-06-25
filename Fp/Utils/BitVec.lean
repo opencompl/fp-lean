@@ -45,6 +45,46 @@ theorem BitVec.getLsbD_extractMsb' {w lo len : Nat} (x : BitVec w)
     omega
   · simp [h1]
 
+/-- Taking the top `len` bits (`extractMsb' _ 0 len`) reads off the high part of the
+value: it equals `x >>> (w - len)` truncated to `len` bits. -/
+theorem BitVec.extractMsb'_zero_eq_setWidth_ushiftRight {w len : Nat} (x : BitVec w)
+    (h : len ≤ w) :
+    BitVec.extractMsb' x 0 len = (x >>> (w - len)).setWidth len := by
+  apply BitVec.eq_of_getLsbD_eq
+  intro i
+  by_cases hi : i < len
+  · have lhs : (BitVec.extractMsb' x 0 len).getLsbD i
+        = (BitVec.extractMsb' x 0 len).getMsbD (len - 1 - i) := by
+      rw [BitVec.getMsbD_eq_getLsbD]
+      have h1 : len - 1 - i < len := by grind
+      simp only [h1, decide_true, Bool.true_and]
+      congr 1
+      grind
+    rw [lhs, BitVec.getLsbD_extractMsb']
+    have h1 : len - 1 - i < len := by grind
+    have h2 : (0 : Nat) + (len - 1 - i) < w := by grind
+    simp only [Nat.zero_add, h1, h2, decide_true, Bool.and_true, Bool.true_and]
+    rw [BitVec.getMsbD_eq_getLsbD, BitVec.getLsbD_setWidth, BitVec.getLsbD_ushiftRight]
+    have h3 : len - 1 - i < w := by grind
+    simp only [h3, hi, decide_true, Bool.true_and]
+    congr 1
+    grind
+  · rw [BitVec.getLsbD_setWidth,
+        BitVec.getLsbD_of_ge (BitVec.extractMsb' x 0 len) i (Nat.le_of_not_lt hi)]
+    simp [hi]
+
+/-- `toNat` of the top `len` bits is the high quotient `x.toNat / 2 ^ (w - len)`. -/
+theorem BitVec.toNat_extractMsb'_zero {w len : Nat} (x : BitVec w) (h : len ≤ w) :
+    (BitVec.extractMsb' x 0 len).toNat = x.toNat / 2 ^ (w - len) := by
+  rw [BitVec.extractMsb'_zero_eq_setWidth_ushiftRight x h, BitVec.toNat_setWidth,
+    BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow]
+  rw [Nat.mod_eq_of_lt]
+  apply Nat.div_lt_of_lt_mul
+  rw [← Nat.pow_add]
+  have : w - len + len = w := by grind
+  rw [this]
+  exact x.isLt
+
 @[bv_normalize]
 def BitVec.expandingSubtract {w} (a b : BitVec w) : BitVec (w + 1) :=
   let a' : BitVec (w + 1) := a.signExtend (w + 1)
@@ -171,6 +211,46 @@ theorem BitVec.orderEncode_eq_shiftRight_allOnes {x : BitVec w} :
   simp
   omega
 
+
+/-- Clearing the guard bit `g` together with all sticky bits below it (the mask
+`~~~(oneHotBV g ||| orderEncode g)`) zeroes exactly the low `g.toNat + 1` bits:
+the result is `v` shifted right then left by `g.toNat + 1`. -/
+theorem BitVec.and_not_oneHotBV_or_orderEncode_eq {w : Nat} (v g : BitVec w) :
+    v &&& ~~~(BitVec.oneHotBV g ||| BitVec.orderEncode g)
+      = (v >>> (g.toNat + 1)) <<< (g.toNat + 1) := by
+  apply BitVec.eq_of_getLsbD_eq
+  intro i hiw
+  by_cases hL : g.toNat + 1 ≤ i
+  · rw [BitVec.getLsbD_and, BitVec.getLsbD_not, BitVec.getLsbD_or,
+        BitVec.getlsbD_oneHotBV, BitVec.getLsbD_orderEncode_of_lt g i hiw,
+        BitVec.getLsbD_shiftLeft, BitVec.getLsbD_ushiftRight]
+    have he : g.toNat + 1 + (i - (g.toNat + 1)) = i := by grind
+    rw [he]
+    grind
+  · rw [BitVec.getLsbD_and, BitVec.getLsbD_not, BitVec.getLsbD_or,
+        BitVec.getlsbD_oneHotBV, BitVec.getLsbD_orderEncode_of_lt g i hiw,
+        BitVec.getLsbD_shiftLeft]
+    grind
+
+/--
+info: 'BitVec.and_not_oneHotBV_or_orderEncode_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms BitVec.and_not_oneHotBV_or_orderEncode_eq
+
+/-- `toNat` form of `and_not_oneHotBV_or_orderEncode_eq`: clearing the low
+`g.toNat + 1` bits rounds the value down to a multiple of `2 ^ (g.toNat + 1)`. -/
+theorem BitVec.toNat_and_not_oneHotBV_or_orderEncode {w : Nat} (v g : BitVec w) :
+    (v &&& ~~~(BitVec.oneHotBV g ||| BitVec.orderEncode g)).toNat
+      = v.toNat / 2 ^ (g.toNat + 1) * 2 ^ (g.toNat + 1) := by
+  rw [BitVec.and_not_oneHotBV_or_orderEncode_eq, BitVec.toNat_shiftLeft,
+    BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow, Nat.shiftLeft_eq]
+  rw [Nat.mod_eq_of_lt]
+  exact Nat.lt_of_le_of_lt (Nat.div_mul_le_self v.toNat _) v.isLt
+
+/--
+info: 'BitVec.toNat_and_not_oneHotBV_or_orderEncode' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms BitVec.toNat_and_not_oneHotBV_or_orderEncode
 
 @[simp]
 theorem BitVec.clz_zero (w : Nat) : (0#w : BitVec w).clz = w := by
