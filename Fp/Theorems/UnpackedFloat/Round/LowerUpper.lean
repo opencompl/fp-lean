@@ -264,6 +264,13 @@ theorem UnpackedFloat.not_blastIsEarlyUnderflowNonneg_of_not_blastIsUnderflowNon
   simp only [decide_eq_false_iff_not] at hnotunder ⊢
   grind
 
+/--
+info: 'Fp.UnpackedFloat.not_blastIsEarlyUnderflowNonneg_of_not_blastIsUnderflowNonneg' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+-/
+#guard_msgs in #print axioms UnpackedFloat.not_blastIsEarlyUnderflowNonneg_of_not_blastIsUnderflowNonneg
+
 /-- (U) The sub-ulp gap — the heart of round-toward-zero correctness.
 
 The bits discarded by `blastRoundTowardZero` are worth strictly less than one ulp
@@ -306,7 +313,63 @@ theorem PackedFloat.isLawfulLower_of_toRat_le_of_lt_add_ulp
     (hle : pf.toRat ≤ R)
     (hlt : R < pf.toRat + (2 : Rat) ^ (-(sp : Int)) * 2 ^ pf.toRatExp) :
     SmtLibSemantics.IsLawfulLower (ExtRat.Number R) pf := by
-  sorry
+  have hpfNaN : ¬ pf.isNaN := by simpa using PackedFloat.not_isNaN_of_isNormOrSubnorm hfin
+  constructor
+  · -- `pf ≤ R` in the embedding.
+    show pf.toExtRat ≤ ExtRat.Number R
+    rw [PackedFloat.toExtRat_eq_toExtRat', PackedFloat.toExtRat'_eq_toRat_of hfin]
+    simp only [ExtRat.ExtRat.num_le_num_iff, decide_eq_true_eq]
+    exact hle
+  · -- Any representable `y` with embedded value `≤ R` is at most `pf`.
+    intro y hy
+    have hy' : y.toExtRat' ≤ ExtRat.Number R := by
+      rw [← PackedFloat.toExtRat_eq_toExtRat']; exact hy
+    clear hy
+    induction y using PackedFloat.kindCasesNaNInfZeroNum with
+    | nanCase n hn =>
+      exfalso
+      rw [PackedFloat.toExtRat'_eq_NaN_of_isNaN n hn] at hy'
+      simp at hy'
+    | infCase sign =>
+      cases sign
+      case false =>
+        -- `+∞` cannot be `≤ Number R`.
+        exfalso
+        rw [PackedFloat.toExtRat'_getInfinity hs] at hy'
+        simp at hy'
+      case true =>
+        -- `-∞ ≤` the nonnegative `pf`.
+        exact PackedFloat.le_of_nonneg_of_neg _ _ (by simp) hsign (by simp [hs]) hpfNaN
+    | zeroCase sign =>
+      -- `±0 ≤` the nonnegative `pf`.
+      exact PackedFloat.getZero_le_of_nonneg (by grind) hs pf hsign hpfNaN
+    | numCase n hn =>
+      have hnNaN : ¬ n.isNaN := by simpa using PackedFloat.not_isNaN_of_isNormOrSubnorm hn
+      by_cases hnsign : n.sign
+      · -- `n` negative, `pf` nonnegative.
+        exact PackedFloat.le_of_nonneg_of_neg n pf hnsign hsign hnNaN hpfNaN
+      · -- `n` nonnegative: the one-ulp gap above `pf` rules out `pf < n ≤ R`.
+        simp only [Bool.not_eq_true] at hnsign
+        apply Classical.byContradiction
+        intro hcon
+        have hltn : pf < n := PackedFloat.lt_of_not_le n pf (by grind) hcon
+        have hulp := PackedFloat.toRat_le_plus_toRat_of_toRat_le_toRat_of_sign_eq_false
+          (by grind) hs pf n hsign hnsign
+          (by simpa using PackedFloat.not_isZero_of_isNormOrSubnorm hfin)
+          (by simpa using PackedFloat.not_isZero_of_isNormOrSubnorm hn)
+          hpfNaN hnNaN
+          (by simpa using PackedFloat.not_isInfinite_of_isNormOrNonzeroSubnorm hfin)
+          (by simpa using PackedFloat.not_isInfinite_of_isNormOrNonzeroSubnorm hn)
+          hltn
+        have hnR : n.toRat ≤ R := by
+          rw [PackedFloat.toExtRat'_eq_toRat_of hn] at hy'
+          simpa only [ExtRat.ExtRat.num_le_num_iff, decide_eq_true_eq] using hy'
+        grind
+
+/--
+info: 'Fp.PackedFloat.isLawfulLower_of_toRat_le_of_lt_add_ulp' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms PackedFloat.isLawfulLower_of_toRat_le_of_lt_add_ulp
 
 theorem UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero
     (he : 1 < ep) (hs : 0 < sp)
