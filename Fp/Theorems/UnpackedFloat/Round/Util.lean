@@ -126,4 +126,10 @@ theorem BitVec.toInt_truncate_eq_of_toInt_range {w v : Nat} (x : BitVec w)
   rw [hset]
   exact BitVec.toInt_ofInt_eq_self hv hlo hhi
 
+/-- A smaller power `2 ^ m` divides any number rounded down to a multiple of a larger
+power `2 ^ L` (i.e. `n / 2 ^ L * 2 ^ L`). -/
+theorem Nat.two_pow_dvd_div_mul_two_pow (n : Nat) {m L : Nat} (h : m ≤ L) :
+    2 ^ m ∣ n / 2 ^ L * 2 ^ L :=
+  Nat.dvd_trans (Nat.pow_dvd_pow 2 h) ⟨n / 2 ^ L, Nat.mul_comm _ _⟩
+
 end Fp

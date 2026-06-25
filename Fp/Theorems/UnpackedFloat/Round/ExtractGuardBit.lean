@@ -51,4 +51,9 @@ theorem UnpackedFloat.extractGuardBit_eq_getLsbD
   have := UnpackedFloat.blastExtractGuardBit_eq_true_iff hep hsp heu hsu x hdiffLower hdiffUpper hdiffNatLe
   grind only [#65b0223044fbdd80]
 
+/--
+info: 'Fp.UnpackedFloat.extractGuardBit_eq_getLsbD' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms UnpackedFloat.extractGuardBit_eq_getLsbD
+
 end Fp

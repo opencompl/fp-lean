@@ -295,7 +295,85 @@ theorem UnpackedFloat.toRat'_lt_blastRoundTowardZero_toRat'_add_ulp
     x.toRat' <
       (x.blastRoundTowardZero ep sp).toRat'
         + (2 : Rat) ^ (x.ex.toInt - (sp : Int) + ((minNormalExp ep - x.ex.toInt).toNat : Int)) := by
-  sorry
+  -- Exponent / guard-index bounds from "no early over/underflow".
+  have hoverE : x.ex.toInt ≤ maxNormalExp ep := by
+    have := UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide he hs heu x; grind
+  have hunderE : minSubnormalExp ep sp ≤ x.ex.toInt := by
+    have := UnpackedFloat.blastUnderflowNonneg_eq_decide he hs heu x; grind
+  have hminrel : minNormalExp ep - minSubnormalExp ep sp = (sp : Int) := by
+    simp only [minSubnormalExp, maxSubnormalExp]; grind
+  have hdNat : (minNormalExp ep - x.ex.toInt).toNat ≤ sp := by grind
+  obtain ⟨hdL, hdU⟩ := shift_range he hs heu (exInt := x.ex.toInt) (by grind) hoverE
+  have hG := UnpackedFloat.toNat_guardBitIndex_eq he hs heu hsu x hdL hdU hdNat
+  -- `L = guardBitIndex + 1 = (su-(sp+1)) + off`, `m = su-(sp+1) ≤ L`.
+  have hLeq : (x.guardBitIndex ep sp).toNat + 1
+      = (minNormalExp ep - x.ex.toInt).toNat + (su - (sp + 1)) := by rw [hG]; grind
+  -- Clearing rounds the significand down to a multiple of `2^L`; `extractMsb'` re-reads
+  -- `cleared / 2^m`, and since `m ≤ L` this recovers `cleared` exactly.
+  have hcl := UnpackedFloat.blastClearSignificand_sig_toNat_eq x ep sp
+  have hdvd : 2 ^ (su - (sp + 1)) ∣ (x.blastClearSignificand ep sp).sig.toNat := by
+    rw [hcl]; exact Nat.two_pow_dvd_div_mul_two_pow x.sig.toNat (by grind)
+  have hrm : (x.blastRoundTowardZero ep sp).sig.toNat * 2 ^ (su - (sp + 1))
+      = (x.blastClearSignificand ep sp).sig.toNat := by
+    rw [sig_blastRoundTowardZero, BitVec.toNat_extractMsb'_zero _ (by grind)]
+    exact Nat.div_mul_cancel hdvd
+  -- The core Nat gap: `x.sig.toNat < cleared.sig.toNat + 2^L`.
+  have hnatN : x.sig.toNat
+      < (x.blastClearSignificand ep sp).sig.toNat
+          + 2 ^ ((minNormalExp ep - x.ex.toInt).toNat + (su - (sp + 1))) := by
+    rw [hcl, hLeq]
+    have hk : 0 < 2 ^ ((minNormalExp ep - x.ex.toInt).toNat + (su - (sp + 1))) :=
+      Nat.two_pow_pos _
+    have h1 := Nat.div_add_mod x.sig.toNat
+      (2 ^ ((minNormalExp ep - x.ex.toInt).toNat + (su - (sp + 1))))
+    have h2 := Nat.mod_lt x.sig.toNat hk
+    grind
+  have hnat : (x.sig.toNat : Rat)
+      < (x.blastClearSignificand ep sp).sig.toNat
+          + (2 : Rat) ^ ((minNormalExp ep - x.ex.toInt).toNat + (su - (sp + 1))) := by
+    exact_mod_cast hnatN
+  -- Expand both `toRat'` and factor the common weight `C = 2^(ex - (su-1))`.
+  rw [UnpackedFloat.toRat', UnpackedFloat.toRat', sign_blastRoundTowardZero, hxsign,
+    UnpackedFloat.toExpInt, UnpackedFloat.toExpInt, ex_blastRoundTowardZero,
+    UnpackedFloat.toNat_toSigNat_eq, UnpackedFloat.toNat_toSigNat_eq]
+  have hCpos : (0 : Rat) < 2 ^ (x.ex.toInt - ((su : Int) - 1)) := Rat.two_pow_pos _
+  have hsg : (Bool.toSign false : Rat) = 1 := by simp [Bool.toSign]
+  -- rewrite the three scaled terms onto the base weight `C = 2^(ex-(su-1))`.
+  have hround : (Bool.toSign false : Rat) * (x.blastRoundTowardZero ep sp).sig.toNat
+        * 2 ^ (-((↑((sp + 1) - 1) : Int) - x.ex.toInt))
+      = (x.blastClearSignificand ep sp).sig.toNat * 2 ^ (x.ex.toInt - ((su : Int) - 1)) := by
+    have hrmR : (↑(x.blastRoundTowardZero ep sp).sig.toNat : Rat) * 2 ^ (su - (sp + 1))
+        = ↑(x.blastClearSignificand ep sp).sig.toNat := by exact_mod_cast hrm
+    have hexp : (-((↑((sp + 1) - 1) : Int) - x.ex.toInt))
+        = (↑(su - (sp + 1)) : Int) + (x.ex.toInt - ((su : Int) - 1)) := by
+      rw [Int.natCast_sub (show sp + 1 ≤ su by grind)]
+      have e1 : ((sp + 1) - 1 : Nat) = sp := by grind
+      rw [e1]; push_cast; grind
+    rw [hexp, ← Rat.zpow_mul_zpow (by grind), Rat.zpow_natCast, hsg, ← hrmR]
+    grind
+  have hulp : (2 : Rat) ^ (x.ex.toInt - (sp : Int) + ((minNormalExp ep - x.ex.toInt).toNat : Int))
+      = (2 : Rat) ^ ((minNormalExp ep - x.ex.toInt).toNat + (su - (sp + 1)))
+          * 2 ^ (x.ex.toInt - ((su : Int) - 1)) := by
+    rw [← Rat.zpow_natCast (2 : Rat) ((minNormalExp ep - x.ex.toInt).toNat + (su - (sp + 1))),
+      Rat.zpow_mul_zpow (by grind)]
+    congr 1
+    push_cast [Int.natCast_sub (show sp + 1 ≤ su by grind)]; grind
+  have hx : (Bool.toSign false : Rat) * x.sig.toNat * 2 ^ (-((↑(su - 1) : Int) - x.ex.toInt))
+      = (x.sig.toNat : Rat) * 2 ^ (x.ex.toInt - ((su : Int) - 1)) := by
+    have hexp : (-((↑(su - 1) : Int) - x.ex.toInt)) = x.ex.toInt - ((su : Int) - 1) := by
+      rw [Int.natCast_sub (show 1 ≤ su by grind)]; push_cast; grind
+    rw [hexp, hsg]; grind
+  rw [hround, hulp, hx]
+  -- `x.sig.toNat * C < cleared.sig.toNat * C + (2^L) * C`, cancel `C > 0`.
+  have hmul := (Rat.mul_lt_mul_cancel_right_of_lt hCpos).mpr hnat
+  grind
+
+/--
+info: 'Fp.UnpackedFloat.toRat'_lt_blastRoundTowardZero_toRat'_add_ulp' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+-/
+#guard_msgs in #print axioms UnpackedFloat.toRat'_lt_blastRoundTowardZero_toRat'_add_ulp
 
 /-- (GLB) A non-NaN nonnegative packed float that is `≤ R` and lies within one ulp
 below `R` is the greatest lower bound of `R`.

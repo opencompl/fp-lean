@@ -88,4 +88,8 @@ theorem UnpackedFloat.blastExtractStickyBit_eq_decide
     simp at this
     grind only [#46e5, #0b53]
 
+/--
+info: 'Fp.UnpackedFloat.blastExtractStickyBit_eq_decide' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms UnpackedFloat.blastExtractStickyBit_eq_decide
 end Fp

@@ -67,4 +67,14 @@ theorem UnpackedFloat.blastClearSignificand_toRat_le_of_nonneg (uf : UnpackedFlo
   simp only [PackedFloat.Rat.natCast_le_natCast_iff_le]
   grind only [UnpackedFloat.blastClearSignificand]
 
+/-- `blastClearSignificand` zeroes the guard bit and every sticky bit below it, i.e.
+rounds the significand down to a multiple of `2 ^ (guardBitIndex + 1)`. -/
+theorem UnpackedFloat.blastClearSignificand_sig_toNat_eq (x : UnpackedFloat eu su)
+    (ep sp : Nat) :
+    (x.blastClearSignificand ep sp).sig.toNat
+      = x.sig.toNat / 2 ^ ((x.guardBitIndex ep sp).toNat + 1)
+          * 2 ^ ((x.guardBitIndex ep sp).toNat + 1) := by
+  simp only [UnpackedFloat.blastClearSignificand]
+  exact BitVec.toNat_and_not_oneHotBV_or_orderEncode x.sig (x.guardBitIndex ep sp)
+
 end Fp
