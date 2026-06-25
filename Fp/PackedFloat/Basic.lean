@@ -265,4 +265,143 @@ def isPZero (pf : PackedFloat e s) : Bool :=
 def isSignMinus (pf : PackedFloat e s) : Bool :=
   pf.sign
 
+-- TODO: there's EquivUptoNaN, and 'smtLibEq'.
+-- I should probably switch to 'EquivUptoNaN' in 'Rel',
+-- and then show that this is equivalent to 'smtLibEq' or whatever
+def EquivUptoNaN {e s : Nat} (x y : PackedFloat e s) : Prop :=
+  x = y ∨ (x.isNaN ∧ y.isNaN)
+
+theorem EquivUptoNaN.of_isNaN_isNaN (x y : PackedFloat e s) (hx : x.isNaN) (hy : y.isNaN) : EquivUptoNaN x y :=
+  by simp [EquivUptoNaN, hx, hy]
+
+theorem EquivUptoNaN.of_eq (x y : PackedFloat e s) (h : x = y) : EquivUptoNaN x y := by simp [EquivUptoNaN, h]
+
+theorem EquivUptoNaN_symm (x y : PackedFloat e s) : EquivUptoNaN x y ↔ EquivUptoNaN y x := by
+  simp [EquivUptoNaN]
+  grind only [#10e0]
+
+theorem EquivUptoNaN.refl (x : PackedFloat e s) : EquivUptoNaN x x :=
+  EquivUptoNaN.of_eq x x rfl
+
+theorem EquivUptoNaN.symm {x y : PackedFloat e s} (h : EquivUptoNaN x y) : EquivUptoNaN y x :=
+  (EquivUptoNaN_symm x y).mp h
+
+theorem EquivUptoNaN.trans {x y z : PackedFloat e s}
+    (hxy : EquivUptoNaN x y) (hyz : EquivUptoNaN y z) : EquivUptoNaN x z := by
+  unfold EquivUptoNaN at *
+  grind
+
+/--
+`EquivUptoNaN` is an equivalence relation, so it induces a `Setoid` on
+`PackedFloat`. This is the relation we quotient by to obtain `SmtLibPackedFloat`
+(see `Fp/SmtLibPackedFloat.lean`).
+-/
+instance instSetoidEquivUptoNaN (e s : Nat) : Setoid (PackedFloat e s) where
+  r := EquivUptoNaN
+  iseqv := ⟨EquivUptoNaN.refl, EquivUptoNaN.symm, EquivUptoNaN.trans⟩
+
+/--
+Returns the `PackedFloat` representation for the given `BitVec`.
+-/
+@[simp, bv_normalize]
+def ofBits (e s : Nat) (b : BitVec (1+e+s)) : PackedFloat e s where
+  sign := b.msb
+  ex := b.extractLsb' s e
+  sig := b.truncate s
+
+/--
+Returns the `BitVec` representation for the given `PackedFloat`.
+-/
+@[simp, bv_normalize]
+def toBits (x : PackedFloat e s) : BitVec (1+e+s) :=
+  BitVec.ofBool x.sign ++ x.ex ++ x.sig
+
+@[simp, bv_normalize]
+def equal_denotation (a b : PackedFloat e s) : Bool :=
+  (a.sign == b.sign && a.ex == b.ex && a.sig == b.sig) ||
+  (a.isNaN && b.isNaN)
+
+/--
+Raw negation directly on the packedFloat representation.
+-/
+@[bv_normalize]
+def neg (x : PackedFloat e s) : PackedFloat e s :=
+  { x with sign := !x.sign }
+
+instance : Neg (PackedFloat e s) where
+  neg := .neg
+
+@[bv_normalize]
+theorem neg_def {x : PackedFloat e s} : -x = PackedFloat.neg x := rfl
+
+@[simp]
+theorem neg_neg (x : PackedFloat e s) : -(-x) = x := by
+  simp only [neg_def, neg, Bool.not_not]
+
+@[simp]
+theorem neg_sign (x : PackedFloat e s) : (-x).sign = !x.sign := rfl
+
+@[simp]
+theorem neg_ex (x : PackedFloat e s) : (-x).ex = x.ex := rfl
+
+@[simp]
+theorem neg_sig (x : PackedFloat e s) : (-x).sig = x.sig := rfl
+
+/--
+Raw abs directly on the packedFloat representation.
+-/
+@[bv_normalize]
+def abs (x : PackedFloat e s) : PackedFloat e s :=
+  { x with sign := false }
+
+@[simp]
+theorem abs_sign (x : PackedFloat e s) : x.abs.sign = false := rfl
+
+@[simp]
+theorem abs_ex (x : PackedFloat e s) : x.abs.ex = x.ex := rfl
+
+@[simp]
+theorem abs_sig (x : PackedFloat e s) : x.abs.sig = x.sig := rfl
+
+@[simp]
+theorem abs_abs (x : PackedFloat e s) : x.abs.abs = x.abs := rfl
+
+@[simp]
+theorem abs_neg (x : PackedFloat e s) : (-x).abs = x.abs := by
+  simp [abs, neg_def, neg]
+
+/--
+Get the next packed float away from zero, i.e.
+the smallest packed float that is greater than `x` if `x` is positive,
+and the largest packed float that is smaller than `x` if `x` is negative.
+-/
+def successorAwayFromZero (x : PackedFloat e s) : PackedFloat e s :=
+  if x.isNaN
+  then x
+  else if x.isInfinite
+  then PackedFloat.getInfinity e s x.sign
+  else
+    let sig := x.sig
+    if sig ≠ BitVec.allOnes s
+    then sigSucc
+    else exSucc
+  where
+    sigSucc : PackedFloat e s := ⟨x.sign, x.ex, x.sig + 1#s⟩
+    exSucc : PackedFloat e s := ⟨x.sign, x.ex + 1#e, 0#s⟩
+
 end PackedFloat
+
+-- Constants
+
+/-- E5M2 floating point representation of 1.0 -/
+@[bv_normalize]
+def oneE5M2       := PackedFloat.ofBits 5 2 0b00111100#8
+/-- E5M2 floating point representation of 2.0 -/
+@[bv_normalize]
+def twoE5M2       := PackedFloat.ofBits 5 2 0b01000000#8
+/-- Smallest (positive) normal number in E5M2 floating point. -/
+@[bv_normalize]
+def minNormE5M2   := PackedFloat.ofBits 5 2 0b00000100#8
+/-- Smallest (positive) subnormal number in E5M2 floating point. -/
+@[bv_normalize]
+def minSubnormE5M2 := PackedFloat.ofBits 5 2 0b00000001#8
