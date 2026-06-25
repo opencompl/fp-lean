@@ -46,3 +46,362 @@ theorem PackedFloat.eq_cond_sig {x y : PackedFloat exWidth sigWidth} :
 instance : Repr (PackedFloat exWidth sigWidth) where
   reprPrec x _prec :=
     f!"\{ sign := {if x.sign then "-" else "+"}, ex := {x.ex}, sig := {x.sig} }"
+
+namespace PackedFloat
+
+/--
+Returns the "canonical" NaN for the given floating point format. For example,
+the canonical NaN for `exWidth = 3` and `sigWidth = 4` is `0.111.1000`.
+-/
+@[bv_normalize]
+def getNaN (exWidth sigWidth : Nat) : PackedFloat exWidth sigWidth where
+  sign := false
+  ex := BitVec.allOnes exWidth
+  sig := BitVec.intMin sigWidth
+
+@[simp]
+theorem sign_getNaN (exWidth sigWidth : Nat) :
+    (PackedFloat.getNaN exWidth sigWidth).sign = false := rfl
+
+@[simp]
+theorem ex_getNaN (exWidth sigWidth : Nat) :
+    (PackedFloat.getNaN exWidth sigWidth).ex = BitVec.allOnes exWidth := rfl
+
+@[simp]
+theorem sig_getNaN (exWidth sigWidth : Nat) :
+    (PackedFloat.getNaN exWidth sigWidth).sig = BitVec.intMin sigWidth := rfl
+
+/--
+Returns the infinity value of the specified sign for the given floating point
+format.
+-/
+@[bv_normalize]
+def getInfinity (exWidth sigWidth : Nat) (sign : Bool)
+  : PackedFloat exWidth sigWidth where
+  sign
+  ex := BitVec.allOnes exWidth
+  sig := 0
+
+@[simp]
+theorem sign_getInfinity (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.getInfinity exWidth sigWidth sign).sign = sign := rfl
+
+@[simp]
+theorem sig_getInfinity (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.getInfinity exWidth sigWidth sign).sig = 0 := rfl
+
+@[simp]
+theorem ex_getInfinity (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.getInfinity exWidth sigWidth sign).ex = BitVec.allOnes exWidth := rfl
+
+/--
+Returns the (positive) zero value for the given floating point format.
+-/
+@[bv_normalize]
+def getZero (exWidth sigWidth : Nat) (sign : Bool)
+  : PackedFloat exWidth sigWidth where
+  sign := sign
+  ex := 0
+  sig := 0
+
+@[simp, grind =]
+theorem sign_getZero (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.getZero exWidth sigWidth sign).sign = sign := rfl
+
+@[simp, grind =]
+theorem sig_getZero (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.getZero exWidth sigWidth sign).sig = 0 := rfl
+
+@[simp, grind =]
+theorem ex_getZero (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.getZero exWidth sigWidth sign).ex = 0 := rfl
+
+
+@[bv_normalize]
+def minNormalNumber (exWidth sigWidth : Nat) (sign : Bool)
+  : PackedFloat exWidth sigWidth where
+  sign
+  ex := 1
+  sig := 0
+
+@[simp]
+theorem sign_minNormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.minNormalNumber exWidth sigWidth sign).sign = sign := rfl
+
+@[simp]
+theorem sig_minNormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.minNormalNumber exWidth sigWidth sign).sig = 0 := rfl
+
+@[simp]
+theorem ex_minNormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.minNormalNumber exWidth sigWidth sign).ex = 1 := rfl
+
+/--
+Returns the maximum (magnitude) value for the given sign.
+-/
+@[bv_normalize]
+def maxNormalNumber (exWidth sigWidth : Nat) (sign : Bool)
+  : PackedFloat exWidth sigWidth where
+  sign
+  ex := BitVec.allOnes exWidth - 1#_
+  sig := BitVec.allOnes sigWidth
+
+@[simp]
+theorem sign_maxNormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.maxNormalNumber exWidth sigWidth sign).sign = sign := rfl
+
+@[simp]
+theorem sig_maxNormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.maxNormalNumber exWidth sigWidth sign).sig = BitVec.allOnes sigWidth := rfl
+
+@[simp]
+theorem ex_maxNormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.maxNormalNumber exWidth sigWidth sign).ex =
+    BitVec.allOnes exWidth - 1#exWidth := rfl
+
+-- TODO: write toRat_getMax
+
+/--
+the smallest nonzero subnormal number.
+-/
+@[bv_normalize]
+def minSubnormalNumber (exWidth sigWidth : Nat) (sign : Bool)
+  : PackedFloat exWidth sigWidth where
+  sign
+  ex := BitVec.ofInt exWidth 0
+  sig := 1#sigWidth
+
+@[simp]
+theorem sign_minSubnormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.minSubnormalNumber exWidth sigWidth sign).sign = sign := rfl
+
+@[simp]
+theorem sig_minSubnormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.minSubnormalNumber exWidth sigWidth sign).sig = 1#sigWidth := rfl
+
+@[simp]
+theorem ex_minSubnormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.minSubnormalNumber exWidth sigWidth sign).ex =
+    BitVec.ofInt exWidth 0 := rfl
+
+@[bv_normalize]
+def maxSubnormalNumber (exWidth sigWidth : Nat) (sign : Bool)
+  : PackedFloat exWidth sigWidth where
+  sign
+  ex := BitVec.ofInt exWidth 0
+  sig := BitVec.allOnes sigWidth
+
+@[simp]
+theorem sign_maxSubnormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.maxSubnormalNumber exWidth sigWidth sign).sign = sign := rfl
+
+@[simp]
+theorem sig_maxSubnormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.maxSubnormalNumber exWidth sigWidth sign).sig = BitVec.allOnes sigWidth := rfl
+
+@[simp]
+theorem ex_maxSubnormalNumber (exWidth sigWidth : Nat) (sign : Bool) :
+    (PackedFloat.maxSubnormalNumber exWidth sigWidth sign).ex =
+    BitVec.ofInt exWidth 0 := rfl
+
+@[bv_normalize]
+theorem injEq (a b : PackedFloat e s)
+  : (a = b) = (a.sign = b.sign ∧ a.ex = b.ex ∧ a.sig = b.sig) := by
+  cases a
+  cases b
+  simp [mk.injEq]
+
+theorem inj (a b : PackedFloat e s)
+  : (a.sign = b.sign ∧ a.ex = b.ex ∧ a.sig = b.sig) → (a = b) := by
+  intro h
+  simp_all only [← injEq]
+
+@[bv_normalize]
+def isNaN (pf : PackedFloat e s) : Bool :=
+  -- Prioritize `NaN` over `Infinity`.
+  pf.ex == .allOnes e && (s == 0 || pf.sig != .zero s)
+
+@[bv_normalize]
+def isInfinite (pf : PackedFloat e s) : Bool :=
+  -- Prioritize `Infinity` over `0`. This is somewhat arbitrary.
+  pf.ex == .allOnes e && (s != 0 && pf.sig == .zero s)
+
+-- TODO: delete the 'e=0' case, since a lot of the basic theory
+-- just breaks down.
+@[bv_normalize]
+def isZero (pf : PackedFloat e s) : Bool :=
+  -- Prioritize `0` over `Subnormals`.
+  e != 0 && pf.ex == .zero e && pf.sig == .zero s
+
+@[bv_normalize]
+def isNonzeroSubnorm (pf : PackedFloat e s) : Bool :=
+  e != 0 && pf.ex == .zero e && pf.sig != .zero s
+
+-- See that this means that it is a number.
+-- We need a different one to say that it is nonzero.
+-- | does this also need a 'e != 0' condition?
+@[bv_normalize]
+def isNorm {e s} (pf : PackedFloat e s) : Bool :=
+  pf.ex != .allOnes e && pf.ex != .zero e
+
+@[simp, bv_normalize]
+def isNormOrNonzeroSubnorm (pf : PackedFloat e s) : Bool :=
+  pf.ex != .allOnes e && (pf.ex != .zero e || pf.sig != .zero s)
+  -- e != 0 && pf.ex != BitVec.allOnes e
+
+@[simp, bv_normalize]
+def isZeroOrSubnorm (pf : PackedFloat e s) : Bool :=
+  pf.ex == 0
+
+@[simp, bv_normalize]
+def isNZero (pf : PackedFloat e s) : Bool :=
+  e != 0 && pf.ex == 0 && pf.sig == 0 && pf.sign
+
+@[simp, bv_normalize]
+def isPZero (pf : PackedFloat e s) : Bool :=
+  e != 0 && pf.ex == 0 && pf.sig == 0 && !pf.sign
+
+@[simp, bv_normalize]
+def isSignMinus (pf : PackedFloat e s) : Bool :=
+  pf.sign
+
+-- TODO: there's EquivUptoNaN, and 'smtLibEq'.
+-- I should probably switch to 'EquivUptoNaN' in 'Rel',
+-- and then show that this is equivalent to 'smtLibEq' or whatever
+def EquivUptoNaN {e s : Nat} (x y : PackedFloat e s) : Prop :=
+  x = y ∨ (x.isNaN ∧ y.isNaN)
+
+theorem EquivUptoNaN.of_isNaN_isNaN (x y : PackedFloat e s) (hx : x.isNaN) (hy : y.isNaN) : EquivUptoNaN x y :=
+  by simp [EquivUptoNaN, hx, hy]
+
+theorem EquivUptoNaN.of_eq (x y : PackedFloat e s) (h : x = y) : EquivUptoNaN x y := by simp [EquivUptoNaN, h]
+
+theorem EquivUptoNaN_symm (x y : PackedFloat e s) : EquivUptoNaN x y ↔ EquivUptoNaN y x := by
+  simp [EquivUptoNaN]
+  grind only [#10e0]
+
+theorem EquivUptoNaN.refl (x : PackedFloat e s) : EquivUptoNaN x x :=
+  EquivUptoNaN.of_eq x x rfl
+
+theorem EquivUptoNaN.symm {x y : PackedFloat e s} (h : EquivUptoNaN x y) : EquivUptoNaN y x :=
+  (EquivUptoNaN_symm x y).mp h
+
+theorem EquivUptoNaN.trans {x y z : PackedFloat e s}
+    (hxy : EquivUptoNaN x y) (hyz : EquivUptoNaN y z) : EquivUptoNaN x z := by
+  unfold EquivUptoNaN at *
+  grind
+
+/--
+`EquivUptoNaN` is an equivalence relation, so it induces a `Setoid` on
+`PackedFloat`. This is the relation we quotient by to obtain `SmtLibPackedFloat`
+(see `Fp/SmtLibPackedFloat.lean`).
+-/
+instance instSetoidEquivUptoNaN (e s : Nat) : Setoid (PackedFloat e s) where
+  r := EquivUptoNaN
+  iseqv := ⟨EquivUptoNaN.refl, EquivUptoNaN.symm, EquivUptoNaN.trans⟩
+
+/--
+Returns the `PackedFloat` representation for the given `BitVec`.
+-/
+@[simp, bv_normalize]
+def ofBits (e s : Nat) (b : BitVec (1+e+s)) : PackedFloat e s where
+  sign := b.msb
+  ex := b.extractLsb' s e
+  sig := b.truncate s
+
+/--
+Returns the `BitVec` representation for the given `PackedFloat`.
+-/
+@[simp, bv_normalize]
+def toBits (x : PackedFloat e s) : BitVec (1+e+s) :=
+  BitVec.ofBool x.sign ++ x.ex ++ x.sig
+
+@[simp, bv_normalize]
+def equal_denotation (a b : PackedFloat e s) : Bool :=
+  (a.sign == b.sign && a.ex == b.ex && a.sig == b.sig) ||
+  (a.isNaN && b.isNaN)
+
+/--
+Raw negation directly on the packedFloat representation.
+-/
+@[bv_normalize]
+def neg (x : PackedFloat e s) : PackedFloat e s :=
+  { x with sign := !x.sign }
+
+instance : Neg (PackedFloat e s) where
+  neg := .neg
+
+@[bv_normalize]
+theorem neg_def {x : PackedFloat e s} : -x = PackedFloat.neg x := rfl
+
+@[simp]
+theorem neg_neg (x : PackedFloat e s) : -(-x) = x := by
+  simp only [neg_def, neg, Bool.not_not]
+
+@[simp]
+theorem neg_sign (x : PackedFloat e s) : (-x).sign = !x.sign := rfl
+
+@[simp]
+theorem neg_ex (x : PackedFloat e s) : (-x).ex = x.ex := rfl
+
+@[simp]
+theorem neg_sig (x : PackedFloat e s) : (-x).sig = x.sig := rfl
+
+/--
+Raw abs directly on the packedFloat representation.
+-/
+@[bv_normalize]
+def abs (x : PackedFloat e s) : PackedFloat e s :=
+  { x with sign := false }
+
+@[simp]
+theorem abs_sign (x : PackedFloat e s) : x.abs.sign = false := rfl
+
+@[simp]
+theorem abs_ex (x : PackedFloat e s) : x.abs.ex = x.ex := rfl
+
+@[simp]
+theorem abs_sig (x : PackedFloat e s) : x.abs.sig = x.sig := rfl
+
+@[simp]
+theorem abs_abs (x : PackedFloat e s) : x.abs.abs = x.abs := rfl
+
+@[simp]
+theorem abs_neg (x : PackedFloat e s) : (-x).abs = x.abs := by
+  simp [abs, neg_def, neg]
+
+/--
+Get the next packed float away from zero, i.e.
+the smallest packed float that is greater than `x` if `x` is positive,
+and the largest packed float that is smaller than `x` if `x` is negative.
+-/
+def successorAwayFromZero (x : PackedFloat e s) : PackedFloat e s :=
+  if x.isNaN
+  then x
+  else if x.isInfinite
+  then PackedFloat.getInfinity e s x.sign
+  else
+    let sig := x.sig
+    if sig ≠ BitVec.allOnes s
+    then sigSucc
+    else exSucc
+  where
+    sigSucc : PackedFloat e s := ⟨x.sign, x.ex, x.sig + 1#s⟩
+    exSucc : PackedFloat e s := ⟨x.sign, x.ex + 1#e, 0#s⟩
+
+end PackedFloat
+
+-- Constants
+
+/-- E5M2 floating point representation of 1.0 -/
+@[bv_normalize]
+def oneE5M2       := PackedFloat.ofBits 5 2 0b00111100#8
+/-- E5M2 floating point representation of 2.0 -/
+@[bv_normalize]
+def twoE5M2       := PackedFloat.ofBits 5 2 0b01000000#8
+/-- Smallest (positive) normal number in E5M2 floating point. -/
+@[bv_normalize]
+def minNormE5M2   := PackedFloat.ofBits 5 2 0b00000100#8
+/-- Smallest (positive) subnormal number in E5M2 floating point. -/
+@[bv_normalize]
+def minSubnormE5M2 := PackedFloat.ofBits 5 2 0b00000001#8
