@@ -1156,3 +1156,10 @@ theorem PackedFloat.unpack_pack_EquivUptoNaN {e s : Nat} (he : 1 < e) (hs : 0 < 
 info: 'PackedFloat.unpack_pack_EquivUptoNaN' depends on axioms: [propext, BitVec.toNat_clz_cons, Classical.choice, Quot.sound]
 -/
 #guard_msgs in #print axioms PackedFloat.unpack_pack_EquivUptoNaN
+
+@[grind <=]
+theorem PackedFloat.eq_of_unpack_eq_unpack_of_isInfinity {x y : PackedFloat e s}
+    (hs : 0 < s) (he : 0 < e)
+    (hx : x.isInfinite) (hy : y.isInfinite) (h : x.unpack = y.unpack) :
+    x = y := by
+  cases x using PackedFloat.kindCasesNaNInfZeroNum <;> try grind
