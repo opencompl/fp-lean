@@ -1,4 +1,5 @@
 import Fp.Basic
+import Fp.PackedFloat.Lemmas
 
 /--
 Convert a packed float into an 'UnpackedFloat',
