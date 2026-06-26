@@ -862,6 +862,92 @@ info: 'Fp.PackedFloat.isLawfulLower_of_toRat_le_of_lt_add_ulp' depends on axioms
 -/
 #guard_msgs in #print axioms PackedFloat.isLawfulLower_of_toRat_le_of_lt_add_ulp
 
+/-- Upper (least-upper-bound) analog of `isLawfulLower_of_toRat_le_of_lt_add_ulp`.
+If `pf` is a nonneg finite float, `0 < R ≤ pf.toRat`, and every nonneg finite float
+strictly below `pf` has value `< R` (i.e. no representable lies in `[R, pf)`),
+then `pf` is the lawful upper (least upper bound) of `R`.
+
+The `0 < R` hypothesis is necessary: a positive `pf` can only be the least upper bound
+of a positive `R` (for `R ≤ 0`, `+0` would be a smaller upper bound). It makes the
+`±∞` / `±0` / negative cases vacuous. -/
+theorem PackedFloat.isLawfulUpper_of_le_toRat_of_no_float_between
+    (he : 1 < ep) (hs : 0 < sp)
+    (R : Rat) (pf : PackedFloat ep sp)
+    (hsign : pf.sign = false)
+    (hfin : pf.isNormOrNonzeroSubnorm)
+    (hRpos : 0 < R)
+    (hle : R ≤ pf.toRat)
+    (hbetween : ∀ (y : PackedFloat ep sp), y.sign = false → y.isNormOrNonzeroSubnorm →
+        y.toRat < pf.toRat → y.toRat < R) :
+    SmtLibSemantics.IsLawfulUpper (ExtRat.Number R) pf := by
+  have hpfNaN : ¬ pf.isNaN := by simpa using PackedFloat.not_isNaN_of_isNormOrSubnorm hfin
+  have hpfZero : ¬ pf.isZero := by simpa using PackedFloat.not_isZero_of_isNormOrSubnorm hfin
+  have hpfInf : ¬ pf.isInfinite := by
+    simpa using PackedFloat.not_isInfinite_of_isNormOrNonzeroSubnorm hfin
+  constructor
+  · -- `Number R ≤ pf` in the embedding.
+    show ExtRat.Number R ≤ pf.toExtRat
+    rw [PackedFloat.toExtRat_eq_toExtRat', PackedFloat.toExtRat'_eq_toRat_of hfin]
+    simp only [ExtRat.ExtRat.num_le_num_iff, decide_eq_true_eq]
+    exact hle
+  · -- Any representable `y` with `R ≤` its embedded value is at least `pf`.
+    intro y hy
+    have hy' : ExtRat.Number R ≤ y.toExtRat' := by
+      rw [← PackedFloat.toExtRat_eq_toExtRat']; exact hy
+    clear hy
+    induction y using PackedFloat.kindCasesNaNInfZeroNum with
+    | nanCase n hn =>
+      exfalso
+      rw [PackedFloat.toExtRat'_eq_NaN_of_isNaN n hn] at hy'
+      simp at hy'
+    | infCase sign =>
+      cases sign
+      case false =>
+        -- `pf ≤ +∞`.
+        exact (PackedFloat.le_getInfinity_false_of_not_isNaN hs pf).mpr hpfNaN
+      case true =>
+        -- `Number R ≤ -∞` is impossible.
+        exfalso
+        rw [PackedFloat.toExtRat'_getInfinity hs] at hy'
+        simp at hy'
+    | zeroCase sign =>
+      -- `Number R ≤ ±0` forces `R ≤ 0`, contradicting `0 < R`.
+      exfalso
+      rw [PackedFloat.toExtRat'_eq_zero_of_isZero (PackedFloat.getZero ep sp sign)
+        (by simp only [PackedFloat.isZero_getZero]; grind)] at hy'
+      simp only [ExtRat.ExtRat.num_le_num_iff, decide_eq_true_eq] at hy'
+      grind
+    | numCase n hn =>
+      have hnNaN : ¬ n.isNaN := by simpa using PackedFloat.not_isNaN_of_isNormOrSubnorm hn
+      have hnZero : ¬ n.isZero := by simpa using PackedFloat.not_isZero_of_isNormOrSubnorm hn
+      have hnInf : ¬ n.isInfinite := by
+        simpa using PackedFloat.not_isInfinite_of_isNormOrNonzeroSubnorm hn
+      by_cases hnsign : n.sign
+      · -- `n` negative ⇒ `n.toRat < 0 < R`, contradicting `R ≤ n.toRat`.
+        exfalso
+        rw [PackedFloat.toExtRat'_eq_toRat_of hn] at hy'
+        simp only [ExtRat.ExtRat.num_le_num_iff, decide_eq_true_eq] at hy'
+        have hneg : n.toRat < 0 := by
+          have := PackedFloat.sign_iff_toRat_neg hn; grind
+        grind
+      · -- `n` nonneg: the no-float-between hypothesis rules out `R ≤ n < pf`.
+        simp only [Bool.not_eq_true] at hnsign
+        apply Classical.byContradiction
+        intro hcon
+        have hltn : n < pf := PackedFloat.lt_of_not_le pf n (by grind) hcon
+        have hnlt : n.toRat < pf.toRat :=
+          PackedFloat.toRat_lt_toRat_of_lt (by grind) hs n pf hnZero hpfZero hnNaN hpfNaN hnInf hpfInf hltn
+        have hnR : R ≤ n.toRat := by
+          rw [PackedFloat.toExtRat'_eq_toRat_of hn] at hy'
+          simpa only [ExtRat.ExtRat.num_le_num_iff, decide_eq_true_eq] using hy'
+        have := hbetween n hnsign hn hnlt
+        grind
+
+/--
+info: 'Fp.PackedFloat.isLawfulUpper_of_le_toRat_of_no_float_between' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs (whitespace := lax) in #print axioms PackedFloat.isLawfulUpper_of_le_toRat_of_no_float_between
+
 /-- Round-toward-zero never increases the (nonnegative) value: `round ≤ x`.
 The rounded value equals the cleared significand re-read at precision `sp`, and clearing
 only drops low bits. -/
