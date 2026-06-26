@@ -1518,6 +1518,12 @@ theorem UnpackedFloat.msb_sig_blastSuccessorAwayFromZeroNonnegAux_eq_true
   · exact UnpackedFloat.msb_sig_blastRoundTowardZero_eq_true
       he hs heu hsu x hxnorm hnotunder hnotover
 
+/--
+info: 'Fp.UnpackedFloat.msb_sig_blastSuccessorAwayFromZeroNonnegAux_eq_true' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs (whitespace := lax) in
+#print axioms UnpackedFloat.msb_sig_blastSuccessorAwayFromZeroNonnegAux_eq_true
+
 theorem UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero
     (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)   -- ADDED (needed by `truncateFittingExponent`)
