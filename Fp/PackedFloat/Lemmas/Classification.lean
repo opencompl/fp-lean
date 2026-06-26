@@ -1,4 +1,7 @@
-import Fp.Basic
+import Fp.PackedFloat.Basic
+import Fp.ExtRat
+import Fp.EFixedPoint
+import Fp.ExtDyadic.Basic
 
 /-!
 ## Basic classification lemmas about `PackedFloat`
