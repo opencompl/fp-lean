@@ -1401,7 +1401,8 @@ theorem UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero
       SmtLibSemantics.IsLawfulLower (ExtRat.Number x.toRat') pf ∧
       (x.blastRoundTowardZero ep sp).toRat' = pf.toRat ∧
       (x.blastRoundTowardZero ep sp).sign  = pf.sign ∧
-      pf.toRatExp = x.ex.toInt + ((minNormalExp ep - x.ex.toInt).toNat : Int) := by
+      pf.toRatExp = x.ex.toInt + ((minNormalExp ep - x.ex.toInt).toNat : Int) ∧
+      pf.isNormOrNonzeroSubnorm := by
   -- (M) Full not-underflow ⇒ early not-underflow, so the `truncateFittingExponent`
   -- invariance lemmas (stated with the `Early` form) apply.
   have hnotearlyunder : x.blastIsEarlyUnderflowNonneg ep sp = false :=
@@ -1550,7 +1551,7 @@ theorem UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero
           simp only [PackedFloat.toRatExp, hnorm, Bool.false_eq_true, if_false, minNormalExp]
         rw [hsub]; grind
     grind
-  refine ⟨(EUnpackedFloat.mkNumber r).pack, ?_, ?_, ?_, ?_, hexpeq⟩
+  refine ⟨(EUnpackedFloat.mkNumber r).pack, ?_, ?_, ?_, ?_, hexpeq, hfin⟩
   · -- ¬ isNaN, from `isNormOrNonzeroSubnorm`.
     simpa using PackedFloat.not_isNaN_of_isNormOrSubnorm hfin
   · -- IsLawfulLower via the GLB lemma.
@@ -1614,6 +1615,65 @@ info: 'Fp.UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero
  Quot.sound]
 -/
 #guard_msgs in #print axioms UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero
+
+/-- `lower (Number x.toRat')` is finite (normal or nonzero subnormal) when `x` is a nonnegative
+in-range normalized float. Obtained by pinning the keystone's witness `pf = lower` (uniqueness)
+and transferring its `isNormOrNonzeroSubnorm`. -/
+theorem UnpackedFloat.isNormOrNonzeroSubnorm_lower_of_in_range
+    (he : 2 < ep) (hsp : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).isNormOrNonzeroSubnorm := by
+  obtain ⟨pf, hpfNotNaN, hpfLower, _, _, _, hfin⟩ :=
+    UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero
+      (by grind) hsp heu hsu x hxsign hxnorm hnotunder hnotover
+  have hpflow : pf = (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp) :=
+    eq_of_IsLawfulLower_of_IsLawfulLower ep sp (ExtRat.Number x.toRat') pf _ hpfNotNaN
+      (by simpa using not_isNaN_lower_of_ne_NaN ep sp (by grind) hsp _ (by simp))
+      hpfLower (lsLawfulLower_smtLibLower ep sp (by grind) hsp _)
+  rw [← hpflow]; exact hfin
+
+/--
+info: 'Fp.UnpackedFloat.isNormOrNonzeroSubnorm_lower_of_in_range' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs (whitespace := lax) in
+#print axioms UnpackedFloat.isNormOrNonzeroSubnorm_lower_of_in_range
+
+/-- The successor (away from zero) of a finite, nonnegative, non-`maxNormal` float is again
+finite (normal or nonzero subnormal): it stays positive (`= toRat + ulp`), so it is neither
+zero nor infinite, and the successor preserves non-NaN. -/
+theorem PackedFloat.isNormOrNonzeroSubnorm_successorAwayFromZero_of_ne_maxNormal
+    (he : 1 < e) (hs : 0 < s) (x : PackedFloat e s)
+    (hxsign : x.sign = false) (hfin : x.isNormOrNonzeroSubnorm)
+    (hmax : x ≠ PackedFloat.maxNormalNumber e s false) :
+    x.successorAwayFromZero.isNormOrNonzeroSubnorm := by
+  have hnan : ¬ x.isNaN := by simpa using PackedFloat.not_isNaN_of_isNormOrSubnorm hfin
+  have hinf : ¬ x.isInfinite := by simpa using PackedFloat.not_isInfinite_of_isNormOrSubnorm hfin
+  have hxpos : 0 < x.toRat := by
+    have hne : x.toRat ≠ 0 := PackedFloat.toRat_ne_zero hfin
+    have hnn : ¬ (x.toRat < 0) := by
+      have := PackedFloat.sign_iff_toRat_neg hfin; grind
+    grind
+  have hval := PackedFloat.toRat_successorAwayFromZero_eq x hnan hinf (by rw [hxsign]; exact hmax) he hs
+  have hsuccpos : 0 < x.successorAwayFromZero.toRat := by
+    rw [hval, hxsign]
+    have hulp : (0 : Rat) < (2 : Rat) ^ (-(s : Int)) * 2 ^ x.toRatExp := by
+      have h1 : (0 : Rat) < (2 : Rat) ^ (-(s : Int)) := by grind only [Fp.Rat.two_pow_pos]
+      have h2 : (0 : Rat) < (2 : Rat) ^ x.toRatExp := by grind only [Fp.Rat.two_pow_pos]
+      grind
+    have : (Bool.toSign false : Rat) = 1 := by simp [Bool.toSign]
+    rw [this]; grind
+  refine PackedFloat.isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero ?_ ?_ ?_
+  · simpa [PackedFloat.isNaN_successorAwayFromZero hs] using hnan
+  · intro h; have := PackedFloat.toRat_eq_zero_of_isInfinite _ h; grind
+  · intro h; have := PackedFloat.toRat_eq_Zero_of_isZero _ h; grind
+
+/--
+info: 'Fp.PackedFloat.isNormOrNonzeroSubnorm_successorAwayFromZero_of_ne_maxNormal' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs (whitespace := lax) in
+#print axioms PackedFloat.isNormOrNonzeroSubnorm_successorAwayFromZero_of_ne_maxNormal
 
 theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_normal
     (he : 1 < ep) (hs : 0 < sp)
@@ -1813,7 +1873,7 @@ theorem UnpackedFloat.blastSuccessorAwayFromZero_toRat'_eq_lower_successorAwayFr
     (hfinL : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).isNormOrNonzeroSubnorm) :
     (x.blastSuccessorAwayFromZero ep sp).toRat'
       = (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).successorAwayFromZero.toRat := by
-  obtain ⟨pf, hpfNotNaN, hpfLower, hToRat, hSign, hexpeq⟩ :=
+  obtain ⟨pf, hpfNotNaN, hpfLower, hToRat, hSign, hexpeq, _⟩ :=
     UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero
       (by grind) hsp heu hsu x hxsign hxnorm hnotunder hnotover
   have hpflow : pf = (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp) :=
