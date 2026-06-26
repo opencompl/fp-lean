@@ -2365,6 +2365,203 @@ info: 'Fp.UnpackedFloat.blastSuccessorAwayFromZero_toRat'_eq_two_pow_of_ex_succ'
 #guard_msgs (whitespace := lax) in
 #print axioms UnpackedFloat.blastSuccessorAwayFromZero_toRat'_eq_two_pow_of_ex_succ
 
+/-- When the successor's exponent strictly increments (the rounding carried), the significand is
+`leadingOne`, so its top bit is set — independent of any over/underflow hypothesis. This covers the
+subnormal boundary, where the Stage-2 msb lemmas do not apply. -/
+theorem UnpackedFloat.msb_sig_blastSuccessorAwayFromZero_of_ex_succ
+    (ep sp : Nat) (hsu : sp + 1 ≤ su) (x : UnpackedFloat eu su)
+    (hexsucc : (x.blastSuccessorAwayFromZero ep sp).ex.toInt = x.ex.toInt + 1) :
+    (x.blastSuccessorAwayFromZero ep sp).sig.msb = true := by
+  have hsigN : (x.blastSuccessorAwayFromZero ep sp).sig.toNat = 2 ^ sp := by
+    have hne : (x.blastSuccessorAwayFromZero ep sp).ex ≠ x.ex := by
+      intro h; rw [h] at hexsucc; omega
+    simp only [UnpackedFloat.blastSuccessorAwayFromZero, clearSignificand_ex,
+      clearSignificand_sign] at hne ⊢
+    split at hne
+    · split
+      · rw [BitVec.toNat_extractMsb'_zero _ (by omega), BitVec.toNat_leadingOne (by omega),
+          Nat.pow_div (by omega) (by omega)]
+        congr 1; omega
+      · simp_all
+    · simp_all
+  rw [BitVec.msb_eq_decide, hsigN]
+  simp
+
+/-- The underflow representative `minSubnormalForPackedFloat` has its top significand bit set
+(`sig = leadingOne`). -/
+theorem UnpackedFloat.msb_sig_minSubnormalForPackedFloat (eu ep sp : Nat) (hsp : 0 < sp) :
+    (UnpackedFloat.minSubnormalForPackedFloat eu (sp + 1) ep sp false).sig.msb = true := by
+  simp only [UnpackedFloat.minSubnormalForPackedFloat]
+  rw [BitVec.msb_eq_decide, BitVec.toNat_zeroExtend_of_le _ (Nat.le_refl _),
+    BitVec.toNat_leadingOne (by omega)]
+  simp
+
+/-- The overflow representative `maxNormal` has its top significand bit set (`sig = allOnes`). -/
+theorem UnpackedFloat.msb_sig_maxNormal (eu ep sp : Nat) (hsp : 0 < sp) :
+    (UnpackedFloat.maxNormal eu (sp + 1) ep sp false).sig.msb = true := by
+  simp only [UnpackedFloat.maxNormal]
+  rw [BitVec.msb_eq_decide, BitVec.toNat_zeroExtend_of_le _ (Nat.le_refl _), BitVec.toNat_allOnes]
+  simp only [Nat.add_sub_cancel, decide_eq_true_eq]
+  have h2 : (2 : Nat) ^ (sp + 1) = 2 ^ sp * 2 := by rw [Nat.pow_succ]
+  have := Nat.two_pow_pos sp; omega
+
+/-- `blastLowerNonneg` outputs are `normalize` fixed points: each branch (`+0` on underflow,
+`maxNormal` on overflow, the round-toward-zero otherwise) has a normalized significand. -/
+theorem UnpackedFloat.blastLowerNonneg_normalize_eq_self
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxnorm : x.normalize = x) :
+    (x.blastLowerNonneg ep sp).normalize = x.blastLowerNonneg ep sp := by
+  unfold UnpackedFloat.blastLowerNonneg
+  by_cases hu : x.blastIsUnderflowNonneg ep sp = true
+  · simp only [hu, if_true]
+    exact EUnpackedFloat.normalize_mkNumber_of_normalize (UnpackedFloat.normalize_mkZero false)
+  · simp only [Bool.not_eq_true] at hu
+    simp only [hu, Bool.false_eq_true, if_false]
+    by_cases ho : x.blastIsEarlyOverflowNonneg ep sp = true
+    · simp only [ho, if_true]
+      exact EUnpackedFloat.normalize_mkNumber_of_normalize
+        (UnpackedFloat.normalize_eq_self_of_msb_eq_true _
+          (UnpackedFloat.msb_sig_maxNormal eu ep sp hs))
+    · simp only [Bool.not_eq_true] at ho
+      simp only [ho, Bool.false_eq_true, if_false]
+      exact EUnpackedFloat.normalize_mkNumber_of_normalize
+        (UnpackedFloat.normalize_eq_self_of_msb_eq_true _
+          (UnpackedFloat.msb_sig_blastRoundTowardZero_eq_true he hs heu hsu x hxnorm hu ho))
+
+/-- `blastUpperNonneg` outputs are `normalize` fixed points. The `mkNumber next` branch needs the
+successor significand's msb, which is given by the Stage-2 lemma away from the underflow boundary
+and by the carry lemma at the boundary (`x.under` forces `next` to carry into `minSubnormalExp`). -/
+theorem UnpackedFloat.blastUpperNonneg_normalize_eq_self
+    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
+    (hnotEU : x.blastIsEarlyUnderflowNonneg ep sp = false)
+    (hnotEO : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    (x.blastUpperNonneg ep sp).normalize = x.blastUpperNonneg ep sp := by
+  unfold UnpackedFloat.blastUpperNonneg
+  by_cases hz : x.isZero = true
+  · simp only [hz, if_true]; exact EUnpackedFloat.normalize_mkZero true
+  · simp only [Bool.not_eq_true] at hz
+    simp only [hz, Bool.false_eq_true, if_false]
+    by_cases hnu : (x.blastSuccessorAwayFromZeroNonnegAux ep sp).blastIsUnderflowNonneg ep sp = true
+    · simp only [hnu, if_true]
+      exact EUnpackedFloat.normalize_mkNumber_of_normalize
+        (UnpackedFloat.normalize_eq_self_of_msb_eq_true _
+          (UnpackedFloat.msb_sig_minSubnormalForPackedFloat eu ep sp hs))
+    · simp only [Bool.not_eq_true] at hnu
+      by_cases hno : (x.blastSuccessorAwayFromZeroNonnegAux ep sp).blastIsEarlyOverflowNonneg ep sp = true
+      · simp only [hnu, hno, Bool.false_eq_true, if_false, if_true]
+        exact EUnpackedFloat.normalize_mkInfinity false
+      · simp only [Bool.not_eq_true] at hno
+        simp only [hnu, hno, Bool.false_eq_true, if_false]
+        apply EUnpackedFloat.normalize_mkNumber_of_normalize
+        apply UnpackedFloat.normalize_eq_self_of_msb_eq_true
+        -- `next.sig.msb = true`.
+        by_cases hxu : x.blastIsUnderflowNonneg ep sp = true
+        · -- Boundary: `next` carried into `minSubnormalExp`, so its significand is `leadingOne`.
+          have hlb := UnpackedFloat.ex_le_ex_blastSuccessorAwayFromZeroNonnegAux
+            (by grind) hs heu x hnotEO
+          have hub := UnpackedFloat.ex_blastSuccessorAwayFromZeroNonnegAux_le_ex_add_one
+            (by grind) hs heu x hnotEO
+          have hxlt : x.ex.toInt < minSubnormalExp ep sp := by
+            rw [UnpackedFloat.blastUnderflowNonneg_eq_decide (by grind) hs heu] at hxu
+            simpa using hxu
+          have hnnu : minSubnormalExp ep sp ≤ (x.blastSuccessorAwayFromZeroNonnegAux ep sp).ex.toInt := by
+            rw [UnpackedFloat.blastUnderflowNonneg_eq_decide (by grind) hs heu] at hnu
+            simpa using hnu
+          have hnextex : (x.blastSuccessorAwayFromZeroNonnegAux ep sp).ex.toInt = x.ex.toInt + 1 := by
+            omega
+          have hnr : x.needsRounding ep sp = true := by
+            apply Classical.byContradiction; intro h
+            simp only [Bool.not_eq_true] at h
+            rw [UnpackedFloat.blastSuccessorAwayFromZeroNonnegAux, if_neg (by simp [h]),
+              ex_blastRoundTowardZero] at hnextex
+            omega
+          have hAux : x.blastSuccessorAwayFromZeroNonnegAux ep sp = x.blastSuccessorAwayFromZero ep sp := by
+            rw [UnpackedFloat.blastSuccessorAwayFromZeroNonnegAux, if_pos hnr]
+          rw [hAux] at hnextex ⊢
+          exact UnpackedFloat.msb_sig_blastSuccessorAwayFromZero_of_ex_succ ep sp (by grind) x hnextex
+        · simp only [Bool.not_eq_true] at hxu
+          exact UnpackedFloat.msb_sig_blastSuccessorAwayFromZeroNonnegAux_eq_true
+            (by grind) hs heu hsu x hxnorm hxu hnotEO
+
+/-- `blastUpper` outputs are `normalize` fixed points (sign dispatch; the negative branch reuses
+`blastLowerNonneg` on `-x` via the neg/normalize commute). -/
+theorem UnpackedFloat.blastUpper_normalize_eq_self
+    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxnorm : x.normalize = x)
+    (hnotEU : x.blastIsEarlyUnderflowNonneg ep sp = false)
+    (hnotEO : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    (x.blastUpper ep sp).normalize = x.blastUpper ep sp := by
+  unfold UnpackedFloat.blastUpper
+  by_cases hsign : x.sign = true
+  · simp only [hsign, if_true]
+    unfold UnpackedFloat.blastUpperNeg
+    rw [EUnpackedFloat.neg_normalize_eq_neg_normalize,
+      UnpackedFloat.blastLowerNonneg_normalize_eq_self (by grind) hs heu hsu (-x)
+        (UnpackedFloat.normalize_neg_eq_neg_of_normalize_eq x hxnorm)]
+  · simp only [Bool.not_eq_true] at hsign
+    simp only [hsign, Bool.false_eq_true, if_false]
+    exact UnpackedFloat.blastUpperNonneg_normalize_eq_self he hs heu hsu x hsign hxnorm hnotEU hnotEO
+
+/-- `blastLower` outputs are `normalize` fixed points (sign dispatch; the negative branch reuses
+`blastUpperNonneg` on `-x` via the neg/normalize commute). -/
+theorem UnpackedFloat.blastLower_normalize_eq_self
+    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxnorm : x.normalize = x)
+    (hnotEU : x.blastIsEarlyUnderflowNonneg ep sp = false)
+    (hnotEO : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    (x.blastLower ep sp).normalize = x.blastLower ep sp := by
+  unfold UnpackedFloat.blastLower
+  by_cases hsign : x.sign = true
+  · simp only [hsign, if_true]
+    unfold UnpackedFloat.blastLowerNeg
+    rw [EUnpackedFloat.neg_normalize_eq_neg_normalize,
+      UnpackedFloat.blastUpperNonneg_normalize_eq_self he hs heu hsu (-x)
+        (by simp [hsign]) (UnpackedFloat.normalize_neg_eq_neg_of_normalize_eq x hxnorm)
+        (by simpa using hnotEU) (by simpa using hnotEO)]
+  · simp only [Bool.not_eq_true] at hsign
+    simp only [hsign, Bool.false_eq_true, if_false]
+    exact UnpackedFloat.blastLowerNonneg_normalize_eq_self (by grind) hs heu hsu x hxnorm
+
+/-- The early-underflow/overflow flags and normalization carry from `x` to `truncateFittingExponent x`
+(exponent value is invariant), so `(trunc x).blastUpper` is a `normalize` fixed point. -/
+theorem UnpackedFloat.blastUpper_truncateFittingExponent_normalize_eq_self
+    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hzero : ¬x.isZero) (hxnorm : x.normalize = x)
+    (hnotEU : x.blastIsEarlyUnderflowNonneg ep sp = false)
+    (hnotEO : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    ((x.truncateFittingExponent ep sp).blastUpper ep sp).normalize
+      = (x.truncateFittingExponent ep sp).blastUpper ep sp := by
+  have hEUt : (x.truncateFittingExponent ep sp).blastIsEarlyUnderflowNonneg ep sp = false := by
+    rw [UnpackedFloat.blastIsEarlyUnderflowNonneg_eq_decide (by grind) hs (Nat.le_refl _),
+      toInt_ex_truncateFittingExponent (by grind) hs heu x hnotEO hnotEU]
+    rwa [UnpackedFloat.blastIsEarlyUnderflowNonneg_eq_decide (by grind) hs heu] at hnotEU
+  have hEOt : (x.truncateFittingExponent ep sp).blastIsEarlyOverflowNonneg ep sp = false := by
+    rwa [blastIsEarlyOverflowNonneg_truncateFittingExponent (by grind) hs heu x hnotEO hnotEU]
+  exact UnpackedFloat.blastUpper_normalize_eq_self he hs (Nat.le_refl _) hsu
+    (x.truncateFittingExponent ep sp)
+    (normalize_truncateFittingExponent_eq_self_of_normalize_eq_self (by grind) hs heu hsu x hzero hxnorm)
+    hEUt hEOt
+
+/-- Companion of `blastUpper_truncateFittingExponent_normalize_eq_self` for `blastLower`. -/
+theorem UnpackedFloat.blastLower_truncateFittingExponent_normalize_eq_self
+    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hzero : ¬x.isZero) (hxnorm : x.normalize = x)
+    (hnotEU : x.blastIsEarlyUnderflowNonneg ep sp = false)
+    (hnotEO : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    ((x.truncateFittingExponent ep sp).blastLower ep sp).normalize
+      = (x.truncateFittingExponent ep sp).blastLower ep sp := by
+  have hEUt : (x.truncateFittingExponent ep sp).blastIsEarlyUnderflowNonneg ep sp = false := by
+    rw [UnpackedFloat.blastIsEarlyUnderflowNonneg_eq_decide (by grind) hs (Nat.le_refl _),
+      toInt_ex_truncateFittingExponent (by grind) hs heu x hnotEO hnotEU]
+    rwa [UnpackedFloat.blastIsEarlyUnderflowNonneg_eq_decide (by grind) hs heu] at hnotEU
+  have hEOt : (x.truncateFittingExponent ep sp).blastIsEarlyOverflowNonneg ep sp = false := by
+    rwa [blastIsEarlyOverflowNonneg_truncateFittingExponent (by grind) hs heu x hnotEO hnotEU]
+  exact UnpackedFloat.blastLower_normalize_eq_self he hs (Nat.le_refl _) hsu
+    (x.truncateFittingExponent ep sp)
+    (normalize_truncateFittingExponent_eq_self_of_normalize_eq_self (by grind) hs heu hsu x hzero hxnorm)
+    hEUt hEOt
+
 /-- **Overflow connection**: if the successor early-overflows (while `x` does not), then
 `x.toRat' > maxNormal`. With `x.ex = maxNormalExp`, the carry forces
 `blastSuccessorAwayFromZero x = 2^(maxNormalExp+1)`, so `roundTZ = maxNormal` (= `next - ulp`),
