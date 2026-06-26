@@ -1767,6 +1767,35 @@ info: 'Fp.upper_eq_lower_successorAwayFromZero_of_ne' depends on axioms: [propex
 #guard_msgs (whitespace := lax) in
 #print axioms upper_eq_lower_successorAwayFromZero_of_ne
 
+/-- Underflow spec: a tiny positive `r` (`0 < r ≤ minSubnormal`) rounds up to the smallest
+positive subnormal. There is no nonzero float below `minSubnormalNumber`, so the LUB lemma's
+"no float between" obligation is vacuous. (Mirrors the existing overflow spec
+`upper_Number_eq_getInfinity_of_maxNormalNumber_lt`.) -/
+theorem isLawfulUpper_minSubnormalNumber_of_pos_of_le
+    (he : 1 < ep) (hsp : 0 < sp) (r : Rat) (hrpos : 0 < r)
+    (hle : r ≤ (PackedFloat.minSubnormalNumber ep sp false).toRat) :
+    SmtLibSemantics.IsLawfulUpper (ExtRat.Number r) (PackedFloat.minSubnormalNumber ep sp false) := by
+  apply PackedFloat.isLawfulUpper_of_le_toRat_of_no_float_between he hsp r _
+    (by simp [PackedFloat.sign_minSubnormalNumber])
+    (PackedFloat.isNormOrNonzeroSubnorm_minSubnormalNumber ep sp false (by grind) hsp)
+    hrpos hle
+  intro y hysign hyfin hylt
+  exfalso
+  have hynan : ¬ y.isNaN := by simpa using PackedFloat.not_isNaN_of_isNormOrSubnorm hyfin
+  have hyltfloat : y < PackedFloat.minSubnormalNumber ep sp false := by
+    rw [lt_iff_toRat_lt_of_isNormOrNonzeroSubnorm (by grind) hsp y _ hyfin
+      (PackedFloat.isNormOrNonzeroSubnorm_minSubnormalNumber ep sp false (by grind) hsp)]
+    exact hylt
+  have hyzero := (PackedFloat.isZero_iff_lt_minSubnormalNumber_of_isNaN_of_nonneg y he hsp hynan hysign).mp hyltfloat
+  have hynz := PackedFloat.not_isZero_of_isNormOrSubnorm hyfin
+  simp [hyzero] at hynz
+
+/--
+info: 'Fp.isLawfulUpper_minSubnormalNumber_of_pos_of_le' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs (whitespace := lax) in
+#print axioms isLawfulUpper_minSubnormalNumber_of_pos_of_le
+
 /-! ## Bridge: the unpacked successor value equals the packed successor of `lower`
 
 The crux connecting the bit-blasted circuit to the spec: the unpacked
