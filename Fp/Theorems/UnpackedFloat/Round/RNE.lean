@@ -513,7 +513,133 @@ theorem roundRNE_eq_zero_of_lt_minNormalExp
   (hr : r.abs < (2 : Rat) ^ (minSubnormalExp ep sp - 1)) :
   ((SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).roundRNE sign
         (ExtRat.Number r)) = PackedFloat.getZero ep sp sign := by
-  sorry
+  have he' : 0 < ep := by grind
+  have hsp1 : 0 < sp + 1 := by omega
+  -- The two relevant subnormal magnitudes: `minSub` at precision `sp` and `sp+1`.
+  have hB : (PackedFloat.minSubnormalNumber ep sp false).toRat = (2 : Rat) ^ (minSubnormalExp ep sp) := by
+    rw [PackedFloat.toExtRat_minSubnormal_eq ep sp he hs]; congr 1
+    simp only [minSubnormalExp, maxSubnormalExp]; grind
+  have hA : (PackedFloat.minSubnormalNumber ep (sp + 1) false).toRat
+      = (2 : Rat) ^ (minSubnormalExp ep sp - 1) := by
+    rw [PackedFloat.toExtRat_minSubnormal_eq ep (sp + 1) he hsp1]; congr 1
+    simp only [minSubnormalExp, maxSubnormalExp]; push_cast; grind
+  have hAB : (PackedFloat.minSubnormalNumber ep (sp + 1) false).toRat
+      < (PackedFloat.minSubnormalNumber ep sp false).toRat := by
+    rw [hA, hB,
+      show (2 : Rat) ^ (minSubnormalExp ep sp) = 2 ^ (minSubnormalExp ep sp - 1) * 2 from by
+        rw [← Rat.zpow_add_one (by grind : (2 : Rat) ≠ 0)]; congr 1; grind]
+    have hpos : (0 : Rat) < 2 ^ (minSubnormalExp ep sp - 1) := Rat.two_pow_pos _
+    grind
+  -- Bounds on `r` from `|r| < minSub_{sp+1}`.
+  have hbnd : r < (2 : Rat) ^ (minSubnormalExp ep sp - 1)
+      ∧ -(2 : Rat) ^ (minSubnormalExp ep sp - 1) < r := by
+    unfold Rat.abs at hr; split at hr <;> grind
+  have hrlt1 : r < (PackedFloat.minSubnormalNumber ep (sp + 1) false).toRat := by
+    rw [hA]; exact hbnd.1
+  have hrgt1 : -(PackedFloat.minSubnormalNumber ep (sp + 1) false).toRat < r := by
+    rw [hA]; exact hbnd.2
+  have hrlt : r < (PackedFloat.minSubnormalNumber ep sp false).toRat := by grind
+  have hrgt : -(PackedFloat.minSubnormalNumber ep sp false).toRat < r := by grind
+  -- `toExtRat` of the building blocks.
+  have hgz : ∀ (S : Nat) (b : Bool), (PackedFloat.getZero ep S b).toExtRat = ExtRat.Number 0 :=
+    fun S b => by rw [PackedFloat.toExtRat_eq_toExtRat', PackedFloat.toExtRat'_getZero b he']
+  have hms : ∀ (S : Nat) (b : Bool), 0 < S →
+      (PackedFloat.minSubnormalNumber ep S b).toExtRat
+        = ExtRat.Number ((PackedFloat.minSubnormalNumber ep S b).toRat) :=
+    fun S b hS => by rw [PackedFloat.toExtRat_eq_toExtRat',
+      PackedFloat.toExtRat'_eq_toRat_of
+        (PackedFloat.isNormOrNonzeroSubnorm_minSubnormalNumber ep S b (by grind) hS)]
+  have hmt : ∀ (S : Nat), 0 < S → (PackedFloat.minSubnormalNumber ep S true).toRat
+      = -(PackedFloat.minSubnormalNumber ep S false).toRat := fun S hS => by
+    rw [← neg_minSub_false ep S, PackedFloat.toRat_neg]
+  by_cases hr0 : r = 0
+  · subst hr0; exact roundRNE_zero he'
+  have hnotnan : ¬ (SmtLibSemantics.ExtendedNumber.isNaN (ExtRat.Number r)) := by simp
+  have hnotzero : ¬ (SmtLibSemantics.ExtendedNumber.isZero (ExtRat.Number r)) := by
+    simp only [SmtLibSemantics.instExtendedRat.isZero, ← ExtRat.ExtRat.zero_def]; simp [hr0]
+  by_cases hrpos : 0 < r
+  · -- `r > 0`: `lowerHalf` holds, no tie, so RNE rounds down to `+0`.
+    have hsignF : sign = false := by simp [hsign, hrpos]; grind
+    have hLsp : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat ep sp)
+        = PackedFloat.getZero ep sp false :=
+      smtLibLower_eq_getZero_of_nonneg_of_lt ep sp he hs r (Rat.le_of_lt hrpos) hrlt
+    have hLsp1 : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat ep (sp + 1))
+        = PackedFloat.getZero ep (sp + 1) false :=
+      smtLibLower_eq_getZero_of_nonneg_of_lt ep (sp + 1) he hsp1 r (Rat.le_of_lt hrpos) hrlt1
+    have hUsp : (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r) : PackedFloat ep sp)
+        = PackedFloat.minSubnormalNumber ep sp false :=
+      smtLibUpper_eq_minSub_of_pos_of_lt ep sp he hs r hrpos hrlt
+    have hUsp1 : (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r) : PackedFloat ep (sp + 1))
+        = PackedFloat.minSubnormalNumber ep (sp + 1) false :=
+      smtLibUpper_eq_minSub_of_pos_of_lt ep (sp + 1) he hsp1 r hrpos hrlt1
+    have hLH : (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV
+        SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number r) := by
+      rw [SmtLibSemantics.smtLibRoundMethod.lowerHalf_eq]
+      simp only [SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.smtLibV_lower_eq, hLsp, hLsp1,
+        SmtLibSemantics.instExtendedRat.smtLibEq]
+      rw [hgz, hgz]
+    have hTB : ¬ (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV
+        SmtLibSemantics.smtLibV).tieBreak (ExtRat.Number r) := by
+      rw [SmtLibSemantics.smtLibRoundMethod.tieBreak_eq]
+      simp only [SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.smtLibV_lower_eq,
+        SmtLibSemantics.smtLibV_upper_eq, hLsp, hLsp1, hUsp, hUsp1]
+      rw [hgz, hgz, hms _ _ hs, hms _ _ hsp1]
+      have h1 : ¬ ((ExtRat.Number 0 : ExtRat) < ExtRat.Number 0) := by simp
+      have h2 : (ExtRat.Number (PackedFloat.minSubnormalNumber ep (sp + 1) false).toRat
+          < ExtRat.Number (PackedFloat.minSubnormalNumber ep sp false).toRat) := by simp [hAB]
+      intro hcontra
+      rw [hcontra] at h1
+      exact h1 h2
+    have hRL : (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV
+        SmtLibSemantics.smtLibV).lower (ExtRat.Number r) = PackedFloat.getZero ep sp false := by
+      rw [SmtLibSemantics.smtLibRoundMethod.lower_eq, SmtLibSemantics.smtLibV_lower_eq, hLsp]
+    rw [SmtLibSemantics.RoundMethod.roundRNE]
+    rw [if_neg hnotnan,
+      if_neg (by intro h; exact absurd hLH (by simpa using h.2.1)),
+      if_neg (by intro h; exact hTB h.2.1),
+      if_neg (by intro h; exact hTB h.2.1),
+      if_pos ⟨hnotzero, hLH⟩, hRL, hsignF]
+  · -- `r < 0`: neither `lowerHalf` nor tie, so RNE rounds up to `-0`.
+    have hrneg : r < 0 := by grind
+    have hsignT : sign = true := by simp [hsign, hrneg]
+    have hLsp : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat ep sp)
+        = PackedFloat.minSubnormalNumber ep sp true :=
+      smtLibLower_eq_minSub_of_neg_of_gt ep sp he hs r hrneg hrgt
+    have hLsp1 : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat ep (sp + 1))
+        = PackedFloat.minSubnormalNumber ep (sp + 1) true :=
+      smtLibLower_eq_minSub_of_neg_of_gt ep (sp + 1) he hsp1 r hrneg hrgt1
+    have hUsp : (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r) : PackedFloat ep sp)
+        = PackedFloat.getZero ep sp true :=
+      smtLibUpper_eq_getZero_of_nonpos_of_gt ep sp he hs r (Rat.le_of_lt hrneg) hrgt
+    have hUsp1 : (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r) : PackedFloat ep (sp + 1))
+        = PackedFloat.getZero ep (sp + 1) true :=
+      smtLibUpper_eq_getZero_of_nonpos_of_gt ep (sp + 1) he hsp1 r (Rat.le_of_lt hrneg) hrgt1
+    have hLH : ¬ (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV
+        SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number r) := by
+      rw [SmtLibSemantics.smtLibRoundMethod.lowerHalf_eq]
+      simp only [SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.smtLibV_lower_eq, hLsp, hLsp1,
+        SmtLibSemantics.instExtendedRat.smtLibEq]
+      rw [hms _ _ hs, hms _ _ hsp1, hmt _ hs, hmt _ hsp1]
+      simp only [ExtRat.Number.injEq]
+      grind
+    have hTB : ¬ (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV
+        SmtLibSemantics.smtLibV).tieBreak (ExtRat.Number r) := by
+      rw [SmtLibSemantics.smtLibRoundMethod.tieBreak_eq]
+      simp only [SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.smtLibV_lower_eq,
+        SmtLibSemantics.smtLibV_upper_eq, hLsp, hLsp1, hUsp, hUsp1]
+      rw [hgz, hgz, hms _ _ hs, hms _ _ hsp1, hmt _ hs, hmt _ hsp1]
+      have h1 : (ExtRat.Number (-(PackedFloat.minSubnormalNumber ep sp false).toRat)
+          < ExtRat.Number (-(PackedFloat.minSubnormalNumber ep (sp + 1) false).toRat)) := by
+        simp only [ExtRat.num_lt_num_iff, decide_eq_true_eq]; grind
+      have h2 : ¬ ((ExtRat.Number 0 : ExtRat) < ExtRat.Number 0) := by simp
+      intro hcontra
+      rw [hcontra] at h1
+      exact h2 h1
+    have hRU : (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV
+        SmtLibSemantics.smtLibV).upper (ExtRat.Number r) = PackedFloat.getZero ep sp true := by
+      rw [SmtLibSemantics.smtLibRoundMethod.upper_eq, SmtLibSemantics.smtLibV_upper_eq, hUsp]
+    rw [SmtLibSemantics.RoundMethod.roundRNE]
+    rw [if_neg hnotnan, if_pos ⟨hnotzero, by simp [hLH], by simp [hTB]⟩, hRU, hsignT]
 
 /-# `blastSmtLibRound` matches `smtLibRound` for RNE rounding mode. -/
 
