@@ -1054,6 +1054,155 @@ info: 'Fp.UnpackedFloat.blastRoundTowardZero_toRat'_eq_clearSignificand_mul' dep
 #guard_msgs (whitespace := lax) in
 #print axioms UnpackedFloat.blastRoundTowardZero_toRat'_eq_clearSignificand_mul
 
+/-- `blastSuccessorAwayFromZero`'s value, expanded onto the base weight `C = 2^(ex-(su-1))`:
+it equals `(cleared.sig.toNat + 2^(g+1)) · C` (where `g = guardBitIndex.toNat`), i.e. one
+ulp above `blastRoundTowardZero`. Both the no-carry and carry cases give the same value. -/
+theorem UnpackedFloat.blastSuccessorAwayFromZero_toRat'_eq_clearSignificand_mul
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxsign : x.sign = false)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    (x.blastSuccessorAwayFromZero ep sp).toRat'
+      = ((x.blastClearSignificand ep sp).sig.toNat + 2 ^ ((x.guardBitIndex ep sp).toNat + 1))
+          * (2 : Rat) ^ (x.ex.toInt - ((su : Int) - 1)) := by
+  have hoverE : x.ex.toInt ≤ maxNormalExp ep := by
+    have := UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide he hs heu x; grind
+  have hunderE : minSubnormalExp ep sp ≤ x.ex.toInt := by
+    have := UnpackedFloat.blastUnderflowNonneg_eq_decide he hs heu x; grind
+  have hminrel : minNormalExp ep - minSubnormalExp ep sp = (sp : Int) := by
+    simp only [minSubnormalExp, maxSubnormalExp]; grind
+  have hdNat : (minNormalExp ep - x.ex.toInt).toNat ≤ sp := by grind
+  obtain ⟨hdL, hdU⟩ := shift_range he hs heu (exInt := x.ex.toInt) (by grind) hoverE
+  have hG := UnpackedFloat.toNat_guardBitIndex_eq he hs heu hsu x hdL hdU hdNat
+  have hLeq : (x.guardBitIndex ep sp).toNat + 1
+      = (minNormalExp ep - x.ex.toInt).toNat + (su - (sp + 1)) := by rw [hG]; grind
+  have hgsu : (x.guardBitIndex ep sp).toNat + 1 < su := by rw [hLeq]; grind
+  have hmle : su - (sp + 1) ≤ (x.guardBitIndex ep sp).toNat + 1 := by rw [hLeq]; grind
+  -- Abbreviations: g+1 (guard index), cleared significand value `cl`, rounded value `S = cl + 2^(g+1)`.
+  -- `lsbMask` value.
+  have hlsb : (BitVec.zeroExtend (su + 1) (x.guardBitIndex ep sp).oneHotBV <<< 1).toNat
+      = 2 ^ ((x.guardBitIndex ep sp).toNat + 1) :=
+    BitVec.toNat_zeroExtend_oneHotBV_shiftLeft_one (x.guardBitIndex ep sp) hgsu
+  have hcllt : (x.blastClearSignificand ep sp).sig.toNat < 2 ^ su :=
+    (x.blastClearSignificand ep sp).sig.isLt
+  have hg1lt : 2 ^ ((x.guardBitIndex ep sp).toNat + 1) < 2 ^ su :=
+    Fp.Nat.two_pow_lt_two_pow_of_lt hgsu
+  have hpow1 : 2 ^ (su + 1) = 2 ^ su + 2 ^ su := by rw [Nat.pow_succ]; omega
+  -- `SUM.toNat = S`.
+  have hsum : (BitVec.zeroExtend (su + 1) (x.blastClearSignificand ep sp).sig
+        + BitVec.zeroExtend (su + 1) (x.guardBitIndex ep sp).oneHotBV <<< 1).toNat
+      = (x.blastClearSignificand ep sp).sig.toNat + 2 ^ ((x.guardBitIndex ep sp).toNat + 1) := by
+    rw [BitVec.toNat_add, BitVec.toNat_setWidth, hlsb,
+      Nat.mod_eq_of_lt (by omega : (x.blastClearSignificand ep sp).sig.toNat < 2 ^ (su + 1)),
+      Nat.mod_eq_of_lt (by omega)]
+  -- `S` is divisible by `2^(su-(sp+1))` (so `extractMsb'` recovers it).
+  have hclform : (x.blastClearSignificand ep sp).sig.toNat
+      = x.sig.toNat / 2 ^ ((x.guardBitIndex ep sp).toNat + 1)
+          * 2 ^ ((x.guardBitIndex ep sp).toNat + 1) :=
+    UnpackedFloat.blastClearSignificand_sig_toNat_eq x ep sp
+  have hcldvd : 2 ^ ((x.guardBitIndex ep sp).toNat + 1) ∣ (x.blastClearSignificand ep sp).sig.toNat := by
+    rw [hclform]; exact Nat.dvd_mul_left _ _
+  have hSdvd : 2 ^ (su - (sp + 1))
+      ∣ ((x.blastClearSignificand ep sp).sig.toNat + 2 ^ ((x.guardBitIndex ep sp).toNat + 1)) := by
+    apply Nat.dvd_add
+    · exact Nat.dvd_trans (Nat.pow_dvd_pow 2 hmle) hcldvd
+    · exact Nat.pow_dvd_pow 2 hmle
+  -- `S ≤ 2^su` (consecutive multiples of `2^(g+1)`): needed for the carry case to pin `S = 2^su`.
+  have hSle : (x.blastClearSignificand ep sp).sig.toNat + 2 ^ ((x.guardBitIndex ep sp).toNat + 1) ≤ 2 ^ su := by
+    obtain ⟨q, hq⟩ := hcldvd
+    have hsplit : 2 ^ su
+        = 2 ^ ((x.guardBitIndex ep sp).toNat + 1) * 2 ^ (su - ((x.guardBitIndex ep sp).toNat + 1)) := by
+      rw [← Nat.pow_add]; congr 1; omega
+    have hqlt : q < 2 ^ (su - ((x.guardBitIndex ep sp).toNat + 1)) := by
+      apply Nat.lt_of_mul_lt_mul_left (a := 2 ^ ((x.guardBitIndex ep sp).toNat + 1))
+      rw [← hq, ← hsplit]; exact hcllt
+    have hmul : 2 ^ ((x.guardBitIndex ep sp).toNat + 1) * (q + 1) ≤ 2 ^ su := by
+      rw [hsplit]; exact Nat.mul_le_mul_left _ (by omega)
+    rw [hq, ← Nat.mul_succ]; exact hmul
+  simp only [UnpackedFloat.blastSuccessorAwayFromZero, UnpackedFloat.toRat',
+    UnpackedFloat.toExpInt, UnpackedFloat.toNat_toSigNat_eq, clearSignificand_sign,
+    clearSignificand_ex, hxsign]
+  -- `SUM.msb` is the overflow predicate `2^su ≤ S`.
+  have hmsb : (BitVec.zeroExtend (su + 1) (x.blastClearSignificand ep sp).sig
+        + BitVec.zeroExtend (su + 1) (x.guardBitIndex ep sp).oneHotBV <<< 1).msb
+      = decide (2 ^ su ≤ (x.blastClearSignificand ep sp).sig.toNat
+          + 2 ^ ((x.guardBitIndex ep sp).toNat + 1)) := by
+    rw [BitVec.msb_eq_decide, hsum]; simp
+  rw [hmsb]
+  by_cases hov : 2 ^ su ≤ (x.blastClearSignificand ep sp).sig.toNat
+      + 2 ^ ((x.guardBitIndex ep sp).toNat + 1)
+  · -- carry: significand overflowed, exponent incremented.  `S = 2^su`.
+    have hSeq : (x.blastClearSignificand ep sp).sig.toNat
+        + 2 ^ ((x.guardBitIndex ep sp).toNat + 1) = 2 ^ su := Nat.le_antisymm hSle hov
+    simp only [hov, decide_true, if_true]
+    have hleadext : ((BitVec.leadingOne su).extractMsb' 0 (sp + 1)).toNat = 2 ^ sp := by
+      have he2 : (su - 1) - (su - (sp + 1)) = sp := by omega
+      rw [BitVec.toNat_extractMsb'_zero _ (by omega), BitVec.toNat_leadingOne (by omega),
+        Nat.pow_div (by omega) (by omega), he2]
+    have hexI : (x.ex + 1#eu).toInt = x.ex.toInt + 1 := by
+      have hew1 : 1 < exponentWidth ep sp := one_lt_exponentWidth
+      have heu1 : 1 < eu := by omega
+      have hbias : bias ep + 1 < 2 ^ (exponentWidth ep sp - 1) :=
+        bias_plus_one_lt_two_pow_exponentWidth_minus_one ep sp he hs
+      have hminS := neg_two_pow_exponentWidth_lt_minSubnormalExp (e := ep) (s := sp) he hs
+      have hmaxN : maxNormalExp ep = (bias ep : Int) := rfl
+      have hpowle : (2 : Int) ^ (exponentWidth ep sp - 1) ≤ 2 ^ (eu - 1) := by
+        have h1 : (2 : Nat) ^ (exponentWidth ep sp - 1) ≤ 2 ^ (eu - 1) :=
+          Nat.pow_le_pow_right (by omega) (by omega)
+        have hc1 : ((2 ^ (exponentWidth ep sp - 1) : Nat) : Int)
+            = (2 : Int) ^ (exponentWidth ep sp - 1) := by push_cast; rfl
+        have hc2 : ((2 ^ (eu - 1) : Nat) : Int) = (2 : Int) ^ (eu - 1) := by push_cast; rfl
+        omega
+      have hcastBias : ((bias ep : Nat) : Int) + 1 < (2 : Int) ^ (exponentWidth ep sp - 1) := by
+        have hb : ((bias ep + 1 : Nat) : Int) < ((2 ^ (exponentWidth ep sp - 1) : Nat) : Int) := by
+          exact_mod_cast hbias
+        push_cast at hb; omega
+      have h2pow : ∀ n : Nat, 0 < n → (2 : Int) ^ n = 2 * 2 ^ (n - 1) := by
+        intro n hn
+        obtain ⟨m, rfl⟩ := Nat.exists_eq_succ_of_ne_zero (Nat.pos_iff_ne_zero.mp hn)
+        rw [Int.pow_succ]; simp; omega
+      have h2eu : (2 : Int) ^ eu = 2 * 2 ^ (eu - 1) := h2pow eu (by omega)
+      rw [BitVec.toInt_add, BitVec.toInt_one_of_lt heu1, Int.bmod_eq_of_le] <;> push_cast <;> omega
+    rw [hleadext, hexI]
+    have hSeqR : ((x.blastClearSignificand ep sp).sig.toNat : Rat)
+        + (2 : Rat) ^ ((x.guardBitIndex ep sp).toNat + 1) = (2 : Rat) ^ su := by exact_mod_cast hSeq
+    have hfs : ((false.toSign : Int) : Rat) = 1 := by simp [Bool.toSign]
+    rw [hSeqR, hfs, Rat.one_mul,
+      show ((sp + 1 - 1 : Nat) : Int) = (sp : Int) by push_cast; omega]
+    push_cast
+    simp only [← Rat.zpow_natCast]
+    rw [Rat.zpow_mul_zpow (by grind), Rat.zpow_mul_zpow (by grind)]
+    congr 1; push_cast; omega
+  · -- no carry: `S < 2^su`, exponent unchanged.
+    have hSlt : (x.blastClearSignificand ep sp).sig.toNat
+        + 2 ^ ((x.guardBitIndex ep sp).toNat + 1) < 2 ^ su := by omega
+    simp only [hov, decide_false]
+    rw [if_neg (by decide), if_neg (by decide),
+      BitVec.toNat_extractMsb'_zero _ (by omega), BitVec.toNat_setWidth, hsum,
+      Nat.mod_eq_of_lt hSlt]
+    have hfs : ((false.toSign : Int) : Rat) = 1 := by simp [Bool.toSign]
+    have hVRnat : ((x.blastClearSignificand ep sp).sig.toNat + 2 ^ ((x.guardBitIndex ep sp).toNat + 1))
+          / 2 ^ (su - (sp + 1)) * 2 ^ (su - (sp + 1))
+        = (x.blastClearSignificand ep sp).sig.toNat + 2 ^ ((x.guardBitIndex ep sp).toNat + 1) :=
+      Nat.div_mul_cancel hSdvd
+    have hVR : (↑(((x.blastClearSignificand ep sp).sig.toNat + 2 ^ ((x.guardBitIndex ep sp).toNat + 1))
+            / 2 ^ (su - (sp + 1))) : Rat) * 2 ^ (su - (sp + 1))
+        = ↑(x.blastClearSignificand ep sp).sig.toNat + (2 : Rat) ^ ((x.guardBitIndex ep sp).toNat + 1) := by
+      exact_mod_cast hVRnat
+    have hexp : (-((↑(sp + 1 - 1) : Int) - x.ex.toInt))
+        = (↑(su - (sp + 1)) : Int) + (x.ex.toInt - ((su : Int) - 1)) := by
+      rw [Int.natCast_sub (show sp + 1 ≤ su by grind)]
+      have e1 : ((sp + 1 - 1) : Nat) = sp := by grind
+      rw [e1]; push_cast; grind
+    rw [hfs, Rat.one_mul, hexp, ← Rat.zpow_mul_zpow (by grind), Rat.zpow_natCast, ← hVR]
+    grind
+
+/--
+info: 'Fp.UnpackedFloat.blastSuccessorAwayFromZero_toRat'_eq_clearSignificand_mul' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs (whitespace := lax) in
+#print axioms UnpackedFloat.blastSuccessorAwayFromZero_toRat'_eq_clearSignificand_mul
+
 /-- The width-adjusted round-toward-zero of a normalized, in-range nonnegative float is
 itself normalized (needed for `Packable`).
 
