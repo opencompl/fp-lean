@@ -822,3 +822,35 @@ theorem Rat.lt_mul_self_of_lt_one {y} {x : Rat} (hx0 : 0 ≤ x ∧ x < 1) (hy : 
   · apply Rat.mul_le_mul_of_le_of_le_of_nonneg_of_nonneg <;> grind only
   · intros hcontra
     rw [Rat.mul_cancel_right] at hcontra <;> grind only
+
+
+/-- `ofNat (d*k + r) / ofNat d = ofNat k + ofNat (r%d) / ofNat d`, the "subdivide"
+    of a Nat sum-with-remainder. Cleanly handles the case in the abs_delta proof. -/
+theorem Rat.ofNat_mul_add_div_ofNat_eq {d k r : Nat} (hd : d ≠ 0) (hrd : r < d) :
+    Rat.ofNat (d * k + r) / Rat.ofNat d
+      = Rat.ofNat k + Rat.ofNat (r % d) / Rat.ofNat d := by
+  rw [Rat.ofNat_div_ofNat_eq_ofNat_div_add_ofNat_mod _ _ hd]
+  rw [Nat.add_comm, Nat.add_mul_div_left _ _ (Nat.pos_of_ne_zero hd)]
+  rw [Nat.add_mul_mod_self_left]
+  rw [Rat.ofNat_add]
+  have hrlt : r / d ≤ k + r / d := Nat.le_add_left _ _
+  simp [Rat.ofNat_eq_coe]
+  rw [Nat.mod_eq_of_lt]
+  · rw [Nat.div_eq_of_lt]
+    · grind
+    · grind
+  · grind
+/-- Specialised: `ofNat (d * k + r) / ofNat d = ofNat k + ofNat r / ofNat d` when r < d. -/
+theorem Rat.ofNat_mul_add_div_ofNat_eq_of_lt {d k r : Nat} (hd : d ≠ 0) (hr : r < d) :
+    Rat.ofNat (d * k + r) / Rat.ofNat d
+      = Rat.ofNat k + Rat.ofNat r / Rat.ofNat d := by
+  rw [Rat.ofNat_mul_add_div_ofNat_eq (by grind) (by grind)]
+  rw [Nat.mod_eq_of_lt hr]
+theorem Rat.zpow_succ {q : Rat} (hq : q ≠ 0) {a : Int} : q ^ (a + 1) = q ^ a * q := by
+  exact Rat.zpow_add_one hq a
+theorem Rat.mul_add_self (a b : Rat) : a * b + a = a * (b + 1) := by
+  rw [Rat.mul_add]
+  simp
+theorem Rat.zpow_sub {q : Rat} (hq : q ≠ 0) {a b : Int} : q ^ (a - b) = q ^ a * q ^ (-b) := by
+  rw [Int.sub_eq_add_neg]
+  rw [Rat.zpow_add hq]

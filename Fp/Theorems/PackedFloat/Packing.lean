@@ -4,35 +4,6 @@ import Fp.Theorems.PackedFloat.ToExtRat
 import Fp.UnpackedFloat.packable
 import Fp.EUnpackedFloat.packable
 
--- TODO: upstream
-theorem BitVec.toNat_clz_le {x : BitVec w} : x.clz.toNat ≤ w := by
-  suffices h : x.clz.toNat ≤ (BitVec.ofNat w w).toNat from by
-    simpa using h
-  simp only [← BitVec.ule_iff_toNat_le, BitVec.ule_iff_le]
-  apply BitVec.clz_le
-
-theorem BitVec.toNat_clz_lt_iff_ne_zero {x : BitVec w} : x.clz.toNat < w ↔ x.toNat ≠ 0 := by
-  suffices h : x.clz.toNat < (BitVec.ofNat w w).toNat ↔ x.toNat ≠ (BitVec.ofNat w 0).toNat from by
-    simpa using h
-  simp only [← BitVec.ult_iff_toNat_lt, BitVec.ult_iff_lt, ne_eq, BitVec.toNat_inj]
-  apply BitVec.clz_lt_iff_ne_zero
-
-theorem BitVec.toNat_shiftLeft_clz (x : BitVec w)
-  : (x <<< x.clz).toNat = x.toNat <<< x.clz.toNat := by
-  simp
-  apply Nat.mod_eq_of_lt
-  rw [Nat.shiftLeft_eq]
-  have := BitVec.toNat_lt_two_pow_sub_clz (x := x)
-  have := BitVec.clz_le (x := x)
-  have : x.clz.toNat ≤ w := BitVec.toNat_clz_le
-  conv =>
-    rhs
-    rw [show w = (w - x.clz.toNat) + x.clz.toNat by grind]
-  simp [Nat.pow_add]
-  apply Nat.mul_lt_mul_of_pos_right
-  · grind
-  · exact Nat.two_pow_pos x.clz.toNat
-
 -- TODO: @Sid, help!
 axiom BitVec.toNat_clz_cons (b : Bool) (x : BitVec w)
   : (BitVec.cons b x).clz.toNat = if b then 0 else x.clz.toNat + 1 -- := by
@@ -107,8 +78,6 @@ theorem toRat_sig_zero_eq_toRat_mkZero {uf : UnpackedFloat e s}
 -- s ≤? 2 ^ ((2 ^ (e - 1) + s - 1).log2 + 2 - 1)
 --
 
-
-attribute [grind ← ] Nat.pow_le_pow_of_le
 
 theorem sigWidth_le_exponentWidth_sub_one : s ≤ 2 ^ (exponentWidth e s - 1) := by
   unfold exponentWidth

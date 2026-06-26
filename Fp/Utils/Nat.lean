@@ -80,3 +80,28 @@ theorem Nat.four_le_two_pow_of_lt {n : Nat} (hn : 1 < n) : 4 ≤ 2 ^ n := by
   have : 2 ^ 2 ≤ 2 ^ n := by apply Fp.Nat.two_pow_le_two_pow_of_le; grind only
   simp at this
   assumption
+
+
+/-- Reassociation: `Nat.mul_add_div` with the multiplier in `d` placed correctly. -/
+theorem Nat.mul_add_div_of_pos {d k r : Nat} (hd : 0 < d) :
+    (d * k + r) / d = k + r / d := by
+  rw [Nat.add_div]
+  · have : d * k / d = k := by
+      exact mul_div_right k hd
+    rw [this]
+    simp only [mul_mod_right, Nat.zero_add, Nat.add_eq_left, ite_eq_right_iff, succ_ne_self,
+      imp_false, Nat.not_le, gt_iff_lt]
+    apply mod_lt r hd
+  · grind only
+attribute [grind ← ] Nat.pow_le_pow_of_le
+/-- A smaller power `2 ^ m` divides any number rounded down to a multiple of a larger
+power `2 ^ L` (i.e. `n / 2 ^ L * 2 ^ L`). -/
+theorem Nat.two_pow_dvd_div_mul_two_pow (n : Nat) {m L : Nat} (h : m ≤ L) :
+    2 ^ m ∣ n / 2 ^ L * 2 ^ L :=
+  Nat.dvd_trans (Nat.pow_dvd_pow 2 h) ⟨n / 2 ^ L, Nat.mul_comm _ _⟩
+/-- Re-reading a value rounded to a multiple of `2 ^ (a+b)` through a division by the
+smaller `2 ^ b`: the result is the high part times `2 ^ a`. -/
+theorem Nat.div_mul_two_pow_add_div_two_pow (n a b : Nat) :
+    n / 2 ^ (a + b) * 2 ^ (a + b) / 2 ^ b = n / 2 ^ (a + b) * 2 ^ a := by
+  rw [Nat.mul_div_assoc _ (Nat.pow_dvd_pow 2 (Nat.le_add_left b a)),
+    Nat.pow_div (Nat.le_add_left b a) (by grind), Nat.add_sub_cancel]

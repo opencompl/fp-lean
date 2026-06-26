@@ -161,9 +161,6 @@ theorem PackedFloat.toRatExp_le_toRatExp_of_isNonzeroSubnorm_of_not_isNorm (x y 
 
 
 
-theorem Rat.zpow_succ {q : Rat} (hq : q ≠ 0) {a : Int} : q ^ (a + 1) = q ^ a * q := by
-  exact Rat.zpow_add_one hq a
-
 /--
 The heart of showing that the ordering by `toRat'`
 agrees with packed float ordering, where we show that
