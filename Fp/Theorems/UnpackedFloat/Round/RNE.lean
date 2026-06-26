@@ -440,6 +440,28 @@ theorem isLawfulLower_Number_getZero_of_nonneg_of_lt (ep sp : Nat)
           simpa only [ExtRat.ExtRat.num_le_num_iff, decide_eq_true_eq] using hy'
         grind
 
+/-- The lower approximant of a nonnegative tiny rational is `+0`. -/
+theorem smtLibLower_eq_getZero_of_nonneg_of_lt (ep S : Nat) (he : 1 < ep) (hS : 0 < S)
+    (r : Rat) (hnn : 0 ≤ r) (hlt : r < (PackedFloat.minSubnormalNumber ep S false).toRat) :
+    (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat ep S)
+      = PackedFloat.getZero ep S false := by
+  refine eq_of_IsLawfulLower_of_IsLawfulLower ep S (ExtRat.Number r) _ _ ?_ ?_ ?_ ?_
+  · simpa using not_isNaN_lower_of_ne_NaN ep S (by grind) hS (ExtRat.Number r) (by simp)
+  · simp [PackedFloat.isNaN_getZero] <;> grind
+  · exact lsLawfulLower_smtLibLower ep S (by grind) hS (ExtRat.Number r)
+  · exact isLawfulLower_Number_getZero_of_nonneg_of_lt ep S he hS r hnn hlt
+
+/-- The upper approximant of a positive tiny rational is the smallest subnormal. -/
+theorem smtLibUpper_eq_minSub_of_pos_of_lt (ep S : Nat) (he : 1 < ep) (hS : 0 < S)
+    (r : Rat) (hpos : 0 < r) (hlt : r < (PackedFloat.minSubnormalNumber ep S false).toRat) :
+    (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r) : PackedFloat ep S)
+      = PackedFloat.minSubnormalNumber ep S false := by
+  refine eq_of_IsLawfulUpper_of_IsLawfulUpper ep S (ExtRat.Number r) _ _ ?_ ?_ ?_ ?_
+  · simpa using not_isNaN_upper_of_ne_NaN ep S (by grind) hS (ExtRat.Number r) (by simp)
+  · simpa using PackedFloat.not_isNaN_minSubnormalNumber ep S false (by grind) hS
+  · exact isLawfulUpper_smtLibUpper ep S (by grind) hS (ExtRat.Number r)
+  · exact isLawfulUpper_minSubnormalNumber_of_pos_of_le he hS r hpos (Rat.le_of_lt hlt)
+
 /--
 Rounding any number whose absolute value is strictly smaller than *half the
 minimum subnormal* of the target format produces a zero, whose sign is the
