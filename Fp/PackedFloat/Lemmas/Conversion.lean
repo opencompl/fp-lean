@@ -203,6 +203,25 @@ theorem nonneg_toRatSig (pf : PackedFloat e s) : 0 ≤ pf.toRatSig := by
 theorem zero_le_toRatSig (pf : PackedFloat e s) : 0 ≤ pf.toRatSig :=
   nonneg_toRatSig pf
 
+/-- For a normal, nonnegative float, `2 ^ toRatExp` is a lower bound on its value
+(the significand is at least `1`). -/
+theorem two_pow_toRatExp_le_toRat_of_isNorm_of_sign_false {e s} (pf : PackedFloat e s)
+    (hnorm : pf.isNorm) (hsign : pf.sign = false) :
+    (2 : Rat) ^ pf.toRatExp ≤ pf.toRat := by
+  rw [toRat, hsign]
+  have h1 : (1 : Rat) ≤ pf.toRatSig := one_le_toRatSig_of_isNorm pf hnorm
+  have hpos : (0 : Rat) < 2 ^ pf.toRatExp := by grind only [Fp.Rat.two_pow_pos]
+  have hsg : (Bool.toSign false : Rat) = 1 := by simp [Bool.toSign]
+  rw [hsg, Rat.one_mul]
+  have := Rat.mul_le_mul_of_nonneg_right h1 (Rat.le_of_lt hpos)
+  rwa [Rat.one_mul] at this
+
+/--
+info: 'PackedFloat.two_pow_toRatExp_le_toRat_of_isNorm_of_sign_false' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs (whitespace := lax) in
+#print axioms two_pow_toRatExp_le_toRat_of_isNorm_of_sign_false
+
 @[grind .]
 theorem zero_le_twoNumberRatSig {e s} (pf : PackedFloat e s) :
   0 ≤ pf.toRatSig := by
