@@ -138,6 +138,19 @@ theorem BitVec.toNat_leadingOne {w : Nat} (hw : 0 < w) :
   have heq : BitVec.leadingOne w = BitVec.twoPow w (w - 1) := rfl
   rw [heq, BitVec.toNat_twoPow, Nat.mod_eq_of_lt hlt]
 
+/-- Value of the `lsbMask` used by `blastSuccessorAwayFromZero`: the guard-bit one-hot
+mask zero-extended by one bit and shifted left by one is `2 ^ (g.toNat + 1)`. -/
+theorem BitVec.toNat_zeroExtend_oneHotBV_shiftLeft_one {su : Nat} (g : BitVec su)
+    (hg : g.toNat + 1 < su) :
+    (((BitVec.oneHotBV g).setWidth (su + 1)) <<< 1).toNat = 2 ^ (g.toNat + 1) := by
+  have hone : (BitVec.oneHotBV g).toNat = 2 ^ g.toNat := BitVec.toNat_oneHotBV g (by grind)
+  have hfit : 2 ^ g.toNat < 2 ^ (su + 1) := Fp.Nat.two_pow_lt_two_pow_of_lt (by grind)
+  have hfit2 : 2 ^ (g.toNat + 1) < 2 ^ (su + 1) := Fp.Nat.two_pow_lt_two_pow_of_lt (by grind)
+  rw [BitVec.toNat_shiftLeft, BitVec.toNat_setWidth, hone, Nat.mod_eq_of_lt hfit,
+    Nat.shiftLeft_eq]
+  have hpow : 2 ^ g.toNat * 2 ^ 1 = 2 ^ (g.toNat + 1) := by rw [← Nat.pow_add]
+  rw [hpow, Nat.mod_eq_of_lt hfit2]
+
 
 /-- Convert a binary number into a unary mask of that number. -/
 @[bv_normalize]
