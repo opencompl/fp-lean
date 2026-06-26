@@ -124,6 +124,34 @@ theorem BitVec.getElem_oneHotBV (i : BitVec w) (j : Fin w) :
     (oneHotBV i)[j] = decide (i.toNat = j) := by
   simp [← BitVec.getLsbD_eq_getElem]
 
+/-- `oneHotBV i` (a single bit set at position `i.toNat`) has value `2 ^ i.toNat`,
+provided that position is in range. -/
+theorem BitVec.toNat_oneHotBV {w : Nat} (i : BitVec w) (hi : i.toNat < w) :
+    (BitVec.oneHotBV i).toNat = 2 ^ i.toNat := by
+  have hlt : 2 ^ i.toNat < 2 ^ w := Fp.Nat.two_pow_lt_two_pow_of_lt hi
+  have heq : BitVec.oneHotBV i = BitVec.twoPow w i.toNat := rfl
+  rw [heq, BitVec.toNat_twoPow, Nat.mod_eq_of_lt hlt]
+
+/-- The single leading (top) bit `leadingOne w = 1 <<< (w-1)` has value `2 ^ (w-1)`. -/
+theorem BitVec.toNat_leadingOne {w : Nat} (hw : 0 < w) :
+    (BitVec.leadingOne w).toNat = 2 ^ (w - 1) := by
+  have hlt : 2 ^ (w - 1) < 2 ^ w := Fp.Nat.two_pow_lt_two_pow_of_lt (by grind)
+  have heq : BitVec.leadingOne w = BitVec.twoPow w (w - 1) := rfl
+  rw [heq, BitVec.toNat_twoPow, Nat.mod_eq_of_lt hlt]
+
+/-- Value of the `lsbMask` used by `blastSuccessorAwayFromZero`: the guard-bit one-hot
+mask zero-extended by one bit and shifted left by one is `2 ^ (g.toNat + 1)`. -/
+theorem BitVec.toNat_zeroExtend_oneHotBV_shiftLeft_one {su : Nat} (g : BitVec su)
+    (hg : g.toNat + 1 < su) :
+    (((BitVec.oneHotBV g).setWidth (su + 1)) <<< 1).toNat = 2 ^ (g.toNat + 1) := by
+  have hone : (BitVec.oneHotBV g).toNat = 2 ^ g.toNat := BitVec.toNat_oneHotBV g (by grind)
+  have hfit : 2 ^ g.toNat < 2 ^ (su + 1) := Fp.Nat.two_pow_lt_two_pow_of_lt (by grind)
+  have hfit2 : 2 ^ (g.toNat + 1) < 2 ^ (su + 1) := Fp.Nat.two_pow_lt_two_pow_of_lt (by grind)
+  rw [BitVec.toNat_shiftLeft, BitVec.toNat_setWidth, hone, Nat.mod_eq_of_lt hfit,
+    Nat.shiftLeft_eq]
+  have hpow : 2 ^ g.toNat * 2 ^ 1 = 2 ^ (g.toNat + 1) := by rw [← Nat.pow_add]
+  rw [hpow, Nat.mod_eq_of_lt hfit2]
+
 
 /-- Convert a binary number into a unary mask of that number. -/
 @[bv_normalize]
