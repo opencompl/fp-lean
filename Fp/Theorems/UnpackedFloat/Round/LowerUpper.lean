@@ -2044,6 +2044,43 @@ info: 'Fp.UnpackedFloat.blastSuccessorAwayFromZero_toRat'_eq_two_pow_ex_succ_of_
 #guard_msgs (whitespace := lax) in
 #print axioms UnpackedFloat.blastSuccessorAwayFromZero_toRat'_eq_two_pow_ex_succ_of_ex_succ
 
+/-- Subnormal-aware companion to `blastSuccessorAwayFromZero_toRat'_eq_two_pow_ex_succ_of_ex_succ`:
+whenever the successor's exponent strictly increments (the rounding carried into a higher
+exponent), its value is exactly `2 ^ (x.ex + 1)`. Unlike the normal-range version this needs
+no `¬under`/`¬over` hypotheses — the carry forces `sig = leadingOne` directly from the circuit
+definition — so it applies at the subnormal underflow boundary. -/
+theorem UnpackedFloat.blastSuccessorAwayFromZero_toRat'_eq_two_pow_of_ex_succ
+    (ep sp : Nat) (hsu : sp + 1 ≤ su) (x : UnpackedFloat eu su) (hxsign : x.sign = false)
+    (hexsucc : (x.blastSuccessorAwayFromZero ep sp).ex.toInt = x.ex.toInt + 1) :
+    (x.blastSuccessorAwayFromZero ep sp).toRat' = (2 : Rat) ^ (x.ex.toInt + 1) := by
+  have hsign : (x.blastSuccessorAwayFromZero ep sp).sign = false := by
+    simp only [UnpackedFloat.blastSuccessorAwayFromZero, clearSignificand_sign, hxsign]
+  have hsigN : (x.blastSuccessorAwayFromZero ep sp).sig.toNat = 2 ^ sp := by
+    -- The exponent incremented, so the significand carried (`sigDidOverflow = true`),
+    -- whence `sig = (leadingOne su).extractMsb' 0 (sp + 1)`, of value `2 ^ sp`.
+    have hne : (x.blastSuccessorAwayFromZero ep sp).ex ≠ x.ex := by
+      intro h; rw [h] at hexsucc; omega
+    simp only [UnpackedFloat.blastSuccessorAwayFromZero, clearSignificand_ex,
+      clearSignificand_sign] at hne ⊢
+    split at hne
+    · split
+      · rw [BitVec.toNat_extractMsb'_zero _ (by omega), BitVec.toNat_leadingOne (by omega),
+          Nat.pow_div (by omega) (by omega)]
+        congr 1; omega
+      · simp_all
+    · simp_all
+  rw [UnpackedFloat.toRat'_eq_sig_toNat_mul _ hsign (by omega), hsigN, hexsucc]
+  have hcast : ((2 ^ sp : Nat) : Rat) = (2 : Rat) ^ (sp : Int) := by
+    rw [Rat.zpow_natCast]; norm_cast
+  rw [hcast, Rat.zpow_mul_zpow (by grind)]
+  congr 1; push_cast; omega
+
+/--
+info: 'Fp.UnpackedFloat.blastSuccessorAwayFromZero_toRat'_eq_two_pow_of_ex_succ' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs (whitespace := lax) in
+#print axioms UnpackedFloat.blastSuccessorAwayFromZero_toRat'_eq_two_pow_of_ex_succ
+
 /-- **Overflow connection**: if the successor early-overflows (while `x` does not), then
 `x.toRat' > maxNormal`. With `x.ex = maxNormalExp`, the carry forces
 `blastSuccessorAwayFromZero x = 2^(maxNormalExp+1)`, so `roundTZ = maxNormal` (= `next - ulp`),
