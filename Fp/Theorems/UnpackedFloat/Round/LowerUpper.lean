@@ -1767,6 +1767,35 @@ info: 'Fp.upper_eq_lower_successorAwayFromZero_of_ne' depends on axioms: [propex
 #guard_msgs (whitespace := lax) in
 #print axioms upper_eq_lower_successorAwayFromZero_of_ne
 
+/-- Underflow spec: a tiny positive `r` (`0 < r ≤ minSubnormal`) rounds up to the smallest
+positive subnormal. There is no nonzero float below `minSubnormalNumber`, so the LUB lemma's
+"no float between" obligation is vacuous. (Mirrors the existing overflow spec
+`upper_Number_eq_getInfinity_of_maxNormalNumber_lt`.) -/
+theorem isLawfulUpper_minSubnormalNumber_of_pos_of_le
+    (he : 1 < ep) (hsp : 0 < sp) (r : Rat) (hrpos : 0 < r)
+    (hle : r ≤ (PackedFloat.minSubnormalNumber ep sp false).toRat) :
+    SmtLibSemantics.IsLawfulUpper (ExtRat.Number r) (PackedFloat.minSubnormalNumber ep sp false) := by
+  apply PackedFloat.isLawfulUpper_of_le_toRat_of_no_float_between he hsp r _
+    (by simp [PackedFloat.sign_minSubnormalNumber])
+    (PackedFloat.isNormOrNonzeroSubnorm_minSubnormalNumber ep sp false (by grind) hsp)
+    hrpos hle
+  intro y hysign hyfin hylt
+  exfalso
+  have hynan : ¬ y.isNaN := by simpa using PackedFloat.not_isNaN_of_isNormOrSubnorm hyfin
+  have hyltfloat : y < PackedFloat.minSubnormalNumber ep sp false := by
+    rw [lt_iff_toRat_lt_of_isNormOrNonzeroSubnorm (by grind) hsp y _ hyfin
+      (PackedFloat.isNormOrNonzeroSubnorm_minSubnormalNumber ep sp false (by grind) hsp)]
+    exact hylt
+  have hyzero := (PackedFloat.isZero_iff_lt_minSubnormalNumber_of_isNaN_of_nonneg y he hsp hynan hysign).mp hyltfloat
+  have hynz := PackedFloat.not_isZero_of_isNormOrSubnorm hyfin
+  simp [hyzero] at hynz
+
+/--
+info: 'Fp.isLawfulUpper_minSubnormalNumber_of_pos_of_le' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs (whitespace := lax) in
+#print axioms isLawfulUpper_minSubnormalNumber_of_pos_of_le
+
 /-! ## Bridge: the unpacked successor value equals the packed successor of `lower`
 
 The crux connecting the bit-blasted circuit to the spec: the unpacked
@@ -1815,6 +1844,69 @@ info: 'Fp.UnpackedFloat.blastSuccessorAwayFromZero_toRat'_eq_lower_successorAway
 -/
 #guard_msgs (whitespace := lax) in
 #print axioms UnpackedFloat.blastSuccessorAwayFromZero_toRat'_eq_lower_successorAwayFromZero_toRat
+
+/-- **Upper keystone, Case B** (normal branch, `needsRounding = true`).
+
+When `x` needs rounding, `blastSuccessorAwayFromZeroNonnegAux` returns
+`blastSuccessorAwayFromZero x`, whose value (by the bridge) equals
+`(lower (Number x.toRat')).successorAwayFromZero.toRat = (upper (Number x.toRat')).toRat`
+(step 4). The witness is `upper (Number x.toRat')` itself. -/
+theorem UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_normal_of_needsRounding
+    (he : 2 < ep) (hsp : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hxpos : 0 < x.toRat')
+    (hfinL : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).isNormOrNonzeroSubnorm)
+    (hfinSucc : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).successorAwayFromZero.isNormOrNonzeroSubnorm)
+    (hmaxL : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp)
+      ≠ PackedFloat.maxNormalNumber ep sp false)
+    (hnr : x.needsRounding ep sp = true) :
+    (EUnpackedFloat.mkNumber (x.blastSuccessorAwayFromZero ep sp) : EUnpackedFloat eu (sp + 1)).Rel
+      (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
+  -- Pin `lower`, and derive its sign and non-approximability.
+  obtain ⟨pf, hpfNotNaN, hpfLower, hToRat, hSign, _⟩ :=
+    UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero
+      (by grind) hsp heu hsu x hxsign hxnorm hnotunder hnotover
+  have hpflow : pf = (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp) :=
+    eq_of_IsLawfulLower_of_IsLawfulLower ep sp (ExtRat.Number x.toRat') pf _ hpfNotNaN
+      (by simpa using not_isNaN_lower_of_ne_NaN ep sp (by grind) hsp _ (by simp))
+      hpfLower (lsLawfulLower_smtLibLower ep sp (by grind) hsp _)
+  have hsignL : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).sign
+      = false := by rw [← hpflow, ← hSign, sign_blastRoundTowardZero, hxsign]
+  have hne : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).toRat
+      ≠ x.toRat' := by
+    rw [← hpflow, ← hToRat]
+    intro hcontra
+    have hnotneeds := (UnpackedFloat.blastRoundTowardZero_toRat'_eq_toRat'_iff_not_needsRounding
+      (by grind) hsp heu hsu x hxsign hnotunder hnotover).mp hcontra
+    rw [hnotneeds] at hnr
+    simp at hnr
+  -- `upper = lower.succ` (step 4) and `blastSucc.toRat' = lower.succ.toRat` (bridge).
+  have hupeq := upper_eq_lower_successorAwayFromZero_of_ne (e := ep) (s := sp)
+    (by grind) hsp x.toRat' hxpos hfinL hfinSucc hsignL hne
+  have hbridge := UnpackedFloat.blastSuccessorAwayFromZero_toRat'_eq_lower_successorAwayFromZero_toRat
+    he hsp heu hsu x hxsign hxnorm hnotunder hnotover hmaxL hfinL
+  have hval : (x.blastSuccessorAwayFromZero ep sp).toRat'
+      = (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp).toRat := by
+    rw [hupeq]; exact hbridge
+  have hsgn : (x.blastSuccessorAwayFromZero ep sp).sign
+      = (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp).sign := by
+    rw [sign_blastSuccessorAwayFromZero, hxsign, hupeq, PackedFloat.sign_successorAwayFromZero, hsignL]
+  apply EUnpackedFloat.Rel_smtLibUpper_of_witness
+    (pf := (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp))
+    (he := by grind) (hs := hsp)
+  · simp
+  · simpa using not_isNaN_upper_of_ne_NaN ep sp (by grind) hsp _ (by simp)
+  · exact isLawfulUpper_upper ep sp (by grind) hsp (ExtRat.Number x.toRat')
+  · simpa using hval
+  · simpa using hsgn
+
+/--
+info: 'Fp.UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_normal_of_needsRounding' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs (whitespace := lax) in
+#print axioms UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_normal_of_needsRounding
 
 /-# `blastUpperNonneg` matches `upper` -/
 
