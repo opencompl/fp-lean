@@ -373,6 +373,73 @@ theorem UnpackedFloat.abs_toRat'_lt_two_pow_of_blastIsEarlyUnderflowNonneg
     Rat.two_pow_le_two_pow_of_le h3
   grind
 
+/-- A nonnegative rational strictly below the smallest subnormal of `(ep, sp)` has lower
+approximant `+0` (anything `≤ r` is a nonpositive float, since the least positive representable
+is `minSubnormal > r`). -/
+theorem isLawfulLower_Number_getZero_of_nonneg_of_lt (ep sp : Nat)
+    (he : 1 < ep) (hs : 0 < sp) (r : Rat) (hnn : 0 ≤ r)
+    (hlt : r < (PackedFloat.minSubnormalNumber ep sp false).toRat) :
+    SmtLibSemantics.IsLawfulLower (ExtRat.Number r) (PackedFloat.getZero ep sp false) := by
+  have hgz : (PackedFloat.getZero ep sp false).toExtRat = ExtRat.Number 0 := by
+    rw [PackedFloat.toExtRat_eq_toExtRat',
+      PackedFloat.toExtRat'_eq_zero_of_isZero _ (by simp [PackedFloat.isZero_getZero] <;> grind)]
+  constructor
+  · show (PackedFloat.getZero ep sp false).toExtRat ≤ ExtRat.Number r
+    rw [hgz]
+    simp only [ExtRat.ExtRat.num_le_num_iff, decide_eq_true_eq]; exact hnn
+  · intro y hy
+    have hy' : y.toExtRat' ≤ ExtRat.Number r := by
+      rw [← PackedFloat.toExtRat_eq_toExtRat']; exact hy
+    clear hy
+    induction y using PackedFloat.kindCasesNaNInfZeroNum with
+    | nanCase n hn =>
+      exfalso; rw [PackedFloat.toExtRat'_eq_NaN_of_isNaN n hn] at hy'; simp at hy'
+    | infCase sign =>
+      cases sign
+      case false =>
+        exfalso; rw [PackedFloat.toExtRat'_getInfinity hs] at hy'; simp at hy'
+      case true =>
+        exact PackedFloat.le_of_nonneg_of_neg _ _ (by simp [PackedFloat.sign_getInfinity])
+          (by simp [PackedFloat.sign_getZero])
+          (by simp [PackedFloat.isNaN_getInfinity_eq_false] <;> grind)
+          (by simp [PackedFloat.isNaN_getZero] <;> grind)
+    | zeroCase sign =>
+      cases sign
+      case false => exact PackedFloat.le_refl _
+      case true =>
+        exact PackedFloat.le_of_nonneg_of_neg _ _ (by simp [PackedFloat.sign_getZero])
+          (by simp [PackedFloat.sign_getZero]) (by simp [PackedFloat.isNaN_getZero] <;> grind)
+          (by simp [PackedFloat.isNaN_getZero] <;> grind)
+    | numCase n hn =>
+      by_cases hnsign : n.sign
+      · exact PackedFloat.le_of_nonneg_of_neg n _ hnsign (by simp [PackedFloat.sign_getZero])
+          (by simpa using PackedFloat.not_isNaN_of_isNormOrSubnorm hn)
+          (by simp [PackedFloat.isNaN_getZero] <;> grind)
+      · exfalso
+        simp only [Bool.not_eq_true] at hnsign
+        have hnNaN : ¬ n.isNaN := by simpa using PackedFloat.not_isNaN_of_isNormOrSubnorm hn
+        have hnzero : ¬ n.isZero := by simpa using PackedFloat.not_isZero_of_isNormOrSubnorm hn
+        have hminNaN : ¬ (PackedFloat.minSubnormalNumber ep sp false).isNaN :=
+          PackedFloat.not_isNaN_minSubnormalNumber ep sp false (by grind) hs
+        have hminfin : (PackedFloat.minSubnormalNumber ep sp false).isNormOrNonzeroSubnorm :=
+          PackedFloat.isNormOrNonzeroSubnorm_minSubnormalNumber ep sp false (by grind) hs
+        have hnotlt : ¬ (n < PackedFloat.minSubnormalNumber ep sp false) := by
+          rw [PackedFloat.isZero_iff_lt_minSubnormalNumber_of_isNaN_of_nonneg n he hs hnNaN hnsign]
+          exact hnzero
+        have hge : PackedFloat.minSubnormalNumber ep sp false ≤ n := by
+          apply Classical.byContradiction
+          intro hcon
+          exact hnotlt (PackedFloat.lt_of_not_le _ _ (by grind) hcon)
+        have hgeR : (PackedFloat.minSubnormalNumber ep sp false).toRat ≤ n.toRat := by
+          have hmin := PackedFloat.toExtRat'_le_toExtRat'_of_le (by grind) hs _ _ hminNaN hnNaN hge
+          rw [PackedFloat.toExtRat'_eq_toRat_of hminfin, PackedFloat.toExtRat'_eq_toRat_of hn,
+            ExtRat.ExtRat.num_le_num_iff] at hmin
+          simpa using hmin
+        have hnle : n.toRat ≤ r := by
+          rw [PackedFloat.toExtRat'_eq_toRat_of hn] at hy'
+          simpa only [ExtRat.ExtRat.num_le_num_iff, decide_eq_true_eq] using hy'
+        grind
+
 /--
 Rounding any number whose absolute value is strictly smaller than *half the
 minimum subnormal* of the target format produces a zero, whose sign is the
