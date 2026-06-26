@@ -1634,6 +1634,91 @@ info: 'Fp.UnpackedFloat.blastLowerNonneg_Rel_smtLibLower' depends on axioms: [pr
 -/
 #guard_msgs in #print axioms UnpackedFloat.blastLowerNonneg_Rel_smtLibLower
 
+/-! ## Not perfectly approximable ⇒ `upper r = (lower r).successorAwayFromZero`
+
+When `r` is strictly bracketed (`lower < r < upper`), the upper round is the immediate
+successor (away from zero) of the lower round. This is roadmap step 4. -/
+
+/-- For two finite floats, the float ordering matches the rational ordering of their values. -/
+theorem lt_iff_toRat_lt_of_isNormOrNonzeroSubnorm
+    (he : 0 < e) (hs : 0 < s) (x y : PackedFloat e s)
+    (hx : x.isNormOrNonzeroSubnorm) (hy : y.isNormOrNonzeroSubnorm) :
+    x < y ↔ x.toRat < y.toRat := by
+  rw [PackedFloat.lt_iff_toExtRat'_lt_toExtRat'_of_not_isZero_or_not_isZero he hs x y
+      (by simpa using PackedFloat.not_isNaN_of_isNormOrSubnorm hx)
+      (by simpa using PackedFloat.not_isNaN_of_isNormOrSubnorm hy)
+      (Or.inl (by simpa using PackedFloat.not_isZero_of_isNormOrSubnorm hx)),
+    PackedFloat.toExtRat'_eq_toRat_of hx, PackedFloat.toExtRat'_eq_toRat_of hy]
+  rw [ExtRat.num_lt_num_iff]
+  simp
+
+/--
+info: 'Fp.lt_iff_toRat_lt_of_isNormOrNonzeroSubnorm' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms lt_iff_toRat_lt_of_isNormOrNonzeroSubnorm
+
+/-- If `r` is not perfectly approximable, `upper r` is the successor (away from zero) of
+`lower r`. We take finiteness of `lower r` and of its successor (the latter fails only when
+`lower r = maxNormal`, i.e. on overflow) plus `lower r`'s sign, all available in range. -/
+theorem upper_eq_lower_successorAwayFromZero_of_ne
+    (he : 1 < e) (hs : 0 < s) (r : Rat) (hrpos : 0 < r)
+    (hfinL : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat e s).isNormOrNonzeroSubnorm)
+    (hfinSucc : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat e s).successorAwayFromZero.isNormOrNonzeroSubnorm)
+    (hsignL : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat e s).sign = false)
+    (hne : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat e s).toRat ≠ r) :
+    (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r) : PackedFloat e s)
+      = (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat e s).successorAwayFromZero := by
+  have he' : 0 < e := by grind
+  have hLnan : ¬ (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat e s).isNaN := by
+    simpa using PackedFloat.not_isNaN_of_isNormOrSubnorm hfinL
+  have hLinf : ¬ (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat e s).isInfinite := by
+    simpa using PackedFloat.not_isInfinite_of_isNormOrSubnorm hfinL
+  have hSnan : ¬ (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat e s).successorAwayFromZero.isNaN := by
+    simpa using PackedFloat.not_isNaN_of_isNormOrSubnorm hfinSucc
+  have hLlt_r := lower_toRat_lt_of_ne he' hs r hfinL hne
+  have hLltS := PackedFloat.self_lt_successorAwayFromZero he hs
+    (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat e s) hsignL hLnan hLinf
+  have hSsign :
+      (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat e s).successorAwayFromZero.sign
+        = false := by simp [hsignL]
+  -- The successor is a lawful upper of `r`.
+  have hLawful : SmtLibSemantics.IsLawfulUpper (ExtRat.Number r)
+      (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat e s).successorAwayFromZero := by
+    apply PackedFloat.isLawfulUpper_of_le_toRat_of_no_float_between he hs r _ hSsign hfinSucc hrpos
+    · -- `r ≤ successor.toRat`: else the successor would be a lower bound ≤ `lower`, contradicting `lower < successor`.
+      apply Classical.byContradiction
+      intro hcon
+      have hlowuniv := (lsLawfulLower_smtLibLower e s he' hs (ExtRat.Number r)).2
+      have hembed : SmtLibSemantics.RoundableEmbed.embed
+          ((SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat e s).successorAwayFromZero)
+            ≤ (ExtRat.Number r) := by
+        simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
+          PackedFloat.toExtRat'_eq_toRat_of hfinSucc]
+        rw [ExtRat.ExtRat.num_le_num_iff]
+        simp; grind
+      have hSleL := hlowuniv _ hembed
+      have hLleS := PackedFloat.le_of_lt hLltS
+      exact PackedFloat.ne_of_lt hLltS (PackedFloat.le_antisymm_of_ne_NaN hLleS hSleL hLnan hSnan)
+    · -- No float lies strictly between `r` and `successor`.
+      intro y hysign hyfin hylt
+      apply Classical.byContradiction
+      intro hcon
+      have hLlty : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat e s) < y := by
+        rw [lt_iff_toRat_lt_of_isNormOrNonzeroSubnorm he' hs _ _ hfinL hyfin]; grind
+      have hyltS : y <
+          (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat e s).successorAwayFromZero := by
+        rw [lt_iff_toRat_lt_of_isNormOrNonzeroSubnorm he' hs _ _ hyfin hfinSucc]; exact hylt
+      exact PackedFloat.elim_self_lt_lt_successor he hs _ y hsignL hysign hLnan
+        (by simpa using PackedFloat.not_isNaN_of_isNormOrSubnorm hyfin) hLinf hLlty hyltS
+  rw [smtLibUpper_eq_upper e s he' hs (ExtRat.Number r) (by simp)]
+  exact (eq_upper_of_IsLawfulUpper e s he' hs (ExtRat.Number r) _ (by simp) hLawful).symm
+
+/--
+info: 'Fp.upper_eq_lower_successorAwayFromZero_of_ne' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs (whitespace := lax) in
+#print axioms upper_eq_lower_successorAwayFromZero_of_ne
+
 /-# `blastUpperNonneg` matches `upper` -/
 
 theorem UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper (he : 1 < ep) (hs : 0 < sp)
