@@ -462,6 +462,34 @@ theorem smtLibUpper_eq_minSub_of_pos_of_lt (ep S : Nat) (he : 1 < ep) (hS : 0 < 
   · exact isLawfulUpper_smtLibUpper ep S (by grind) hS (ExtRat.Number r)
   · exact isLawfulUpper_minSubnormalNumber_of_pos_of_le he hS r hpos (Rat.le_of_lt hlt)
 
+private theorem neg_getZero_false (ep S : Nat) :
+    -(PackedFloat.getZero ep S false) = PackedFloat.getZero ep S true := by
+  simp [PackedFloat.neg_def, PackedFloat.neg, PackedFloat.getZero]
+
+private theorem neg_minSub_false (ep S : Nat) :
+    -(PackedFloat.minSubnormalNumber ep S false) = PackedFloat.minSubnormalNumber ep S true := by
+  simp [PackedFloat.neg_def, PackedFloat.neg, PackedFloat.minSubnormalNumber]
+
+/-- The upper approximant of a nonpositive tiny rational is `-0`. -/
+theorem smtLibUpper_eq_getZero_of_nonpos_of_gt (ep S : Nat) (he : 1 < ep) (hS : 0 < S)
+    (r : Rat) (hnp : r ≤ 0) (hgt : -(PackedFloat.minSubnormalNumber ep S false).toRat < r) :
+    (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r) : PackedFloat ep S)
+      = PackedFloat.getZero ep S true := by
+  rw [smtLibUpper_eq_neg_smtLibLower_neg ep S (by grind) hS (ExtRat.Number r) (by simp),
+    show (-(ExtRat.Number r)) = ExtRat.Number (-r) by simp [ExtRat.neg],
+    smtLibLower_eq_getZero_of_nonneg_of_lt ep S he hS (-r) (by grind) (by grind),
+    neg_getZero_false]
+
+/-- The lower approximant of a negative tiny rational is `-minSubnormal`. -/
+theorem smtLibLower_eq_minSub_of_neg_of_gt (ep S : Nat) (he : 1 < ep) (hS : 0 < S)
+    (r : Rat) (hneg : r < 0) (hgt : -(PackedFloat.minSubnormalNumber ep S false).toRat < r) :
+    (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat ep S)
+      = PackedFloat.minSubnormalNumber ep S true := by
+  rw [smtLibLower_eq_neg_smtLibUpper_neg ep S (by grind) hS (ExtRat.Number r) (by simp),
+    show (-(ExtRat.Number r)) = ExtRat.Number (-r) by simp [ExtRat.neg],
+    smtLibUpper_eq_minSub_of_pos_of_lt ep S he hS (-r) (by grind) (by grind),
+    neg_minSub_false]
+
 /--
 Rounding any number whose absolute value is strictly smaller than *half the
 minimum subnormal* of the target format produces a zero, whose sign is the
