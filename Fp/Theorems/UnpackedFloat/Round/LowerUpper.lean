@@ -1787,6 +1787,41 @@ info: 'Fp.UnpackedFloat.toRat'_le_minSubnormalNumber_of_blastIsUnderflow_next' d
 #guard_msgs (whitespace := lax) in
 #print axioms UnpackedFloat.toRat'_le_minSubnormalNumber_of_blastIsUnderflow_next
 
+/-- The packed-format underflow representative `minSubnormalForPackedFloat` (significand
+`leadingOne`, exponent `minSubnormalExp`) has value exactly `minSubnormalNumber.toRat`, i.e.
+`2 ^ minSubnormalExp`. This is the value produced on the circuit's underflow branch. -/
+theorem UnpackedFloat.toRat'_minSubnormalForPackedFloat_eq_toRat_minSubnormalNumber
+    (ep sp eu : Nat) (he : 1 < ep) (hsp : 0 < sp) (heu : exponentWidth ep sp ≤ eu) :
+    (UnpackedFloat.minSubnormalForPackedFloat eu (sp + 1) ep sp false).toRat'
+      = (PackedFloat.minSubnormalNumber ep sp false).toRat := by
+  have hsign : (UnpackedFloat.minSubnormalForPackedFloat eu (sp + 1) ep sp false).sign = false := by
+    simp [UnpackedFloat.minSubnormalForPackedFloat]
+  rw [UnpackedFloat.toRat'_eq_sig_toNat_mul _ hsign (by omega)]
+  have hsig : (UnpackedFloat.minSubnormalForPackedFloat eu (sp + 1) ep sp false).sig.toNat
+      = 2 ^ sp := by
+    simp only [UnpackedFloat.minSubnormalForPackedFloat]
+    rw [BitVec.toNat_zeroExtend_of_le _ (by omega), BitVec.toNat_leadingOne (by omega),
+      Nat.add_sub_cancel]
+  have hex : (UnpackedFloat.minSubnormalForPackedFloat eu (sp + 1) ep sp false).ex.toInt
+      = minSubnormalExp ep sp := by
+    simp only [UnpackedFloat.minSubnormalForPackedFloat]
+    exact toInt_ofInt_minSubnormalExp_eq_minSubnormalExp_of_le he hsp heu
+  rw [hsig, hex, PackedFloat.toExtRat_minSubnormal_eq ep sp he hsp]
+  have hms : minSubnormalExp ep sp = minNormalExp ep - sp := by
+    simp only [minSubnormalExp, maxSubnormalExp]; grind
+  have hcast : ((2 ^ sp : Nat) : Rat) = (2 : Rat) ^ (sp : Int) := by
+    rw [Rat.zpow_natCast]; norm_cast
+  rw [hcast, Rat.zpow_mul_zpow (by grind)]
+  congr 1
+  push_cast
+  omega
+
+/--
+info: 'Fp.UnpackedFloat.toRat'_minSubnormalForPackedFloat_eq_toRat_minSubnormalNumber' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs (whitespace := lax) in
+#print axioms UnpackedFloat.toRat'_minSubnormalForPackedFloat_eq_toRat_minSubnormalNumber
+
 /-- Closed form of `maxNormal.toRat`: `2^(maxNormalExp+1) - 2^(maxNormalExp - sp)`. -/
 theorem PackedFloat.toRat_maxNormalNumber_false_eq (ep sp : Nat) (he : 2 < ep) :
     (PackedFloat.maxNormalNumber ep sp false).toRat
@@ -2008,6 +2043,43 @@ info: 'Fp.UnpackedFloat.blastSuccessorAwayFromZero_toRat'_eq_two_pow_ex_succ_of_
 -/
 #guard_msgs (whitespace := lax) in
 #print axioms UnpackedFloat.blastSuccessorAwayFromZero_toRat'_eq_two_pow_ex_succ_of_ex_succ
+
+/-- Subnormal-aware companion to `blastSuccessorAwayFromZero_toRat'_eq_two_pow_ex_succ_of_ex_succ`:
+whenever the successor's exponent strictly increments (the rounding carried into a higher
+exponent), its value is exactly `2 ^ (x.ex + 1)`. Unlike the normal-range version this needs
+no `¬under`/`¬over` hypotheses — the carry forces `sig = leadingOne` directly from the circuit
+definition — so it applies at the subnormal underflow boundary. -/
+theorem UnpackedFloat.blastSuccessorAwayFromZero_toRat'_eq_two_pow_of_ex_succ
+    (ep sp : Nat) (hsu : sp + 1 ≤ su) (x : UnpackedFloat eu su) (hxsign : x.sign = false)
+    (hexsucc : (x.blastSuccessorAwayFromZero ep sp).ex.toInt = x.ex.toInt + 1) :
+    (x.blastSuccessorAwayFromZero ep sp).toRat' = (2 : Rat) ^ (x.ex.toInt + 1) := by
+  have hsign : (x.blastSuccessorAwayFromZero ep sp).sign = false := by
+    simp only [UnpackedFloat.blastSuccessorAwayFromZero, clearSignificand_sign, hxsign]
+  have hsigN : (x.blastSuccessorAwayFromZero ep sp).sig.toNat = 2 ^ sp := by
+    -- The exponent incremented, so the significand carried (`sigDidOverflow = true`),
+    -- whence `sig = (leadingOne su).extractMsb' 0 (sp + 1)`, of value `2 ^ sp`.
+    have hne : (x.blastSuccessorAwayFromZero ep sp).ex ≠ x.ex := by
+      intro h; rw [h] at hexsucc; omega
+    simp only [UnpackedFloat.blastSuccessorAwayFromZero, clearSignificand_ex,
+      clearSignificand_sign] at hne ⊢
+    split at hne
+    · split
+      · rw [BitVec.toNat_extractMsb'_zero _ (by omega), BitVec.toNat_leadingOne (by omega),
+          Nat.pow_div (by omega) (by omega)]
+        congr 1; omega
+      · simp_all
+    · simp_all
+  rw [UnpackedFloat.toRat'_eq_sig_toNat_mul _ hsign (by omega), hsigN, hexsucc]
+  have hcast : ((2 ^ sp : Nat) : Rat) = (2 : Rat) ^ (sp : Int) := by
+    rw [Rat.zpow_natCast]; norm_cast
+  rw [hcast, Rat.zpow_mul_zpow (by grind)]
+  congr 1; push_cast; omega
+
+/--
+info: 'Fp.UnpackedFloat.blastSuccessorAwayFromZero_toRat'_eq_two_pow_of_ex_succ' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs (whitespace := lax) in
+#print axioms UnpackedFloat.blastSuccessorAwayFromZero_toRat'_eq_two_pow_of_ex_succ
 
 /-- **Overflow connection**: if the successor early-overflows (while `x` does not), then
 `x.toRat' > maxNormal`. With `x.ex = maxNormalExp`, the carry forces
@@ -2516,6 +2588,138 @@ theorem UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_in_range
       rw [heq]
       exact UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_normal_of_not_needsRounding
         (by grind) hsp heu hsu x hxsign hxnorm hnotunder hnotover hxpos hr
+
+/-- **Subnormal underflow boundary.** When `x` underflows (`x.ex < minSubnormalExp`) but does not
+*early*-underflow (so `x.ex = minSubnormalExp - 1`), `x.toRat'` lies in `(0, minSubnormalNumber)`,
+hence `upper x.toRat' = minSubnormalNumber`. The circuit rounds `x` up to `minSubnormalNumber`
+either through its underflow branch (`minSubnormalForPackedFloat`) or through a carry into
+`minSubnormalExp` (the successor); both witnesses have value `minSubnormalNumber.toRat`. -/
+theorem UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_boundary
+    (he : 2 < ep) (hsp : 0 < sp) (hsu : sp + 2 ≤ su) (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxmsb : x.sig.msb = true)
+    (hunder : x.blastIsUnderflowNonneg ep sp = true)
+    (hnotEU : x.blastIsEarlyUnderflowNonneg ep sp = false) :
+    (x.blastUpperNonneg ep sp).Rel
+      (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
+  have he' : 0 < ep := by grind
+  -- The exponent sits exactly at the boundary: `minSubnormalExp - 1`.
+  have hexlt : x.ex.toInt < minSubnormalExp ep sp := by
+    rw [UnpackedFloat.blastUnderflowNonneg_eq_decide (by grind) hsp heu] at hunder
+    simpa using hunder
+  have hexge : minSubnormalExp ep sp - 1 ≤ x.ex.toInt := by
+    rw [UnpackedFloat.blastIsEarlyUnderflowNonneg_eq_decide (by grind) hsp heu] at hnotEU
+    simp only [decide_eq_false_iff_not, Int.not_lt] at hnotEU; omega
+  have hexeq : x.ex.toInt = minSubnormalExp ep sp - 1 := by omega
+  have hms : minSubnormalExp ep sp = minNormalExp ep - sp := by
+    simp only [minSubnormalExp, maxSubnormalExp]; grind
+  -- `¬EarlyOverflow` (needed by the successor exponent bounds).
+  have hmaxN : minSubnormalExp ep sp ≤ maxNormalExp ep := by
+    have hb := bias_pos_of_one_lt ep (by grind)
+    rw [minSubnormalExp_eq_neg_bias_minus_s_minus_one (by grind)]; simp only [maxNormalExp]; omega
+  have hnotover : x.blastIsEarlyOverflowNonneg ep sp = false := by
+    rw [UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide (by grind) hsp heu]
+    simp only [decide_eq_false_iff_not, Int.not_lt]; omega
+  -- `0 < x.toRat' < minSubnormalNumber`.
+  have hxpos : 0 < x.toRat' := by
+    have h1 := UnpackedFloat.two_pow_ex_le_toRat'_of_msb_of_sign_false x (by grind) hxsign hxmsb
+    have h2 : (0 : Rat) < 2 ^ (x.ex.toInt) := Rat.two_pow_pos _
+    grind
+  have hle : x.toRat' ≤ (PackedFloat.minSubnormalNumber ep sp false).toRat := by
+    have h1 := UnpackedFloat.toRat'_lt_two_pow_ex_succ_of_sign_false x (by grind) hxsign
+    rw [hexeq, show minSubnormalExp ep sp - 1 + 1 = minNormalExp ep - sp by omega] at h1
+    rw [PackedFloat.toExtRat_minSubnormal_eq ep sp (by grind) hsp]
+    exact Rat.le_of_lt h1
+  have hupper : SmtLibSemantics.IsLawfulUpper (ExtRat.Number x.toRat')
+      (PackedFloat.minSubnormalNumber ep sp false) :=
+    isLawfulUpper_minSubnormalNumber_of_pos_of_le (by grind) hsp x.toRat' hxpos hle
+  have hmsNaN : ¬ (PackedFloat.minSubnormalNumber ep sp false).isNaN := by
+    simpa using PackedFloat.not_isNaN_of_isNormOrSubnorm
+      (PackedFloat.isNormOrNonzeroSubnorm_minSubnormalNumber ep sp false (by grind) hsp)
+  -- Dispatch on the circuit's flags.
+  unfold UnpackedFloat.blastUpperNonneg
+  by_cases hnu : (x.blastSuccessorAwayFromZeroNonnegAux ep sp).blastIsUnderflowNonneg ep sp = true
+  · -- Underflow branch: `minSubnormalForPackedFloat`.
+    simp only [hnu, if_true]
+    apply EUnpackedFloat.Rel_smtLibUpper_of_witness
+      (pf := PackedFloat.minSubnormalNumber ep sp false) (he := he') (hs := hsp)
+    · simp
+    · exact hmsNaN
+    · exact hupper
+    · simp only [EUnpackedFloat.num_mkNumber]
+      exact UnpackedFloat.toRat'_minSubnormalForPackedFloat_eq_toRat_minSubnormalNumber
+        ep sp eu (by grind) hsp heu
+    · simp [EUnpackedFloat.num_mkNumber, UnpackedFloat.minSubnormalForPackedFloat,
+        PackedFloat.sign_minSubnormalNumber]
+  · simp only [Bool.not_eq_true] at hnu
+    by_cases hno : (x.blastSuccessorAwayFromZeroNonnegAux ep sp).blastIsEarlyOverflowNonneg ep sp = true
+    · -- Overflow branch is vacuous: the carry reaches at most `minSubnormalExp ≤ maxNormalExp`.
+      exfalso
+      have hub := UnpackedFloat.ex_blastSuccessorAwayFromZeroNonnegAux_le_ex_add_one
+        (by grind) hsp heu x hnotover
+      rw [UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide (by grind) hsp heu] at hno
+      simp only [decide_eq_true_eq] at hno; omega
+    · simp only [Bool.not_eq_true] at hno
+      simp only [hnu, hno, Bool.false_eq_true, if_false]
+      -- Normal branch: the successor carried into `minSubnormalExp`, value `2^minSubnormalExp`.
+      have hlb := UnpackedFloat.ex_le_ex_blastSuccessorAwayFromZeroNonnegAux
+        (by grind) hsp heu x hnotover
+      have hub := UnpackedFloat.ex_blastSuccessorAwayFromZeroNonnegAux_le_ex_add_one
+        (by grind) hsp heu x hnotover
+      have hnnu : minSubnormalExp ep sp ≤ (x.blastSuccessorAwayFromZeroNonnegAux ep sp).ex.toInt := by
+        rw [UnpackedFloat.blastUnderflowNonneg_eq_decide (by grind) hsp heu] at hnu
+        simpa using hnu
+      have hnextex : (x.blastSuccessorAwayFromZeroNonnegAux ep sp).ex.toInt = x.ex.toInt + 1 := by omega
+      have hnr : x.needsRounding ep sp = true := by
+        apply Classical.byContradiction; intro h
+        simp only [Bool.not_eq_true] at h
+        rw [UnpackedFloat.blastSuccessorAwayFromZeroNonnegAux, if_neg (by simp [h]),
+          ex_blastRoundTowardZero] at hnextex
+        omega
+      have hAux : x.blastSuccessorAwayFromZeroNonnegAux ep sp = x.blastSuccessorAwayFromZero ep sp := by
+        rw [UnpackedFloat.blastSuccessorAwayFromZeroNonnegAux, if_pos hnr]
+      rw [hAux] at hnextex ⊢
+      have hval : (x.blastSuccessorAwayFromZero ep sp).toRat' = (2 : Rat) ^ (x.ex.toInt + 1) :=
+        UnpackedFloat.blastSuccessorAwayFromZero_toRat'_eq_two_pow_of_ex_succ
+          ep sp (by grind) x hxsign hnextex
+      apply EUnpackedFloat.Rel_smtLibUpper_of_witness
+        (pf := PackedFloat.minSubnormalNumber ep sp false) (he := he') (hs := hsp)
+      · simp
+      · exact hmsNaN
+      · exact hupper
+      · simp only [EUnpackedFloat.num_mkNumber]
+        rw [PackedFloat.toExtRat_minSubnormal_eq ep sp (by grind) hsp]
+        have hval' : (x.blastSuccessorAwayFromZero ep sp).toRat' sp = (2 : Rat) ^ (x.ex.toInt + 1) := hval
+        rw [hval']
+        congr 1; omega
+      · simp only [EUnpackedFloat.num_mkNumber, PackedFloat.sign_minSubnormalNumber,
+          UnpackedFloat.blastSuccessorAwayFromZero, clearSignificand_sign, hxsign]
+
+/-- **Assembled upper-rounding correctness** for a normalized nonnegative nonzero float that is
+neither early-overflowing nor early-underflowing. The two surviving exponent regimes are dispatched
+to `blastUpperNonneg_Rel_smtLibUpper_in_range` (`¬x.under`, the bulk) and
+`blastUpperNonneg_Rel_smtLibUpper_boundary` (`x.under`, the subnormal boundary). This is the
+sorry-free keystone; wiring it into the pipeline (and discharging the zero entry point) replaces
+the `blastUpperNonneg_Rel_smtLibUpper` stub below. -/
+theorem UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_of_msb
+    (he : 2 < ep) (hsp : 0 < sp) (hsu : sp + 2 ≤ su) (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
+    (hxmsb : x.sig.msb = true)
+    (hnotEU : x.blastIsEarlyUnderflowNonneg ep sp = false)
+    (hnotEO : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    (x.blastUpperNonneg ep sp).Rel
+      (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
+  by_cases hxu : x.blastIsUnderflowNonneg ep sp = true
+  · exact UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_boundary
+      he hsp hsu heu x hxsign hxmsb hxu hnotEU
+  · simp only [Bool.not_eq_true] at hxu
+    exact UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_in_range
+      he hsp hsu heu x hxsign hxnorm hnotEO hxu
+
+/--
+info: 'Fp.UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_of_msb' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs (whitespace := lax) in
+#print axioms UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_of_msb
 
 theorem UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper (he : 1 < ep) (hs : 0 < sp)
   (x : UnpackedFloat eu su)
