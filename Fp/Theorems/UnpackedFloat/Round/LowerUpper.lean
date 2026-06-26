@@ -1203,6 +1203,67 @@ info: 'Fp.UnpackedFloat.blastSuccessorAwayFromZero_toRat'_eq_clearSignificand_mu
 #guard_msgs (whitespace := lax) in
 #print axioms UnpackedFloat.blastSuccessorAwayFromZero_toRat'_eq_clearSignificand_mul
 
+/-- `blastSuccessorAwayFromZero` is exactly one ulp above `blastRoundTowardZero`
+(same `ulp` as the `blastRoundTowardZero` gap lemma). -/
+theorem UnpackedFloat.blastSuccessorAwayFromZero_toRat'_eq_blastRoundTowardZero_add_ulp
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxsign : x.sign = false)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    (x.blastSuccessorAwayFromZero ep sp).toRat'
+      = (x.blastRoundTowardZero ep sp).toRat'
+        + (2 : Rat) ^ (x.ex.toInt - (sp : Int) + ((minNormalExp ep - x.ex.toInt).toNat : Int)) := by
+  have hoverE : x.ex.toInt ≤ maxNormalExp ep := by
+    have := UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide he hs heu x; grind
+  have hunderE : minSubnormalExp ep sp ≤ x.ex.toInt := by
+    have := UnpackedFloat.blastUnderflowNonneg_eq_decide he hs heu x; grind
+  have hminrel : minNormalExp ep - minSubnormalExp ep sp = (sp : Int) := by
+    simp only [minSubnormalExp, maxSubnormalExp]; grind
+  have hdNat : (minNormalExp ep - x.ex.toInt).toNat ≤ sp := by grind
+  obtain ⟨hdL, hdU⟩ := shift_range he hs heu (exInt := x.ex.toInt) (by grind) hoverE
+  have hG := UnpackedFloat.toNat_guardBitIndex_eq he hs heu hsu x hdL hdU hdNat
+  have hLeq : (x.guardBitIndex ep sp).toNat + 1
+      = (minNormalExp ep - x.ex.toInt).toNat + (su - (sp + 1)) := by rw [hG]; grind
+  rw [blastSuccessorAwayFromZero_toRat'_eq_clearSignificand_mul he hs heu hsu x hxsign hnotunder hnotover,
+    blastRoundTowardZero_toRat'_eq_clearSignificand_mul he hs heu hsu x hxsign hnotunder hnotover]
+  have hulp : (2 : Rat) ^ ((x.guardBitIndex ep sp).toNat + 1)
+        * (2 : Rat) ^ (x.ex.toInt - ((su : Int) - 1))
+      = (2 : Rat) ^ (x.ex.toInt - (sp : Int) + ((minNormalExp ep - x.ex.toInt).toNat : Int)) := by
+    rw [← Rat.zpow_natCast (2 : Rat) ((x.guardBitIndex ep sp).toNat + 1),
+      Rat.zpow_mul_zpow (by grind)]
+    congr 1
+    rw [hLeq, Int.natCast_add, Int.natCast_sub (show sp + 1 ≤ su by grind)]
+    push_cast; omega
+  rw [Rat.add_mul, hulp]
+
+/--
+info: 'Fp.UnpackedFloat.blastSuccessorAwayFromZero_toRat'_eq_blastRoundTowardZero_add_ulp' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs (whitespace := lax) in
+#print axioms UnpackedFloat.blastSuccessorAwayFromZero_toRat'_eq_blastRoundTowardZero_add_ulp
+
+/-- (B1) `blastSuccessorAwayFromZero` is strictly above the input: `x < successor`. -/
+theorem UnpackedFloat.toRat'_lt_blastSuccessorAwayFromZero_toRat'
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    x.toRat' < (x.blastSuccessorAwayFromZero ep sp).toRat' := by
+  rw [blastSuccessorAwayFromZero_toRat'_eq_blastRoundTowardZero_add_ulp he hs heu hsu x hxsign hnotunder hnotover]
+  exact UnpackedFloat.toRat'_lt_blastRoundTowardZero_toRat'_add_ulp he hs heu hsu x hxsign hxnorm hnotunder hnotover
+
+/-- (B2) `blastSuccessorAwayFromZero` is at most one ulp above the input. -/
+theorem UnpackedFloat.blastSuccessorAwayFromZero_toRat'_le_toRat'_add_ulp
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxsign : x.sign = false)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    (x.blastSuccessorAwayFromZero ep sp).toRat'
+      ≤ x.toRat' + (2 : Rat) ^ (x.ex.toInt - (sp : Int) + ((minNormalExp ep - x.ex.toInt).toNat : Int)) := by
+  rw [blastSuccessorAwayFromZero_toRat'_eq_blastRoundTowardZero_add_ulp he hs heu hsu x hxsign hnotunder hnotover]
+  have := UnpackedFloat.blastRoundTowardZero_toRat'_le_toRat' he hs heu hsu x hxsign hnotunder hnotover
+  grind
+
 /-- The width-adjusted round-toward-zero of a normalized, in-range nonnegative float is
 itself normalized (needed for `Packable`).
 
