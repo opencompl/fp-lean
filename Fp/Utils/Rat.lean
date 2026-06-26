@@ -756,3 +756,69 @@ theorem Rat.mul_two_zpow_lt {s a b : Nat} {p q : Int}
     · subst heq
       have h2p : (0 : Rat) < (2 : Rat) ^ p := Fp.Rat.two_pow_pos p
       exact (Rat.mul_lt_mul_cancel_right_of_lt h2p).mpr (by exact_mod_cast hab)
+
+
+@[simp]
+theorem Rat.one_lt_two_pow_iff (x : Nat) : 1 < (2 : Rat) ^ x ↔ 1 ≤ x := by
+  constructor
+  · intros hlt
+    have : x = 0 ∨ 1 ≤ x := by grind
+    rcases this with rfl | this
+    · grind
+    · grind
+  · intros hlt
+    norm_cast
+    have : ∃ y, x = y + 1 := by exact Nat.exists_eq_add_one.mpr hlt
+    obtain ⟨y, hy⟩ := this
+    subst hy
+    simp
+theorem Rat.div_le_of_le_mul (a b c : Rat) (hc : 0 < c) (hle : a ≤ b * c) : a / c ≤ b := by
+  rw [Rat.div_def]
+  apply Rat.mul_le_mul_cancel_right_of_lt (c := c) .. |>.mp
+  · rw [show a * c⁻¹ * c = a by grind only]
+    grind only
+  · grind only
+@[simp]
+theorem Rat.add_lt_add_left {a b c : Rat} : c + a < c + b ↔ a < b := by
+  grind
+@[simp]
+theorem Rat.div_add_eq_div_add_div (a b c : Rat) : a / c + b / c = (a + b) / c := by
+  grind
+@[simp]
+theorem Rat.div_lt_cancel {a b c : Rat} (hc : 0 < c) : a / c < b / c ↔ a < b := by
+  rw [Rat.div_def, Rat.div_def]
+  constructor
+  · intros hlt
+    rw [Rat.mul_lt_mul_right ] at hlt
+    · grind only
+    · grind only [= Rat.inv_pos]
+  · intros hlt
+    rw [Rat.mul_lt_mul_right]
+    · grind only
+    · grind only [= Rat.inv_pos]
+@[simp]
+theorem Rat.div_le_cancel {a b c : Rat} (hc : 0 < c) : a / c ≤ b / c ↔ a ≤ b := by
+  rw [Rat.div_def, Rat.div_def]
+  constructor
+  · intros hle
+    rw [Rat.mul_le_mul_cancel_right_of_lt] at hle
+    · grind only
+    · grind only [= Rat.inv_pos]
+  · intros hle
+    rw [Rat.mul_le_mul_cancel_right_of_lt]
+    · grind only
+    · grind only [= Rat.inv_pos]
+theorem Rat.add_div_eq_add_div' (a b d : Rat)(hd : d ≠ 0) :
+  a + b / d = (a * d + b) / d := by
+  grind
+attribute [grind .] Rat.natCast_eq_zero_iff
+@[simp]
+theorem Rat.natCast_ne_zero_iff {n : Nat} : ((n : Rat) ≠ 0) ↔ n ≠ 0 := by
+  grind
+theorem Rat.lt_mul_self_of_lt_one {y} {x : Rat} (hx0 : 0 ≤ x ∧ x < 1) (hy : 0 < y)
+    : x * y < y := by
+  suffices x * y < 1 * y by grind only
+  apply Rat.lt_of_le_of_ne
+  · apply Rat.mul_le_mul_of_le_of_le_of_nonneg_of_nonneg <;> grind only
+  · intros hcontra
+    rw [Rat.mul_cancel_right] at hcontra <;> grind only

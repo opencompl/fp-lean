@@ -73,3 +73,10 @@ theorem Nat.gcd_div_gcd_eq (a b : Nat) :
   · rw [Nat.div_div_eq_div_mul]
     rw [Nat.mul_div_cancel']
     exact gcd_dvd_right a b
+
+
+@[simp]
+theorem Nat.four_le_two_pow_of_lt {n : Nat} (hn : 1 < n) : 4 ≤ 2 ^ n := by
+  have : 2 ^ 2 ≤ 2 ^ n := by apply Fp.Nat.two_pow_le_two_pow_of_le; grind only
+  simp at this
+  assumption

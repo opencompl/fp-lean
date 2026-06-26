@@ -1,6 +1,7 @@
 import Std.Tactic.BVDecide
 import Fp.Tactics
 import Fp.Grind
+import Fp.Utils.Nat
 
 @[bv_normalize]
 def BitVec.leadingOne (w : Nat) : BitVec w :=
@@ -507,3 +508,71 @@ theorem BitVec.sub_le_iff_le_add (a b c : BitVec n)
     · grind
     · grind
   · grind
+
+
+theorem BitVec.allOnes_ne_zero {e : Nat} :
+    e = 0 ∨ BitVec.allOnes e ≠ BitVec.zero e := by
+  match e with
+  | 0     => left; rfl
+  | e + 1 =>
+    right
+    simp only [BitVec.allOnes, BitVec.zero, ne_eq, ← BitVec.toNat_inj, BitVec.toNat_ofNatLT]
+    grind only [!Nat.two_pow_pos]
+attribute [grind .] BitVec.toNat_inj
+attribute [grind .] BitVec.toInt_inj
+@[simp]
+theorem BitVec.allOnes_eq_one_iff (e : Nat) : BitVec.allOnes e = 1#e ↔ e ≤ 1 := by
+  constructor
+  · intros h
+    have := BitVec.toNat_inj.mpr h
+    simp at this
+    apply Classical.byContradiction
+    intros hcontra
+    simp at hcontra
+    rw [Nat.mod_eq_of_lt] at this
+    · have : 4 ≤ 2^e := by simp [hcontra]
+      grind only
+    · have : 4 ≤ 2^e := by simp [hcontra]
+      grind only
+  · intros h
+    rcases e with rfl | rfl | e
+    · grind only
+    · grind only
+    · grind only
+/--
+The only way we can get 'x = x+1` is if the width is zero.
+-/
+theorem BitVec.add_one_eq_self_iff (x : BitVec w) : x = x + 1#w ↔ w = 0 := by
+  constructor
+  · intros h
+    have hcontra := BitVec.toNat_inj.mpr h
+    simp [BitVec.toNat_add] at hcontra
+    have : x.toNat < 2^w := by grind
+    by_cases hxlt : x.toNat + 1 < 2^w
+    · rw [Nat.mod_eq_of_lt] at hcontra
+      · grind only
+      · grind only
+    · have hx : x.toNat = 2^w - 1 := by grind
+      rw [hx] at hcontra
+      rw [show 2^w - 1 + 1 = 2^w by grind] at hcontra
+      simp at hcontra
+      rcases w with rfl | w
+      · simp
+      · simp [Nat.pow_succ] at hcontra
+        have : 0 < 2^w := by grind only
+        grind only
+  · intros h
+    simp [h]
+@[simp]
+theorem BitVec.ofInt_eq_zero_iff_of_width_1 :
+    BitVec.ofInt 1 i = 0#1 ↔ i % 2 = 0 := by
+  constructor
+  · intros h
+    have := BitVec.toInt_inj.mpr h
+    simp only [BitVec.toInt_ofInt, BitVec.toInt_zero] at this
+    simp at this
+    grind only [#8803]
+  · intros h
+    apply BitVec.eq_of_toInt_eq
+    simp
+    grind only [#8803]
