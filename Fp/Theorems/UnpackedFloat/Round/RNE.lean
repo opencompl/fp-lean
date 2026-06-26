@@ -495,25 +495,25 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
           -- this should just be pure proof automation!
           split
           case neg.isTrue h1 =>
-            apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by have := sigWidth_lt_two_pow_exponentWidth_sub_one ep sp; omega) (by sorry)
+            rw [UnpackedFloat.blastUpper_truncateFittingExponent_normalize_eq_self hep hs heu hsu x hzero hxnorm (by simpa using hunder) (by simpa using hover)]
             rw [blastUpper_truncateFittingExponent_Rel_eq_blastUpper_Rel (by grind) (by grind) (by grind) (by grind) (by grind)]
             exact blastUpper_Rel_smtLibUpper hep hs hsu heu x hxnorm (by simpa using hover)
           case neg.isFalse h1 =>
             split
             case isTrue h2 =>
-              apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by have := sigWidth_lt_two_pow_exponentWidth_sub_one ep sp; omega) (by sorry)
+              rw [UnpackedFloat.blastUpper_truncateFittingExponent_normalize_eq_self hep hs heu hsu x hzero hxnorm (by simpa using hunder) (by simpa using hover)]
               rw [blastUpper_truncateFittingExponent_Rel_eq_blastUpper_Rel (by grind) (by grind) (by grind) (by grind) (by grind)]
               exact blastUpper_Rel_smtLibUpper hep hs hsu heu x hxnorm (by simpa using hover)
             case isFalse h2 =>
               split
               case isTrue h3 =>
-                apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by have := sigWidth_lt_two_pow_exponentWidth_sub_one ep sp; omega) (by sorry)
+                rw [UnpackedFloat.blastLower_truncateFittingExponent_normalize_eq_self hep hs heu hsu x hzero hxnorm (by simpa using hunder) (by simpa using hover)]
                 rw [blastLower_truncateFittingExponent_Rel_eq_blastLower_Rel (by grind) (by grind) (by grind) (by grind) (by grind)]
                 exact blastLower_Rel_smtLibLower hep hs hsu heu x hxnorm (by simpa using hover)
               case isFalse h3 =>
                 split
                 case isTrue h4 =>
-                  apply EUnpackedFloat.normalize_Rel_of_Rel (by grind) (by grind) (by grind) _ _ (by have := sigWidth_lt_two_pow_exponentWidth_sub_one ep sp; omega) (by sorry)
+                  rw [UnpackedFloat.blastLower_truncateFittingExponent_normalize_eq_self hep hs heu hsu x hzero hxnorm (by simpa using hunder) (by simpa using hover)]
                   rw [blastLower_truncateFittingExponent_Rel_eq_blastLower_Rel (by grind) (by grind) (by grind) (by grind) (by grind)]
                   exact blastLower_Rel_smtLibLower hep hs hsu heu x hxnorm (by simpa using hover)
                 case isFalse h4 =>
