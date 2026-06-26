@@ -57,6 +57,29 @@ info: 'Fp.EUnpackedFloat.normalize_eq_self_of_num' depends on axioms: [propext]
 #guard_msgs (whitespace := lax) in
 #print axioms EUnpackedFloat.normalize_eq_self_of_num
 
+/-- The canonical zero is a `normalize` fixed point. -/
+theorem UnpackedFloat.normalize_mkZero (sign : Bool) :
+    (UnpackedFloat.mkZero sign : UnpackedFloat e s).normalize = UnpackedFloat.mkZero sign := by
+  simp [UnpackedFloat.normalize, UnpackedFloat.mkZero]
+
+/-- `normalize` is the identity on `mkNumber n` when `n` is already normalized. -/
+theorem EUnpackedFloat.normalize_mkNumber_of_normalize {n : UnpackedFloat e s}
+    (h : n.normalize = n) :
+    (EUnpackedFloat.mkNumber n).normalize = EUnpackedFloat.mkNumber n :=
+  EUnpackedFloat.normalize_eq_self_of_num _ (fun _ => by rw [EUnpackedFloat.num_mkNumber]; exact h)
+
+/-- `normalize` is the identity on infinities (non-`Number` state). -/
+theorem EUnpackedFloat.normalize_mkInfinity (sign : Bool) :
+    (EUnpackedFloat.mkInfinity sign : EUnpackedFloat e s).normalize
+      = EUnpackedFloat.mkInfinity sign :=
+  EUnpackedFloat.normalize_eq_self_of_num _
+    (fun h => by simp [EUnpackedFloat.isNumber, EUnpackedFloat.mkInfinity] at h)
+
+/-- `normalize` is the identity on the (extended) canonical zero. -/
+theorem EUnpackedFloat.normalize_mkZero (sign : Bool) :
+    (EUnpackedFloat.mkZero sign : EUnpackedFloat e s).normalize = EUnpackedFloat.mkZero sign :=
+  EUnpackedFloat.normalize_mkNumber_of_normalize (UnpackedFloat.normalize_mkZero sign)
+
 /-# normalize -/
 
 /--

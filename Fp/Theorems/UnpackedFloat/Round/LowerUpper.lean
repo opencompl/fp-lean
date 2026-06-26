@@ -2217,6 +2217,37 @@ info: 'Fp.UnpackedFloat.blastSuccessorAwayFromZero_toRat'_eq_two_pow_of_ex_succ'
 #guard_msgs (whitespace := lax) in
 #print axioms UnpackedFloat.blastSuccessorAwayFromZero_toRat'_eq_two_pow_of_ex_succ
 
+/-- When the successor's exponent strictly increments (the rounding carried), the significand is
+`leadingOne`, so its top bit is set — independent of any over/underflow hypothesis. This covers the
+subnormal boundary, where the Stage-2 msb lemmas do not apply. -/
+theorem UnpackedFloat.msb_sig_blastSuccessorAwayFromZero_of_ex_succ
+    (ep sp : Nat) (hsu : sp + 1 ≤ su) (x : UnpackedFloat eu su)
+    (hexsucc : (x.blastSuccessorAwayFromZero ep sp).ex.toInt = x.ex.toInt + 1) :
+    (x.blastSuccessorAwayFromZero ep sp).sig.msb = true := by
+  have hsigN : (x.blastSuccessorAwayFromZero ep sp).sig.toNat = 2 ^ sp := by
+    have hne : (x.blastSuccessorAwayFromZero ep sp).ex ≠ x.ex := by
+      intro h; rw [h] at hexsucc; omega
+    simp only [UnpackedFloat.blastSuccessorAwayFromZero, clearSignificand_ex,
+      clearSignificand_sign] at hne ⊢
+    split at hne
+    · split
+      · rw [BitVec.toNat_extractMsb'_zero _ (by omega), BitVec.toNat_leadingOne (by omega),
+          Nat.pow_div (by omega) (by omega)]
+        congr 1; omega
+      · simp_all
+    · simp_all
+  rw [BitVec.msb_eq_decide, hsigN]
+  simp
+
+/-- The underflow representative `minSubnormalForPackedFloat` has its top significand bit set
+(`sig = leadingOne`). -/
+theorem UnpackedFloat.msb_sig_minSubnormalForPackedFloat (eu ep sp : Nat) (hsp : 0 < sp) :
+    (UnpackedFloat.minSubnormalForPackedFloat eu (sp + 1) ep sp false).sig.msb = true := by
+  simp only [UnpackedFloat.minSubnormalForPackedFloat]
+  rw [BitVec.msb_eq_decide, BitVec.toNat_zeroExtend_of_le _ (Nat.le_refl _),
+    BitVec.toNat_leadingOne (by omega)]
+  simp
+
 /-- **Overflow connection**: if the successor early-overflows (while `x` does not), then
 `x.toRat' > maxNormal`. With `x.ex = maxNormalExp`, the carry forces
 `blastSuccessorAwayFromZero x = 2^(maxNormalExp+1)`, so `roundTZ = maxNormal` (= `next - ulp`),
