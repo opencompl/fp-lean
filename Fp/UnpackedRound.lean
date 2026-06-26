@@ -620,13 +620,17 @@ def UnpackedFloat.blastSuccessorAwayFromZeroNonnegAux {eu su : Nat} (uf : Unpack
 @[bv_normalize]
 def UnpackedFloat.blastUpperNonneg {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) :
     EUnpackedFloat (eu) (tsp + 1) :=
-  let next := uf.blastSuccessorAwayFromZeroNonnegAux tep tsp
-  if next.blastIsUnderflowNonneg tep tsp then
-    EUnpackedFloat.mkNumber <| UnpackedFloat.minSubnormalForPackedFloat _ _ tep tsp false
-  else if next.blastIsEarlyOverflowNonneg tep tsp then
-    EUnpackedFloat.mkInfinity false
+  if uf.isZero then
+    -- The least representable upper bound of `+0` is `-0` (`upper (Number 0) = getZero true`).
+    EUnpackedFloat.mkZero true
   else
-    EUnpackedFloat.mkNumber <| next
+    let next := uf.blastSuccessorAwayFromZeroNonnegAux tep tsp
+    if next.blastIsUnderflowNonneg tep tsp then
+      EUnpackedFloat.mkNumber <| UnpackedFloat.minSubnormalForPackedFloat _ _ tep tsp false
+    else if next.blastIsEarlyOverflowNonneg tep tsp then
+      EUnpackedFloat.mkInfinity false
+    else
+      EUnpackedFloat.mkNumber <| next
 
 @[bv_normalize]
 def UnpackedFloat.blastLowerNeg {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) :

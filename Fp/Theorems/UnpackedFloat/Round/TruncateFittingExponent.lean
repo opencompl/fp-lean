@@ -519,6 +519,10 @@ theorem blastUpperNonneg_truncateFittingExponent_PartsEq
     rw [UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide he hs (Nat.le_refl _),
         UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide he hs heu, hexI]
   simp only [UnpackedFloat.blastUpperNonneg]
+  rw [isZero_truncateFittingExponent_eq_isZero]
+  by_cases hz : x.isZero
+  · simp [hz, EUnpackedFloat.PartsEq]
+  simp only [hz, Bool.false_eq_true, if_false]
   rw [hcondU, hcondO]
   by_cases h1 : (x.blastSuccessorAwayFromZeroNonnegAux ep sp).blastIsUnderflowNonneg ep sp
   · simp only [h1, if_true]

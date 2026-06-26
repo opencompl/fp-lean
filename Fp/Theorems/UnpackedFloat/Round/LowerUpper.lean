@@ -2506,6 +2506,39 @@ info: 'Fp.UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_normal_of_not_needsRoun
 #guard_msgs (whitespace := lax) in
 #print axioms UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_normal_of_not_needsRounding
 
+/-- A float whose significand has its top bit set is nonzero (used to skip the `isZero`
+short-circuit branch of `blastUpperNonneg`). -/
+theorem UnpackedFloat.isZero_eq_false_of_msb {e s : Nat} (x : UnpackedFloat e s)
+    (h : x.sig.msb = true) : x.isZero = false := by
+  simp only [UnpackedFloat.isZero, beq_eq_false_iff_ne, ne_eq]
+  rintro hsig
+  rw [hsig] at h
+  simp at h
+
+/-- A normalized zero never early-overflows: its exponent is `intMin`, far below `maxNormalExp`. -/
+theorem UnpackedFloat.blastIsEarlyOverflowNonneg_eq_false_of_isZero
+    (he : 1 < ep) (hsp : 0 < sp) (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su) (hxnorm : x.normalize = x) (hx0 : x.isZero) :
+    x.blastIsEarlyOverflowNonneg ep sp = false := by
+  have h0 : x.sig = 0#su := by simpa [UnpackedFloat.isZero] using hx0
+  have hmk : x = UnpackedFloat.mkZero x.sign := by
+    have h := hxnorm; rw [UnpackedFloat.normalize] at h
+    simpa only [h0, beq_self_eq_true, cond_true] using h.symm
+  have heupos : 0 < eu := by have := @zero_lt_exponentWidth ep sp; grind
+  have hexval : x.ex.toInt = -2 ^ (eu - 1) := by
+    have hmod : (2 : Nat) ^ (eu - 1) % 2 ^ eu = 2 ^ (eu - 1) :=
+      Nat.mod_eq_of_lt (Nat.pow_lt_pow_of_lt (by grind) (by grind))
+    rw [hmk, UnpackedFloat.ex_mkZero, BitVec.toInt_intMin, hmod]
+    push_cast; grind
+  rw [UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide he hsp heu]
+  simp only [decide_eq_false_iff_not, Int.not_lt]
+  have hmax : (0 : Int) ≤ maxNormalExp ep := by
+    simp only [maxNormalExp]; have := bias_pos_of_one_lt ep he; omega
+  have hpownn : (0 : Int) ≤ (2 : Int) ^ (eu - 1) := by
+    rw [show ((2 : Int) ^ (eu - 1)) = ((2 ^ (eu - 1) : Nat) : Int) by push_cast; rfl]
+    exact Int.natCast_nonneg _
+  omega
+
 /-- **Wrapper dispatch** (in-range, no underflow): assembles the leaf cases. With `¬x.under`,
 the successor never underflows so the underflow branch is dead; the overflow branch uses the
 overflow connection + spec, and the normal branch routes to Case A / Case B. `hmaxL`
@@ -2542,7 +2575,7 @@ theorem UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_in_range
     rw [UnpackedFloat.blastUnderflowNonneg_eq_decide (by grind) hsp heu]
     simp only [decide_eq_false_iff_not]; omega
   unfold UnpackedFloat.blastUpperNonneg
-  simp only [hnnu, Bool.false_eq_true, if_false]
+  simp only [UnpackedFloat.isZero_eq_false_of_msb x hmsb, hnnu, Bool.false_eq_true, if_false]
   by_cases ho : (x.blastSuccessorAwayFromZeroNonnegAux ep sp).blastIsEarlyOverflowNonneg ep sp = true
   · -- Overflow branch: `mkInfinity false`.
     simp only [ho, if_true]
@@ -2597,19 +2630,14 @@ either through its underflow branch (`minSubnormalForPackedFloat`) or through a 
 theorem UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_boundary
     (he : 2 < ep) (hsp : 0 < sp) (hsu : sp + 2 ≤ su) (heu : exponentWidth ep sp ≤ eu)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxmsb : x.sig.msb = true)
-    (hunder : x.blastIsUnderflowNonneg ep sp = true)
-    (hnotEU : x.blastIsEarlyUnderflowNonneg ep sp = false) :
+    (hunder : x.blastIsUnderflowNonneg ep sp = true) :
     (x.blastUpperNonneg ep sp).Rel
       (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
   have he' : 0 < ep := by grind
-  -- The exponent sits exactly at the boundary: `minSubnormalExp - 1`.
+  -- The exponent underflows: `x.ex < minSubnormalExp`.
   have hexlt : x.ex.toInt < minSubnormalExp ep sp := by
     rw [UnpackedFloat.blastUnderflowNonneg_eq_decide (by grind) hsp heu] at hunder
     simpa using hunder
-  have hexge : minSubnormalExp ep sp - 1 ≤ x.ex.toInt := by
-    rw [UnpackedFloat.blastIsEarlyUnderflowNonneg_eq_decide (by grind) hsp heu] at hnotEU
-    simp only [decide_eq_false_iff_not, Int.not_lt] at hnotEU; omega
-  have hexeq : x.ex.toInt = minSubnormalExp ep sp - 1 := by omega
   have hms : minSubnormalExp ep sp = minNormalExp ep - sp := by
     simp only [minSubnormalExp, maxSubnormalExp]; grind
   -- `¬EarlyOverflow` (needed by the successor exponent bounds).
@@ -2626,9 +2654,10 @@ theorem UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_boundary
     grind
   have hle : x.toRat' ≤ (PackedFloat.minSubnormalNumber ep sp false).toRat := by
     have h1 := UnpackedFloat.toRat'_lt_two_pow_ex_succ_of_sign_false x (by grind) hxsign
-    rw [hexeq, show minSubnormalExp ep sp - 1 + 1 = minNormalExp ep - sp by omega] at h1
     rw [PackedFloat.toExtRat_minSubnormal_eq ep sp (by grind) hsp]
-    exact Rat.le_of_lt h1
+    have hmono : (2 : Rat) ^ (x.ex.toInt + 1) ≤ 2 ^ (minNormalExp ep - sp) :=
+      Rat.two_pow_le_two_pow_of_le (by omega)
+    grind
   have hupper : SmtLibSemantics.IsLawfulUpper (ExtRat.Number x.toRat')
       (PackedFloat.minSubnormalNumber ep sp false) :=
     isLawfulUpper_minSubnormalNumber_of_pos_of_le (by grind) hsp x.toRat' hxpos hle
@@ -2637,6 +2666,7 @@ theorem UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_boundary
       (PackedFloat.isNormOrNonzeroSubnorm_minSubnormalNumber ep sp false (by grind) hsp)
   -- Dispatch on the circuit's flags.
   unfold UnpackedFloat.blastUpperNonneg
+  simp only [UnpackedFloat.isZero_eq_false_of_msb x hxmsb, Bool.false_eq_true, if_false]
   by_cases hnu : (x.blastSuccessorAwayFromZeroNonnegAux ep sp).blastIsUnderflowNonneg ep sp = true
   · -- Underflow branch: `minSubnormalForPackedFloat`.
     simp only [hnu, if_true]
@@ -2669,6 +2699,8 @@ theorem UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_boundary
         rw [UnpackedFloat.blastUnderflowNonneg_eq_decide (by grind) hsp heu] at hnu
         simpa using hnu
       have hnextex : (x.blastSuccessorAwayFromZeroNonnegAux ep sp).ex.toInt = x.ex.toInt + 1 := by omega
+      -- In this branch the carry lands exactly at `minSubnormalExp`, pinning `x.ex`.
+      have hexeq : x.ex.toInt = minSubnormalExp ep sp - 1 := by omega
       have hnr : x.needsRounding ep sp = true := by
         apply Classical.byContradiction; intro h
         simp only [Bool.not_eq_true] at h
@@ -2704,13 +2736,12 @@ theorem UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_of_msb
     (he : 2 < ep) (hsp : 0 < sp) (hsu : sp + 2 ≤ su) (heu : exponentWidth ep sp ≤ eu)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
     (hxmsb : x.sig.msb = true)
-    (hnotEU : x.blastIsEarlyUnderflowNonneg ep sp = false)
     (hnotEO : x.blastIsEarlyOverflowNonneg ep sp = false) :
     (x.blastUpperNonneg ep sp).Rel
       (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
   by_cases hxu : x.blastIsUnderflowNonneg ep sp = true
   · exact UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_boundary
-      he hsp hsu heu x hxsign hxmsb hxu hnotEU
+      he hsp hsu heu x hxsign hxmsb hxu
   · simp only [Bool.not_eq_true] at hxu
     exact UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_in_range
       he hsp hsu heu x hxsign hxnorm hnotEO hxu
@@ -2721,12 +2752,39 @@ info: 'Fp.UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_of_msb' depends on axio
 #guard_msgs (whitespace := lax) in
 #print axioms UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_of_msb
 
-theorem UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper (he : 1 < ep) (hs : 0 < sp)
-  (x : UnpackedFloat eu su)
-  (hxsign : x.sign = false) :
-  (x.blastUpperNonneg ep sp).Rel (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
-  simp [UnpackedFloat.blastUpperNonneg]
-  sorry
+/-- `blastUpperNonneg` matches the SMT-LIB upper bound for any normalized nonnegative float that
+does not early-overflow. The `isZero` short-circuit yields `-0` (`upper (Number 0) = getZero true`);
+the nonzero case derives `msb` from normalization and routes to `…_of_msb`. -/
+theorem UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper
+    (he : 2 < ep) (hsp : 0 < sp) (hsu : sp + 2 ≤ su) (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
+    (hnotEO : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    (x.blastUpperNonneg ep sp).Rel
+      (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
+  have he' : 0 < ep := by grind
+  by_cases hz : x.isZero = true
+  · -- Zero short-circuits to `-0`, matching `upper (Number 0) = getZero true`.
+    have hx0 : x.toRat' = 0 := UnpackedFloat.toRat'_eq_zero_of_isZero x hz
+    have htgt : (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp)
+        = PackedFloat.getZero ep sp true := by
+      rw [hx0]
+      exact (IsLawfulUpper_Zero_iff _ he').mp (isLawfulUpper_upper ep sp he' hsp (ExtRat.Number 0))
+    rw [htgt]
+    unfold UnpackedFloat.blastUpperNonneg
+    simp only [hz, if_true]
+    exact EUnpackedFloat.mkZero_Rel_of_isZero ep sp eu (sp + 1) (by grind) rfl
+  · simp only [Bool.not_eq_true] at hz
+    have hsig : x.sig ≠ 0#su := by
+      simpa only [UnpackedFloat.isZero, beq_eq_false_iff_ne] using hz
+    have hxmsb : x.sig.msb = true := (UnpackedFloat.normalize_eq_self_iff x hsig).mp hxnorm
+    exact UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_of_msb
+      he hsp hsu heu x hxsign hxnorm hxmsb hnotEO
+
+/--
+info: 'Fp.UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs (whitespace := lax) in
+#print axioms UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper
 
 
 /-# `blastLower` matches `lower` -/
@@ -2736,7 +2794,8 @@ theorem UnpackedFloat.blastLower_Rel_smtLibLower (hep : 2 < ep)
   (hsu : sp + 2 ≤ su)
   (heu : exponentWidth ep sp ≤ eu)
   (x : UnpackedFloat eu su)
-  (hxnorm : x.normalize = x) :
+  (hxnorm : x.normalize = x)
+  (hnotEO : x.blastIsEarlyOverflowNonneg ep sp = false) :
   (x.blastLower ep sp).Rel (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
   simp [UnpackedFloat.blastLower]
   by_cases hsign : x.sign
@@ -2749,7 +2808,11 @@ theorem UnpackedFloat.blastLower_Rel_smtLibLower (hep : 2 < ep)
       apply UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper
       · grind
       · grind
+      · grind
+      · grind
       · simp [hsign]
+      · exact normalize_neg_eq_neg_of_normalize_eq x hxnorm
+      · simpa using hnotEO
     · grind only
     · grind only
     · grind only
@@ -2769,7 +2832,8 @@ theorem UnpackedFloat.blastUpper_Rel_smtLibUpper (hep : 2 < ep) (hsp : 0 < sp)
     (hsu : sp + 2 ≤ su)
     (heu : exponentWidth ep sp ≤ eu)
     (x : UnpackedFloat eu su)
-    (hxnorm : x.normalize = x) :
+    (hxnorm : x.normalize = x)
+    (hnotEO : x.blastIsEarlyOverflowNonneg ep sp = false) :
     (x.blastUpper ep sp).Rel (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
   simp [UnpackedFloat.blastUpper]
   by_cases hsign : x.sign
@@ -2793,6 +2857,10 @@ theorem UnpackedFloat.blastUpper_Rel_smtLibUpper (hep : 2 < ep) (hsp : 0 < sp)
     apply UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper
     · grind only
     · grind only
+    · grind only
+    · grind only
     · simp [hsign]
+    · exact hxnorm
+    · exact hnotEO
 
 end Fp
