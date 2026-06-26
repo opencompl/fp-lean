@@ -1675,6 +1675,118 @@ info: 'Fp.PackedFloat.isNormOrNonzeroSubnorm_successorAwayFromZero_of_ne_maxNorm
 #guard_msgs (whitespace := lax) in
 #print axioms PackedFloat.isNormOrNonzeroSubnorm_successorAwayFromZero_of_ne_maxNormal
 
+/-- Incrementing `x.ex` by one does not wrap, provided `x` does not early-overflow
+(`x.ex.toInt ≤ maxNormalExp ≪ 2^(eu-1)`). Extracted from the successor-value proof. -/
+theorem UnpackedFloat.toInt_ex_add_one_of_not_blastIsEarlyOverflow
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su) (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    (x.ex + 1#eu).toInt = x.ex.toInt + 1 := by
+  have hexhi : x.ex.toInt ≤ maxNormalExp ep := by
+    have := UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide he hs heu x; grind
+  have hlo := x.ex.le_toInt
+  have hew1 : 1 < exponentWidth ep sp := one_lt_exponentWidth
+  have heu1 : 1 < eu := by omega
+  have hbias : bias ep + 1 < 2 ^ (exponentWidth ep sp - 1) :=
+    bias_plus_one_lt_two_pow_exponentWidth_minus_one ep sp he hs
+  have hminS := neg_two_pow_exponentWidth_lt_minSubnormalExp (e := ep) (s := sp) he hs
+  have hmaxN : maxNormalExp ep = (bias ep : Int) := rfl
+  have hpowle : (2 : Int) ^ (exponentWidth ep sp - 1) ≤ 2 ^ (eu - 1) := by
+    have h1 : (2 : Nat) ^ (exponentWidth ep sp - 1) ≤ 2 ^ (eu - 1) :=
+      Nat.pow_le_pow_right (by omega) (by omega)
+    have hc1 : ((2 ^ (exponentWidth ep sp - 1) : Nat) : Int)
+        = (2 : Int) ^ (exponentWidth ep sp - 1) := by push_cast; rfl
+    have hc2 : ((2 ^ (eu - 1) : Nat) : Int) = (2 : Int) ^ (eu - 1) := by push_cast; rfl
+    omega
+  have hcastBias : ((bias ep : Nat) : Int) + 1 < (2 : Int) ^ (exponentWidth ep sp - 1) := by
+    have hb : ((bias ep + 1 : Nat) : Int) < ((2 ^ (exponentWidth ep sp - 1) : Nat) : Int) := by
+      exact_mod_cast hbias
+    push_cast at hb; omega
+  have h2pow : ∀ n : Nat, 0 < n → (2 : Int) ^ n = 2 * 2 ^ (n - 1) := by
+    intro n hn
+    obtain ⟨m, rfl⟩ := Nat.exists_eq_succ_of_ne_zero (Nat.pos_iff_ne_zero.mp hn)
+    rw [Int.pow_succ]; simp; omega
+  have h2eu : (2 : Int) ^ eu = 2 * 2 ^ (eu - 1) := h2pow eu (by omega)
+  rw [BitVec.toInt_add, BitVec.toInt_one_of_lt heu1, Int.bmod_eq_of_le] <;> push_cast <;> omega
+
+/--
+info: 'Fp.UnpackedFloat.toInt_ex_add_one_of_not_blastIsEarlyOverflow' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs (whitespace := lax) in
+#print axioms UnpackedFloat.toInt_ex_add_one_of_not_blastIsEarlyOverflow
+
+/-- **Successor exponent monotonicity** (linchpin): the auxiliary successor never decreases the
+exponent, given no early-overflow (so the `+1` carry does not wrap). -/
+theorem UnpackedFloat.ex_le_ex_blastSuccessorAwayFromZeroNonnegAux
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su) (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    x.ex.toInt ≤ (x.blastSuccessorAwayFromZeroNonnegAux ep sp).ex.toInt := by
+  unfold UnpackedFloat.blastSuccessorAwayFromZeroNonnegAux
+  split
+  · -- needsRounding: next = blastSuccessorAwayFromZero
+    simp only [UnpackedFloat.blastSuccessorAwayFromZero]
+    split
+    · -- carry: ex = clearSignificand.ex + 1 = x.ex + 1
+      simp only [clearSignificand_ex]
+      rw [UnpackedFloat.toInt_ex_add_one_of_not_blastIsEarlyOverflow he hs heu x hnotover]
+      omega
+    · -- no carry: ex = clearSignificand.ex = x.ex
+      simp only [clearSignificand_ex]; omega
+  · -- ¬needsRounding: next = blastRoundTowardZero, ex = x.ex
+    rw [ex_blastRoundTowardZero]; omega
+
+/--
+info: 'Fp.UnpackedFloat.ex_le_ex_blastSuccessorAwayFromZeroNonnegAux' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs (whitespace := lax) in
+#print axioms UnpackedFloat.ex_le_ex_blastSuccessorAwayFromZeroNonnegAux
+
+/-- Companion upper bound: the auxiliary successor raises the exponent by at most one. -/
+theorem UnpackedFloat.ex_blastSuccessorAwayFromZeroNonnegAux_le_ex_add_one
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su) (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    (x.blastSuccessorAwayFromZeroNonnegAux ep sp).ex.toInt ≤ x.ex.toInt + 1 := by
+  unfold UnpackedFloat.blastSuccessorAwayFromZeroNonnegAux
+  split
+  · simp only [UnpackedFloat.blastSuccessorAwayFromZero]
+    split
+    · simp only [clearSignificand_ex]
+      rw [UnpackedFloat.toInt_ex_add_one_of_not_blastIsEarlyOverflow he hs heu x hnotover]; omega
+    · simp only [clearSignificand_ex]; omega
+  · rw [ex_blastRoundTowardZero]; omega
+
+/--
+info: 'Fp.UnpackedFloat.ex_blastSuccessorAwayFromZeroNonnegAux_le_ex_add_one' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs (whitespace := lax) in
+#print axioms UnpackedFloat.ex_blastSuccessorAwayFromZeroNonnegAux_le_ex_add_one
+
+/-- **Underflow connection**: if the successor underflows, `x.toRat'` is at most the smallest
+positive subnormal. (Via monotonicity: `next.ex < minSubnormalExp ⇒ x.ex < minSubnormalExp ⇒
+x.toRat' < 2^(x.ex+1) ≤ 2^minSubnormalExp = minSubnormal.toRat`.) -/
+theorem UnpackedFloat.toRat'_le_minSubnormalNumber_of_blastIsUnderflow_next
+    (he : 2 < ep) (hsp : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxsign : x.sign = false)
+    (hnotEarlyOver : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hunder : (x.blastSuccessorAwayFromZeroNonnegAux ep sp).blastIsUnderflowNonneg ep sp = true) :
+    x.toRat' ≤ (PackedFloat.minSubnormalNumber ep sp false).toRat := by
+  rw [PackedFloat.toExtRat_minSubnormal_eq ep sp (by grind) hsp]
+  have hmono := UnpackedFloat.ex_le_ex_blastSuccessorAwayFromZeroNonnegAux (by grind) hsp heu x hnotEarlyOver
+  have hub := UnpackedFloat.toRat'_lt_two_pow_ex_succ_of_sign_false x (by grind) hxsign
+  have hexub : x.ex.toInt + 1 ≤ minNormalExp ep - (sp : Int) := by
+    rw [UnpackedFloat.blastUnderflowNonneg_eq_decide (by grind) hsp heu] at hunder
+    simp only [decide_eq_true_eq] at hunder
+    have hms : minSubnormalExp ep sp = minNormalExp ep - sp := by
+      simp only [minSubnormalExp, maxSubnormalExp]; grind
+    grind
+  have hmono2 := Rat.two_pow_le_two_pow_of_le hexub
+  grind
+
+/--
+info: 'Fp.UnpackedFloat.toRat'_le_minSubnormalNumber_of_blastIsUnderflow_next' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs (whitespace := lax) in
+#print axioms UnpackedFloat.toRat'_le_minSubnormalNumber_of_blastIsUnderflow_next
+
 theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_normal
     (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ e) (hsu : sp + 2 ≤ s)   -- ADDED (forwarded to the keystone)
