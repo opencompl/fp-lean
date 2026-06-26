@@ -52,7 +52,7 @@ theorem EUnpackedFloat.neg_normalize_eq_neg_normalize (x : EUnpackedFloat e s) :
   rfl
 
 /--
-info: 'Fp.EUnpackedFloat.normalize_eq_self_of_num' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'Fp.EUnpackedFloat.normalize_eq_self_of_num' depends on axioms: [propext]
 -/
 #guard_msgs (whitespace := lax) in
 #print axioms EUnpackedFloat.normalize_eq_self_of_num
