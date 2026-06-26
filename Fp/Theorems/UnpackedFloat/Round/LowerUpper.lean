@@ -1787,6 +1787,29 @@ info: 'Fp.UnpackedFloat.toRat'_le_minSubnormalNumber_of_blastIsUnderflow_next' d
 #guard_msgs (whitespace := lax) in
 #print axioms UnpackedFloat.toRat'_le_minSubnormalNumber_of_blastIsUnderflow_next
 
+/-- If the successor early-overflows (while `x` itself does not), then `x.ex = maxNormalExp`:
+`maxNormalExp < next.ex ≤ x.ex + 1` and `x.ex ≤ maxNormalExp` pin it exactly. -/
+theorem UnpackedFloat.ex_eq_maxNormalExp_of_blastIsEarlyOverflow_next
+    (he : 1 < ep) (hsp : 0 < sp) (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su)
+    (hnotEarlyOver : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hover : (x.blastSuccessorAwayFromZeroNonnegAux ep sp).blastIsEarlyOverflowNonneg ep sp = true) :
+    x.ex.toInt = maxNormalExp ep := by
+  have hcomp := UnpackedFloat.ex_blastSuccessorAwayFromZeroNonnegAux_le_ex_add_one he hsp heu x hnotEarlyOver
+  have hnextover : maxNormalExp ep < (x.blastSuccessorAwayFromZeroNonnegAux ep sp).ex.toInt := by
+    rw [UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide he hsp heu] at hover
+    simpa using hover
+  have hxhi : x.ex.toInt ≤ maxNormalExp ep := by
+    rw [UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide he hsp heu] at hnotEarlyOver
+    simpa using hnotEarlyOver
+  omega
+
+/--
+info: 'Fp.UnpackedFloat.ex_eq_maxNormalExp_of_blastIsEarlyOverflow_next' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs (whitespace := lax) in
+#print axioms UnpackedFloat.ex_eq_maxNormalExp_of_blastIsEarlyOverflow_next
+
 theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_normal
     (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ e) (hsu : sp + 2 ≤ s)   -- ADDED (forwarded to the keystone)
