@@ -868,4 +868,71 @@ info: 'Fp.lower_toRat_eq_of_upper_toRat_eq' depends on axioms: [propext, Classic
 -/
 #guard_msgs in #print axioms lower_toRat_eq_of_upper_toRat_eq
 
+/-! ## Strict bracketing when `r` is not perfectly approximable
+
+If `r` is *not* perfectly approximable (`(lower r).toRat ≠ r`), the lower and upper rounds
+strictly straddle it: `(lower r).toRat < r < (upper r).toRat`. This is roadmap step 3.
+-/
+
+/-- `lower` never overshoots: for a finite `lower r`, `(lower r).toRat ≤ r`. -/
+theorem lower_toRat_le
+    (he : 0 < e) (hs : 0 < s) (r : Rat)
+    (hfin : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat e s).isNormOrNonzeroSubnorm) :
+    (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat e s).toRat ≤ r := by
+  have hlow := (lsLawfulLower_smtLibLower e s he hs (ExtRat.Number r)).1
+  simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat'] at hlow
+  rw [PackedFloat.toExtRat'_eq_toRat_of hfin, ExtRat.ExtRat.num_le_num_iff] at hlow
+  simpa using hlow
+
+/--
+info: 'Fp.lower_toRat_le' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms lower_toRat_le
+
+/-- `upper` never undershoots: for a finite `upper r`, `r ≤ (upper r).toRat`. -/
+theorem le_upper_toRat
+    (he : 0 < e) (hs : 0 < s) (r : Rat)
+    (hfin : (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r) : PackedFloat e s).isNormOrNonzeroSubnorm) :
+    r ≤ (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r) : PackedFloat e s).toRat := by
+  have hup := (isLawfulUpper_smtLibUpper e s he hs (ExtRat.Number r)).1
+  simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat'] at hup
+  rw [PackedFloat.toExtRat'_eq_toRat_of hfin, ExtRat.ExtRat.num_le_num_iff] at hup
+  simpa using hup
+
+/--
+info: 'Fp.le_upper_toRat' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms le_upper_toRat
+
+/-- Not perfectly approximable ⇒ `lower` strictly undershoots: `(lower r).toRat < r`. -/
+theorem lower_toRat_lt_of_ne
+    (he : 0 < e) (hs : 0 < s) (r : Rat)
+    (hfin : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat e s).isNormOrNonzeroSubnorm)
+    (hne : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat e s).toRat ≠ r) :
+    (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat e s).toRat < r := by
+  have hle := lower_toRat_le he hs r hfin
+  grind
+
+/--
+info: 'Fp.lower_toRat_lt_of_ne' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms lower_toRat_lt_of_ne
+
+/-- Not perfectly approximable ⇒ `upper` strictly overshoots: `r < (upper r).toRat`.
+Uses the step-1 reverse transfer to turn `upper r = r` into `lower r = r`. -/
+theorem lt_upper_toRat_of_ne
+    (he : 0 < e) (hs : 0 < s) (r : Rat) (hr0 : r ≠ 0)
+    (hfin : (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r) : PackedFloat e s).isNormOrNonzeroSubnorm)
+    (hne : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat e s).toRat ≠ r) :
+    r < (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r) : PackedFloat e s).toRat := by
+  have hle := le_upper_toRat he hs r hfin
+  by_cases heq : r = (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r) : PackedFloat e s).toRat
+  · exact absurd (lower_toRat_eq_of_upper_toRat_eq he hs r hr0 heq.symm) hne
+  · grind
+
+/--
+info: 'Fp.lt_upper_toRat_of_ne' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms lt_upper_toRat_of_ne
+
 end Fp
