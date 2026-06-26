@@ -46,6 +46,46 @@ info: 'Fp.EUnpackedFloat.Rel_smtLibLower_of_witness' depends on axioms: [propext
 -/
 #guard_msgs in #print axioms EUnpackedFloat.Rel_smtLibLower_of_witness
 
+/--
+Helper: Reduce `result.Rel (smtLibUpper.upper (Number r))` to producing a
+witness `pf` that is a lawful upper with matching `toRat'` and `sign`.
+(Upper analog of `EUnpackedFloat.Rel_smtLibLower_of_witness`.)
+-/
+theorem EUnpackedFloat.Rel_smtLibUpper_of_witness
+    (he : 0 < ep) (hs : 0 < sp)
+    (r : Rat)
+    (result : EUnpackedFloat eu su)
+    (hres : result.state = .Number)
+    (pf : PackedFloat ep sp)
+    (hpfNotNaN : ¬ pf.isNaN)
+    (hpfUpper : SmtLibSemantics.IsLawfulUpper (ExtRat.Number r) pf)
+    (hToRat : result.num.toRat' sp = pf.toRat)
+    (hSign  : result.num.sign  = pf.sign) :
+    result.Rel (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r) : PackedFloat ep sp) := by
+  -- The smtLib upper is also a lawful upper; by uniqueness it equals `pf`.
+  have hSmtUpper : SmtLibSemantics.IsLawfulUpper (ExtRat.Number r)
+      (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r) : PackedFloat ep sp) :=
+    isLawfulUpper_upper ep sp he hs _
+  have hSmtNotNaN : ¬ (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r) : PackedFloat ep sp).isNaN := by
+    have := not_isNaN_upper_of_ne_NaN ep sp he hs (ExtRat.Number r) (by simp)
+    grind only
+  have hpf_eq : pf = SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r) := by
+    apply eq_of_IsLawfulUpper_of_IsLawfulUpper
+    · exact hpfNotNaN
+    · exact hSmtNotNaN
+    · exact hpfUpper
+    · exact hSmtUpper
+  apply EUnpackedFloat.Rel_of_Rel_of_state_eq_Number
+  · simp [hres]
+  · refine UnpackedFloat.Rel_of_toRat_eq_toRat_and_sign _ _ ?_ ?_
+    · rw [hToRat, hpf_eq]
+    · rw [hSign, hpf_eq]
+
+/--
+info: 'Fp.EUnpackedFloat.Rel_smtLibUpper_of_witness' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms EUnpackedFloat.Rel_smtLibUpper_of_witness
+
 /-- A normalized float that does not underflow is nonzero, so its significand msb is set.
 (A zero would have `ex = intMin`, whose value `-2^(eu-1)` is below `minSubnormalExp`, i.e.
 underflow — contradicting `hnotunder`.) -/
