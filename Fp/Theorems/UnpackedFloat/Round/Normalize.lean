@@ -23,6 +23,40 @@ theorem UnpackedFloat.normalize_neg_eq_neg_of_normalize_eq (x : UnpackedFloat e 
     (-x).normalize = -x := by
   rw [UnpackedFloat.neg_normalize_eq_neg_normalize, hxnorm]
 
+/-- `EUnpackedFloat.normalize` is the identity whenever the underlying number (in the `Number`
+state) is already normalized. This is the "correct statement" the rounding-circuit outputs need:
+for non-`Number` states normalize is trivially identity, and for `Number` states it reduces to the
+inner `UnpackedFloat.normalize` being a fixed point. -/
+theorem EUnpackedFloat.normalize_eq_self_of_num (euf : EUnpackedFloat e s)
+    (h : euf.isNumber = true → euf.num.normalize = euf.num) :
+    euf.normalize = euf := by
+  unfold EUnpackedFloat.normalize
+  cases hst : euf.isNumber with
+  | false => simp [hst]
+  | true =>
+    have hstate : euf.state = .Number := by
+      simpa only [EUnpackedFloat.isNumber, beq_iff_eq] using hst
+    simp only [hst, cond_true, h hst, UnpackedFloat.toEUnpackedFloat]
+    rw [← hstate]
+
+/-- `EUnpackedFloat.normalize` commutes with negation (it only touches the `num`, and negation
+preserves the state). -/
+theorem EUnpackedFloat.neg_normalize_eq_neg_normalize (x : EUnpackedFloat e s) :
+    (-x).normalize = -(x.normalize) := by
+  have hnum : (-x).num = -(x.num) := rfl
+  have hstate : (-x).state = x.state := rfl
+  unfold EUnpackedFloat.normalize EUnpackedFloat.isNumber
+  rw [hstate]
+  cases hst : (x.state == State.Number) <;> simp only [cond_false, cond_true]
+  rw [hnum, UnpackedFloat.neg_normalize_eq_neg_normalize]
+  rfl
+
+/--
+info: 'Fp.EUnpackedFloat.normalize_eq_self_of_num' depends on axioms: [propext]
+-/
+#guard_msgs (whitespace := lax) in
+#print axioms EUnpackedFloat.normalize_eq_self_of_num
+
 /-# normalize -/
 
 /--

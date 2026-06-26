@@ -1388,6 +1388,142 @@ theorem UnpackedFloat.normalize_truncateFittingExponent_blastRoundTowardZero_eq_
     BitVec.getLsbD_orderEncode]
   grind
 
+/-- The guard-bit index of a normalized in-range nonnegative float lies strictly below the top
+significand bit (so masking/extraction keeps the top bit). -/
+theorem UnpackedFloat.guardBitIndex_succ_lt_su
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    (x.guardBitIndex ep sp).toNat + 1 < su := by
+  have hoverE : x.ex.toInt ≤ maxNormalExp ep := by
+    have := UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide he hs heu x; grind
+  have hunderE : minSubnormalExp ep sp ≤ x.ex.toInt := by
+    have := UnpackedFloat.blastUnderflowNonneg_eq_decide he hs heu x; grind
+  have hdNat : (minNormalExp ep - x.ex.toInt).toNat ≤ sp := by
+    have hminrel : minNormalExp ep - minSubnormalExp ep sp = (sp : Int) := by
+      simp only [minSubnormalExp, maxSubnormalExp]; grind
+    grind
+  obtain ⟨hdL, hdU⟩ := shift_range he hs heu (exInt := x.ex.toInt) (by grind) hoverE
+  have hG := UnpackedFloat.toNat_guardBitIndex_eq he hs heu hsu x hdL hdU hdNat
+  have hLeq : (x.guardBitIndex ep sp).toNat + 1
+      = (minNormalExp ep - x.ex.toInt).toNat + (su - (sp + 1)) := by rw [hG]; grind
+  rw [hLeq]; grind
+
+/-- The cleared significand of a normalized in-range nonnegative float keeps its top bit set:
+`2^(su-1) ≤ clearSig.toNat`. -/
+theorem UnpackedFloat.two_pow_sub_one_le_toNat_sig_blastClearSignificand
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxnorm : x.normalize = x)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    2 ^ (su - 1) ≤ (x.blastClearSignificand ep sp).sig.toNat := by
+  have hgsu := UnpackedFloat.guardBitIndex_succ_lt_su he hs heu hsu x hnotunder hnotover
+  have hxmsb := UnpackedFloat.msb_eq_true_of_normalize_of_not_blastIsUnderflowNonneg
+    he hs heu x hxnorm hnotunder
+  have hxlo : 2 ^ (su - 1) ≤ x.sig.toNat := BitVec.le_toNat_of_msb_true hxmsb
+  rw [UnpackedFloat.blastClearSignificand_sig_toNat_eq]
+  obtain ⟨q, hq⟩ : (2 : Nat) ^ ((x.guardBitIndex ep sp).toNat + 1) ∣ 2 ^ (su - 1) :=
+    Nat.pow_dvd_pow 2 (by omega)
+  have hqle : q ≤ x.sig.toNat / 2 ^ ((x.guardBitIndex ep sp).toNat + 1) := by
+    rw [Nat.le_div_iff_mul_le (Nat.two_pow_pos _)]
+    have : q * 2 ^ ((x.guardBitIndex ep sp).toNat + 1) = 2 ^ (su - 1) := by
+      rw [Nat.mul_comm]; exact hq.symm
+    omega
+  calc 2 ^ (su - 1) = 2 ^ ((x.guardBitIndex ep sp).toNat + 1) * q := hq
+    _ ≤ 2 ^ ((x.guardBitIndex ep sp).toNat + 1)
+          * (x.sig.toNat / 2 ^ ((x.guardBitIndex ep sp).toNat + 1)) := Nat.mul_le_mul_left _ hqle
+    _ = x.sig.toNat / 2 ^ ((x.guardBitIndex ep sp).toNat + 1)
+          * 2 ^ ((x.guardBitIndex ep sp).toNat + 1) := Nat.mul_comm _ _
+
+/-- The significand produced by `blastSuccessorAwayFromZero` on a normalized, in-range nonnegative
+float has its top bit set: in the carry case it is `leadingOne`, and otherwise it is the cleared
+significand (top bit = `x`'s set msb) plus a low bit, which stays in `[2^(su-1), 2^su)`. -/
+theorem UnpackedFloat.msb_sig_blastSuccessorAwayFromZero_eq_true
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxnorm : x.normalize = x)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    (x.blastSuccessorAwayFromZero ep sp).sig.msb = true := by
+  have hgsu := UnpackedFloat.guardBitIndex_succ_lt_su he hs heu hsu x hnotunder hnotover
+  have hcl := UnpackedFloat.two_pow_sub_one_le_toNat_sig_blastClearSignificand
+    he hs heu hsu x hxnorm hnotunder hnotover
+  -- Reduce `msb` to a value bound on the extracted top `sp+1` bits.
+  rw [BitVec.msb_eq_decide]
+  simp only [decide_eq_true_eq]
+  unfold UnpackedFloat.blastSuccessorAwayFromZero
+  simp only [clearSignificand_ex]
+  rw [BitVec.toNat_extractMsb'_zero _ (by omega)]
+  -- `2^sp ≤ adjusted.toNat / 2^(su-(sp+1))`, i.e. `2^(su-1) ≤ adjusted.toNat`.
+  have hkey : ∀ v : BitVec su, 2 ^ (su - 1) ≤ v.toNat → 2 ^ sp ≤ v.toNat / 2 ^ (su - (sp + 1)) := by
+    intro v hv
+    rw [Nat.le_div_iff_mul_le (Nat.two_pow_pos _), ← Nat.pow_add]
+    have : sp + (su - (sp + 1)) = su - 1 := by omega
+    rw [this]; exact hv
+  apply hkey
+  split
+  · -- carry: `leadingOne`, value `2^(su-1)`.
+    rw [BitVec.toNat_leadingOne (by omega)]
+    omega
+  · -- no carry: the truncated sum, `≥ clearSig ≥ 2^(su-1)`.
+    have hlsb : (BitVec.zeroExtend (su + 1) (x.guardBitIndex ep sp).oneHotBV <<< 1).toNat
+        = 2 ^ ((x.guardBitIndex ep sp).toNat + 1) :=
+      BitVec.toNat_zeroExtend_oneHotBV_shiftLeft_one (x.guardBitIndex ep sp) (by omega)
+    have hcllt : (x.blastClearSignificand ep sp).sig.toNat < 2 ^ su :=
+      (x.blastClearSignificand ep sp).sig.isLt
+    have hg1lt : (2 : Nat) ^ ((x.guardBitIndex ep sp).toNat + 1) < 2 ^ su :=
+      Fp.Nat.two_pow_lt_two_pow_of_lt (by omega)
+    have hsum : (BitVec.zeroExtend (su + 1) (x.blastClearSignificand ep sp).sig
+          + BitVec.zeroExtend (su + 1) (x.guardBitIndex ep sp).oneHotBV <<< 1).toNat
+        = (x.blastClearSignificand ep sp).sig.toNat + 2 ^ ((x.guardBitIndex ep sp).toNat + 1) := by
+      rw [BitVec.toNat_add, BitVec.toNat_setWidth, hlsb,
+        Nat.mod_eq_of_lt (by omega : (x.blastClearSignificand ep sp).sig.toNat < 2 ^ (su + 1)),
+        Nat.mod_eq_of_lt (by omega)]
+    rename_i hcond
+    -- `hcond` says no overflow: the sum's msb is false, so its value `< 2^su`.
+    rw [BitVec.msb_eq_decide, hsum] at hcond
+    simp only [decide_eq_true_eq, Nat.not_le, Nat.add_sub_cancel] at hcond
+    rw [BitVec.toNat_setWidth, hsum, Nat.mod_eq_of_lt hcond]
+    omega
+
+/-- `blastRoundTowardZero` keeps the top significand bit (it just clears low bits, then extracts
+the top `sp+1` bits of the still-`≥ 2^(su-1)` cleared significand). -/
+theorem UnpackedFloat.msb_sig_blastRoundTowardZero_eq_true
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxnorm : x.normalize = x)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    (x.blastRoundTowardZero ep sp).sig.msb = true := by
+  have hgsu := UnpackedFloat.guardBitIndex_succ_lt_su he hs heu hsu x hnotunder hnotover
+  have hcl := UnpackedFloat.two_pow_sub_one_le_toNat_sig_blastClearSignificand
+    he hs heu hsu x hxnorm hnotunder hnotover
+  rw [BitVec.msb_eq_decide]
+  simp only [decide_eq_true_eq]
+  rw [sig_blastRoundTowardZero, BitVec.toNat_extractMsb'_zero _ (by omega),
+    Nat.le_div_iff_mul_le (Nat.two_pow_pos _), ← Nat.pow_add]
+  rw [show sp + 1 - 1 + (su - (sp + 1)) = su - 1 by omega]
+  exact hcl
+
+/-- Either branch of `blastSuccessorAwayFromZeroNonnegAux` keeps the top significand bit. -/
+theorem UnpackedFloat.msb_sig_blastSuccessorAwayFromZeroNonnegAux_eq_true
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxnorm : x.normalize = x)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    (x.blastSuccessorAwayFromZeroNonnegAux ep sp).sig.msb = true := by
+  unfold UnpackedFloat.blastSuccessorAwayFromZeroNonnegAux
+  split
+  · exact UnpackedFloat.msb_sig_blastSuccessorAwayFromZero_eq_true
+      he hs heu hsu x hxnorm hnotunder hnotover
+  · exact UnpackedFloat.msb_sig_blastRoundTowardZero_eq_true
+      he hs heu hsu x hxnorm hnotunder hnotover
+
+/--
+info: 'Fp.UnpackedFloat.msb_sig_blastSuccessorAwayFromZeroNonnegAux_eq_true' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs (whitespace := lax) in
+#print axioms UnpackedFloat.msb_sig_blastSuccessorAwayFromZeroNonnegAux_eq_true
+
 theorem UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero
     (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)   -- ADDED (needed by `truncateFittingExponent`)
