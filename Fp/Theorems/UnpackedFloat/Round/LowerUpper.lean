@@ -1787,6 +1787,41 @@ info: 'Fp.UnpackedFloat.toRat'_le_minSubnormalNumber_of_blastIsUnderflow_next' d
 #guard_msgs (whitespace := lax) in
 #print axioms UnpackedFloat.toRat'_le_minSubnormalNumber_of_blastIsUnderflow_next
 
+/-- The packed-format underflow representative `minSubnormalForPackedFloat` (significand
+`leadingOne`, exponent `minSubnormalExp`) has value exactly `minSubnormalNumber.toRat`, i.e.
+`2 ^ minSubnormalExp`. This is the value produced on the circuit's underflow branch. -/
+theorem UnpackedFloat.toRat'_minSubnormalForPackedFloat_eq_toRat_minSubnormalNumber
+    (ep sp eu : Nat) (he : 1 < ep) (hsp : 0 < sp) (heu : exponentWidth ep sp ≤ eu) :
+    (UnpackedFloat.minSubnormalForPackedFloat eu (sp + 1) ep sp false).toRat'
+      = (PackedFloat.minSubnormalNumber ep sp false).toRat := by
+  have hsign : (UnpackedFloat.minSubnormalForPackedFloat eu (sp + 1) ep sp false).sign = false := by
+    simp [UnpackedFloat.minSubnormalForPackedFloat]
+  rw [UnpackedFloat.toRat'_eq_sig_toNat_mul _ hsign (by omega)]
+  have hsig : (UnpackedFloat.minSubnormalForPackedFloat eu (sp + 1) ep sp false).sig.toNat
+      = 2 ^ sp := by
+    simp only [UnpackedFloat.minSubnormalForPackedFloat]
+    rw [BitVec.toNat_zeroExtend_of_le _ (by omega), BitVec.toNat_leadingOne (by omega),
+      Nat.add_sub_cancel]
+  have hex : (UnpackedFloat.minSubnormalForPackedFloat eu (sp + 1) ep sp false).ex.toInt
+      = minSubnormalExp ep sp := by
+    simp only [UnpackedFloat.minSubnormalForPackedFloat]
+    exact toInt_ofInt_minSubnormalExp_eq_minSubnormalExp_of_le he hsp heu
+  rw [hsig, hex, PackedFloat.toExtRat_minSubnormal_eq ep sp he hsp]
+  have hms : minSubnormalExp ep sp = minNormalExp ep - sp := by
+    simp only [minSubnormalExp, maxSubnormalExp]; grind
+  have hcast : ((2 ^ sp : Nat) : Rat) = (2 : Rat) ^ (sp : Int) := by
+    rw [Rat.zpow_natCast]; norm_cast
+  rw [hcast, Rat.zpow_mul_zpow (by grind)]
+  congr 1
+  push_cast
+  omega
+
+/--
+info: 'Fp.UnpackedFloat.toRat'_minSubnormalForPackedFloat_eq_toRat_minSubnormalNumber' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs (whitespace := lax) in
+#print axioms UnpackedFloat.toRat'_minSubnormalForPackedFloat_eq_toRat_minSubnormalNumber
+
 /-- Closed form of `maxNormal.toRat`: `2^(maxNormalExp+1) - 2^(maxNormalExp - sp)`. -/
 theorem PackedFloat.toRat_maxNormalNumber_false_eq (ep sp : Nat) (he : 2 < ep) :
     (PackedFloat.maxNormalNumber ep sp false).toRat
