@@ -1324,6 +1324,154 @@ info: 'Fp.UnpackedFloat.blastSuccessorAwayFromZero_toRat'_eq_blastRoundTowardZer
 #guard_msgs (whitespace := lax) in
 #print axioms UnpackedFloat.blastSuccessorAwayFromZero_toRat'_eq_blastRoundTowardZero_add_ulp
 
+/-- Pure-`Nat` floor refinement (the one new identity behind the master decomposition):
+truncating `n` to a multiple of `2^g` exceeds truncating it to a multiple of `2^(g+1)`
+by exactly the bit at position `g`, weighted by `2^g`. -/
+theorem Nat.clearBit_succ_eq_clearBit_add_testBit (n g : Nat) :
+    n / 2 ^ g * 2 ^ g
+      = n / 2 ^ (g + 1) * 2 ^ (g + 1) + n / 2 ^ g % 2 * 2 ^ g := by
+  have hdd : n / 2 ^ (g + 1) = n / 2 ^ g / 2 := by
+    rw [Nat.div_div_eq_div_mul, ← Nat.pow_succ]
+  have hq : 2 * (n / 2 ^ g / 2) + n / 2 ^ g % 2 = n / 2 ^ g := Nat.div_add_mod (n / 2 ^ g) 2
+  rw [hdd, Nat.pow_succ]
+  grind
+
+/-- `exponentWidth` is monotone in the significand width. -/
+theorem exponentWidth_le_succ : exponentWidth ep sp ≤ exponentWidth ep (sp + 1) := by
+  unfold exponentWidth
+  apply Nat.add_le_add_right
+  apply Nat.log2_le_log2_of_le
+  omega
+
+/-- **Master decomposition lemma.** Rounding a nonnegative in-range float toward zero at one
+extra bit of precision (`sp → sp+1`) adds exactly the guard bit's worth, a half-ulp at
+precision `sp`: `RTZ_{sp+1} = RTZ_sp + guardBit · 2^(ex - (sp+1) + off)`.
+
+This is the general theory behind `lowerHalf ↔ ¬guard`: the grid `F_{sp+1}` refines `F_sp`
+by inserting exactly the midpoints, so `lower` stays put iff `r` is below the midpoint iff
+the guard bit is `0`. Both `toRat'` values are computed via
+`blastRoundTowardZero_toRat'_eq_clearSignificand_mul` (same base weight `C = 2^(ex-(su-1))`),
+and the cleared significands differ by exactly the guard bit (`clearBit_succ_eq_clearBit_add_testBit`).
+The extra `+1` of room (`sp + 3 ≤ su`, `exponentWidth ep (sp+1) ≤ eu`) is what lets the `sp+1`
+instances of the helper lemmas fire. -/
+theorem UnpackedFloat.blastRoundTowardZero_succ_toRat'_eq_add_guardBit
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep (sp + 1) ≤ eu) (hsu : sp + 3 ≤ su)
+    (x : UnpackedFloat eu su) (hxsign : x.sign = false)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    (x.blastRoundTowardZero ep (sp + 1)).toRat'
+      = (x.blastRoundTowardZero ep sp).toRat'
+        + (if x.blastExtractGuardBit ep sp then
+            (2 : Rat) ^ (x.ex.toInt - ((sp : Int) + 1) + ((minNormalExp ep - x.ex.toInt).toNat : Int))
+          else 0) := by
+  have heu_sp : exponentWidth ep sp ≤ eu := Nat.le_trans exponentWidth_le_succ heu
+  have hsu_sp : sp + 2 ≤ su := by omega
+  -- over/underflow at the higher precision `sp+1`, derived from precision `sp`.
+  have hnotover' : x.blastIsEarlyOverflowNonneg ep (sp + 1) = false := by
+    rw [UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide he (by omega) heu]
+    have := UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide he hs heu_sp x
+    rw [this] at hnotover; exact hnotover
+  have hunderE : minSubnormalExp ep sp ≤ x.ex.toInt := by
+    have := UnpackedFloat.blastUnderflowNonneg_eq_decide he hs heu_sp x
+    rw [this] at hnotunder; simpa using hnotunder
+  have hnotunder' : x.blastIsUnderflowNonneg ep (sp + 1) = false := by
+    rw [UnpackedFloat.blastUnderflowNonneg_eq_decide he (by omega) heu]
+    simp only [decide_eq_false_iff_not, Int.not_lt]
+    have hmsub : minSubnormalExp ep (sp + 1) = minSubnormalExp ep sp - 1 := by
+      simp only [minSubnormalExp]; push_cast; grind
+    omega
+  -- exponent / guard-index bounds.
+  have hoverE : x.ex.toInt ≤ maxNormalExp ep := by
+    have := UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide he hs heu_sp x
+    rw [this] at hnotover; simpa using hnotover
+  have hminrel : minNormalExp ep - minSubnormalExp ep sp = (sp : Int) := by
+    simp only [minSubnormalExp, maxSubnormalExp]; grind
+  have hdNat : (minNormalExp ep - x.ex.toInt).toNat ≤ sp := by grind
+  obtain ⟨hdL, hdU⟩ := shift_range he hs heu_sp (exInt := x.ex.toInt) (by grind) hoverE
+  have hGsp := UnpackedFloat.toNat_guardBitIndex_eq he hs heu_sp hsu_sp x hdL hdU hdNat
+  have hGsp1 := UnpackedFloat.toNat_guardBitIndex_eq he (by omega) heu hsu x hdL hdU (by omega)
+  -- the guard index drops by one when precision increases by one.
+  have hG1eq : (x.guardBitIndex ep (sp + 1)).toNat + 1 = (x.guardBitIndex ep sp).toNat := by
+    rw [hGsp1, hGsp]; omega
+  -- cleared significands at the two precisions, related by the floor identity.
+  have hclsp := UnpackedFloat.blastClearSignificand_sig_toNat_eq x ep sp
+  have hclsp1 := UnpackedFloat.blastClearSignificand_sig_toNat_eq x ep (sp + 1)
+  rw [hG1eq] at hclsp1
+  have hcl1 : (x.blastClearSignificand ep (sp + 1)).sig.toNat
+      = (x.blastClearSignificand ep sp).sig.toNat
+          + x.sig.toNat / 2 ^ (x.guardBitIndex ep sp).toNat % 2
+              * 2 ^ (x.guardBitIndex ep sp).toNat := by
+    rw [hclsp1, hclsp]
+    exact Nat.clearBit_succ_eq_clearBit_add_testBit x.sig.toNat (x.guardBitIndex ep sp).toNat
+  -- the guard bit, read as the `g`-th bit of the significand.
+  have hguard : x.blastExtractGuardBit ep sp
+      = decide (x.sig.toNat / 2 ^ (x.guardBitIndex ep sp).toNat % 2 = 1) := by
+    rw [UnpackedFloat.extractGuardBit_eq_getLsbD he hs heu_sp hsu_sp x hdL hdU hdNat,
+      show su - (sp + 2) + (minNormalExp ep - x.ex.toInt).toNat = (x.guardBitIndex ep sp).toNat
+        from by rw [hGsp]; omega,
+      ← BitVec.testBit_toNat, Nat.testBit_eq_decide_div_mod_eq]
+  -- the half-ulp weight, factored onto the base weight `C = 2^(ex-(su-1))`.
+  have hW : ((2 ^ (x.guardBitIndex ep sp).toNat : Nat) : Rat)
+        * (2 : Rat) ^ (x.ex.toInt - ((su : Int) - 1))
+      = (2 : Rat) ^ (x.ex.toInt - ((sp : Int) + 1) + ((minNormalExp ep - x.ex.toInt).toNat : Int)) := by
+    have hcast : ((2 ^ (x.guardBitIndex ep sp).toNat : Nat) : Rat)
+        = (2 : Rat) ^ ((x.guardBitIndex ep sp).toNat : Int) := by
+      rw [Rat.zpow_natCast]; push_cast; rfl
+    rw [hcast, Rat.zpow_mul_zpow (by grind)]
+    congr 1
+    rw [hGsp, Int.natCast_add, Int.natCast_sub (show sp + 1 ≤ su - 1 by omega),
+      Int.natCast_sub (show 1 ≤ su by omega)]
+    push_cast; omega
+  rw [UnpackedFloat.blastRoundTowardZero_toRat'_eq_clearSignificand_mul he (by omega) heu hsu x
+        hxsign hnotunder' hnotover',
+      UnpackedFloat.blastRoundTowardZero_toRat'_eq_clearSignificand_mul he hs heu_sp hsu_sp x
+        hxsign hnotunder hnotover,
+      hcl1, ← hW]
+  -- the `if` factors as `guardBit · (2^g · C)`.
+  have hite : (if x.blastExtractGuardBit ep sp then
+          ((2 ^ (x.guardBitIndex ep sp).toNat : Nat) : Rat)
+            * (2 : Rat) ^ (x.ex.toInt - ((su : Int) - 1))
+        else 0)
+      = (↑(x.sig.toNat / 2 ^ (x.guardBitIndex ep sp).toNat % 2) : Rat)
+          * (((2 ^ (x.guardBitIndex ep sp).toNat : Nat) : Rat)
+              * (2 : Rat) ^ (x.ex.toInt - ((su : Int) - 1))) := by
+    rw [hguard]
+    by_cases hbit : x.sig.toNat / 2 ^ (x.guardBitIndex ep sp).toNat % 2 = 1
+    · rw [hbit]; simp
+    · have h0 : x.sig.toNat / 2 ^ (x.guardBitIndex ep sp).toNat % 2 = 0 := by omega
+      rw [h0]; simp
+  rw [hite]
+  push_cast
+  grind
+
+/--
+info: 'Fp.UnpackedFloat.blastRoundTowardZero_succ_toRat'_eq_add_guardBit' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs (whitespace := lax) in
+#print axioms UnpackedFloat.blastRoundTowardZero_succ_toRat'_eq_add_guardBit
+
+/-- The two-precision round-toward-zero values agree iff the guard bit is clear (the added
+half-ulp weight is strictly positive). This is the arithmetic core of `lowerHalf ↔ ¬guard`:
+`lower_sp = lower_{sp+1}` exactly when no guard bit is set. -/
+theorem UnpackedFloat.blastRoundTowardZero_toRat'_eq_succ_iff_not_guardBit
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep (sp + 1) ≤ eu) (hsu : sp + 3 ≤ su)
+    (x : UnpackedFloat eu su) (hxsign : x.sign = false)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    ((x.blastRoundTowardZero ep sp).toRat' = (x.blastRoundTowardZero ep (sp + 1)).toRat')
+      ↔ x.blastExtractGuardBit ep sp = false := by
+  rw [UnpackedFloat.blastRoundTowardZero_succ_toRat'_eq_add_guardBit he hs heu hsu x hxsign
+    hnotunder hnotover]
+  have hpos : (0 : Rat) < (2 : Rat) ^ (x.ex.toInt - ((sp : Int) + 1)
+      + ((minNormalExp ep - x.ex.toInt).toNat : Int)) := Rat.two_pow_pos _
+  by_cases hg : x.blastExtractGuardBit ep sp = true <;> simp only [hg, if_true] <;> grind
+
+/--
+info: 'Fp.UnpackedFloat.blastRoundTowardZero_toRat'_eq_succ_iff_not_guardBit' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs (whitespace := lax) in
+#print axioms UnpackedFloat.blastRoundTowardZero_toRat'_eq_succ_iff_not_guardBit
+
 /-- (B1) `blastSuccessorAwayFromZero` is strictly above the input: `x < successor`. -/
 theorem UnpackedFloat.toRat'_lt_blastSuccessorAwayFromZero_toRat'
     (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
