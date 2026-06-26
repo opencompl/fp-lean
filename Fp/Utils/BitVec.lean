@@ -1,6 +1,7 @@
 import Std.Tactic.BVDecide
 import Fp.Tactics
 import Fp.Grind
+import Fp.Utils.Nat
 
 @[bv_normalize]
 def BitVec.leadingOne (w : Nat) : BitVec w :=
@@ -507,3 +508,185 @@ theorem BitVec.sub_le_iff_le_add (a b c : BitVec n)
     · grind
     · grind
   · grind
+
+
+theorem BitVec.allOnes_ne_zero {e : Nat} :
+    e = 0 ∨ BitVec.allOnes e ≠ BitVec.zero e := by
+  match e with
+  | 0     => left; rfl
+  | e + 1 =>
+    right
+    simp only [BitVec.allOnes, BitVec.zero, ne_eq, ← BitVec.toNat_inj, BitVec.toNat_ofNatLT]
+    grind only [!Nat.two_pow_pos]
+attribute [grind .] BitVec.toNat_inj
+attribute [grind .] BitVec.toInt_inj
+@[simp]
+theorem BitVec.allOnes_eq_one_iff (e : Nat) : BitVec.allOnes e = 1#e ↔ e ≤ 1 := by
+  constructor
+  · intros h
+    have := BitVec.toNat_inj.mpr h
+    simp at this
+    apply Classical.byContradiction
+    intros hcontra
+    simp at hcontra
+    rw [Nat.mod_eq_of_lt] at this
+    · have : 4 ≤ 2^e := by simp [hcontra]
+      grind only
+    · have : 4 ≤ 2^e := by simp [hcontra]
+      grind only
+  · intros h
+    rcases e with rfl | rfl | e
+    · grind only
+    · grind only
+    · grind only
+/--
+The only way we can get 'x = x+1` is if the width is zero.
+-/
+theorem BitVec.add_one_eq_self_iff (x : BitVec w) : x = x + 1#w ↔ w = 0 := by
+  constructor
+  · intros h
+    have hcontra := BitVec.toNat_inj.mpr h
+    simp [BitVec.toNat_add] at hcontra
+    have : x.toNat < 2^w := by grind
+    by_cases hxlt : x.toNat + 1 < 2^w
+    · rw [Nat.mod_eq_of_lt] at hcontra
+      · grind only
+      · grind only
+    · have hx : x.toNat = 2^w - 1 := by grind
+      rw [hx] at hcontra
+      rw [show 2^w - 1 + 1 = 2^w by grind] at hcontra
+      simp at hcontra
+      rcases w with rfl | w
+      · simp
+      · simp [Nat.pow_succ] at hcontra
+        have : 0 < 2^w := by grind only
+        grind only
+  · intros h
+    simp [h]
+@[simp]
+theorem BitVec.ofInt_eq_zero_iff_of_width_1 :
+    BitVec.ofInt 1 i = 0#1 ↔ i % 2 = 0 := by
+  constructor
+  · intros h
+    have := BitVec.toInt_inj.mpr h
+    simp only [BitVec.toInt_ofInt, BitVec.toInt_zero] at this
+    simp at this
+    grind only [#8803]
+  · intros h
+    apply BitVec.eq_of_toInt_eq
+    simp
+    grind only [#8803]
+
+
+-- TODO: upstream
+theorem BitVec.toNat_clz_le {x : BitVec w} : x.clz.toNat ≤ w := by
+  suffices h : x.clz.toNat ≤ (BitVec.ofNat w w).toNat from by
+    simpa using h
+  simp only [← BitVec.ule_iff_toNat_le, BitVec.ule_iff_le]
+  apply BitVec.clz_le
+theorem BitVec.toNat_clz_lt_iff_ne_zero {x : BitVec w} : x.clz.toNat < w ↔ x.toNat ≠ 0 := by
+  suffices h : x.clz.toNat < (BitVec.ofNat w w).toNat ↔ x.toNat ≠ (BitVec.ofNat w 0).toNat from by
+    simpa using h
+  simp only [← BitVec.ult_iff_toNat_lt, BitVec.ult_iff_lt, ne_eq, BitVec.toNat_inj]
+  apply BitVec.clz_lt_iff_ne_zero
+theorem BitVec.toNat_shiftLeft_clz (x : BitVec w)
+  : (x <<< x.clz).toNat = x.toNat <<< x.clz.toNat := by
+  simp
+  apply Nat.mod_eq_of_lt
+  rw [Nat.shiftLeft_eq]
+  have := BitVec.toNat_lt_two_pow_sub_clz (x := x)
+  have := BitVec.clz_le (x := x)
+  have : x.clz.toNat ≤ w := BitVec.toNat_clz_le
+  conv =>
+    rhs
+    rw [show w = (w - x.clz.toNat) + x.clz.toNat by grind]
+  simp [Nat.pow_add]
+  apply Nat.mul_lt_mul_of_pos_right
+  · grind
+  · exact Nat.two_pow_pos x.clz.toNat
+theorem BitVec.add_one_eq_zero_iff_eq_allOnes (x : BitVec s) :
+    x + 1#_ = 0#_ ↔ x = BitVec.allOnes s := by
+  constructor
+  · intro h
+    have := BitVec.toNat_inj .. |>.mpr h
+    simp at this
+    have : x.toNat = 2^s - 1 := by grind
+    apply BitVec.eq_of_toNat_eq
+    simp
+    rw [this]
+  · intros h
+    subst h
+    apply BitVec.eq_of_toNat_eq
+    simp
+    have : 0 < 2^s := by grind only [!Nat.two_pow_pos]
+    have : (2^s - 1) + 1 = 2^s := by grind
+    rw [this]
+    simp only [Nat.mod_self]
+theorem BitVec.eq_iff_getLsbD_eq (a b : BitVec w) : a = b ↔
+    (∀ (i : Nat), a.getLsbD i = b.getLsbD i) := by
+  constructor
+  · intros h
+    subst h
+    grind only
+  · intros h
+    ext i hi
+    simp only [← BitVec.getLsbD_eq_getElem]
+    grind only [#0a30]
+/--
+Zero extension to a smaller width does not change the value
+if the value fits in the smaller size.
+-/
+theorem BitVec.toNat_zeroExtend_of_lt {n m : Nat} (bv : BitVec n) (h : bv.toNat  < 2 ^ m) :
+    (bv.zeroExtend m).toNat = bv.toNat := by
+  rw [BitVec.zeroExtend_eq_setWidth]
+  simp only [BitVec.toNat_setWidth]
+  rw [Nat.mod_eq_of_lt]
+  grind only
+/--
+Reducing a bitvector modulo `2^v` can be computed from either `toNat` or `toInt`,
+provided `v` is no larger than the original width.
+-/
+theorem BitVec.toNat_mod_two_pow_of_toInt_of_le {w v : Nat} (x : BitVec w) (hle : v ≤ w) :
+    (x.toInt % (2 ^ v : Nat)).toNat = x.toNat % 2 ^ v := by
+  simp [BitVec.toInt]
+  split
+  · rw [Int.toNat_emod]
+    · rw [show (2 ^ v : Int).toNat = 2 ^ v by exact Int.toNat_natCast _]
+      rw [show ((x.toNat : Int).toNat) = x.toNat by exact Int.toNat_natCast _]
+    · exact Int.natCast_nonneg _
+    · exact Int.natCast_nonneg _
+  · have hpowdvd : (2 ^ v : Int) ∣ (2 ^ w : Int) := by
+      norm_cast
+      exact Nat.pow_dvd_pow 2 hle
+    have hmod :
+        ((x.toNat : Int) - (2 ^ w : Int)) % (2 ^ v : Int) =
+          (x.toNat : Int) % (2 ^ v : Int) := by
+      rw [Int.sub_emod]
+      have hzero : ((2 ^ w : Int) % (2 ^ v : Int)) = 0 := by
+        exact Int.emod_eq_zero_of_dvd hpowdvd
+      rw [hzero]
+      simp
+    change (((x.toNat : Int) - (2 ^ w : Int)) % (2 ^ v : Int)).toNat =
+      x.toNat % 2 ^ v
+    rw [hmod]
+    rw [Int.toNat_emod]
+    · rw [show (2 ^ v : Int).toNat = 2 ^ v by exact Int.toNat_natCast _]
+      rw [show ((x.toNat : Int).toNat) = x.toNat by exact Int.toNat_natCast _]
+    · exact Int.natCast_nonneg _
+    · exact Int.natCast_nonneg _
+/--
+Truncating to a smaller width preserves `toInt` when the signed value already
+fits in the target signed range.
+-/
+theorem BitVec.toInt_truncate_eq_of_toInt_range {w v : Nat} (x : BitVec w)
+    (hv : 0 < v) (hle : v ≤ w)
+    (hlo : -2 ^ (v - 1) ≤ x.toInt)
+    (hhi : x.toInt < 2 ^ (v - 1)) :
+    (x.truncate v).toInt = x.toInt := by
+  rw [BitVec.truncate_eq_setWidth]
+  have hset : x.setWidth v = BitVec.ofInt v x.toInt := by
+    apply BitVec.eq_of_toNat_eq
+    rw [BitVec.toNat_setWidth, BitVec.toNat_ofInt]
+    exact (BitVec.toNat_mod_two_pow_of_toInt_of_le x hle).symm
+  rw [hset]
+  exact BitVec.toInt_ofInt_eq_self hv hlo hhi

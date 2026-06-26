@@ -3,10 +3,6 @@ import Fp.Unpacking
 
 namespace PackedFloat
 
-theorem Rat.zpow_sub {q : Rat} (hq : q ≠ 0) {a b : Int} : q ^ (a - b) = q ^ a * q ^ (-b) := by
-  rw [Int.sub_eq_add_neg]
-  rw [Rat.zpow_add hq]
-
 @[simp]
 theorem toExtRat_eq_toExtRat' {pf : PackedFloat e s}
   : pf.toExtRat = pf.toExtRat' := by

@@ -416,15 +416,6 @@ def minNormE5M2   := PackedFloat.ofBits 5 2 0b00000100#8
 @[bv_normalize]
 def minSubnormE5M2 := PackedFloat.ofBits 5 2 0b00000001#8
 
-theorem BitVec.allOnes_ne_zero {e : Nat} :
-    e = 0 ∨ BitVec.allOnes e ≠ BitVec.zero e := by
-  match e with
-  | 0     => left; rfl
-  | e + 1 =>
-    right
-    simp only [BitVec.allOnes, BitVec.zero, ne_eq, ← BitVec.toNat_inj, BitVec.toNat_ofNatLT]
-    grind only [!Nat.two_pow_pos]
-
 namespace PackedFloat
 
 @[simp, grind =]
@@ -588,69 +579,8 @@ def toRatSig {e s} (pf : PackedFloat e s) : Rat :=
   else
     0 + pf.sig.toNat / 2 ^ s
 
-@[simp]
-theorem Rat.one_lt_two_pow_iff (x : Nat) : 1 < (2 : Rat) ^ x ↔ 1 ≤ x := by
-  constructor
-  · intros hlt
-    have : x = 0 ∨ 1 ≤ x := by grind
-    rcases this with rfl | this
-    · grind
-    · grind
-  · intros hlt
-    norm_cast
-    have : ∃ y, x = y + 1 := by exact Nat.exists_eq_add_one.mpr hlt
-    obtain ⟨y, hy⟩ := this
-    subst hy
-    simp
-
-theorem Rat.div_le_of_le_mul (a b c : Rat) (hc : 0 < c) (hle : a ≤ b * c) : a / c ≤ b := by
-  rw [Rat.div_def]
-  apply Rat.mul_le_mul_cancel_right_of_lt (c := c) .. |>.mp
-  · rw [show a * c⁻¹ * c = a by grind only]
-    grind only
-  · grind only
-
 /-- info: Rat.add_le_add_left {a b c : Rat} : c + a ≤ c + b ↔ a ≤ b -/
 #guard_msgs in #check Rat.add_le_add_left
-
-@[simp]
-theorem Rat.add_lt_add_left {a b c : Rat} : c + a < c + b ↔ a < b := by
-  grind
-
-@[simp]
-theorem Rat.div_add_eq_div_add_div (a b c : Rat) : a / c + b / c = (a + b) / c := by
-  grind
-
-@[simp]
-theorem Rat.div_lt_cancel {a b c : Rat} (hc : 0 < c) : a / c < b / c ↔ a < b := by
-  rw [Rat.div_def, Rat.div_def]
-  constructor
-  · intros hlt
-    rw [Rat.mul_lt_mul_right ] at hlt
-    · grind only
-    · grind only [= Rat.inv_pos]
-  · intros hlt
-    rw [Rat.mul_lt_mul_right]
-    · grind only
-    · grind only [= Rat.inv_pos]
-
-@[simp]
-theorem Rat.div_le_cancel {a b c : Rat} (hc : 0 < c) : a / c ≤ b / c ↔ a ≤ b := by
-  rw [Rat.div_def, Rat.div_def]
-  constructor
-  · intros hle
-    rw [Rat.mul_le_mul_cancel_right_of_lt] at hle
-    · grind only
-    · grind only [= Rat.inv_pos]
-  · intros hle
-    rw [Rat.mul_le_mul_cancel_right_of_lt]
-    · grind only
-    · grind only [= Rat.inv_pos]
-
-
-theorem Rat.add_div_eq_add_div' (a b d : Rat)(hd : d ≠ 0) :
-  a + b / d = (a * d + b) / d := by
-  grind
 
 def toRatExp {e s} (pf : PackedFloat e s) : Int :=
   if pf.isNorm then
@@ -664,12 +594,6 @@ def toRatExp {e s} (pf : PackedFloat e s) : Int :=
 def toRat {e s} (pf : PackedFloat e s) : Rat :=
     pf.sign.toSign * pf.toRatSig * 2 ^ (pf.toRatExp)
 
-
-attribute [grind .] Rat.natCast_eq_zero_iff
-
-@[simp]
-theorem Rat.natCast_ne_zero_iff {n : Nat} : ((n : Rat) ≠ 0) ↔ n ≠ 0 := by
-  grind
 
 def toExtRat' (pf : PackedFloat e s) : ExtRat :=
   bif pf.isNaN then
@@ -700,9 +624,6 @@ theorem le_iff_sign_eq_of_isZero (x y : PackedFloat e s)
     · simp [hysign]
     · simp [hysign]
       grind
-
-attribute [grind .] BitVec.toNat_inj
-attribute [grind .] BitVec.toInt_inj
 
 -- When normal, the bases are in [1, 2),
 -- so we can use the fact that the function 'base * 2^pow' is injective on this domain.
@@ -785,81 +706,7 @@ instance {P : PackedFloat e s → Prop} [∀ (pf : PackedFloat e s), Decidable (
 end PackedFloat
 
 
-theorem Rat.lt_mul_self_of_lt_one {y} {x : Rat} (hx0 : 0 ≤ x ∧ x < 1) (hy : 0 < y)
-    : x * y < y := by
-  suffices x * y < 1 * y by grind only
-  apply Rat.lt_of_le_of_ne
-  · apply Rat.mul_le_mul_of_le_of_le_of_nonneg_of_nonneg <;> grind only
-  · intros hcontra
-    rw [Rat.mul_cancel_right] at hcontra <;> grind only
-
-
 namespace PackedFloat
-
-@[simp]
-theorem Nat.four_le_two_pow_of_lt {n : Nat} (hn : 1 < n) : 4 ≤ 2 ^ n := by
-  have : 2 ^ 2 ≤ 2 ^ n := by apply Fp.Nat.two_pow_le_two_pow_of_le; grind only
-  simp at this
-  assumption
-
-@[simp]
-theorem BitVec.allOnes_eq_one_iff (e : Nat) : BitVec.allOnes e = 1#e ↔ e ≤ 1 := by
-  constructor
-  · intros h
-    have := BitVec.toNat_inj.mpr h
-    simp at this
-    apply Classical.byContradiction
-    intros hcontra
-    simp at hcontra
-    rw [Nat.mod_eq_of_lt] at this
-    · have : 4 ≤ 2^e := by simp [hcontra]
-      grind only
-    · have : 4 ≤ 2^e := by simp [hcontra]
-      grind only
-  · intros h
-    rcases e with rfl | rfl | e
-    · grind only
-    · grind only
-    · grind only
-
-/--
-The only way we can get 'x = x+1` is if the width is zero.
--/
-theorem BitVec.add_one_eq_self_iff (x : BitVec w) : x = x + 1#w ↔ w = 0 := by
-  constructor
-  · intros h
-    have hcontra := BitVec.toNat_inj.mpr h
-    simp [BitVec.toNat_add] at hcontra
-    have : x.toNat < 2^w := by grind
-    by_cases hxlt : x.toNat + 1 < 2^w
-    · rw [Nat.mod_eq_of_lt] at hcontra
-      · grind only
-      · grind only
-    · have hx : x.toNat = 2^w - 1 := by grind
-      rw [hx] at hcontra
-      rw [show 2^w - 1 + 1 = 2^w by grind] at hcontra
-      simp at hcontra
-      rcases w with rfl | w
-      · simp
-      · simp [Nat.pow_succ] at hcontra
-        have : 0 < 2^w := by grind only
-        grind only
-  · intros h
-    simp [h]
-
-@[simp]
-theorem BitVec.ofInt_eq_zero_iff_of_width_1 :
-    BitVec.ofInt 1 i = 0#1 ↔ i % 2 = 0 := by
-  constructor
-  · intros h
-    have := BitVec.toInt_inj.mpr h
-    simp only [BitVec.toInt_ofInt, BitVec.toInt_zero] at this
-    simp at this
-    grind only [#8803]
-  · intros h
-    apply BitVec.eq_of_toInt_eq
-    simp
-    grind only [#8803]
 
 end PackedFloat
 

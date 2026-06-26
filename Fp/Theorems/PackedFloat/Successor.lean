@@ -126,25 +126,6 @@ theorem toRatExp_successorAwayFromZero_sigSucc (x : PackedFloat e s) :
   simp [toRatExp, successorAwayFromZero.sigSucc, toRatExp, isNorm]
 
 
-theorem BitVec.add_one_eq_zero_iff_eq_allOnes (x : BitVec s) :
-    x + 1#_ = 0#_ ↔ x = BitVec.allOnes s := by
-  constructor
-  · intro h
-    have := BitVec.toNat_inj .. |>.mpr h
-    simp at this
-    have : x.toNat = 2^s - 1 := by grind
-    apply BitVec.eq_of_toNat_eq
-    simp
-    rw [this]
-  · intros h
-    subst h
-    apply BitVec.eq_of_toNat_eq
-    simp
-    have : 0 < 2^s := by grind only [!Nat.two_pow_pos]
-    have : (2^s - 1) + 1 = 2^s := by grind
-    rw [this]
-    simp only [Nat.mod_self]
-
 /--
 the significand interpreted as a natural number is the original significand plus one.
 -/
@@ -221,10 +202,6 @@ theorem toRatExp_successorAwayFromZero_exSucc
   · grind only
   · grind only [= BitVec.ofNat_eq_ofNat, lt_allOnes_sub_one_of_ne_of_ne]
 
-
-theorem Rat.mul_add_self (a b : Rat) : a * b + a = a * (b + 1) := by
-  rw [Rat.mul_add]
-  simp
 
 /--
 The successor is away by the right amount.
