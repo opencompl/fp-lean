@@ -718,3 +718,43 @@ theorem BitVec.toInt_truncate_eq_of_toInt_range {w v : Nat} (x : BitVec w)
     exact (BitVec.toNat_mod_two_pow_of_toInt_of_le x hle).symm
   rw [hset]
   exact BitVec.toInt_ofInt_eq_self hv hlo hhi
+
+/-- Masking out `m` from `a` is a no-op iff `a` has no bits in common with `m`. -/
+theorem BitVec.and_not_eq_self_iff {w : Nat} (a m : BitVec w) :
+    a &&& ~~~m = a ↔ a &&& m = 0#w := by
+  rw [BitVec.eq_iff_getLsbD_eq, BitVec.eq_iff_getLsbD_eq]
+  constructor
+  · intro h i
+    have := h i
+    simp only [BitVec.getLsbD_and, BitVec.getLsbD_not, BitVec.getLsbD_zero] at this ⊢
+    grind
+  · intro h i
+    have := h i
+    simp only [BitVec.getLsbD_and, BitVec.getLsbD_not, BitVec.getLsbD_zero] at this ⊢
+    grind
+
+/--
+info: 'BitVec.and_not_eq_self_iff' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms BitVec.and_not_eq_self_iff
+
+/-- `a` has no bits in common with `b ||| c` iff it has none with `b` and none with `c`. -/
+theorem BitVec.and_or_eq_zero_iff {w : Nat} (a b c : BitVec w) :
+    a &&& (b ||| c) = 0#w ↔ a &&& b = 0#w ∧ a &&& c = 0#w := by
+  rw [BitVec.eq_iff_getLsbD_eq, BitVec.eq_iff_getLsbD_eq, BitVec.eq_iff_getLsbD_eq]
+  constructor
+  · intro h
+    refine ⟨fun i => ?_, fun i => ?_⟩ <;>
+    · have := h i
+      simp only [BitVec.getLsbD_and, BitVec.getLsbD_or, BitVec.getLsbD_zero] at this ⊢
+      grind
+  · intro ⟨h1, h2⟩ i
+    have hb := h1 i
+    have hc := h2 i
+    simp only [BitVec.getLsbD_and, BitVec.getLsbD_or, BitVec.getLsbD_zero] at hb hc ⊢
+    grind
+
+/--
+info: 'BitVec.and_or_eq_zero_iff' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms BitVec.and_or_eq_zero_iff

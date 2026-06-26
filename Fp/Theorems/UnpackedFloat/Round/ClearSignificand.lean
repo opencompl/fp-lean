@@ -77,4 +77,54 @@ theorem UnpackedFloat.blastClearSignificand_sig_toNat_eq (x : UnpackedFloat eu s
   simp only [UnpackedFloat.blastClearSignificand]
   exact BitVec.toNat_and_not_oneHotBV_or_orderEncode x.sig (x.guardBitIndex ep sp)
 
+/-- `needsRounding = false` exactly when the significand has no bits set at or below the
+guard bit, i.e. `sig &&& (guardBitMask ||| stickyBitsMask) = 0`. -/
+theorem UnpackedFloat.not_needsRounding_iff_and_eq_zero (x : UnpackedFloat eu su) (ep sp : Nat) :
+    x.needsRounding ep sp = false ↔
+      x.sig &&& (BitVec.oneHotBV (x.guardBitIndex ep sp)
+        ||| BitVec.orderEncode (x.guardBitIndex ep sp)) = 0#su := by
+  rw [BitVec.and_or_eq_zero_iff]
+  unfold UnpackedFloat.needsRounding UnpackedFloat.blastExtractGuardBit
+    UnpackedFloat.blastExtractStickyBit
+  simp only [Bool.or_eq_false_iff, ne_eq, decide_eq_false_iff_not, Decidable.not_not]
+
+/-- Clearing guard/sticky bits is a no-op (on the significand) exactly when the significand
+has no bits set at or below the guard bit. -/
+theorem UnpackedFloat.blastClearSignificand_sig_eq_iff_and_eq_zero
+    (x : UnpackedFloat eu su) (ep sp : Nat) :
+    (x.blastClearSignificand ep sp).sig = x.sig ↔
+      x.sig &&& (BitVec.oneHotBV (x.guardBitIndex ep sp)
+        ||| BitVec.orderEncode (x.guardBitIndex ep sp)) = 0#su := by
+  simp only [UnpackedFloat.blastClearSignificand]
+  rw [BitVec.and_not_eq_self_iff]
+
+/-- Forward direction: if no rounding is needed, clearing the significand is a no-op. -/
+theorem UnpackedFloat.blastClearSignificand_sig_eq_of_not_needsRounding
+    (x : UnpackedFloat eu su) (ep sp : Nat) (h : x.needsRounding ep sp = false) :
+    (x.blastClearSignificand ep sp).sig = x.sig := by
+  rw [UnpackedFloat.blastClearSignificand_sig_eq_iff_and_eq_zero,
+    ← UnpackedFloat.not_needsRounding_iff_and_eq_zero]
+  exact h
+
+/-- Backward direction: if clearing the significand is a no-op, no rounding is needed. -/
+theorem UnpackedFloat.not_needsRounding_of_blastClearSignificand_sig_eq
+    (x : UnpackedFloat eu su) (ep sp : Nat) (h : (x.blastClearSignificand ep sp).sig = x.sig) :
+    x.needsRounding ep sp = false := by
+  rw [UnpackedFloat.not_needsRounding_iff_and_eq_zero,
+    ← UnpackedFloat.blastClearSignificand_sig_eq_iff_and_eq_zero]
+  exact h
+
+/-- `blastClearSignificand` is a no-op on the significand iff `needsRounding = false`. -/
+theorem UnpackedFloat.blastClearSignificand_sig_eq_iff_not_needsRounding
+    (x : UnpackedFloat eu su) (ep sp : Nat) :
+    (x.blastClearSignificand ep sp).sig = x.sig ↔ x.needsRounding ep sp = false :=
+  ⟨UnpackedFloat.not_needsRounding_of_blastClearSignificand_sig_eq x ep sp,
+   UnpackedFloat.blastClearSignificand_sig_eq_of_not_needsRounding x ep sp⟩
+
+/--
+info: 'Fp.UnpackedFloat.blastClearSignificand_sig_eq_iff_not_needsRounding' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs (whitespace := lax) in
+#print axioms UnpackedFloat.blastClearSignificand_sig_eq_iff_not_needsRounding
+
 end Fp

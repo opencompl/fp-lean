@@ -1054,6 +1054,88 @@ info: 'Fp.UnpackedFloat.blastRoundTowardZero_toRat'_eq_clearSignificand_mul' dep
 #guard_msgs (whitespace := lax) in
 #print axioms UnpackedFloat.blastRoundTowardZero_toRat'_eq_clearSignificand_mul
 
+/-- A nonnegative unpacked float's value expanded onto the base weight `2^(ex-(su-1))`. -/
+theorem UnpackedFloat.toRat'_eq_sig_toNat_mul (x : UnpackedFloat eu su)
+    (hxsign : x.sign = false) (hsu1 : 1 ≤ su) :
+    x.toRat' = x.sig.toNat * (2 : Rat) ^ (x.ex.toInt - ((su : Int) - 1)) := by
+  rw [UnpackedFloat.toRat', hxsign, UnpackedFloat.toExpInt, UnpackedFloat.toNat_toSigNat_eq]
+  have hsg : (Bool.toSign false : Rat) = 1 := by simp [Bool.toSign]
+  rw [hsg]
+  have hexp : (-(((su - 1 : Nat) : Int) - x.ex.toInt)) = (x.ex.toInt - ((su : Int) - 1)) := by
+    rw [Int.natCast_sub hsu1]; push_cast; grind
+  rw [hexp]; grind
+
+/--
+info: 'Fp.UnpackedFloat.toRat'_eq_sig_toNat_mul' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs (whitespace := lax) in
+#print axioms UnpackedFloat.toRat'_eq_sig_toNat_mul
+
+/-- Forward: if no rounding is needed, truncating toward zero preserves the value. -/
+theorem UnpackedFloat.blastRoundTowardZero_toRat'_eq_toRat'_of_not_needsRounding
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxsign : x.sign = false)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (h : x.needsRounding ep sp = false) :
+    (x.blastRoundTowardZero ep sp).toRat' = x.toRat' := by
+  rw [UnpackedFloat.blastRoundTowardZero_toRat'_eq_clearSignificand_mul he hs heu hsu x hxsign
+      hnotunder hnotover,
+    UnpackedFloat.toRat'_eq_sig_toNat_mul x hxsign (by grind)]
+  have hsig : (x.blastClearSignificand ep sp).sig = x.sig :=
+    UnpackedFloat.blastClearSignificand_sig_eq_of_not_needsRounding x ep sp h
+  rw [hsig]
+
+/--
+info: 'Fp.UnpackedFloat.blastRoundTowardZero_toRat'_eq_toRat'_of_not_needsRounding' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs (whitespace := lax) in
+#print axioms UnpackedFloat.blastRoundTowardZero_toRat'_eq_toRat'_of_not_needsRounding
+
+/-- Backward: if truncating toward zero preserves the value, no rounding was needed. -/
+theorem UnpackedFloat.not_needsRounding_of_blastRoundTowardZero_toRat'_eq_toRat'
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxsign : x.sign = false)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (h : (x.blastRoundTowardZero ep sp).toRat' = x.toRat') :
+    x.needsRounding ep sp = false := by
+  rw [UnpackedFloat.blastRoundTowardZero_toRat'_eq_clearSignificand_mul he hs heu hsu x hxsign
+      hnotunder hnotover,
+    UnpackedFloat.toRat'_eq_sig_toNat_mul x hxsign (by grind)] at h
+  have hW : (2 : Rat) ^ (x.ex.toInt - ((su : Int) - 1)) ≠ 0 := Rat.two_pow_ne_zero _
+  have hcast : ((x.blastClearSignificand ep sp).sig.toNat : Rat) = (x.sig.toNat : Rat) := by
+    grind
+  have hnat : (x.blastClearSignificand ep sp).sig.toNat = x.sig.toNat := by exact_mod_cast hcast
+  have hsig : (x.blastClearSignificand ep sp).sig = x.sig := BitVec.toNat_inj.mp hnat
+  exact UnpackedFloat.not_needsRounding_of_blastClearSignificand_sig_eq x ep sp hsig
+
+/--
+info: 'Fp.UnpackedFloat.not_needsRounding_of_blastRoundTowardZero_toRat'_eq_toRat'' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs (whitespace := lax) in
+#print axioms UnpackedFloat.not_needsRounding_of_blastRoundTowardZero_toRat'_eq_toRat'
+
+/-- **A nonnegative in-range float is exactly representable at the target precision iff it
+needs no rounding** (guard and sticky bits both zero): truncating toward zero preserves the
+value iff `needsRounding = false`. -/
+theorem UnpackedFloat.blastRoundTowardZero_toRat'_eq_toRat'_iff_not_needsRounding
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxsign : x.sign = false)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    (x.blastRoundTowardZero ep sp).toRat' = x.toRat' ↔ x.needsRounding ep sp = false :=
+  ⟨UnpackedFloat.not_needsRounding_of_blastRoundTowardZero_toRat'_eq_toRat' he hs heu hsu x hxsign
+     hnotunder hnotover,
+   UnpackedFloat.blastRoundTowardZero_toRat'_eq_toRat'_of_not_needsRounding he hs heu hsu x hxsign
+     hnotunder hnotover⟩
+
+/--
+info: 'Fp.UnpackedFloat.blastRoundTowardZero_toRat'_eq_toRat'_iff_not_needsRounding' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs (whitespace := lax) in
+#print axioms UnpackedFloat.blastRoundTowardZero_toRat'_eq_toRat'_iff_not_needsRounding
+
 /-- `blastSuccessorAwayFromZero`'s value, expanded onto the base weight `C = 2^(ex-(su-1))`:
 it equals `(cleared.sig.toNat + 2^(g+1)) · C` (where `g = guardBitIndex.toNat`), i.e. one
 ulp above `blastRoundTowardZero`. Both the no-carry and carry cases give the same value. -/
