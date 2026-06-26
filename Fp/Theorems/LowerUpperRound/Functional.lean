@@ -740,4 +740,132 @@ info: 'Fp.smtLibUpper_eq_self_of_eq_toExtRat_of_not_isNaN' depends on axioms: [p
 -/
 #guard_msgs in #print axioms smtLibUpper_eq_self_of_eq_toExtRat_of_not_isNaN
 
+/-! ## Perfect approximability: `(lower r).toRat = r → (upper r).toRat = r`
+
+A rational `r` is *perfectly approximable* (at width `e s`) when `(lower r).toRat = r`,
+i.e. the greatest float below `r` equals `r` exactly. We show that in this case `upper r`
+agrees with `lower r` (when `r ≠ 0`), and consequently `(upper r).toRat = r` too — and the
+reverse. These are step 1 of the upper-nonneg roadmap.
+-/
+
+/--
+If `lower (Number r)` is a (finite, nonzero) float that represents `r` exactly, then
+`upper (Number r)` is that same float. This is the workhorse: a direct application of
+`smtLibUpper_eq_self_of_eq_toExtRat_of_not_isNaN`.
+-/
+theorem upper_eq_lower_of_lower_isNormOrNonzeroSubnorm
+    (he : 0 < e) (hs : 0 < s) (r : Rat)
+    (hfin : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat e s).isNormOrNonzeroSubnorm)
+    (H : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat e s).toRat = r) :
+    (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r) : PackedFloat e s)
+      = SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) := by
+  have hExt : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat e s).toExtRat
+      = .Number r := by
+    rw [PackedFloat.toExtRat_eq_toExtRat', PackedFloat.toExtRat'_eq_toRat_of hfin, H]
+  exact smtLibUpper_eq_self_of_eq_toExtRat_of_not_isNaN he hs _ (ExtRat.Number r)
+    (by simpa using PackedFloat.not_isNaN_of_isNormOrSubnorm hfin)
+    (by simpa using PackedFloat.not_isZero_of_isNormOrSubnorm hfin) hExt
+
+/--
+info: 'Fp.upper_eq_lower_of_lower_isNormOrNonzeroSubnorm' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms upper_eq_lower_of_lower_isNormOrNonzeroSubnorm
+
+/-- Mirror of `upper_eq_lower_of_lower_isNormOrNonzeroSubnorm` for `upper`. -/
+theorem lower_eq_upper_of_upper_isNormOrNonzeroSubnorm
+    (he : 0 < e) (hs : 0 < s) (r : Rat)
+    (hfin : (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r) : PackedFloat e s).isNormOrNonzeroSubnorm)
+    (H : (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r) : PackedFloat e s).toRat = r) :
+    (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat e s)
+      = SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r) := by
+  have hExt : (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r) : PackedFloat e s).toExtRat
+      = .Number r := by
+    rw [PackedFloat.toExtRat_eq_toExtRat', PackedFloat.toExtRat'_eq_toRat_of hfin, H]
+  exact smtLibLower_eq_self_of_eq_toExtRat_of_not_isNaN he hs _ (ExtRat.Number r)
+    (by simpa using PackedFloat.not_isNaN_of_isNormOrSubnorm hfin)
+    (by simpa using PackedFloat.not_isZero_of_isNormOrSubnorm hfin) hExt
+
+/--
+info: 'Fp.lower_eq_upper_of_upper_isNormOrNonzeroSubnorm' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms lower_eq_upper_of_upper_isNormOrNonzeroSubnorm
+
+/--
+If `(lower (Number r)).toRat = r` and `r ≠ 0`, then `lower (Number r)` is finite and nonzero.
+It is not NaN (a number is never rounded to NaN), not zero (else `toRat = 0 = r`,
+contradicting `r ≠ 0`), and not infinite (else `toRat = 0 = r` again).
+-/
+theorem isNormOrNonzeroSubnorm_lower_of_toRat_eq
+    (he : 0 < e) (hs : 0 < s) (r : Rat) (hr0 : r ≠ 0)
+    (H : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat e s).toRat = r) :
+    (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat e s).isNormOrNonzeroSubnorm := by
+  have hNaN : ¬ (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat e s).isNaN := by
+    have := not_isNaN_lower_of_ne_NaN e s he hs (ExtRat.Number r) (by simp)
+    simp [this]
+  have hZero : ¬ (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat e s).isZero := by
+    intro hz
+    exact hr0 (by rw [← H, PackedFloat.toRat_eq_Zero_of_isZero _ hz])
+  have hInf : ¬ (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat e s).isInfinite := by
+    intro hi
+    exact hr0 (by rw [← H, PackedFloat.toRat_eq_zero_of_isInfinite _ hi])
+  exact PackedFloat.isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero hNaN hInf hZero
+
+/--
+info: 'Fp.isNormOrNonzeroSubnorm_lower_of_toRat_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms isNormOrNonzeroSubnorm_lower_of_toRat_eq
+
+/-- Mirror of `isNormOrNonzeroSubnorm_lower_of_toRat_eq` for `upper`. -/
+theorem isNormOrNonzeroSubnorm_upper_of_toRat_eq
+    (he : 0 < e) (hs : 0 < s) (r : Rat) (hr0 : r ≠ 0)
+    (H : (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r) : PackedFloat e s).toRat = r) :
+    (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r) : PackedFloat e s).isNormOrNonzeroSubnorm := by
+  have hNaN : ¬ (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r) : PackedFloat e s).isNaN := by
+    have := not_isNaN_upper_of_ne_NaN e s he hs (ExtRat.Number r) (by simp)
+    simp [this]
+  have hZero : ¬ (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r) : PackedFloat e s).isZero := by
+    intro hz
+    exact hr0 (by rw [← H, PackedFloat.toRat_eq_Zero_of_isZero _ hz])
+  have hInf : ¬ (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r) : PackedFloat e s).isInfinite := by
+    intro hi
+    exact hr0 (by rw [← H, PackedFloat.toRat_eq_zero_of_isInfinite _ hi])
+  exact PackedFloat.isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero hNaN hInf hZero
+
+/--
+info: 'Fp.isNormOrNonzeroSubnorm_upper_of_toRat_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms isNormOrNonzeroSubnorm_upper_of_toRat_eq
+
+/--
+**Perfect approximability transfers from `lower` to `upper`.**
+If `r ≠ 0` is perfectly approximated by `lower` (i.e. `(lower (Number r)).toRat = r`), then it
+is also perfectly approximated by `upper`: `(upper (Number r)).toRat = r`.
+-/
+theorem upper_toRat_eq_of_lower_toRat_eq
+    (he : 0 < e) (hs : 0 < s) (r : Rat) (hr0 : r ≠ 0)
+    (H : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat e s).toRat = r) :
+    (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r) : PackedFloat e s).toRat = r := by
+  have hfin := isNormOrNonzeroSubnorm_lower_of_toRat_eq he hs r hr0 H
+  rw [upper_eq_lower_of_lower_isNormOrNonzeroSubnorm he hs r hfin H, H]
+
+/--
+info: 'Fp.upper_toRat_eq_of_lower_toRat_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms upper_toRat_eq_of_lower_toRat_eq
+
+/--
+**Perfect approximability transfers from `upper` to `lower`** (the cheap mirror).
+-/
+theorem lower_toRat_eq_of_upper_toRat_eq
+    (he : 0 < e) (hs : 0 < s) (r : Rat) (hr0 : r ≠ 0)
+    (H : (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r) : PackedFloat e s).toRat = r) :
+    (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat e s).toRat = r := by
+  have hfin := isNormOrNonzeroSubnorm_upper_of_toRat_eq he hs r hr0 H
+  rw [lower_eq_upper_of_upper_isNormOrNonzeroSubnorm he hs r hfin H, H]
+
+/--
+info: 'Fp.lower_toRat_eq_of_upper_toRat_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms lower_toRat_eq_of_upper_toRat_eq
+
 end Fp

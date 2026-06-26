@@ -422,6 +422,23 @@ theorem toRat_eq_Zero_of_isZero {e s} (pf : PackedFloat e s) (hp : pf.isZero) :
   grind
 
 @[simp, grind =]
+theorem toRatSig_eq_zero_of_isInfinite {e s} (pf : PackedFloat e s) (hinf : pf.isInfinite) :
+    pf.toRatSig = 0 := by
+  simp [toRatSig]
+  have hnorm : ¬ pf.isNorm := by grind [isNorm, isInfinite]
+  simp [hnorm]
+  have : pf.sig = 0#s := by grind [isInfinite]
+  simp only [this, BitVec.toNat_ofNat, Nat.zero_mod, Rat.natCast_ofNat]
+  grind
+
+@[simp, grind =]
+theorem toRat_eq_zero_of_isInfinite {e s} (pf : PackedFloat e s) (hinf : pf.isInfinite) :
+    pf.toRat = 0 := by
+  rw [toRat]
+  have : pf.toRatSig = 0 := toRatSig_eq_zero_of_isInfinite pf hinf
+  grind
+
+@[simp, grind =]
 theorem toRat_getZero {e s} (h : 0 < e) (sign : Bool) :
     (PackedFloat.getZero e s sign).toRat = 0 := by
   apply toRat_eq_Zero_of_isZero
