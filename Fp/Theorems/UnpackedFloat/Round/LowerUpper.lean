@@ -1007,6 +1007,53 @@ theorem UnpackedFloat.blastRoundTowardZero_toRat'_le_toRat'
     exact_mod_cast hcllen
   exact (Rat.mul_le_mul_of_nonneg_right hle (Rat.le_of_lt hCpos))
 
+/-- `blastRoundTowardZero`'s value, expanded onto the base weight `C = 2^(ex - (su-1))`:
+it equals `cleared.sig.toNat · C`. (Extracted from the `≤` proof's `hround` step; the
+`blastSuccessorAwayFromZero` bound mirrors this with `cleared.sig.toNat + 2^(g+1)`.) -/
+theorem UnpackedFloat.blastRoundTowardZero_toRat'_eq_clearSignificand_mul
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxsign : x.sign = false)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    (x.blastRoundTowardZero ep sp).toRat'
+      = (x.blastClearSignificand ep sp).sig.toNat
+          * (2 : Rat) ^ (x.ex.toInt - ((su : Int) - 1)) := by
+  have hoverE : x.ex.toInt ≤ maxNormalExp ep := by
+    have := UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide he hs heu x; grind
+  have hunderE : minSubnormalExp ep sp ≤ x.ex.toInt := by
+    have := UnpackedFloat.blastUnderflowNonneg_eq_decide he hs heu x; grind
+  have hminrel : minNormalExp ep - minSubnormalExp ep sp = (sp : Int) := by
+    simp only [minSubnormalExp, maxSubnormalExp]; grind
+  have hdNat : (minNormalExp ep - x.ex.toInt).toNat ≤ sp := by grind
+  obtain ⟨hdL, hdU⟩ := shift_range he hs heu (exInt := x.ex.toInt) (by grind) hoverE
+  have hG := UnpackedFloat.toNat_guardBitIndex_eq he hs heu hsu x hdL hdU hdNat
+  have hLeq : (x.guardBitIndex ep sp).toNat + 1
+      = (minNormalExp ep - x.ex.toInt).toNat + (su - (sp + 1)) := by rw [hG]; grind
+  have hdvd : 2 ^ (su - (sp + 1)) ∣ (x.blastClearSignificand ep sp).sig.toNat := by
+    rw [UnpackedFloat.blastClearSignificand_sig_toNat_eq]
+    exact Nat.two_pow_dvd_div_mul_two_pow x.sig.toNat (by grind)
+  have hrm : (x.blastRoundTowardZero ep sp).sig.toNat * 2 ^ (su - (sp + 1))
+      = (x.blastClearSignificand ep sp).sig.toNat := by
+    rw [sig_blastRoundTowardZero, BitVec.toNat_extractMsb'_zero _ (by grind)]
+    exact Nat.div_mul_cancel hdvd
+  rw [UnpackedFloat.toRat', sign_blastRoundTowardZero, hxsign,
+    UnpackedFloat.toExpInt, ex_blastRoundTowardZero, UnpackedFloat.toNat_toSigNat_eq]
+  have hsg : (Bool.toSign false : Rat) = 1 := by simp [Bool.toSign]
+  have hrmR : (↑(x.blastRoundTowardZero ep sp).sig.toNat : Rat) * 2 ^ (su - (sp + 1))
+      = ↑(x.blastClearSignificand ep sp).sig.toNat := by exact_mod_cast hrm
+  have hexp : (-((↑((sp + 1) - 1) : Int) - x.ex.toInt))
+      = (↑(su - (sp + 1)) : Int) + (x.ex.toInt - ((su : Int) - 1)) := by
+    rw [Int.natCast_sub (show sp + 1 ≤ su by grind)]
+    have e1 : ((sp + 1) - 1 : Nat) = sp := by grind
+    rw [e1]; push_cast; grind
+  rw [hexp, ← Rat.zpow_mul_zpow (by grind), Rat.zpow_natCast, hsg, ← hrmR]; grind
+
+/--
+info: 'Fp.UnpackedFloat.blastRoundTowardZero_toRat'_eq_clearSignificand_mul' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs (whitespace := lax) in
+#print axioms UnpackedFloat.blastRoundTowardZero_toRat'_eq_clearSignificand_mul
+
 /-- The width-adjusted round-toward-zero of a normalized, in-range nonnegative float is
 itself normalized (needed for `Packable`).
 
