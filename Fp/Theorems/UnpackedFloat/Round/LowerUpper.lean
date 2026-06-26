@@ -2694,6 +2694,33 @@ theorem UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_boundary
       · simp only [EUnpackedFloat.num_mkNumber, PackedFloat.sign_minSubnormalNumber,
           UnpackedFloat.blastSuccessorAwayFromZero, clearSignificand_sign, hxsign]
 
+/-- **Assembled upper-rounding correctness** for a normalized nonnegative nonzero float that is
+neither early-overflowing nor early-underflowing. The two surviving exponent regimes are dispatched
+to `blastUpperNonneg_Rel_smtLibUpper_in_range` (`¬x.under`, the bulk) and
+`blastUpperNonneg_Rel_smtLibUpper_boundary` (`x.under`, the subnormal boundary). This is the
+sorry-free keystone; wiring it into the pipeline (and discharging the zero entry point) replaces
+the `blastUpperNonneg_Rel_smtLibUpper` stub below. -/
+theorem UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_of_msb
+    (he : 2 < ep) (hsp : 0 < sp) (hsu : sp + 2 ≤ su) (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
+    (hxmsb : x.sig.msb = true)
+    (hnotEU : x.blastIsEarlyUnderflowNonneg ep sp = false)
+    (hnotEO : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    (x.blastUpperNonneg ep sp).Rel
+      (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
+  by_cases hxu : x.blastIsUnderflowNonneg ep sp = true
+  · exact UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_boundary
+      he hsp hsu heu x hxsign hxmsb hxu hnotEU
+  · simp only [Bool.not_eq_true] at hxu
+    exact UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_in_range
+      he hsp hsu heu x hxsign hxnorm hnotEO hxu
+
+/--
+info: 'Fp.UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_of_msb' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs (whitespace := lax) in
+#print axioms UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_of_msb
+
 theorem UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper (he : 1 < ep) (hs : 0 < sp)
   (x : UnpackedFloat eu su)
   (hxsign : x.sign = false) :
