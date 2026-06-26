@@ -1787,6 +1787,124 @@ info: 'Fp.UnpackedFloat.toRat'_le_minSubnormalNumber_of_blastIsUnderflow_next' d
 #guard_msgs (whitespace := lax) in
 #print axioms UnpackedFloat.toRat'_le_minSubnormalNumber_of_blastIsUnderflow_next
 
+/-- Closed form of `maxNormal.toRat`: `2^(maxNormalExp+1) - 2^(maxNormalExp - sp)`. -/
+theorem PackedFloat.toRat_maxNormalNumber_false_eq (ep sp : Nat) (he : 2 < ep) :
+    (PackedFloat.maxNormalNumber ep sp false).toRat
+      = 2 ^ (maxNormalExp ep + 1) - 2 ^ (maxNormalExp ep - (sp : Int)) := by
+  rw [PackedFloat.toRat, PackedFloat.toRatSig_maxNormalNumber ep sp he,
+    PackedFloat.toRatExp_maxNormalNumber ep sp he, PackedFloat.sign_maxNormalNumber]
+  rw [show (Bool.toSign false : Rat) = 1 by simp [Bool.toSign], Rat.one_mul]
+  have e1 : (2 : Rat) ^ (-(sp : Int)) * 2 ^ (maxNormalExp ep) = 2 ^ (maxNormalExp ep - (sp : Int)) := by
+    rw [Rat.zpow_mul_zpow (by grind)]; congr 1; omega
+  have e2 : (2 : Rat) * 2 ^ (maxNormalExp ep) = 2 ^ (maxNormalExp ep + 1) := by
+    rw [Rat.zpow_add_one (show (2 : Rat) ≠ 0 by grind), Rat.mul_comm]
+  rw [Rat.sub_mul, e1, e2]
+
+/--
+info: 'Fp.PackedFloat.toRat_maxNormalNumber_false_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs (whitespace := lax) in
+#print axioms PackedFloat.toRat_maxNormalNumber_false_eq
+
+/-- A nonnegative width-`(sp+1)` float at exponent `maxNormalExp` is at most `maxNormal`
+(its significand fits in `sp+1` bits, so `toRat' = sig·2^(maxNormalExp-sp) ≤ maxNormal`). -/
+theorem UnpackedFloat.toRat'_le_maxNormalNumber_of_sign_false_of_ex_eq_maxNormalExp
+    (he : 2 < ep) (hsp : 0 < sp)
+    (uf : UnpackedFloat eu (sp + 1)) (hsign : uf.sign = false) (hex : uf.ex.toInt = maxNormalExp ep) :
+    uf.toRat' ≤ (PackedFloat.maxNormalNumber ep sp false).toRat := by
+  have hexp : uf.ex.toInt - (((sp + 1 : Nat) : Int) - 1) = maxNormalExp ep - (sp : Int) := by
+    rw [hex]; push_cast; omega
+  rw [UnpackedFloat.toRat'_eq_sig_toNat_mul uf hsign (by omega), hexp,
+    PackedFloat.toRat_maxNormalNumber_false_eq ep sp he]
+  have hC : (0 : Rat) ≤ 2 ^ (maxNormalExp ep - (sp : Int)) := Rat.le_of_lt (Rat.two_pow_pos _)
+  have h2M1 : (2 : Rat) ^ (maxNormalExp ep + 1)
+      = 2 ^ (sp + 1) * 2 ^ (maxNormalExp ep - (sp : Int)) := by
+    rw [← Rat.zpow_natCast (2 : Rat) (sp + 1), Rat.zpow_mul_zpow (by grind)]
+    congr 1; push_cast; omega
+  have hsigle : ((uf.sig.toNat : Rat) + 1) ≤ 2 ^ (sp + 1) := by
+    have h := uf.sig.isLt
+    have : (uf.sig.toNat : Rat) + 1 ≤ ((2 ^ (sp + 1) : Nat) : Rat) := by exact_mod_cast (by omega)
+    push_cast at this; exact this
+  have hkey := Rat.mul_le_mul_of_nonneg_right hsigle hC
+  rw [h2M1]
+  rw [Rat.add_mul, Rat.one_mul] at hkey
+  grind
+
+/--
+info: 'Fp.UnpackedFloat.toRat'_le_maxNormalNumber_of_sign_false_of_ex_eq_maxNormalExp' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs (whitespace := lax) in
+#print axioms UnpackedFloat.toRat'_le_maxNormalNumber_of_sign_false_of_ex_eq_maxNormalExp
+
+/-- **Converse overflow connection**: if `x.toRat' > maxNormal` (and `x` is in range), the
+successor early-overflows. (The successor `> x > maxNormal`, but a non-overflowing successor
+would sit at exponent `maxNormalExp`, hence `≤ maxNormal` — contradiction.) -/
+theorem UnpackedFloat.blastIsEarlyOverflow_next_of_maxNormalNumber_lt
+    (he : 2 < ep) (hsp : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hlt : (PackedFloat.maxNormalNumber ep sp false).toRat < x.toRat') :
+    (x.blastSuccessorAwayFromZeroNonnegAux ep sp).blastIsEarlyOverflowNonneg ep sp = true := by
+  have hxhi : x.ex.toInt ≤ maxNormalExp ep := by
+    rw [UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide (by grind) hsp heu] at hnotover
+    simpa using hnotover
+  have hub := UnpackedFloat.toRat'_lt_two_pow_ex_succ_of_sign_false x (by grind) hxsign
+  have hmaxge : (2 : Rat) ^ (maxNormalExp ep) ≤ (PackedFloat.maxNormalNumber ep sp false).toRat := by
+    rw [PackedFloat.toRat_maxNormalNumber_false_eq ep sp he]
+    have h1 : (2 : Rat) ^ (maxNormalExp ep + 1) = 2 * 2 ^ (maxNormalExp ep) := by
+      rw [Rat.zpow_add_one (show (2 : Rat) ≠ 0 by grind), Rat.mul_comm]
+    have h2 : (2 : Rat) ^ (maxNormalExp ep - (sp : Int)) ≤ 2 ^ (maxNormalExp ep) :=
+      Rat.two_pow_le_two_pow_of_le (by omega)
+    grind
+  have hxex : x.ex.toInt = maxNormalExp ep := by
+    have hxlo : maxNormalExp ep ≤ x.ex.toInt := by
+      apply Classical.byContradiction
+      intro hc
+      have hle : x.ex.toInt + 1 ≤ maxNormalExp ep := by omega
+      have := Rat.two_pow_le_two_pow_of_le hle
+      grind
+    omega
+  -- roundTZ ≤ maxNormal, hence (needsRounding ⇒) lower < x.
+  have hrtle : (x.blastRoundTowardZero ep sp).toRat' ≤ (PackedFloat.maxNormalNumber ep sp false).toRat := by
+    apply UnpackedFloat.toRat'_le_maxNormalNumber_of_sign_false_of_ex_eq_maxNormalExp he hsp
+    · rw [sign_blastRoundTowardZero]; exact hxsign
+    · rw [ex_blastRoundTowardZero]; exact hxex
+  have hnr : x.needsRounding ep sp = true := by
+    apply Classical.byContradiction
+    intro hc
+    simp only [Bool.not_eq_true] at hc
+    have heq := (UnpackedFloat.blastRoundTowardZero_toRat'_eq_toRat'_of_not_needsRounding
+      (by grind) hsp heu hsu x hxsign hnotunder hnotover hc)
+    grind
+  -- next = successor; assume ¬next.over and derive a contradiction.
+  apply Classical.byContradiction
+  intro hcon
+  simp only [Bool.not_eq_true] at hcon
+  have hlt_next := UnpackedFloat.toRat'_lt_blastSuccessorAwayFromZero_toRat'
+    (by grind) hsp heu hsu x hxsign hxnorm hnotunder hnotover
+  have hnexteq : x.blastSuccessorAwayFromZeroNonnegAux ep sp = x.blastSuccessorAwayFromZero ep sp := by
+    rw [UnpackedFloat.blastSuccessorAwayFromZeroNonnegAux, if_pos hnr]
+  have hmono := UnpackedFloat.ex_le_ex_blastSuccessorAwayFromZeroNonnegAux (by grind) hsp heu x hnotover
+  have hcomp := UnpackedFloat.ex_blastSuccessorAwayFromZeroNonnegAux_le_ex_add_one (by grind) hsp heu x hnotover
+  have hnextexle : (x.blastSuccessorAwayFromZeroNonnegAux ep sp).ex.toInt ≤ maxNormalExp ep := by
+    rw [UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide (by grind) hsp heu] at hcon
+    simpa using hcon
+  have hnextex : (x.blastSuccessorAwayFromZero ep sp).ex.toInt = maxNormalExp ep := by
+    rw [← hnexteq]; omega
+  have hnextle : (x.blastSuccessorAwayFromZero ep sp).toRat'
+      ≤ (PackedFloat.maxNormalNumber ep sp false).toRat := by
+    apply UnpackedFloat.toRat'_le_maxNormalNumber_of_sign_false_of_ex_eq_maxNormalExp he hsp
+    · rw [sign_blastSuccessorAwayFromZero]; exact hxsign
+    · exact hnextex
+  grind
+
+/--
+info: 'Fp.UnpackedFloat.blastIsEarlyOverflow_next_of_maxNormalNumber_lt' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs (whitespace := lax) in
+#print axioms UnpackedFloat.blastIsEarlyOverflow_next_of_maxNormalNumber_lt
+
 /-- If the successor early-overflows (while `x` itself does not), then `x.ex = maxNormalExp`:
 `maxNormalExp < next.ex ≤ x.ex + 1` and `x.ex ≤ maxNormalExp` pin it exactly. -/
 theorem UnpackedFloat.ex_eq_maxNormalExp_of_blastIsEarlyOverflow_next
@@ -2324,9 +2442,7 @@ theorem UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_in_range
     (he : 2 < ep) (hsp : 0 < sp) (hsu : sp + 2 ≤ su) (heu : exponentWidth ep sp ≤ eu)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
     (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
-    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
-    (hmaxL : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp)
-      ≠ PackedFloat.maxNormalNumber ep sp false) :
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false) :
     (x.blastUpperNonneg ep sp).Rel
       (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
   have he' : 0 < ep := by grind
@@ -2344,7 +2460,8 @@ theorem UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_in_range
       (lsLawfulLower_smtLibLower ep sp he' hsp _)
   have hsignL : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).sign = false := by
     rw [← hpflow, ← hSign, sign_blastRoundTowardZero, hxsign]
-  have hfinSucc := PackedFloat.isNormOrNonzeroSubnorm_successorAwayFromZero_of_ne_maxNormal (by grind) hsp _ hsignL hfinL hmaxL
+  have hlowToRat' : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).toRat
+      = (x.blastRoundTowardZero ep sp).toRat' := by rw [← hpflow]; exact hToRat.symm
   have hnnu : (x.blastSuccessorAwayFromZeroNonnegAux ep sp).blastIsUnderflowNonneg ep sp = false := by
     have hmono := UnpackedFloat.ex_le_ex_blastSuccessorAwayFromZeroNonnegAux (by grind) hsp heu x hnotover
     have hxu : minSubnormalExp ep sp ≤ x.ex.toInt := by
@@ -2369,7 +2486,26 @@ theorem UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_in_range
   · -- Normal branch: `mkNumber next` → Case A / Case B.
     simp only [ho, Bool.false_eq_true, if_false]
     by_cases hr : x.needsRounding ep sp = true
-    · have heq : x.blastSuccessorAwayFromZeroNonnegAux ep sp = x.blastSuccessorAwayFromZero ep sp := by
+    · -- Case B: derive `lower ≠ maxNormal` here (else the converse forces `next.over`).
+      have hmaxL : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp)
+          ≠ PackedFloat.maxNormalNumber ep sp false := by
+        intro heqmax
+        have hle := lower_toRat_le he' hsp x.toRat' hfinL
+        have hne : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).toRat
+            ≠ x.toRat' := by
+          rw [hlowToRat']
+          intro he2
+          have := (UnpackedFloat.blastRoundTowardZero_toRat'_eq_toRat'_iff_not_needsRounding
+            (by grind) hsp heu hsu x hxsign hnotunder hnotover).mp he2
+          rw [this] at hr; simp at hr
+        have hlowlt : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).toRat
+            < x.toRat' := by grind
+        rw [heqmax] at hlowlt
+        exact ho (UnpackedFloat.blastIsEarlyOverflow_next_of_maxNormalNumber_lt
+          he hsp heu hsu x hxsign hxnorm hnotover hnotunder hlowlt)
+      have hfinSucc := PackedFloat.isNormOrNonzeroSubnorm_successorAwayFromZero_of_ne_maxNormal
+        (by grind) hsp _ hsignL hfinL hmaxL
+      have heq : x.blastSuccessorAwayFromZeroNonnegAux ep sp = x.blastSuccessorAwayFromZero ep sp := by
         rw [UnpackedFloat.blastSuccessorAwayFromZeroNonnegAux, if_pos hr]
       rw [heq]
       exact UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_normal_of_needsRounding
