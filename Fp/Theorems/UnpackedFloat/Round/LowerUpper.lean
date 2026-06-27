@@ -1686,7 +1686,8 @@ theorem UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero
       (x.blastRoundTowardZero ep sp).toRat' = pf.toRat ∧
       (x.blastRoundTowardZero ep sp).sign  = pf.sign ∧
       pf.toRatExp = x.ex.toInt + ((minNormalExp ep - x.ex.toInt).toNat : Int) ∧
-      pf.isNormOrNonzeroSubnorm := by
+      pf.isNormOrNonzeroSubnorm ∧
+      pf = (EUnpackedFloat.mkNumber ((x.truncateFittingExponent ep sp).blastRoundTowardZero ep sp)).pack := by
   -- (M) Full not-underflow ⇒ early not-underflow, so the `truncateFittingExponent`
   -- invariance lemmas (stated with the `Early` form) apply.
   have hnotearlyunder : x.blastIsEarlyUnderflowNonneg ep sp = false :=
@@ -1835,7 +1836,7 @@ theorem UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero
           simp only [PackedFloat.toRatExp, hnorm, Bool.false_eq_true, if_false, minNormalExp]
         rw [hsub]; grind
     grind
-  refine ⟨(EUnpackedFloat.mkNumber r).pack, ?_, ?_, ?_, ?_, hexpeq, hfin⟩
+  refine ⟨(EUnpackedFloat.mkNumber r).pack, ?_, ?_, ?_, ?_, hexpeq, hfin, rfl⟩
   · -- ¬ isNaN, from `isNormOrNonzeroSubnorm`.
     simpa using PackedFloat.not_isNaN_of_isNormOrSubnorm hfin
   · -- IsLawfulLower via the GLB lemma.
@@ -1909,7 +1910,7 @@ theorem UnpackedFloat.isNormOrNonzeroSubnorm_lower_of_in_range
     (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
     (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
     (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).isNormOrNonzeroSubnorm := by
-  obtain ⟨pf, hpfNotNaN, hpfLower, _, _, _, hfin⟩ :=
+  obtain ⟨pf, hpfNotNaN, hpfLower, _, _, _, hfin, _⟩ :=
     UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero
       (by grind) hsp heu hsu x hxsign hxnorm hnotunder hnotover
   have hpflow : pf = (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp) :=
