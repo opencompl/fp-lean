@@ -727,9 +727,28 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
           simp only [decide_eq_false_iff_not, decide_eq_true_eq]
           rw [blastIsTieBreak_eq (by grind only) (by grind only)]
           simp only [decide_eq_false_iff_not, decide_eq_true_eq]
-          rw [blastIsEvenUpper_eq (by grind only) (by grind only)]
+          -- The even predicates are applied to `x.truncateFittingExponent`, which is nonzero and
+          -- normalized; supply its `msb`, normalization, and (early) under/overflow flags.
+          have hsig : x.sig ≠ 0#su := by simpa [UnpackedFloat.isZero] using hzero
+          have htnorm := normalize_truncateFittingExponent_eq_self_of_normalize_eq_self
+            he hs heu hsu x hzero hxnorm
+          have htmsb : (x.truncateFittingExponent ep sp).sig.msb = true :=
+            (UnpackedFloat.normalize_eq_self_iff x hsig).mp hxnorm
+          have htover : (x.truncateFittingExponent ep sp).blastIsEarlyOverflowNonneg ep sp = false := by
+            rw [blastIsEarlyOverflowNonneg_truncateFittingExponent he hs heu x
+              (by simpa using hover) (by simpa using hunder)]
+            simpa using hover
+          have htunder : (x.truncateFittingExponent ep sp).blastIsEarlyUnderflowNonneg ep sp = false := by
+            rw [UnpackedFloat.blastIsEarlyUnderflowNonneg_eq_decide he hs (Nat.le_refl _)
+                (x.truncateFittingExponent ep sp),
+              toInt_ex_truncateFittingExponent he hs heu x (by simpa using hover) (by simpa using hunder),
+              ← UnpackedFloat.blastIsEarlyUnderflowNonneg_eq_decide he hs heu x]
+            simpa using hunder
+          rw [blastIsEvenUpper_eq hep hs (Nat.le_refl _) hsu (x.truncateFittingExponent ep sp)
+            htnorm htmsb htunder htover]
           simp only [Bool.decide_eq_true]
-          rw [blastIsEvenLower_eq (by grind only) (by grind only)]
+          rw [blastIsEvenLower_eq hep hs (Nat.le_refl _) hsu (x.truncateFittingExponent ep sp)
+            htnorm htmsb htunder htover]
           simp only [Bool.decide_eq_true]
           rw [SmtLibSemantics.RoundMethod.roundRNE]
           simp [hx0]
