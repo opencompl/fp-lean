@@ -174,4 +174,104 @@ theorem isEven_smtLibUpper_eq_boundary_of_sign_false {eu su ep sp : Nat}
   rw [hupp, hnr, hbe]
   simp [SmtLibSemantics.roundableIsEven_of_packedFloat, PackedFloat.minSubnormalNumber] <;> grind
 
+/-! ### Full (in-range ∪ boundary) nonnegative lemmas and both-sign unifiers
+
+These weaken the in-range `¬blastIsUnderflowNonneg` to `¬blastIsEarlyUnderflowNonneg` by dispatching
+on `blastIsUnderflowNonneg` (boundary vs in-range). They require `x.sig.msb = true` (the input is a
+nonzero normalized float — guaranteed for `x.truncateFittingExponent` of a nonzero value at the RNE
+call site). -/
+
+/-- `isEven(lower) = blastExtractIsEven x` for nonnegative `x` whether in range or at the boundary. -/
+theorem isEven_smtLibLower_eq_blastExtractIsEven_full_of_sign_false {eu su ep sp : Nat}
+    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
+    (hmsb : x.sig.msb = true)
+    (hnotearlyunder : x.blastIsEarlyUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    SmtLibSemantics.roundableIsEven_of_packedFloat.isEven
+        (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp)
+      = x.blastExtractIsEven ep sp := by
+  by_cases hbu : x.blastIsUnderflowNonneg ep sp = true
+  · exact isEven_smtLibLower_eq_blastExtractIsEven_boundary_of_sign_false
+      he hs heu hsu x hxsign hmsb hbu hnotearlyunder
+  · simp only [Bool.not_eq_true] at hbu
+    exact isEven_smtLibLower_eq_blastExtractIsEven_of_sign_false
+      he hs heu hsu x hxsign hxnorm hbu hnotover
+
+/-- `isEven(upper) = bif needsRounding then !blastExtract else blastExtract` for nonnegative `x`,
+in range or at the boundary. -/
+theorem isEven_smtLibUpper_eq_full_of_sign_false {eu su ep sp : Nat}
+    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
+    (hmsb : x.sig.msb = true)
+    (hnotearlyunder : x.blastIsEarlyUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    SmtLibSemantics.roundableIsEven_of_packedFloat.isEven
+        (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp)
+      = (bif x.needsRounding ep sp then !x.blastExtractIsEven ep sp else x.blastExtractIsEven ep sp) := by
+  by_cases hbu : x.blastIsUnderflowNonneg ep sp = true
+  · exact isEven_smtLibUpper_eq_boundary_of_sign_false
+      he hs heu hsu x hxsign hmsb hbu hnotearlyunder
+  · simp only [Bool.not_eq_true] at hbu
+    exact isEven_smtLibUpper_eq_of_sign_false
+      he hs heu hsu x hxsign hxnorm hbu hnotover
+
+/-- Both-sign unifier (full): `isEven(lower) = blastIsEvenLower x`, in range or at the boundary. -/
+theorem isEven_smtLibLower_eq_blastIsEvenLower_full {eu su ep sp : Nat}
+    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
+    (hnotearlyunder : x.blastIsEarlyUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    SmtLibSemantics.roundableIsEven_of_packedFloat.isEven
+        (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp)
+      = x.blastIsEvenLower ep sp := by
+  have he' : 0 < ep := by grind
+  by_cases hsign : x.sign = false
+  · rw [show x.blastIsEvenLower ep sp = x.blastExtractIsEven ep sp from by
+      simp [UnpackedFloat.blastIsEvenLower, UnpackedFloat.blastIsEven,
+        UnpackedFloat.blastIsEvenNonneg, hsign, Bool.cond_self]]
+    exact isEven_smtLibLower_eq_blastExtractIsEven_full_of_sign_false
+      he hs heu hsu x hsign hxnorm hmsb hnotearlyunder hnotover
+  · have hsignt : x.sign = true := by simp only [Bool.not_eq_false] at hsign; exact hsign
+    have hnegval : (-(ExtRat.Number x.toRat')) = ExtRat.Number ((-x).toRat') :=
+      (congrArg ExtRat.Number (UnpackedFloat.toRat'_neg x)).symm
+    rw [smtLibLower_eq_neg_smtLibUpper_neg ep sp he' hs (ExtRat.Number x.toRat') (by simp),
+      isEven_neg, hnegval,
+      isEven_smtLibUpper_eq_full_of_sign_false he hs heu hsu (-x)
+        (by simp [UnpackedFloat.neg_sign, hsignt])
+        (UnpackedFloat.normalize_neg_eq_neg_of_normalize_eq x hxnorm) hmsb hnotearlyunder hnotover,
+      show (-x).needsRounding ep sp = x.needsRounding ep sp from rfl,
+      show (-x).blastExtractIsEven ep sp = x.blastExtractIsEven ep sp from rfl]
+    simp [UnpackedFloat.blastIsEvenLower, UnpackedFloat.blastIsEven,
+      UnpackedFloat.blastIsEvenNeg, hsignt]
+
+/-- Both-sign unifier (full): `isEven(upper) = blastIsEvenUpper x`, in range or at the boundary. -/
+theorem isEven_smtLibUpper_eq_blastIsEvenUpper_full {eu su ep sp : Nat}
+    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
+    (hnotearlyunder : x.blastIsEarlyUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    SmtLibSemantics.roundableIsEven_of_packedFloat.isEven
+        (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp)
+      = x.blastIsEvenUpper ep sp := by
+  have he' : 0 < ep := by grind
+  by_cases hsign : x.sign = false
+  · rw [show x.blastIsEvenUpper ep sp
+        = (bif x.needsRounding ep sp then !x.blastExtractIsEven ep sp else x.blastExtractIsEven ep sp)
+        from by simp [UnpackedFloat.blastIsEvenUpper, UnpackedFloat.blastIsEven,
+          UnpackedFloat.blastIsEvenNonneg, hsign]]
+    exact isEven_smtLibUpper_eq_full_of_sign_false
+      he hs heu hsu x hsign hxnorm hmsb hnotearlyunder hnotover
+  · have hsignt : x.sign = true := by simp only [Bool.not_eq_false] at hsign; exact hsign
+    have hnegval : (-(ExtRat.Number x.toRat')) = ExtRat.Number ((-x).toRat') :=
+      (congrArg ExtRat.Number (UnpackedFloat.toRat'_neg x)).symm
+    rw [smtLibUpper_eq_neg_smtLibLower_neg ep sp he' hs (ExtRat.Number x.toRat') (by simp),
+      isEven_neg, hnegval,
+      isEven_smtLibLower_eq_blastExtractIsEven_full_of_sign_false he hs heu hsu (-x)
+        (by simp [UnpackedFloat.neg_sign, hsignt])
+        (UnpackedFloat.normalize_neg_eq_neg_of_normalize_eq x hxnorm) hmsb hnotearlyunder hnotover,
+      show (-x).blastExtractIsEven ep sp = x.blastExtractIsEven ep sp from rfl]
+    simp [UnpackedFloat.blastIsEvenUpper, UnpackedFloat.blastIsEven,
+      UnpackedFloat.blastIsEvenNeg, hsignt, Bool.not_not]
+
 end Fp
