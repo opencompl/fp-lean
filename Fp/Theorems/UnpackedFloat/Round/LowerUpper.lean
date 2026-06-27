@@ -1687,7 +1687,9 @@ theorem UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero
       (x.blastRoundTowardZero ep sp).sign  = pf.sign ∧
       pf.toRatExp = x.ex.toInt + ((minNormalExp ep - x.ex.toInt).toNat : Int) ∧
       pf.isNormOrNonzeroSubnorm ∧
-      pf = (EUnpackedFloat.mkNumber ((x.truncateFittingExponent ep sp).blastRoundTowardZero ep sp)).pack := by
+      pf = (EUnpackedFloat.mkNumber ((x.truncateFittingExponent ep sp).blastRoundTowardZero ep sp)).pack ∧
+      pf.sig.toNat % 2
+        = x.sig.toNat / 2 ^ ((minNormalExp ep - x.ex.toInt).toNat + (su - (sp + 1))) % 2 := by
   -- (M) Full not-underflow ⇒ early not-underflow, so the `truncateFittingExponent`
   -- invariance lemmas (stated with the `Early` form) apply.
   have hnotearlyunder : x.blastIsEarlyUnderflowNonneg ep sp = false :=
@@ -1836,7 +1838,7 @@ theorem UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero
           simp only [PackedFloat.toRatExp, hnorm, Bool.false_eq_true, if_false, minNormalExp]
         rw [hsub]; grind
     grind
-  refine ⟨(EUnpackedFloat.mkNumber r).pack, ?_, ?_, ?_, ?_, hexpeq, hfin, rfl⟩
+  refine ⟨(EUnpackedFloat.mkNumber r).pack, ?_, ?_, ?_, ?_, hexpeq, hfin, rfl, ?_⟩
   · -- ¬ isNaN, from `isNormOrNonzeroSubnorm`.
     simpa using PackedFloat.not_isNaN_of_isNormOrSubnorm hfin
   · -- IsLawfulLower via the GLB lemma.
@@ -1893,6 +1895,65 @@ theorem UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero
     rw [sign_blastRoundTowardZero, hxsign, EUnpackedFloat.sign_pack]
     simp only [EUnpackedFloat.isNaN_mkNumber, Bool.false_eq_true, if_false,
       EUnpackedFloat.sign, EUnpackedFloat.num_mkNumber, hrsign]
+  · -- parity: the packed significand's LSB equals `x.sig` bit `L = off + (su-(sp+1))`.
+    -- `pf = packNumber' r.sign r.sig r.ex`, so `pf.sig = sigPacked r.sig r.ex`; in both the
+    -- normal (`off=0`) and subnormal (`>>> off`) branches this reduces to `(x.sig / 2^L) % 2`.
+    have hpacked : (EUnpackedFloat.mkNumber r).pack
+        = EUnpackedFloat.packNumber' r.sign r.sig r.ex := by
+      rw [EUnpackedFloat.pack_eq_pack', EUnpackedFloat.pack']
+      have hz : (EUnpackedFloat.mkNumber r).isZero = false := by
+        rw [EUnpackedFloat.isZero_mkNumber]; simp [UnpackedFloat.isZero, hrsigne]
+      simp only [EUnpackedFloat.isNaN_mkNumber, EUnpackedFloat.isInfinite_mkNumber, hz,
+        Bool.false_eq_true, ↓reduceIte]
+      rfl
+    have hdvd : (2 : Nat) ∣ 2 ^ sp := by
+      have h : 2 ^ sp = 2 ^ (sp - 1) * 2 := by rw [← Nat.pow_succ]; congr 1; grind
+      grind
+    rw [hpacked]
+    by_cases hinr : EUnpackedFloat.packNumber'.inNormalRange r.ex = true
+    · -- normal range: `off = 0`, so `sigPacked = r.sig.truncate sp` and `r.sig.toNat = x.sig / 2^L`.
+      have hoff0 : (minNormalExp ep - x.ex.toInt).toNat = 0 := by
+        rw [EUnpackedFloat.packNumber'.inNormalRange_iff he hs] at hinr
+        simp only [decide_eq_true_eq] at hinr
+        rw [hrexX] at hinr; grind
+      simp only [EUnpackedFloat.packNumber', EUnpackedFloat.packNumber'.sigPacked, hinr,
+        ↓reduceIte, BitVec.truncate_eq_setWidth, BitVec.toNat_setWidth]
+      rw [Nat.mod_mod_of_dvd _ hdvd, hrsigval, hoff0]
+      simp
+    · -- subnormal range: `shift.toNat = off`, so `sigPacked = (r.sig >>> off).truncate sp`.
+      simp only [Bool.not_eq_true] at hinr
+      have hlt : r.ex.toInt < minNormalExp ep := by
+        rw [EUnpackedFloat.packNumber'.inNormalRange_iff he hs] at hinr
+        simp only [decide_eq_false_iff_not, Int.not_le] at hinr
+        exact hinr
+      have hs_lt : sp < 2 ^ (exponentWidth ep sp - 1) :=
+        UnpackedFloat.sigWidth_lt_exponentWidth_sub_one
+      have hshift_nat : (EUnpackedFloat.packNumber'.shift r.ex).toNat
+          = (minNormalExp ep - x.ex.toInt).toNat := by
+        have h1 := zero_lt_exponentWidth (e := ep) (s := sp)
+        have hwbridge : (2 : Nat) ^ exponentWidth ep sp = 2 * 2 ^ (exponentWidth ep sp - 1) :=
+          calc (2 : Nat) ^ exponentWidth ep sp
+              = 2 ^ ((exponentWidth ep sp - 1) + 1) := by rw [Nat.sub_add_cancel h1]
+            _ = 2 ^ (exponentWidth ep sp - 1) * 2 := Nat.pow_succ ..
+            _ = 2 * 2 ^ (exponentWidth ep sp - 1) := Nat.mul_comm ..
+        have hd_int : ((minNormalExp ep - x.ex.toInt).toNat : Int) = minNormalExp ep - r.ex.toInt := by
+          rw [hrexX]; grind
+        have hshift_int : (EUnpackedFloat.packNumber'.shift r.ex).toInt
+            = ((minNormalExp ep - x.ex.toInt).toNat : Int) := by
+          simp only [EUnpackedFloat.packNumber'.shift]
+          rw [BitVec.toInt_sub, toInt_ofInt_minNormalExp_eq_minNormalExp he hs, ← hd_int]
+          apply Int.bmod_eq_of_le <;> grind
+        have hshift_msb : (EUnpackedFloat.packNumber'.shift r.ex).msb = false := by
+          rw [BitVec.msb_eq_toInt, hshift_int]
+          simp only [decide_eq_false_iff_not, Int.not_lt]; grind
+        have h := BitVec.toInt_eq_toNat_of_msb hshift_msb
+        rw [hshift_int] at h
+        exact_mod_cast h.symm
+      simp only [EUnpackedFloat.packNumber', EUnpackedFloat.packNumber'.sigPacked, hinr,
+        Bool.false_eq_true, ↓reduceIte, BitVec.truncate_eq_setWidth, BitVec.toNat_setWidth]
+      rw [Nat.mod_mod_of_dvd _ hdvd, BitVec.ushiftRight_eq', hshift_nat,
+        BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow, hrsigval,
+        Nat.mul_div_cancel _ (Nat.two_pow_pos _)]
 
 /--
 info: 'Fp.UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero' depends on axioms: [propext,
