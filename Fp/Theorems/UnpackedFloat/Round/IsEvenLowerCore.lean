@@ -75,4 +75,59 @@ theorem isEven_smtLibLower_eq_blastExtractIsEven_of_sign_false
     (x.sig.toNat / 2 ^ ((minNormalExp ep - x.ex.toInt).toNat + (su - (sp + 1)))) with h | h <;>
     simp [h]
 
+/-- The SMT-LIB `isEven` of the *upper* approximant for a nonnegative, in-range, normalized `x`:
+when `x` needs rounding the upper is `successorAwayFromZero(lower)` (parity flips), otherwise
+`upper = lower`. Either way it matches the Option-B `blastIsEvenUpper` arm for nonnegatives,
+`bif needsRounding then !blastExtractIsEven else blastExtractIsEven`. Takes the finiteness of `lower`
+and its successor as hypotheses (discharged at the call site, as in `blastUpperNonneg_Rel_smtLibUpper`). -/
+theorem isEven_smtLibUpper_eq_of_sign_false
+    {eu su ep sp : Nat}
+    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hxpos : 0 < x.toRat')
+    (hfinL : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).isNormOrNonzeroSubnorm)
+    (hfinSucc : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).successorAwayFromZero.isNormOrNonzeroSubnorm) :
+    SmtLibSemantics.roundableIsEven_of_packedFloat.isEven
+        (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp)
+      = (bif x.needsRounding ep sp then !x.blastExtractIsEven ep sp else x.blastExtractIsEven ep sp) := by
+  have hLnan : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).isNaN = false := by
+    simpa using PackedFloat.not_isNaN_of_isNormOrSubnorm hfinL
+  have hLinf : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).isInfinite = false := by
+    simpa using PackedFloat.not_isInfinite_of_isNormOrSubnorm hfinL
+  have hCore := isEven_smtLibLower_eq_blastExtractIsEven_of_sign_false
+    he hs heu hsu x hxsign hxnorm hnotunder hnotover
+  -- pin `lower = pf` to read off its sign and the representability bridge.
+  obtain ⟨pf, hpfNotNaN, hpfLower, hToRat, hSign, _⟩ :=
+    UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero
+      (by grind) hs heu hsu x hxsign hxnorm hnotunder hnotover
+  have hpflow : pf = (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp) :=
+    eq_of_IsLawfulLower_of_IsLawfulLower ep sp (ExtRat.Number x.toRat') pf _ hpfNotNaN
+      (by simpa using not_isNaN_lower_of_ne_NaN ep sp (by grind) hs _ (by simp))
+      hpfLower (lsLawfulLower_smtLibLower ep sp (by grind) hs _)
+  have hsignL : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).sign
+      = false := by rw [← hpflow, ← hSign, sign_blastRoundTowardZero, hxsign]
+  by_cases hnr : x.needsRounding ep sp = true
+  · -- needs rounding: `upper = successorAwayFromZero(lower)`, parity flips.
+    have hne : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).toRat
+        ≠ x.toRat' := by
+      rw [← hpflow, ← hToRat]
+      intro hcontra
+      have hnotneeds := (UnpackedFloat.blastRoundTowardZero_toRat'_eq_toRat'_iff_not_needsRounding
+        (by grind) hs heu hsu x hxsign hnotunder hnotover).mp hcontra
+      rw [hnotneeds] at hnr; simp at hnr
+    rw [upper_eq_lower_successorAwayFromZero_of_ne (by grind) hs x.toRat' hxpos hfinL hfinSucc hsignL hne,
+      isEven_successorAwayFromZero hs _ hLnan hLinf, hCore, hnr]
+    simp
+  · -- exactly representable: `upper = lower`.
+    have hnr' : x.needsRounding ep sp = false := by grind
+    have hrepr : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).toRat
+        = x.toRat' := by
+      rw [← hpflow, ← hToRat]
+      exact (UnpackedFloat.blastRoundTowardZero_toRat'_eq_toRat'_iff_not_needsRounding
+        (by grind) hs heu hsu x hxsign hnotunder hnotover).mpr hnr'
+    rw [upper_eq_lower_of_lower_isNormOrNonzeroSubnorm (by grind) hs x.toRat' hfinL hrepr, hCore, hnr']
+    simp
+
 end Fp
