@@ -75,6 +75,16 @@ theorem isEven_smtLibLower_eq_blastExtractIsEven_of_sign_false
     (x.sig.toNat / 2 ^ ((minNormalExp ep - x.ex.toInt).toNat + (su - (sp + 1)))) with h | h <;>
     simp [h]
 
+/-- `+∞` has significand `0`, so it is even. -/
+theorem isEven_getInfinity {e s : Nat} :
+    SmtLibSemantics.roundableIsEven_of_packedFloat.isEven (PackedFloat.getInfinity e s false) = true := by
+  simp [SmtLibSemantics.roundableIsEven_of_packedFloat, PackedFloat.getInfinity]
+
+/-- `maxNormalNumber` has an all-ones significand (`2^s - 1`, odd), so it is *not* even. -/
+theorem isEven_maxNormalNumber {e s : Nat} (hs : 0 < s) :
+    SmtLibSemantics.roundableIsEven_of_packedFloat.isEven (PackedFloat.maxNormalNumber e s false) = false := by
+  simp [SmtLibSemantics.roundableIsEven_of_packedFloat, PackedFloat.maxNormalNumber]; grind
+
 /-- The SMT-LIB `isEven` of the *upper* approximant for a nonnegative, in-range, normalized `x`:
 when `x` needs rounding the upper is `successorAwayFromZero(lower)` (parity flips), otherwise
 `upper = lower`. Either way it matches the Option-B `blastIsEvenUpper` arm for nonnegatives,
@@ -85,19 +95,26 @@ theorem isEven_smtLibUpper_eq_of_sign_false
     (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
     (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
-    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
-    (hxpos : 0 < x.toRat')
-    (hfinL : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).isNormOrNonzeroSubnorm)
-    (hfinSucc : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).successorAwayFromZero.isNormOrNonzeroSubnorm) :
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
     SmtLibSemantics.roundableIsEven_of_packedFloat.isEven
         (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp)
       = (bif x.needsRounding ep sp then !x.blastExtractIsEven ep sp else x.blastExtractIsEven ep sp) := by
+  have he' : 0 < ep := by grind
+  have hCore := isEven_smtLibLower_eq_blastExtractIsEven_of_sign_false
+    he hs heu hsu x hxsign hxnorm hnotunder hnotover
+  -- `x > 0` and `lower` is finite (in range).
+  have hmsb := UnpackedFloat.msb_eq_true_of_normalize_of_not_blastIsUnderflowNonneg
+    (by grind) hs heu x hxnorm hnotunder
+  have hxpos : 0 < x.toRat' := by
+    have h1 := UnpackedFloat.two_pow_ex_le_toRat'_of_msb_of_sign_false x (by grind) hxsign hmsb
+    have h2 : (0 : Rat) < 2 ^ (x.ex.toInt) := Rat.two_pow_pos _
+    grind
+  have hfinL := UnpackedFloat.isNormOrNonzeroSubnorm_lower_of_in_range
+    (by grind) hs heu hsu x hxsign hxnorm hnotunder hnotover
   have hLnan : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).isNaN = false := by
     simpa using PackedFloat.not_isNaN_of_isNormOrSubnorm hfinL
   have hLinf : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).isInfinite = false := by
     simpa using PackedFloat.not_isInfinite_of_isNormOrSubnorm hfinL
-  have hCore := isEven_smtLibLower_eq_blastExtractIsEven_of_sign_false
-    he hs heu hsu x hxsign hxnorm hnotunder hnotover
   -- pin `lower = pf` to read off its sign and the representability bridge.
   obtain ⟨pf, hpfNotNaN, hpfLower, hToRat, hSign, _⟩ :=
     UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero
@@ -109,7 +126,7 @@ theorem isEven_smtLibUpper_eq_of_sign_false
   have hsignL : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).sign
       = false := by rw [← hpflow, ← hSign, sign_blastRoundTowardZero, hxsign]
   by_cases hnr : x.needsRounding ep sp = true
-  · -- needs rounding: `upper = successorAwayFromZero(lower)`, parity flips.
+  · -- needs rounding: `lower < x.toRat'`.
     have hne : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).toRat
         ≠ x.toRat' := by
       rw [← hpflow, ← hToRat]
@@ -117,9 +134,27 @@ theorem isEven_smtLibUpper_eq_of_sign_false
       have hnotneeds := (UnpackedFloat.blastRoundTowardZero_toRat'_eq_toRat'_iff_not_needsRounding
         (by grind) hs heu hsu x hxsign hnotunder hnotover).mp hcontra
       rw [hnotneeds] at hnr; simp at hnr
-    rw [upper_eq_lower_successorAwayFromZero_of_ne (by grind) hs x.toRat' hxpos hfinL hfinSucc hsignL hne,
-      isEven_successorAwayFromZero hs _ hLnan hLinf, hCore, hnr]
-    simp
+    have hltr : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).toRat
+        < x.toRat' := by
+      have hle := lower_toRat_le he' hs x.toRat' hfinL; grind
+    by_cases hmax : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp)
+        = PackedFloat.maxNormalNumber ep sp false
+    · -- `lower = maxNormal`: the successor overflows, so `upper = +∞` (even). Since `maxNormal` is
+      -- odd, `isEven(+∞) = true = !isEven(maxNormal) = !blastExtractIsEven`, matching the `nR` arm.
+      have hbe_false : x.blastExtractIsEven ep sp = false := by
+        rw [← hCore, hmax]; exact isEven_maxNormalNumber hs
+      have hupinf : (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp)
+          = PackedFloat.getInfinity ep sp false := by
+        rw [smtLibUpper_eq_upper ep sp he' hs _ (by simp)]
+        apply upper_Number_eq_getInfinity_of_maxNormalNumber_lt he' hs x.toRat'
+        rw [← hmax]; exact hltr
+      rw [hupinf, isEven_getInfinity, hnr, hbe_false]; simp
+    · -- `lower ≠ maxNormal`: the successor is finite and `upper = successor(lower)`, parity flips.
+      have hfinSucc := PackedFloat.isNormOrNonzeroSubnorm_successorAwayFromZero_of_ne_maxNormal
+        (by grind) hs _ hsignL hfinL hmax
+      rw [upper_eq_lower_successorAwayFromZero_of_ne (by grind) hs x.toRat' hxpos hfinL hfinSucc hsignL hne,
+        isEven_successorAwayFromZero hs _ hLnan hLinf, hCore, hnr]
+      simp
   · -- exactly representable: `upper = lower`.
     have hnr' : x.needsRounding ep sp = false := by grind
     have hrepr : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).toRat
@@ -127,7 +162,7 @@ theorem isEven_smtLibUpper_eq_of_sign_false
       rw [← hpflow, ← hToRat]
       exact (UnpackedFloat.blastRoundTowardZero_toRat'_eq_toRat'_iff_not_needsRounding
         (by grind) hs heu hsu x hxsign hnotunder hnotover).mpr hnr'
-    rw [upper_eq_lower_of_lower_isNormOrNonzeroSubnorm (by grind) hs x.toRat' hfinL hrepr, hCore, hnr']
+    rw [upper_eq_lower_of_lower_isNormOrNonzeroSubnorm he' hs x.toRat' hfinL hrepr, hCore, hnr']
     simp
 
 end Fp
