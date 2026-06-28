@@ -718,13 +718,18 @@ def UnpackedFloat.blastRounderForSign {eu su : Nat} (uf : UnpackedFloat eu su) (
     uf.blastLower tep tsp
 
 
+-- When `uf` is exactly representable (`¬needsRounding`), the lower and upper approximants coincide,
+-- so the parity is just `blastExtractIsEven`. Only when rounding is needed do they differ by one
+-- ULP (opposite parity). The `needsRounding=true` arms reproduce the original `blastIsEven`/
+-- `!blastIsEven`; the predicates are consumed only in the RNE tie branch (where rounding is needed),
+-- so this leaves the rounding output unchanged while making the parity correct in all cases.
 @[bv_normalize]
 def UnpackedFloat.blastIsEvenLower {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) : Bool :=
-  uf.blastIsEven tep tsp
+  bif uf.needsRounding tep tsp then uf.blastIsEven tep tsp else uf.blastExtractIsEven tep tsp
 
 @[bv_normalize]
 def UnpackedFloat.blastIsEvenUpper {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) : Bool :=
-  !uf.blastIsEven tep tsp
+  bif uf.needsRounding tep tsp then !uf.blastIsEven tep tsp else uf.blastExtractIsEven tep tsp
 
 
 @[bv_normalize]
