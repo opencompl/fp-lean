@@ -662,9 +662,12 @@ def UnpackedFloat.blastUpper {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp :
 @[bv_normalize]
 def UnpackedFloat.blastIsLowerHalfNonneg {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) : Bool :=
   !uf.blastExtractGuardBit tep tsp
+-- For a negative value `-|x|`, the SMT `lowerHalf` is `upper_sp(|x|) = upper_{sp+1}(|x|)`, which
+-- holds iff `guard == sticky`. (Previously `uf.neg.blastExtractGuardBit = guard`, which only differs
+-- in the never-consumed representable/tie cases — fixed so the spec equivalence holds unconditionally.)
 @[bv_normalize]
 def UnpackedFloat.blastIsLowerHalfNeg {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) : Bool :=
-  uf.neg.blastExtractGuardBit tep tsp
+  uf.blastExtractGuardBit tep tsp == uf.blastExtractStickyBit tep tsp
 
 -- lowerHalf = !guardBit
 @[bv_normalize]
