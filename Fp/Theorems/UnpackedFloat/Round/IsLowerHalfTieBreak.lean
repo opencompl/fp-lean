@@ -3,6 +3,40 @@ import Fp.Theorems.UnpackedFloat.Round.IsEvenBoundary
 
 namespace Fp
 
+/-- **Sticky theory.** `needsRounding` at precision `sp+1` equals the sticky bit at precision `sp`:
+both are "some significand bit strictly below the `sp` guard index is set". (At `sp+1` the guard index
+drops by one, so `guard_{sp+1} || sticky_{sp+1}` ranges over exactly the bits `< guardIndex_sp`.) -/
+theorem needsRounding_succ_eq_blastExtractStickyBit
+    {eu su ep sp : Nat} (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep (sp + 1) ≤ eu) (hsu : sp + 3 ≤ su) (x : UnpackedFloat eu su)
+    (hdiffLower : -2 ^ (eu - 1) ≤ minNormalExp ep - x.ex.toInt)
+    (hdiffUpper : minNormalExp ep - x.ex.toInt < 2 ^ (eu - 1))
+    (hdiffNatLe : (minNormalExp ep - x.ex.toInt).toNat ≤ sp) :
+    x.needsRounding ep (sp + 1) = x.blastExtractStickyBit ep sp := by
+  have heu_sp : exponentWidth ep sp ≤ eu := Nat.le_trans exponentWidth_le_succ heu
+  have hst_sp := extractStickyBit_eq_false_iff he hs heu_sp (by omega) x hdiffLower hdiffUpper hdiffNatLe
+  have hst_sp1 := extractStickyBit_eq_false_iff he (by omega) heu (by omega) x hdiffLower hdiffUpper (by omega)
+  have hgb_sp1 := UnpackedFloat.blastExtractGuardBit_eq_true_iff he (by omega) heu (by omega)
+    x hdiffLower hdiffUpper (by omega)
+  -- Both predicates are `false` iff every significand bit below the `sp` guard index is `0`.
+  have key : x.needsRounding ep (sp + 1) = false ↔ x.blastExtractStickyBit ep sp = false := by
+    rw [hst_sp]
+    unfold UnpackedFloat.needsRounding
+    rw [Bool.or_eq_false_iff]
+    have hgf : x.blastExtractGuardBit ep (sp + 1) = false
+        ↔ x.sig.getLsbD (su - (sp + 1 + 2) + (minNormalExp ep - x.ex.toInt).toNat) = false := by
+      rw [← Bool.not_eq_true, hgb_sp1]; simp
+    rw [hgf, hst_sp1]
+    constructor
+    · rintro ⟨hg, hlt⟩ i hi
+      rcases Nat.lt_or_ge i (su - (sp + 1 + 2) + (minNormalExp ep - x.ex.toInt).toNat) with h | h
+      · exact hlt i h
+      · have : i = su - (sp + 1 + 2) + (minNormalExp ep - x.ex.toInt).toNat := by omega
+        rw [this]; exact hg
+    · intro hall
+      exact ⟨hall _ (by omega), fun i hi => hall i (by omega)⟩
+  cases hnr : x.needsRounding ep (sp + 1) <;> cases hst : x.blastExtractStickyBit ep sp <;> simp_all
+
 /-- The lower approximant's value is the round-toward-zero value, for a nonnegative in-range
 normalized float. (The witness pins `lower = pack(roundTZ)`; this exposes just the `toRat`.) -/
 theorem smtLibLower_lower_toRat_eq_blastRoundTowardZero
