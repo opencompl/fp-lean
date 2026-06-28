@@ -109,7 +109,7 @@ theorem blastExtractGuardBit_eq_true_of_off_eq_succ_of_msb (hep : 1 < ep) (hsp :
 
 /-- Shared boundary setup: at `blastIsUnderflowNonneg ∧ ¬blastIsEarlyUnderflow`, the exponent is
 `minSubnormalExp − 1`, the shift is in range, and `0 < x.toRat' < minSubnormalNumber`. -/
-private theorem boundary_facts {eu su ep sp : Nat}
+theorem boundary_facts {eu su ep sp : Nat}
     (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hmsb : x.sig.msb = true)
     (hunder : x.blastIsUnderflowNonneg ep sp = true)
