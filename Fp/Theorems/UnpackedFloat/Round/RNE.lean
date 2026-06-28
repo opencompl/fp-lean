@@ -723,11 +723,7 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
           -- -- simp at hunder
           rw [UnpackedFloat.blastSmtLibRoundAux, UnpackedFloat.blastSmtLibRoundRNE]
           simp
-          rw [blastIsLowerHalf_eq (by grind only) (by grind only)]
-          simp only [decide_eq_false_iff_not, decide_eq_true_eq]
-          rw [blastIsTieBreak_eq (by grind only) (by grind only)]
-          simp only [decide_eq_false_iff_not, decide_eq_true_eq]
-          -- The even predicates are applied to `x.truncateFittingExponent`, which is nonzero and
+          -- The rounding predicates are applied to `x.truncateFittingExponent`, which is nonzero and
           -- normalized; supply its `msb`, normalization, and (early) under/overflow flags.
           have hsig : x.sig ≠ 0#su := by simpa [UnpackedFloat.isZero] using hzero
           have htnorm := normalize_truncateFittingExponent_eq_self_of_normalize_eq_self
@@ -744,6 +740,11 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
               toInt_ex_truncateFittingExponent he hs heu x (by simpa using hover) (by simpa using hunder),
               ← UnpackedFloat.blastIsEarlyUnderflowNonneg_eq_decide he hs heu x]
             simpa using hunder
+          rw [blastIsLowerHalf_eq hep hs (Nat.le_refl _) hsu (x.truncateFittingExponent ep sp)
+            htnorm htmsb htunder htover]
+          simp only [decide_eq_false_iff_not, decide_eq_true_eq]
+          rw [blastIsTieBreak_eq (by grind only) (by grind only)]
+          simp only [decide_eq_false_iff_not, decide_eq_true_eq]
           rw [blastIsEvenUpper_eq hep hs (Nat.le_refl _) hsu (x.truncateFittingExponent ep sp)
             htnorm htmsb htunder htover]
           simp only [Bool.decide_eq_true]
@@ -783,5 +784,12 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
                   · simp
                   · grind
 
+/--
+info: 'Fp.UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE' depends on axioms: [propext,
+ sorryAx,
+ Classical.choice,
+ Quot.sound]
+-/
+#guard_msgs in #print axioms UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
 
 end Fp
