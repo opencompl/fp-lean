@@ -92,6 +92,21 @@ theorem needsRounding_eq_true_of_off_eq_succ_of_msb (hep : 1 < ep) (hsp : 0 < sp
     simp
   simp [UnpackedFloat.needsRounding, hgb]
 
+/-- At the boundary, the guard bit is the (set) MSB, hence `true`. -/
+theorem blastExtractGuardBit_eq_true_of_off_eq_succ_of_msb (hep : 1 < ep) (hsp : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su) (x : UnpackedFloat eu su)
+    (hdiffLower : -2 ^ (eu - 1) ≤ minNormalExp ep - x.ex.toInt)
+    (hdiffUpper : minNormalExp ep - x.ex.toInt < 2 ^ (eu - 1))
+    (hoff : (minNormalExp ep - x.ex.toInt).toNat = sp + 1) (hmsb : x.sig.msb = true) :
+    x.blastExtractGuardBit ep sp = true := by
+  have hgbi : (x.guardBitIndex ep sp).toNat = su - 1 := by
+    rw [toNat_guardBitIndex_eq_succ hep hsp heu hsu x hdiffLower hdiffUpper (by omega), hoff]; omega
+  have hlast : x.sig.getLsbD (su - 1) = true := (BitVec.msb_eq_getLsbD_last x.sig).symm.trans hmsb
+  unfold UnpackedFloat.blastExtractGuardBit
+  simp only [ne_eq, decide_eq_true_eq]
+  rw [and_oneHotBV_eq_zero_iff, hgbi, hlast]
+  simp
+
 /-- Shared boundary setup: at `blastIsUnderflowNonneg ∧ ¬blastIsEarlyUnderflow`, the exponent is
 `minSubnormalExp − 1`, the shift is in range, and `0 < x.toRat' < minSubnormalNumber`. -/
 private theorem boundary_facts {eu su ep sp : Nat}
