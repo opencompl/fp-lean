@@ -306,6 +306,55 @@ theorem needsRounding_truncateFittingExponent
   rw [guardBitIndex_truncateFittingExponent he hs heu x hnotover hnotunder]
   simp only [sig_truncateFittingExponent]
 
+/-- The guard bit is invariant under `truncateFittingExponent`: truncation only re-fits the
+exponent (`sig_truncateFittingExponent`), and the guard-bit index is preserved
+(`guardBitIndex_truncateFittingExponent`), so the inspected bit is the same. -/
+theorem blastExtractGuardBit_truncateFittingExponent
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (x : UnpackedFloat eu su)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hnotunder : x.blastIsEarlyUnderflowNonneg ep sp = false) :
+    (x.truncateFittingExponent ep sp).blastExtractGuardBit ep sp = x.blastExtractGuardBit ep sp := by
+  unfold UnpackedFloat.blastExtractGuardBit
+  rw [guardBitIndex_truncateFittingExponent he hs heu x hnotover hnotunder]
+  simp only [sig_truncateFittingExponent]
+
+/-- The sticky bit is invariant under `truncateFittingExponent` (same reasoning as the guard bit). -/
+theorem blastExtractStickyBit_truncateFittingExponent
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (x : UnpackedFloat eu su)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hnotunder : x.blastIsEarlyUnderflowNonneg ep sp = false) :
+    (x.truncateFittingExponent ep sp).blastExtractStickyBit ep sp = x.blastExtractStickyBit ep sp := by
+  unfold UnpackedFloat.blastExtractStickyBit
+  rw [guardBitIndex_truncateFittingExponent he hs heu x hnotover hnotunder]
+  simp only [sig_truncateFittingExponent]
+
+/-- `blastIsTieBreak` is invariant under `truncateFittingExponent` (both sign branches are
+`guard && !sticky`, and guard/sticky are preserved). -/
+theorem blastIsTieBreak_truncateFittingExponent
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (x : UnpackedFloat eu su)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hnotunder : x.blastIsEarlyUnderflowNonneg ep sp = false) :
+    (x.truncateFittingExponent ep sp).blastIsTieBreak ep sp = x.blastIsTieBreak ep sp := by
+  unfold UnpackedFloat.blastIsTieBreak UnpackedFloat.blastIsTieBreakNonneg UnpackedFloat.blastIsTieBreakNeg
+  rw [blastExtractGuardBit_truncateFittingExponent he hs heu x hnotover hnotunder,
+    blastExtractStickyBit_truncateFittingExponent he hs heu x hnotover hnotunder,
+    sign_truncateFittingExponent]
+
+/-- `blastIsLowerHalf` is invariant under `truncateFittingExponent`. The negated guard bit
+(`blastIsLowerHalfNeg`) is sign-independent — `guardBitIndex` and `sig` ignore the sign — so it too
+reduces to the (preserved) guard bit. -/
+theorem blastIsLowerHalf_truncateFittingExponent
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (x : UnpackedFloat eu su)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hnotunder : x.blastIsEarlyUnderflowNonneg ep sp = false) :
+    (x.truncateFittingExponent ep sp).blastIsLowerHalf ep sp = x.blastIsLowerHalf ep sp := by
+  unfold UnpackedFloat.blastIsLowerHalf UnpackedFloat.blastIsLowerHalfNonneg UnpackedFloat.blastIsLowerHalfNeg
+  rw [sign_truncateFittingExponent,
+    show (x.truncateFittingExponent ep sp).neg.blastExtractGuardBit ep sp
+      = (x.truncateFittingExponent ep sp).blastExtractGuardBit ep sp from rfl,
+    show x.neg.blastExtractGuardBit ep sp = x.blastExtractGuardBit ep sp from rfl,
+    blastExtractGuardBit_truncateFittingExponent he hs heu x hnotover hnotunder]
+
 @[simp]
 theorem sign_blastSuccessorAwayFromZero (uf : UnpackedFloat eu su) :
     (uf.blastSuccessorAwayFromZero tep tsp).sign = uf.sign := by
