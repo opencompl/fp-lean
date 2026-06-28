@@ -2624,6 +2624,13 @@ theorem UnpackedFloat.blastLower_truncateFittingExponent_normalize_eq_self
     (normalize_truncateFittingExponent_eq_self_of_normalize_eq_self (by grind) hs heu hsu x hzero hxnorm)
     hEUt hEOt
 
+/--
+info: 'Fp.UnpackedFloat.blastLower_truncateFittingExponent_normalize_eq_self' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+-/
+#guard_msgs (whitespace := lax) in #print axioms UnpackedFloat.blastLower_truncateFittingExponent_normalize_eq_self
+
 /-- **Overflow connection**: if the successor early-overflows (while `x` does not), then
 `x.toRat' > maxNormal`. With `x.ex = maxNormalExp`, the carry forces
 `blastSuccessorAwayFromZero x = 2^(maxNormalExp+1)`, so `roundTZ = maxNormal` (= `next - ulp`),

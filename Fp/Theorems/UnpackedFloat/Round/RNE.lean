@@ -783,5 +783,12 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
                   · simp
                   · grind
 
+/--
+info: 'Fp.UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE' depends on axioms: [propext,
+ sorryAx,
+ Classical.choice,
+ Quot.sound]
+-/
+#guard_msgs in #print axioms UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
 
 end Fp
