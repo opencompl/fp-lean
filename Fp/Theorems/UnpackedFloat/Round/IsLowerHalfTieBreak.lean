@@ -5,24 +5,27 @@ namespace Fp
 
 /-# blastIsLowerHalf -/
 
-@[simp]
-theorem blastIsLowerHalf_iff_smtLibLowerHalf  (he : 1 < ep) (hs : 0 < sp)  (x : UnpackedFloat e s)  :
+/-- `blastIsLowerHalf` agrees with the SMT-LIB `lowerHalf` predicate. Hypotheses match the isEven
+theorems (so the RNE call site can supply them for `x.truncateFittingExponent`): a nonzero normalized
+input, no early over/underflow. The SMT `lowerHalf` compares the lower approximant at precisions `sp`
+and `sp+1`; the circuit's `!guardBit` matches via `blastRoundTowardZero_toRat'_eq_succ_iff_not_guardBit`. -/
+theorem blastIsLowerHalf_iff_smtLibLowerHalf
+    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
+    (hnotunder : x.blastIsEarlyUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
     (x.blastIsLowerHalf ep sp = true) ↔
     (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat')
     := by
-  simp [UnpackedFloat.blastIsLowerHalf]
-  simp [SmtLibSemantics.smtLibRoundMethod]
   sorry
 
-/--
-info: 'Fp.blastIsLowerHalf_iff_smtLibLowerHalf' depends on axioms: [propext, sorryAx, Classical.choice, Quot.sound]
--/
-#guard_msgs in #print axioms blastIsLowerHalf_iff_smtLibLowerHalf
-
-@[simp]
-theorem blastIsLowerHalf_eq (he : 1 < ep) (hs : 0 < sp) (x : UnpackedFloat e s) :
+theorem blastIsLowerHalf_eq
+    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
+    (hnotunder : x.blastIsEarlyUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
   x.blastIsLowerHalf ep sp = (decide <| (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat')) := by
-  have := blastIsLowerHalf_iff_smtLibLowerHalf he hs x
+  have := blastIsLowerHalf_iff_smtLibLowerHalf he hs heu hsu x hxnorm hmsb hnotunder hnotover
   grind
 
 /--
