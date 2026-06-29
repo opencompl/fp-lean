@@ -599,6 +599,93 @@ theorem blastIsLowerHalf_iff_lowerHalf_of_sign_false_boundary_narrow
         hsign' hmsb' hunder' hnotearlyunder']
 
 
+/-- **Negative, in-range, narrow, non-edge** (`lower ≠ maxNormal`). Transfer of the wide negative leaf
+by widening. The `lower ≠ maxNormal` conditions are value-level, so they hold verbatim for `x.widen`. -/
+theorem blastIsLowerHalf_iff_lowerHalf_of_sign_true_inRange
+    {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (eu' su' : Nat) (hwideu : eu ≤ eu') (hwidesu : su ≤ su')
+    (heu' : exponentWidth ep (sp + 1) ≤ eu') (hsu' : sp + 3 ≤ su')
+    (x : UnpackedFloat eu su) (hxsignt : x.sign = true) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hmaxL : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number (-x).toRat') : PackedFloat ep sp)
+      ≠ PackedFloat.maxNormalNumber ep sp false)
+    (hmaxL1 : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number (-x).toRat') : PackedFloat ep (sp + 1))
+      ≠ PackedFloat.maxNormalNumber ep (sp + 1) false) :
+    (x.blastIsLowerHalf ep sp = true) ↔
+    (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat') := by
+  have hsupos : 0 < su := by omega
+  have heu_succ : exponentWidth ep sp ≤ eu' := Nat.le_trans exponentWidth_le_succ heu'
+  obtain ⟨hdl, hdu, hnat⟩ := inRange_diff_facts he hs heu x hnotunder hnotover
+  -- the negated value is preserved by widening.
+  have hvaleq : (-(x.widen eu' su')).toRat' = (-x).toRat' := by
+    rw [UnpackedFloat.toRat'_neg, toRat'_widen x eu' su' hwideu hwidesu hsupos, ← UnpackedFloat.toRat'_neg]
+  -- widened-float facts.
+  have hnotunder' : (x.widen eu' su').blastIsUnderflowNonneg ep sp = false := by
+    rw [blastIsUnderflowNonneg_widen x eu' su' (by grind) hs heu heu_succ hwideu]; exact hnotunder
+  have hnotover' : (x.widen eu' su').blastIsEarlyOverflowNonneg ep sp = false := by
+    rw [blastIsEarlyOverflowNonneg_widen x eu' su' (by grind) hs heu heu_succ hwideu]; exact hnotover
+  obtain ⟨hdl', hdu', hnat'⟩ := inRange_diff_facts he hs heu_succ (x.widen eu' su') hnotunder' hnotover'
+  rw [← blastIsLowerHalf_widen x eu' su' (by grind) hs heu (by omega) heu_succ (by omega)
+        hwideu hwidesu hdl hdu hnat,
+      ← toRat'_widen x eu' su' hwideu hwidesu hsupos]
+  refine blastIsLowerHalf_iff_lowerHalf_of_sign_true_wide he hs heu' hsu' (x.widen eu' su')
+    (by rw [sign_widen]; exact hxsignt)
+    (normalize_widen x eu' su' hwidesu hsupos hmsb)
+    (by rw [sig_msb_widen x eu' su' hwidesu hsupos]; exact hmsb)
+    hnotunder' hnotover' hdl' hdu' hnat' ?_ ?_
+  · rw [hvaleq]; exact hmaxL
+  · rw [hvaleq]; exact hmaxL1
+
+/-- If `lower` at precision `sp` is not `maxNormal`, then neither is it at `sp+1` (more precision means a
+larger `maxNormal`, and `lower_{sp+1} = maxNormal_{sp+1}` would force `value ≥ maxNormal_sp`, hence
+`lower_sp = maxNormal_sp`). -/
+theorem lower_succ_ne_maxNormal_of_lower_ne_maxNormal {ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+    (R : Rat)
+    (hmaxL : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number R) : PackedFloat ep sp)
+      ≠ PackedFloat.maxNormalNumber ep sp false) :
+    (SmtLibSemantics.smtLibLower.lower (ExtRat.Number R) : PackedFloat ep (sp + 1))
+      ≠ PackedFloat.maxNormalNumber ep (sp + 1) false := by
+  intro hcontra
+  apply hmaxL
+  have hfin1 : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number R) : PackedFloat ep (sp + 1)).isNormOrNonzeroSubnorm := by
+    rw [hcontra]; exact PackedFloat.isNormOrNonzeroSubnorm_maxNormalNumber' (by grind) false
+  have hle := lower_toRat_le (by grind) (by omega) R hfin1
+  rw [hcontra] at hle
+  have hmono := PackedFloat.toRat_maxNormalNumber_lt_toRat_maxNormalNumber_succ he hs
+  have hRge : (PackedFloat.maxNormalNumber ep sp false).toRat ≤ R := by grind
+  rw [smtLibLower_eq_lower ep sp (by grind) hs (ExtRat.Number R) (by simp)]
+  exact lower_Number_eq_maxNormalNumber_of_toRat_le (by grind) (by grind) hs R hRge
+
+/-- **Negative, narrow (any range).** Dispatches the negative underflow boundary, the in-range
+non-edge case, and the `lower = maxNormal` overflow edge. -/
+theorem blastIsLowerHalf_iff_smtLibLowerHalf_of_sign_true
+    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxsignt : x.sign = true) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
+    (hnotunder : x.blastIsEarlyUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    (x.blastIsLowerHalf ep sp = true) ↔
+    (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat') := by
+  have hwideu : eu ≤ max eu (exponentWidth ep (sp + 1)) := Nat.le_max_left _ _
+  have hwidesu : su ≤ max su (sp + 3) := Nat.le_max_left _ _
+  have heu' : exponentWidth ep (sp + 1) ≤ max eu (exponentWidth ep (sp + 1)) := Nat.le_max_right _ _
+  have hsu' : sp + 3 ≤ max su (sp + 3) := Nat.le_max_right _ _
+  by_cases hunder : x.blastIsUnderflowNonneg ep sp = true
+  · -- negative underflow boundary
+    sorry
+  · simp only [Bool.not_eq_true] at hunder
+    by_cases hmaxL : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number (-x).toRat') : PackedFloat ep sp)
+        = PackedFloat.maxNormalNumber ep sp false
+    · -- `lower = maxNormal` overflow edge
+      sorry
+    · -- in-range, non-edge
+      exact blastIsLowerHalf_iff_lowerHalf_of_sign_true_inRange he hs heu hsu
+        (max eu (exponentWidth ep (sp + 1))) (max su (sp + 3)) hwideu hwidesu heu' hsu'
+        x hxsignt hxnorm hmsb hunder hnotover hmaxL
+        (lower_succ_ne_maxNormal_of_lower_ne_maxNormal he hs (-x).toRat' hmaxL)
+
+
 /-# blastIsLowerHalf -/
 
 /-- **Nonnegative, narrow (any range).** Dispatches the underflow boundary vs the in-range case, widening
@@ -638,8 +725,9 @@ theorem blastIsLowerHalf_iff_smtLibLowerHalf
   by_cases hxsign : x.sign = false
   · exact blastIsLowerHalf_iff_smtLibLowerHalf_of_sign_false he hs heu hsu x hxsign hxnorm hmsb
       hnotunder hnotover
-  · -- negative case (in-range + edges) — next increment
-    sorry
+  · have hxsignt : x.sign = true := by simp only [Bool.not_eq_false] at hxsign; exact hxsign
+    exact blastIsLowerHalf_iff_smtLibLowerHalf_of_sign_true he hs heu hsu x hxsignt hxnorm hmsb
+      hnotunder hnotover
 
 theorem blastIsLowerHalf_eq
     (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
