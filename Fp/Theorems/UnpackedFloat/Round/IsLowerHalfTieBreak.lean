@@ -658,6 +658,32 @@ theorem lower_succ_ne_maxNormal_of_lower_ne_maxNormal {ep sp : Nat} (he : 2 < ep
   rw [smtLibLower_eq_lower ep sp (by grind) hs (ExtRat.Number R) (by simp)]
   exact lower_Number_eq_maxNormalNumber_of_toRat_le (by grind) (by grind) hs R hRge
 
+/-- At the underflow boundary (`off = sp+1`), the guard bit is the set MSB, so the negative
+`blastIsLowerHalf = (guard == sticky) = sticky`. Sign-independent exponent facts (derived for `x`
+directly, since `boundary_facts` itself needs `sign = false`). -/
+theorem blastIsLowerHalf_eq_blastExtractStickyBit_of_sign_true_boundary {eu su ep sp : Nat}
+    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxsignt : x.sign = true) (hmsb : x.sig.msb = true)
+    (hunder : x.blastIsUnderflowNonneg ep sp = true)
+    (hnotearlyunder : x.blastIsEarlyUnderflowNonneg ep sp = false) :
+    x.blastIsLowerHalf ep sp = x.blastExtractStickyBit ep sp := by
+  have hms : minSubnormalExp ep sp = minNormalExp ep - sp := by
+    simp only [minSubnormalExp, maxSubnormalExp]; grind
+  have hexlt : x.ex.toInt < minSubnormalExp ep sp := by
+    rw [UnpackedFloat.blastUnderflowNonneg_eq_decide (by grind) hs heu] at hunder; simpa using hunder
+  have hexge : minSubnormalExp ep sp - 1 ≤ x.ex.toInt := by
+    rw [UnpackedFloat.blastIsEarlyUnderflowNonneg_eq_decide (by grind) hs heu] at hnotearlyunder
+    simp only [decide_eq_false_iff_not, Int.not_lt] at hnotearlyunder; exact hnotearlyunder
+  have hoff : (minNormalExp ep - x.ex.toInt).toNat = sp + 1 := by grind
+  have hmaxN : minSubnormalExp ep sp ≤ maxNormalExp ep := by
+    have hb := bias_pos_of_one_lt ep (by grind)
+    rw [minSubnormalExp_eq_neg_bias_minus_s_minus_one (by grind)]; simp only [maxNormalExp]; omega
+  obtain ⟨hdiffLower, hdiffUpper⟩ :=
+    shift_range (by grind) hs heu (exInt := x.ex.toInt) (by grind) (by grind)
+  have hguard := blastExtractGuardBit_eq_true_of_off_eq_succ_of_msb (by grind) hs heu hsu x
+    hdiffLower hdiffUpper hoff hmsb
+  simp [UnpackedFloat.blastIsLowerHalf, UnpackedFloat.blastIsLowerHalfNeg, hxsignt, hguard]
+
 /-- **Negative, narrow (any range).** Dispatches the negative underflow boundary, the in-range
 non-edge case, and the `lower = maxNormal` overflow edge. -/
 theorem blastIsLowerHalf_iff_smtLibLowerHalf_of_sign_true
