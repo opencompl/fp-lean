@@ -72,7 +72,7 @@ theorem toRat'_widen {eu su : Nat} (x : UnpackedFloat eu su) (eu' su' : Nat)
   grind
 
 /-- The exponent-difference bounds at width `eu` carry to the wider width `eu'`. -/
-private theorem widen_diff_bounds {eu eu' : Nat} (heu : eu ≤ eu') (hge : 1 ≤ eu)
+theorem widen_diff_bounds {eu eu' : Nat} (heu : eu ≤ eu') (hge : 1 ≤ eu)
     (d : Int) (hlo : -2 ^ (eu - 1) ≤ d) (hhi : d < 2 ^ (eu - 1)) :
     -2 ^ (eu' - 1) ≤ d ∧ d < 2 ^ (eu' - 1) := by
   have hnat : (2 : Nat) ^ (eu - 1) ≤ 2 ^ (eu' - 1) := Nat.pow_le_pow_right (by omega) (by omega)

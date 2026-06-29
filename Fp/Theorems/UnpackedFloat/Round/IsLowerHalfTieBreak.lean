@@ -1006,6 +1006,78 @@ theorem smtLibLowerHalf_iff_blastExtractStickyBit_of_sign_true_boundary
   cases hst : x.blastExtractStickyBit ep sp <;> simp only [hst, if_true, if_false, Bool.false_eq_true] <;>
     constructor <;> intro h <;> grind
 
+/-- Widening preserves the sticky bit at the boundary (`off = sp+1`), where the general `off ≤ sp`
+preservation does not apply. Both sides are "some significand bit strictly below the MSB is set". -/
+theorem blastExtractStickyBit_widen_boundary {ep sp eu su : Nat} (x : UnpackedFloat eu su) (eu' su' : Nat)
+    (hep : 1 < ep) (hsp : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (heu' : exponentWidth ep sp ≤ eu') (hsu' : sp + 2 ≤ su')
+    (hwideu : eu ≤ eu') (hwidesu : su ≤ su')
+    (hdiffLower : -2 ^ (eu - 1) ≤ minNormalExp ep - x.ex.toInt)
+    (hdiffUpper : minNormalExp ep - x.ex.toInt < 2 ^ (eu - 1))
+    (hoff : (minNormalExp ep - x.ex.toInt).toNat = sp + 1) :
+    (x.widen eu' su').blastExtractStickyBit ep sp = x.blastExtractStickyBit ep sp := by
+  have hge : 1 ≤ eu := by have := @zero_lt_exponentWidth ep sp; omega
+  obtain ⟨hbl, hbu⟩ := widen_diff_bounds hwideu hge (minNormalExp ep - x.ex.toInt) hdiffLower hdiffUpper
+  have hexw : (x.widen eu' su').ex.toInt = x.ex.toInt := ex_toInt_widen x eu' su' hwideu
+  rw [Bool.eq_iff_iff,
+    blastExtractStickyBit_eq_true_of_off_eq_succ_iff hep hsp heu' hsu' (x.widen eu' su')
+      (by rw [hexw]; exact hbl) (by rw [hexw]; exact hbu) (by rw [hexw]; exact hoff),
+    blastExtractStickyBit_eq_true_of_off_eq_succ_iff hep hsp heu hsu x hdiffLower hdiffUpper hoff]
+  constructor
+  · rintro ⟨i, hi, hb⟩
+    rw [getLsbD_sig_widen x eu' su'] at hb
+    simp only [Bool.and_eq_true, decide_eq_true_eq] at hb
+    obtain ⟨⟨hge', hlt'⟩, hb⟩ := hb
+    exact ⟨i - (su' - su), by omega, hb⟩
+  · rintro ⟨j, hj, hb⟩
+    refine ⟨j + (su' - su), by omega, ?_⟩
+    rw [getLsbD_sig_widen x eu' su']
+    simp only [Bool.and_eq_true, decide_eq_true_eq]
+    exact ⟨⟨by omega, by omega⟩, by rw [show j + (su' - su) - (su' - su) = j by omega]; exact hb⟩
+
+/-- **Negative underflow boundary, narrow.** `blastIsLowerHalf = sticky` (circuit) and `lowerHalf = sticky`
+(via the wide leaf on the widening, since `lowerHalf` and `sticky` are both widening-invariant here). -/
+theorem blastIsLowerHalf_iff_smtLibLowerHalf_of_sign_true_boundary_narrow
+    {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (eu' su' : Nat) (hwideu : eu ≤ eu') (hwidesu : su ≤ su')
+    (heu' : exponentWidth ep (sp + 1) ≤ eu') (hsu' : sp + 3 ≤ su')
+    (x : UnpackedFloat eu su) (hxsignt : x.sign = true) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
+    (hunder : x.blastIsUnderflowNonneg ep sp = true)
+    (hnotearlyunder : x.blastIsEarlyUnderflowNonneg ep sp = false) :
+    (x.blastIsLowerHalf ep sp = true) ↔
+    (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat') := by
+  have hsupos : 0 < su := by omega
+  have heu_succ : exponentWidth ep sp ≤ eu' := Nat.le_trans exponentWidth_le_succ heu'
+  -- diff facts for `x` at the boundary.
+  have hms : minSubnormalExp ep sp = minNormalExp ep - sp := by
+    simp only [minSubnormalExp, maxSubnormalExp]; grind
+  have hexlt : x.ex.toInt < minSubnormalExp ep sp := by
+    rw [UnpackedFloat.blastUnderflowNonneg_eq_decide (by grind) hs heu] at hunder; simpa using hunder
+  have hexge : minSubnormalExp ep sp - 1 ≤ x.ex.toInt := by
+    rw [UnpackedFloat.blastIsEarlyUnderflowNonneg_eq_decide (by grind) hs heu] at hnotearlyunder
+    simp only [decide_eq_false_iff_not, Int.not_lt] at hnotearlyunder; exact hnotearlyunder
+  have hoff : (minNormalExp ep - x.ex.toInt).toNat = sp + 1 := by grind
+  have hmaxN : minSubnormalExp ep sp ≤ maxNormalExp ep := by
+    have hb := bias_pos_of_one_lt ep (by grind)
+    rw [minSubnormalExp_eq_neg_bias_minus_s_minus_one (by grind)]; simp only [maxNormalExp]; omega
+  obtain ⟨hdiffLower, hdiffUpper⟩ :=
+    shift_range (by grind) hs heu (exInt := x.ex.toInt) (by grind) (by grind)
+  -- widened-float boundary flags.
+  have hsignt' : (x.widen eu' su').sign = true := by rw [sign_widen]; exact hxsignt
+  have hmsb' : (x.widen eu' su').sig.msb = true := by rw [sig_msb_widen x eu' su' hwidesu hsupos]; exact hmsb
+  have hunder' : (x.widen eu' su').blastIsUnderflowNonneg ep sp = true := by
+    rw [blastIsUnderflowNonneg_widen x eu' su' (by grind) hs heu heu_succ hwideu]; exact hunder
+  have hnotearly' : (x.widen eu' su').blastIsEarlyUnderflowNonneg ep sp = false := by
+    rw [blastIsEarlyUnderflowNonneg_widen x eu' su' (by grind) hs heu heu_succ hwideu]; exact hnotearlyunder
+  rw [blastIsLowerHalf_eq_blastExtractStickyBit_of_sign_true_boundary he hs heu hsu x hxsignt hmsb
+        hunder hnotearlyunder,
+    ← toRat'_widen x eu' su' hwideu hwidesu hsupos,
+    smtLibLowerHalf_iff_blastExtractStickyBit_of_sign_true_boundary he hs heu' hsu' (x.widen eu' su')
+      hsignt' (normalize_widen x eu' su' hwidesu hsupos hmsb) hmsb' hunder' hnotearly',
+    blastExtractStickyBit_widen_boundary x eu' su' (by grind) hs heu hsu heu_succ (by omega)
+      hwideu hwidesu hdiffLower hdiffUpper hoff]
+
 /-- **Negative, narrow (any range).** Dispatches the negative underflow boundary, the in-range
 non-edge case, and the `lower = maxNormal` overflow edge. -/
 theorem blastIsLowerHalf_iff_smtLibLowerHalf_of_sign_true
@@ -1021,7 +1093,9 @@ theorem blastIsLowerHalf_iff_smtLibLowerHalf_of_sign_true
   have hsu' : sp + 3 ≤ max su (sp + 3) := Nat.le_max_right _ _
   by_cases hunder : x.blastIsUnderflowNonneg ep sp = true
   · -- negative underflow boundary
-    sorry
+    exact blastIsLowerHalf_iff_smtLibLowerHalf_of_sign_true_boundary_narrow he hs heu hsu
+      (max eu (exponentWidth ep (sp + 1))) (max su (sp + 3)) hwideu hwidesu heu' hsu'
+      x hxsignt hxnorm hmsb hunder hnotunder
   · simp only [Bool.not_eq_true] at hunder
     by_cases hmaxL : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number (-x).toRat') : PackedFloat ep sp)
         = PackedFloat.maxNormalNumber ep sp false
