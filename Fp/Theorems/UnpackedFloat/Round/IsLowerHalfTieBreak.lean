@@ -197,6 +197,54 @@ theorem smtLibUpper_succ_toRat_eq_lower_add_sticky_ulp
     needsRounding_succ_eq_blastExtractStickyBit (by grind) hs heu hsu x hdiffLower hdiffUpper hdiffNatLe]
   simp
 
+/-- The upper approximant is finite when the lower is in range and not `maxNormal` (so its successor
+doesn't overflow). -/
+theorem isNormOrNonzeroSubnorm_smtLibUpper_of_sign_false_of_ne_maxNormal
+    {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hmaxL : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp)
+      ≠ PackedFloat.maxNormalNumber ep sp false) :
+    (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp).isNormOrNonzeroSubnorm := by
+  have hmsb := UnpackedFloat.msb_eq_true_of_normalize_of_not_blastIsUnderflowNonneg
+    (by grind) hs heu x hxnorm hnotunder
+  have hxpos : 0 < x.toRat' := by
+    have h1 := UnpackedFloat.two_pow_ex_le_toRat'_of_msb_of_sign_false x (by grind) hxsign hmsb
+    have h2 : (0 : Rat) < 2 ^ (x.ex.toInt) := Rat.two_pow_pos _
+    grind
+  have hfinL := UnpackedFloat.isNormOrNonzeroSubnorm_lower_of_in_range
+    he hs heu hsu x hxsign hxnorm hnotunder hnotover
+  obtain ⟨pf, hpfNotNaN, hpfLower, hToRat, hSign, _⟩ :=
+    UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero
+      (by grind) hs heu hsu x hxsign hxnorm hnotunder hnotover
+  have hpflow : pf = (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp) :=
+    eq_of_IsLawfulLower_of_IsLawfulLower ep sp (ExtRat.Number x.toRat') pf _ hpfNotNaN
+      (by simpa using not_isNaN_lower_of_ne_NaN ep sp (by grind) hs _ (by simp))
+      hpfLower (lsLawfulLower_smtLibLower ep sp (by grind) hs _)
+  have hsignL : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).sign
+      = false := by rw [← hpflow, ← hSign, sign_blastRoundTowardZero, hxsign]
+  by_cases hnr : x.needsRounding ep sp = true
+  · have hne : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).toRat
+        ≠ x.toRat' := by
+      rw [← hpflow, ← hToRat]; intro hc
+      have := (UnpackedFloat.blastRoundTowardZero_toRat'_eq_toRat'_iff_not_needsRounding
+        (by grind) hs heu hsu x hxsign hnotunder hnotover).mp hc
+      rw [this] at hnr; simp at hnr
+    have hfinSucc := PackedFloat.isNormOrNonzeroSubnorm_successorAwayFromZero_of_ne_maxNormal
+      (by grind) hs _ hsignL hfinL hmaxL
+    rw [upper_eq_lower_successorAwayFromZero_of_ne (by grind) hs x.toRat' hxpos hfinL hfinSucc hsignL hne]
+    exact hfinSucc
+  · have hnr' : x.needsRounding ep sp = false := by grind
+    have hrepr : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).toRat
+        = x.toRat' := by
+      rw [← hpflow, ← hToRat]
+      exact (UnpackedFloat.blastRoundTowardZero_toRat'_eq_toRat'_iff_not_needsRounding
+        (by grind) hs heu hsu x hxsign hnotunder hnotover).mpr hnr'
+    rw [upper_eq_lower_of_lower_isNormOrNonzeroSubnorm (by grind) hs x.toRat' hfinL hrepr]
+    exact hfinL
+
 /-- **Upper bridge.** `upper_sp.toRat = upper_{sp+1}.toRat ⟺ guard == sticky` (nonnegative, in-range,
 wide, both lowers ≠ maxNormal). From the two upper foundation lemmas + the lower bridge: writing
 `u = 2^(x.ex-(sp+1)+off)`, `upper_sp − upper_{sp+1} = (needsRounding?2u:0) − (guard?u:0) − (sticky?u:0)`,
