@@ -2,7 +2,7 @@ import Fp.Division
 import Fp.Theorems.Addition
 import Fp.Theorems.Multiplication
 import Fp.Theorems.SmtLibSemanticsQ
-import Fp.Theorems.StickyEquivCore
+import Fp.Theorems.StickyEquiv
 
 /-!
 # Division correctness via the sticky-bit (`StickyEquiv`) theory

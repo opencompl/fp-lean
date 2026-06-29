@@ -1,26 +1,34 @@
-import Fp.Theorems.Addition
+import Fp.Utils.Rat
 
 /-!
-# General `StickyEquiv` theory
+# `StickyEquiv` — the general sticky-compression theory
 
-Operation-independent lemmas for discharging `StickyEquiv` goals.  A floating
-point circuit that keeps a quotient/sum to `s` bits and OR-s a sticky bit into
-the last position produces a value that is a *sticky compression* (`StickyEquiv`)
-of the exact result.  This file isolates the two reusable steps shared by the
-addition and division correctness proofs:
-
-* **L1** `StickyEquiv.of_sign_grid` — strip the common sign `±1` and grid weight
-  `2^k`, reducing a `StickyEquiv` goal to the integer-significand disjunction
-  `t = n ∨ (n odd ∧ |t − n| < 1)`.
-* **L2** `floor_sticky_within_one` — the floor/remainder/sticky/shift core: for a
-  Nat dividend `D`, divisor `Y`, normalisation shift `b ≤ 1` and kept significand
-  `n = (⌊D/Y⌋·2^b) ||| sticky`, the exact scaled quotient is either equal to `n`
-  or within one ulp of the (then odd) `n`.
-
-plus the small `Rat`/`Nat` helpers they need.
+A floating-point circuit that keeps a quotient/sum to `s` bits and OR-s a sticky
+bit into the last position produces a value that is a *sticky compression*
+(`StickyEquiv`) of the exact result. This file defines `StickyEquiv` and the two
+operation-independent reduction steps shared by the addition and division proofs:
+`StickyEquiv.of_sign_grid` (strip sign + grid weight) and `floor_sticky_within_one`
+(the floor/remainder/sticky/shift core), plus the small `Rat`/`Nat` helpers.
 -/
 
 namespace Fp
+
+def StickyEquiv (k : Int) (q r : Rat) : Prop :=
+  q = r ∨ (∃ n : Int, ¬ (2 ∣ n) ∧ q = n * (2 : Rat) ^ k ∧ (r - q).abs < (2 : Rat) ^ k)
+
+theorem StickyEquiv.rfl {k : Int} {q : Rat} : StickyEquiv k q q := Or.inl (Eq.refl q)
+
+/-- A sticky compression of a value is zero only if the value itself is zero
+(an odd multiple of `2^k` is nonzero). -/
+theorem StickyEquiv.ne_zero_of_ne_zero {k : Int} {q r : Rat}
+    (h : StickyEquiv k q r) (hr : r ≠ 0) : q ≠ 0 := by
+  rcases h with h | ⟨n, hodd, hq, _⟩
+  · grind
+  · subst hq
+    have hn : n ≠ 0 := by grind
+    have h2 : (2 : Rat) ^ k ≠ 0 := Rat.two_pow_int_ne_zero
+    exact Rat.mul_ne_zero_iff.mpr ⟨fun hcontra => hn (by exact_mod_cast hcontra), h2⟩
+
 
 /-! ## `Rat.abs` helpers -/
 
