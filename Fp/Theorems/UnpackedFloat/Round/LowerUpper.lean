@@ -2631,6 +2631,422 @@ info: 'Fp.UnpackedFloat.blastLower_truncateFittingExponent_normalize_eq_self' de
 -/
 #guard_msgs (whitespace := lax) in #print axioms UnpackedFloat.blastLower_truncateFittingExponent_normalize_eq_self
 
+/-! ### `Packable` of the rounder-output constant representatives (L1, L2, L3, L9) -/
+
+/-- L1: the overflow representative `maxNormal` is `Packable`. -/
+theorem UnpackedFloat.maxNormal_Packable (he : 1 < ep) (hs : 0 < sp) :
+    (UnpackedFloat.maxNormal (exponentWidth ep sp) (sp + 1) ep sp false).Packable := by
+  refine ⟨?_, ?_, ?_⟩
+  · exact UnpackedFloat.normalize_eq_self_of_msb_eq_true _
+      (UnpackedFloat.msb_sig_maxNormal (exponentWidth ep sp) ep sp hs)
+  · simp only [UnpackedFloat.maxNormal]
+    rw [toInt_ofInt_maxNormalExp_eq_maxNormalExp he hs]
+    exact Int.le_refl _
+  · left
+    simp only [UnpackedFloat.maxNormal]
+    rw [toInt_ofInt_maxNormalExp_eq_maxNormalExp he hs, minNormalExp, maxNormalExp]
+    have := bias_pos_of_one_lt ep he
+    grind
+
+/-- L2: the underflow representative `minSubnormalForPackedFloat` is `Packable`. -/
+theorem UnpackedFloat.minSubnormalForPackedFloat_Packable (he : 1 < ep) (hs : 0 < sp) :
+    (UnpackedFloat.minSubnormalForPackedFloat (exponentWidth ep sp) (sp + 1) ep sp false).Packable := by
+  refine ⟨?_, ?_, ?_⟩
+  · exact UnpackedFloat.normalize_eq_self_of_msb_eq_true _
+      (UnpackedFloat.msb_sig_minSubnormalForPackedFloat (exponentWidth ep sp) ep sp hs)
+  · simp only [UnpackedFloat.minSubnormalForPackedFloat]
+    rw [toInt_ofInt_minSubnormalExp_eq_minSubnormalExp he hs, minSubnormalExp, maxSubnormalExp,
+      minNormalExp, maxNormalExp]
+    have := bias_pos_of_one_lt ep he
+    grind
+  · right
+    simp only [UnpackedFloat.minSubnormalForPackedFloat]
+    rw [toInt_ofInt_minSubnormalExp_eq_minSubnormalExp he hs]
+    have hoff : (minNormalExp ep - minSubnormalExp ep sp).toNat = sp := by
+      rw [minSubnormalExp, maxSubnormalExp]; grind
+    rw [hoff, BitVec.toNat_zeroExtend_of_le _ (Nat.le_refl _), BitVec.toNat_leadingOne (by grind)]
+    simp
+
+/-- L3: the canonical zero `mkZero` is `Packable`. -/
+theorem UnpackedFloat.mkZero_Packable (he : 1 < ep) (hs : 0 < sp) (sign : Bool) :
+    (UnpackedFloat.mkZero sign : UnpackedFloat (exponentWidth ep sp) (sp + 1)).Packable := by
+  refine ⟨UnpackedFloat.normalize_mkZero sign, ?_, ?_⟩
+  · rw [UnpackedFloat.ex_mkZero]
+    have heupos : 0 < exponentWidth ep sp := zero_lt_exponentWidth
+    have hmod : (2 : Nat) ^ (exponentWidth ep sp - 1) % 2 ^ (exponentWidth ep sp)
+        = 2 ^ (exponentWidth ep sp - 1) :=
+      Nat.mod_eq_of_lt (Nat.pow_lt_pow_of_lt (by grind) (by grind))
+    rw [BitVec.toInt_intMin, hmod, maxNormalExp]
+    have := bias_pos_of_one_lt ep he
+    push_cast; grind
+  · right
+    simp
+
+/-- L9 (`UnpackedFloat` level): negation preserves `Packable` (only the sign flips). -/
+theorem UnpackedFloat.neg_Packable {e s : Nat} {uf : UnpackedFloat (exponentWidth e s) (s + 1)}
+    (h : uf.Packable) : (-uf).Packable := by
+  obtain ⟨h1, h2, h3⟩ := h
+  refine ⟨?_, ?_, ?_⟩
+  · exact UnpackedFloat.normalize_neg_eq_neg_of_normalize_eq uf h1
+  · rw [UnpackedFloat.neg_ex]; exact h2
+  · rw [UnpackedFloat.neg_ex, UnpackedFloat.neg_sig]; exact h3
+
+/-- L9 (`EUnpackedFloat` level): negation preserves `Packable`. -/
+theorem EUnpackedFloat.neg_Packable {e s : Nat} {euf : EUnpackedFloat (exponentWidth e s) (s + 1)}
+    (h : euf.Packable) : euf.neg.Packable := by
+  intro hstate
+  have hstate' : euf.state = .Number := by
+    simpa [EUnpackedFloat.neg] using hstate
+  have := h hstate'
+  simpa [EUnpackedFloat.neg] using UnpackedFloat.neg_Packable this
+
+/-- L4: `blastRoundTowardZero` on a normalized, in-range nonnegative float (already at the
+packable exponent width) is `Packable`. -/
+theorem UnpackedFloat.blastRoundTowardZero_Packable
+    (he : 1 < ep) (hs : 0 < sp) (hsu : sp + 2 ≤ su)
+    (y : UnpackedFloat (exponentWidth ep sp) su) (hysign : y.sign = false)
+    (hynorm : y.normalize = y)
+    (hnotunder : y.blastIsUnderflowNonneg ep sp = false)
+    (hnotover  : y.blastIsEarlyOverflowNonneg ep sp = false) :
+    (y.blastRoundTowardZero ep sp).Packable := by
+  have heu : exponentWidth ep sp ≤ exponentWidth ep sp := Nat.le_refl _
+  have hoverE : y.ex.toInt ≤ maxNormalExp ep := by
+    have := UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide he hs heu y; grind
+  have hunderE : minSubnormalExp ep sp ≤ y.ex.toInt := by
+    have := UnpackedFloat.blastUnderflowNonneg_eq_decide he hs heu y; grind
+  have hminrel : minNormalExp ep - minSubnormalExp ep sp = (sp : Int) := by
+    simp only [minSubnormalExp, maxSubnormalExp]; grind
+  have hdNat : (minNormalExp ep - y.ex.toInt).toNat ≤ sp := by grind
+  obtain ⟨hdL, hdU⟩ := shift_range he hs heu (exInt := y.ex.toInt) (by grind) hoverE
+  have hG := UnpackedFloat.toNat_guardBitIndex_eq he hs heu hsu y hdL hdU hdNat
+  have hLeq : (y.guardBitIndex ep sp).toNat + 1
+      = (minNormalExp ep - y.ex.toInt).toNat + (su - (sp + 1)) := by rw [hG]; grind
+  have hrsigval : (y.blastRoundTowardZero ep sp).sig.toNat
+      = y.sig.toNat / 2 ^ ((minNormalExp ep - y.ex.toInt).toNat + (su - (sp + 1)))
+          * 2 ^ (minNormalExp ep - y.ex.toInt).toNat := by
+    rw [sig_blastRoundTowardZero, BitVec.toNat_extractMsb'_zero _ (by grind),
+      UnpackedFloat.blastClearSignificand_sig_toNat_eq, hLeq,
+      Nat.div_mul_two_pow_add_div_two_pow]
+  refine ⟨?_, ?_, ?_⟩
+  · exact UnpackedFloat.normalize_eq_self_of_msb_eq_true _
+      (UnpackedFloat.msb_sig_blastRoundTowardZero_eq_true he hs heu hsu y hynorm hnotunder hnotover)
+  · rw [ex_blastRoundTowardZero]; exact hoverE
+  · right
+    rw [ex_blastRoundTowardZero, hrsigval]
+    exact ⟨y.sig.toNat / 2 ^ ((minNormalExp ep - y.ex.toInt).toNat + (su - (sp + 1))),
+      Nat.mul_comm _ _⟩
+
+/-- The exact `sig.toNat` of `blastSuccessorAwayFromZero`: in the carry case it is `2^sp`
+(`sig = leadingOne`), and otherwise it is the rounded sum scaled down to `sp+1` bits. -/
+theorem UnpackedFloat.blastSuccessorAwayFromZero_sig_toNat_eq
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxnorm : x.normalize = x)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    (x.blastSuccessorAwayFromZero ep sp).sig.toNat
+      = if 2 ^ su ≤ (x.blastClearSignificand ep sp).sig.toNat + 2 ^ ((x.guardBitIndex ep sp).toNat + 1)
+          then 2 ^ sp
+          else ((x.blastClearSignificand ep sp).sig.toNat + 2 ^ ((x.guardBitIndex ep sp).toNat + 1))
+                 / 2 ^ (su - (sp + 1)) := by
+  have hgsu := UnpackedFloat.guardBitIndex_succ_lt_su he hs heu hsu x hnotunder hnotover
+  have hlsb : (BitVec.zeroExtend (su + 1) (x.guardBitIndex ep sp).oneHotBV <<< 1).toNat
+      = 2 ^ ((x.guardBitIndex ep sp).toNat + 1) :=
+    BitVec.toNat_zeroExtend_oneHotBV_shiftLeft_one (x.guardBitIndex ep sp) hgsu
+  have hcllt : (x.blastClearSignificand ep sp).sig.toNat < 2 ^ su :=
+    (x.blastClearSignificand ep sp).sig.isLt
+  have hg1lt : (2 : Nat) ^ ((x.guardBitIndex ep sp).toNat + 1) < 2 ^ su :=
+    Fp.Nat.two_pow_lt_two_pow_of_lt hgsu
+  have hsum : (BitVec.zeroExtend (su + 1) (x.blastClearSignificand ep sp).sig
+        + BitVec.zeroExtend (su + 1) (x.guardBitIndex ep sp).oneHotBV <<< 1).toNat
+      = (x.blastClearSignificand ep sp).sig.toNat + 2 ^ ((x.guardBitIndex ep sp).toNat + 1) := by
+    rw [BitVec.toNat_add, BitVec.toNat_setWidth, hlsb,
+      Nat.mod_eq_of_lt (by omega : (x.blastClearSignificand ep sp).sig.toNat < 2 ^ (su + 1)),
+      Nat.mod_eq_of_lt (by omega)]
+  simp only [UnpackedFloat.blastSuccessorAwayFromZero, clearSignificand_ex]
+  have hmsb : (BitVec.zeroExtend (su + 1) (x.blastClearSignificand ep sp).sig
+        + BitVec.zeroExtend (su + 1) (x.guardBitIndex ep sp).oneHotBV <<< 1).msb
+      = decide (2 ^ su ≤ (x.blastClearSignificand ep sp).sig.toNat
+          + 2 ^ ((x.guardBitIndex ep sp).toNat + 1)) := by
+    rw [BitVec.msb_eq_decide, hsum]; simp
+  rw [hmsb]
+  by_cases hov : 2 ^ su ≤ (x.blastClearSignificand ep sp).sig.toNat
+      + 2 ^ ((x.guardBitIndex ep sp).toNat + 1)
+  · simp only [hov, decide_true, if_true]
+    rw [BitVec.toNat_extractMsb'_zero _ (by omega), BitVec.toNat_leadingOne (by omega),
+      Nat.pow_div (by omega) (by omega)]
+    congr 1; omega
+  · have hSlt : (x.blastClearSignificand ep sp).sig.toNat
+        + 2 ^ ((x.guardBitIndex ep sp).toNat + 1) < 2 ^ su := by omega
+    simp only [hov, decide_false, Bool.false_eq_true, if_false]
+    rw [BitVec.toNat_extractMsb'_zero _ (by omega), BitVec.toNat_setWidth, hsum,
+      Nat.mod_eq_of_lt hSlt]
+
+/-- The `sig.toNat` of `blastSuccessorAwayFromZero` equals `2^sp` whenever its exponent
+incremented (the carry case). -/
+theorem UnpackedFloat.blastSuccessorAwayFromZero_sig_toNat_eq_two_pow_of_ex_succ
+    (ep sp : Nat) (hsu : sp + 1 ≤ su) (x : UnpackedFloat eu su)
+    (hexsucc : (x.blastSuccessorAwayFromZero ep sp).ex.toInt = x.ex.toInt + 1) :
+    (x.blastSuccessorAwayFromZero ep sp).sig.toNat = 2 ^ sp := by
+  have hne : (x.blastSuccessorAwayFromZero ep sp).ex ≠ x.ex := by
+    intro h; rw [h] at hexsucc; omega
+  simp only [UnpackedFloat.blastSuccessorAwayFromZero, clearSignificand_ex,
+    clearSignificand_sign] at hne ⊢
+  split at hne
+  · split
+    · rw [BitVec.toNat_extractMsb'_zero _ (by omega), BitVec.toNat_leadingOne (by omega),
+        Nat.pow_div (by omega) (by omega)]
+      congr 1; omega
+    · simp_all
+  · simp_all
+
+/-- The exact `ex.toInt` of `blastSuccessorAwayFromZero`: it increments by one exactly in the
+carry case. -/
+theorem UnpackedFloat.blastSuccessorAwayFromZero_ex_toInt_eq
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxnorm : x.normalize = x)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    (x.blastSuccessorAwayFromZero ep sp).ex.toInt
+      = if 2 ^ su ≤ (x.blastClearSignificand ep sp).sig.toNat + 2 ^ ((x.guardBitIndex ep sp).toNat + 1)
+          then x.ex.toInt + 1 else x.ex.toInt := by
+  have hgsu := UnpackedFloat.guardBitIndex_succ_lt_su he hs heu hsu x hnotunder hnotover
+  have hlsb : (BitVec.zeroExtend (su + 1) (x.guardBitIndex ep sp).oneHotBV <<< 1).toNat
+      = 2 ^ ((x.guardBitIndex ep sp).toNat + 1) :=
+    BitVec.toNat_zeroExtend_oneHotBV_shiftLeft_one (x.guardBitIndex ep sp) hgsu
+  have hcllt : (x.blastClearSignificand ep sp).sig.toNat < 2 ^ su :=
+    (x.blastClearSignificand ep sp).sig.isLt
+  have hg1lt : (2 : Nat) ^ ((x.guardBitIndex ep sp).toNat + 1) < 2 ^ su :=
+    Fp.Nat.two_pow_lt_two_pow_of_lt hgsu
+  have hsum : (BitVec.zeroExtend (su + 1) (x.blastClearSignificand ep sp).sig
+        + BitVec.zeroExtend (su + 1) (x.guardBitIndex ep sp).oneHotBV <<< 1).toNat
+      = (x.blastClearSignificand ep sp).sig.toNat + 2 ^ ((x.guardBitIndex ep sp).toNat + 1) := by
+    rw [BitVec.toNat_add, BitVec.toNat_setWidth, hlsb,
+      Nat.mod_eq_of_lt (by omega : (x.blastClearSignificand ep sp).sig.toNat < 2 ^ (su + 1)),
+      Nat.mod_eq_of_lt (by omega)]
+  simp only [UnpackedFloat.blastSuccessorAwayFromZero, clearSignificand_ex]
+  have hmsb : (BitVec.zeroExtend (su + 1) (x.blastClearSignificand ep sp).sig
+        + BitVec.zeroExtend (su + 1) (x.guardBitIndex ep sp).oneHotBV <<< 1).msb
+      = decide (2 ^ su ≤ (x.blastClearSignificand ep sp).sig.toNat
+          + 2 ^ ((x.guardBitIndex ep sp).toNat + 1)) := by
+    rw [BitVec.msb_eq_decide, hsum]; simp
+  rw [hmsb]
+  by_cases hov : 2 ^ su ≤ (x.blastClearSignificand ep sp).sig.toNat
+      + 2 ^ ((x.guardBitIndex ep sp).toNat + 1)
+  · simp only [hov, decide_true, if_true]
+    exact UnpackedFloat.toInt_ex_add_one_of_not_blastIsEarlyOverflow he hs heu x hnotover
+  · simp only [hov, decide_false, Bool.false_eq_true, if_false]
+
+/-- L5 (hard core): the auxiliary successor `blastSuccessorAwayFromZeroNonnegAux` of a normalized,
+in-range nonnegative float is `Packable`, provided its own output does not (early) over/underflow. -/
+theorem UnpackedFloat.blastSuccessorAwayFromZeroNonnegAux_Packable
+    (hep : 2 < ep) (hs : 0 < sp) (hsu : sp + 2 ≤ su)
+    (y : UnpackedFloat (exponentWidth ep sp) su) (hysign : y.sign = false)
+    (hynorm : y.normalize = y)
+    (hnotEU : y.blastIsEarlyUnderflowNonneg ep sp = false)
+    (hnotEO : y.blastIsEarlyOverflowNonneg ep sp = false)
+    (hnu : (y.blastSuccessorAwayFromZeroNonnegAux ep sp).blastIsUnderflowNonneg ep sp = false)
+    (hno : (y.blastSuccessorAwayFromZeroNonnegAux ep sp).blastIsEarlyOverflowNonneg ep sp = false) :
+    (y.blastSuccessorAwayFromZeroNonnegAux ep sp).Packable := by
+  have he : 1 < ep := by grind
+  have heu : exponentWidth ep sp ≤ exponentWidth ep sp := Nat.le_refl _
+  have hminrel : minNormalExp ep - minSubnormalExp ep sp = (sp : Int) := by
+    simp only [minSubnormalExp, maxSubnormalExp]; grind
+  by_cases hnr : y.needsRounding ep sp = true
+  · -- `needsRounding`: `Aux = blastSuccessorAwayFromZero y`.
+    have hAuxEq : y.blastSuccessorAwayFromZeroNonnegAux ep sp = y.blastSuccessorAwayFromZero ep sp := by
+      rw [UnpackedFloat.blastSuccessorAwayFromZeroNonnegAux, if_pos hnr]
+    by_cases hyu : y.blastIsUnderflowNonneg ep sp = true
+    · -- Case A: boundary (`y` underflows; the successor carries up to `minSubnormalExp`).
+      have hlb := UnpackedFloat.ex_le_ex_blastSuccessorAwayFromZeroNonnegAux he hs heu y hnotEO
+      have hub := UnpackedFloat.ex_blastSuccessorAwayFromZeroNonnegAux_le_ex_add_one he hs heu y hnotEO
+      have hxlt : y.ex.toInt < minSubnormalExp ep sp := by
+        rw [UnpackedFloat.blastUnderflowNonneg_eq_decide he hs heu] at hyu; simpa using hyu
+      have hnnu : minSubnormalExp ep sp ≤ (y.blastSuccessorAwayFromZeroNonnegAux ep sp).ex.toInt := by
+        rw [UnpackedFloat.blastUnderflowNonneg_eq_decide he hs heu] at hnu; simpa using hnu
+      rw [hAuxEq] at hnnu hlb hub
+      have hnextex : (y.blastSuccessorAwayFromZero ep sp).ex.toInt = y.ex.toInt + 1 := by omega
+      have hexeq : (y.blastSuccessorAwayFromZero ep sp).ex.toInt = minSubnormalExp ep sp := by omega
+      have hsig := UnpackedFloat.blastSuccessorAwayFromZero_sig_toNat_eq_two_pow_of_ex_succ
+        ep sp (by grind) y hnextex
+      have hmsb := UnpackedFloat.msb_sig_blastSuccessorAwayFromZero_of_ex_succ ep sp (by grind) y hnextex
+      rw [hAuxEq]
+      refine ⟨UnpackedFloat.normalize_eq_self_of_msb_eq_true _ hmsb, ?_, ?_⟩
+      · rw [hexeq, maxNormalExp]
+        have := bias_pos_of_one_lt ep he
+        rw [minSubnormalExp, maxSubnormalExp, minNormalExp]; grind
+      · right
+        have hoff : (minNormalExp ep - minSubnormalExp ep sp).toNat = sp := by grind
+        rw [hexeq, hsig, hoff]
+        exact Nat.dvd_refl _
+    · -- Case B (rounding sub-case): `y` does not underflow; analyse the carry.
+      simp only [Bool.not_eq_true] at hyu
+      have hoverE : y.ex.toInt ≤ maxNormalExp ep := by
+        have := UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide he hs heu y; grind
+      have hunderE : minSubnormalExp ep sp ≤ y.ex.toInt := by
+        have := UnpackedFloat.blastUnderflowNonneg_eq_decide he hs heu y; grind
+      have hdNat : (minNormalExp ep - y.ex.toInt).toNat ≤ sp := by grind
+      obtain ⟨hdL, hdU⟩ := shift_range he hs heu (exInt := y.ex.toInt) (by grind) hoverE
+      have hG := UnpackedFloat.toNat_guardBitIndex_eq he hs heu hsu y hdL hdU hdNat
+      have hLeq : (y.guardBitIndex ep sp).toNat + 1
+          = (minNormalExp ep - y.ex.toInt).toNat + (su - (sp + 1)) := by rw [hG]; grind
+      have hsigval := UnpackedFloat.blastSuccessorAwayFromZero_sig_toNat_eq he hs heu hsu y hynorm hyu hnotEO
+      have hexval := UnpackedFloat.blastSuccessorAwayFromZero_ex_toInt_eq he hs heu hsu y hynorm hyu hnotEO
+      have hmsb := UnpackedFloat.msb_sig_blastSuccessorAwayFromZero_eq_true he hs heu hsu y hynorm hyu hnotEO
+      rw [hAuxEq]
+      refine ⟨UnpackedFloat.normalize_eq_self_of_msb_eq_true _ hmsb, ?_, ?_⟩
+      · -- clause 2: `ex ≤ maxNormalExp` from the no-early-overflow guard.
+        have := hno; rw [hAuxEq, UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide he hs heu] at this
+        grind
+      · -- clause 3: divisibility, split on carry.
+        by_cases hcarry : 2 ^ su ≤ (y.blastClearSignificand ep sp).sig.toNat
+            + 2 ^ ((y.guardBitIndex ep sp).toNat + 1)
+        · -- carry: `sig = 2^sp`, `ex = y.ex + 1`.
+          rw [hexval, hsigval, if_pos hcarry, if_pos hcarry]
+          right
+          have hoff : (minNormalExp ep - (y.ex.toInt + 1)).toNat ≤ sp := by grind
+          exact Nat.pow_dvd_pow 2 hoff
+        · -- no carry: `sig = (q + 1) * 2^off`, `ex = y.ex`.
+          rw [hexval, hsigval, if_neg hcarry, if_neg hcarry]
+          right
+          have hcl : (y.blastClearSignificand ep sp).sig.toNat
+              = y.sig.toNat / 2 ^ ((y.guardBitIndex ep sp).toNat + 1)
+                  * 2 ^ ((y.guardBitIndex ep sp).toNat + 1) :=
+            UnpackedFloat.blastClearSignificand_sig_toNat_eq y ep sp
+          rw [hcl, hLeq, ← Nat.succ_mul,
+            Nat.mul_div_assoc _ (Nat.pow_dvd_pow 2
+              (Nat.le_add_left (su - (sp + 1)) (minNormalExp ep - y.ex.toInt).toNat)),
+            Nat.pow_div (Nat.le_add_left (su - (sp + 1)) (minNormalExp ep - y.ex.toInt).toNat) (by grind),
+            Nat.add_sub_cancel]
+          exact Nat.dvd_mul_left _ _
+  · -- `¬needsRounding`: `Aux = blastRoundTowardZero y`; reduce to L4.
+    simp only [Bool.not_eq_true] at hnr
+    have hAuxEq : y.blastSuccessorAwayFromZeroNonnegAux ep sp = y.blastRoundTowardZero ep sp := by
+      rw [UnpackedFloat.blastSuccessorAwayFromZeroNonnegAux, if_neg (by simp [hnr])]
+    have hyu : y.blastIsUnderflowNonneg ep sp = false := by
+      have := hnu
+      rw [hAuxEq, UnpackedFloat.blastUnderflowNonneg_eq_decide he hs heu, ex_blastRoundTowardZero,
+        ← UnpackedFloat.blastUnderflowNonneg_eq_decide he hs heu] at this
+      exact this
+    rw [hAuxEq]
+    exact UnpackedFloat.blastRoundTowardZero_Packable he hs hsu y hysign hynorm hyu hnotEO
+
+/-! ### `EUnpackedFloat`-level `Packable` helpers and the blast-rounder dispatchers (L6, L7) -/
+
+/-- `mkNumber n` is `Packable` exactly when its payload is. -/
+theorem EUnpackedFloat.mkNumber_Packable {n : UnpackedFloat (exponentWidth e s) (s + 1)}
+    (h : n.Packable) : (EUnpackedFloat.mkNumber n).Packable := by
+  intro _; rwa [EUnpackedFloat.num_mkNumber]
+
+/-- Infinities are vacuously `Packable` (non-`Number` state). -/
+theorem EUnpackedFloat.mkInfinity_Packable {e s : Nat} (sign : Bool) :
+    (EUnpackedFloat.mkInfinity sign : EUnpackedFloat (exponentWidth e s) (s + 1)).Packable := by
+  intro h; simp at h
+
+/-- NaN is vacuously `Packable`. -/
+theorem EUnpackedFloat.mkNaN_Packable {e s : Nat} :
+    (EUnpackedFloat.mkNaN : EUnpackedFloat (exponentWidth e s) (s + 1)).Packable := by
+  intro h; simp at h
+
+/-- Anything that is not a finite `Number` is vacuously `Packable`. -/
+theorem EUnpackedFloat.Packable_of_state_ne_Number
+    {euf : EUnpackedFloat (exponentWidth e s) (s + 1)} (h : euf.state ≠ .Number) :
+    euf.Packable := fun hc => absurd hc h
+
+/-- The (extended) canonical zero is `Packable`. -/
+theorem EUnpackedFloat.mkZero_Packable (he : 1 < ep) (hs : 0 < sp) (sign : Bool) :
+    (EUnpackedFloat.mkZero sign : EUnpackedFloat (exponentWidth ep sp) (sp + 1)).Packable := by
+  intro _
+  rw [EUnpackedFloat.num_mkZero]
+  exact UnpackedFloat.mkZero_Packable he hs sign
+
+/-- `blastLowerNonneg` is `Packable` (underflow → `+0`, overflow → `maxNormal`, else round-to-zero). -/
+theorem UnpackedFloat.blastLowerNonneg_Packable
+    (he : 1 < ep) (hs : 0 < sp) (hsu : sp + 2 ≤ su)
+    (y : UnpackedFloat (exponentWidth ep sp) su) (hysign : y.sign = false) (hynorm : y.normalize = y) :
+    (y.blastLowerNonneg ep sp).Packable := by
+  unfold UnpackedFloat.blastLowerNonneg
+  by_cases hu : y.blastIsUnderflowNonneg ep sp = true
+  · simp only [hu, if_true]
+    exact EUnpackedFloat.mkNumber_Packable (UnpackedFloat.mkZero_Packable he hs false)
+  · simp only [Bool.not_eq_true] at hu
+    simp only [hu, Bool.false_eq_true, if_false]
+    by_cases ho : y.blastIsEarlyOverflowNonneg ep sp = true
+    · simp only [ho, if_true]
+      exact EUnpackedFloat.mkNumber_Packable (UnpackedFloat.maxNormal_Packable he hs)
+    · simp only [Bool.not_eq_true] at ho
+      simp only [ho, Bool.false_eq_true, if_false]
+      exact EUnpackedFloat.mkNumber_Packable
+        (UnpackedFloat.blastRoundTowardZero_Packable he hs hsu y hysign hynorm hu ho)
+
+/-- `blastUpperNonneg` is `Packable` (zero → `-0`, underflow → `minSubnormal`,
+overflow → `∞` (vacuous), else the successor via L5). -/
+theorem UnpackedFloat.blastUpperNonneg_Packable
+    (hep : 2 < ep) (hs : 0 < sp) (hsu : sp + 2 ≤ su)
+    (y : UnpackedFloat (exponentWidth ep sp) su) (hysign : y.sign = false) (hynorm : y.normalize = y)
+    (hnotEU : y.blastIsEarlyUnderflowNonneg ep sp = false)
+    (hnotEO : y.blastIsEarlyOverflowNonneg ep sp = false) :
+    (y.blastUpperNonneg ep sp).Packable := by
+  have he : 1 < ep := by grind
+  unfold UnpackedFloat.blastUpperNonneg
+  by_cases hz : y.isZero = true
+  · simp only [hz, if_true]
+    exact EUnpackedFloat.mkZero_Packable he hs true
+  · simp only [Bool.not_eq_true] at hz
+    simp only [hz, Bool.false_eq_true, if_false]
+    by_cases hnu : (y.blastSuccessorAwayFromZeroNonnegAux ep sp).blastIsUnderflowNonneg ep sp = true
+    · simp only [hnu, if_true]
+      exact EUnpackedFloat.mkNumber_Packable (UnpackedFloat.minSubnormalForPackedFloat_Packable he hs)
+    · simp only [Bool.not_eq_true] at hnu
+      by_cases hno : (y.blastSuccessorAwayFromZeroNonnegAux ep sp).blastIsEarlyOverflowNonneg ep sp = true
+      · simp only [hnu, hno, Bool.false_eq_true, if_false, if_true]
+        exact EUnpackedFloat.mkInfinity_Packable false
+      · simp only [Bool.not_eq_true] at hno
+        simp only [hnu, hno, Bool.false_eq_true, if_false]
+        exact EUnpackedFloat.mkNumber_Packable
+          (UnpackedFloat.blastSuccessorAwayFromZeroNonnegAux_Packable hep hs hsu y hysign hynorm
+            hnotEU hnotEO hnu hno)
+
+/-- L6: `blastUpper` is `Packable` (sign dispatch; negative arm reflects to `blastLowerNonneg`). -/
+theorem UnpackedFloat.blastUpper_Packable
+    (hep : 2 < ep) (hs : 0 < sp) (hsu : sp + 2 ≤ su)
+    (y : UnpackedFloat (exponentWidth ep sp) su) (hynorm : y.normalize = y)
+    (hnotEU : y.blastIsEarlyUnderflowNonneg ep sp = false)
+    (hnotEO : y.blastIsEarlyOverflowNonneg ep sp = false) :
+    (y.blastUpper ep sp).Packable := by
+  have he : 1 < ep := by grind
+  unfold UnpackedFloat.blastUpper
+  by_cases hsign : y.sign = true
+  · simp only [hsign, if_true]
+    unfold UnpackedFloat.blastUpperNeg
+    apply EUnpackedFloat.neg_Packable
+    exact UnpackedFloat.blastLowerNonneg_Packable he hs hsu (-y)
+      (by simp [UnpackedFloat.neg_sign, hsign])
+      (UnpackedFloat.normalize_neg_eq_neg_of_normalize_eq y hynorm)
+  · simp only [Bool.not_eq_true] at hsign
+    simp only [hsign, Bool.false_eq_true, if_false]
+    exact UnpackedFloat.blastUpperNonneg_Packable hep hs hsu y hsign hynorm hnotEU hnotEO
+
+/-- L7: `blastLower` is `Packable` (sign dispatch; negative arm reflects to `blastUpperNonneg`). -/
+theorem UnpackedFloat.blastLower_Packable
+    (hep : 2 < ep) (hs : 0 < sp) (hsu : sp + 2 ≤ su)
+    (y : UnpackedFloat (exponentWidth ep sp) su) (hynorm : y.normalize = y)
+    (hnotEU : y.blastIsEarlyUnderflowNonneg ep sp = false)
+    (hnotEO : y.blastIsEarlyOverflowNonneg ep sp = false) :
+    (y.blastLower ep sp).Packable := by
+  have he : 1 < ep := by grind
+  unfold UnpackedFloat.blastLower
+  by_cases hsign : y.sign = true
+  · simp only [hsign, if_true]
+    unfold UnpackedFloat.blastLowerNeg
+    apply EUnpackedFloat.neg_Packable
+    exact UnpackedFloat.blastUpperNonneg_Packable hep hs hsu (-y)
+      (by simp [UnpackedFloat.neg_sign, hsign])
+      (UnpackedFloat.normalize_neg_eq_neg_of_normalize_eq y hynorm)
+      (by simpa using hnotEU) (by simpa using hnotEO)
+  · simp only [Bool.not_eq_true] at hsign
+    simp only [hsign, Bool.false_eq_true, if_false]
+    exact UnpackedFloat.blastLowerNonneg_Packable he hs hsu y hsign hynorm
+
 /-- **Overflow connection**: if the successor early-overflows (while `x` does not), then
 `x.toRat' > maxNormal`. With `x.ex = maxNormalExp`, the carry forces
 `blastSuccessorAwayFromZero x = 2^(maxNormalExp+1)`, so `roundTZ = maxNormal` (= `next - ulp`),
