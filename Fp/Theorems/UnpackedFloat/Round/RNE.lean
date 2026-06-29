@@ -787,7 +787,7 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
 /--
 info: 'Fp.UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE' depends on axioms: [propext, sorryAx,
   Classical.choice, Fp.blastIsLowerHalf_edge_above_maxNormal,
-  Fp.blastIsLowerHalf_edge_between_maxNormal, Fp.blastIsLowerHalf_edge_eq_maxNormal, Quot.sound]
+  Fp.blastIsLowerHalf_edge_between_maxNormal, Quot.sound]
 -/
 #guard_msgs (whitespace := lax) in #print axioms UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
 

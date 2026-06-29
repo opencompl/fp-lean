@@ -740,6 +740,29 @@ info: 'Fp.smtLibUpper_eq_self_of_eq_toExtRat_of_not_isNaN' depends on axioms: [p
 -/
 #guard_msgs in #print axioms smtLibUpper_eq_self_of_eq_toExtRat_of_not_isNaN
 
+/--
+Every value representable with `s` significand bits is representable with `s + 1` significand bits:
+append a `0` to the trailing significand (the exponent layout is unchanged since the bias only depends
+on `e`). Needed because the SMT-LIB `lowerHalf`/`tieBreak` predicates compare the approximants of the
+target format with those of the format extended by one significand bit.
+-/
+theorem PackedFloat.exists_widen {e s : Nat} (he : 0 < e) (hs : 0 < s)
+    (b : PackedFloat e s) (hb : b.isNormOrNonzeroSubnorm) :
+    ∃ b' : PackedFloat e (s + 1), b'.isNormOrNonzeroSubnorm ∧ b'.toRat = b.toRat := by
+  refine ⟨{ sign := b.sign, ex := b.ex, sig := b.sig.concat false }, ?_, ?_⟩
+  · grind [PackedFloat.isNormOrNonzeroSubnorm, PackedFloat.isNorm, PackedFloat.isNonzeroSubnorm]
+  · -- Appending a low zero bit doubles the significand and halves the unit (`2^(s+1)`), preserving
+    -- `toRatSig` (`isNorm` and `ex`, hence `toRatExp`, are unchanged).
+    have hnorm : ({ sign := b.sign, ex := b.ex, sig := b.sig.concat false } : PackedFloat e (s + 1)).isNorm
+        = b.isNorm := by simp [PackedFloat.isNorm]
+    have hsig : (b.sig.concat false).toNat = 2 * b.sig.toNat := by rw [BitVec.toNat_concat]; grind
+    have hhalf : (↑(2 * b.sig.toNat) : Rat) / 2 ^ (s + 1) = ↑b.sig.toNat / 2 ^ s := by
+      have hpow : (2 : Rat) ^ (s + 1) = 2 * 2 ^ s := by
+        have h : ((2 ^ (s + 1) : Nat) : Rat) = ((2 * 2 ^ s : Nat) : Rat) := by rw [Nat.pow_succ]; grind
+        rw [Rat.natCast_pow, Rat.natCast_mul, Rat.natCast_pow] at h; simpa using h
+      rw [hpow]; push_cast; grind
+    simp only [PackedFloat.toRat, PackedFloat.toRatSig, PackedFloat.toRatExp, hnorm, hsig, hhalf]
+
 /-! ## Perfect approximability: `(lower r).toRat = r → (upper r).toRat = r`
 
 A rational `r` is *perfectly approximable* (at width `e s`) when `(lower r).toRat = r`,

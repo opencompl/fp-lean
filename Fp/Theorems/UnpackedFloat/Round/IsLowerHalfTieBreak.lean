@@ -1078,6 +1078,28 @@ theorem blastIsLowerHalf_iff_smtLibLowerHalf_of_sign_true_boundary_narrow
     blastExtractStickyBit_widen_boundary x eu' su' (by grind) hs heu hsu heu_succ (by omega)
       hwideu hwidesu hdiffLower hdiffUpper hoff]
 
+/-- For a representable value, the SMT-LIB `lowerHalf` is vacuously true: the lower approximants at
+widths `sp` and `sp+1` both equal the value itself (`smtLibLower_eq_self` + `exists_widen`), so their
+embeddings agree. -/
+theorem smtLibLowerHalf_of_representable {ep sp : Nat} (he : 0 < ep) (hs : 0 < sp)
+    (b : PackedFloat ep sp) (hb : b.isNormOrNonzeroSubnorm) :
+    (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf
+      (ExtRat.Number b.toRat) := by
+  rw [SmtLibSemantics.smtLibRoundMethod.lowerHalf_eq]
+  obtain ⟨b', hb', hbval⟩ := PackedFloat.exists_widen he hs b hb
+  have hbnan : ¬ b.isNaN := by simpa using PackedFloat.not_isNaN_of_isNormOrSubnorm hb
+  have hb'nan : ¬ b'.isNaN := by simpa using PackedFloat.not_isNaN_of_isNormOrSubnorm hb'
+  have hbzero : ¬ b.isZero := by simpa using PackedFloat.not_isZero_of_isNormOrSubnorm hb
+  have hb'zero : ¬ b'.isZero := by simpa using PackedFloat.not_isZero_of_isNormOrSubnorm hb'
+  simp only [SmtLibSemantics.smtLibV_lower_eq, SmtLibSemantics.smtLibV_embed_eq]
+  rw [smtLibLower_eq_self_of_eq_toExtRat_of_not_isNaN he hs b (ExtRat.Number b.toRat) hbnan hbzero
+        (by rw [PackedFloat.toExtRat_eq_toExtRat', PackedFloat.toExtRat'_eq_toRat_of hb]),
+      show ExtRat.Number b.toRat = ExtRat.Number b'.toRat from by rw [hbval],
+      smtLibLower_eq_self_of_eq_toExtRat_of_not_isNaN he (by grind) b' (ExtRat.Number b'.toRat) hb'nan
+        hb'zero (by rw [PackedFloat.toExtRat_eq_toExtRat', PackedFloat.toExtRat'_eq_toRat_of hb'])]
+  simp only [SmtLibSemantics.instExtendedRat.smtLibEq, PackedFloat.toExtRat_eq_toExtRat']
+  rw [PackedFloat.toExtRat'_eq_toRat_of hb, PackedFloat.toExtRat'_eq_toRat_of hb', hbval]
+
 /-! ### `lower = maxNormal` overflow edge (negative)
 
 At this edge `x.toRat' = -|x|` with `|x| ≥ maxNormal_sp`, so `ex = maxNormalExp` and the SMT lower
@@ -1093,18 +1115,63 @@ formalizing the `guard/sticky ↔ value` bridge requires new bit-level↔value m
   = false`; `guard = 0`, `sticky = 1`, so `guard == sticky = false`.
 - Range 3 (`maxNormal_{sp+1} < |x|`): both lowers are `-∞`; `lowerHalf = true`, and `guard = sticky = 1`. -/
 
-axiom blastIsLowerHalf_edge_eq_maxNormal {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+/-- **Range 1: `|x| = maxNormal_sp` (representable).** `x.toRat'` is exactly `maxNormal_sp(sign=true)`, so
+`lowerHalf` is vacuously true; and `needsRounding = false` (the round-toward-zero value is the lower
+approximant `= maxNormal = |x|`), so `blastIsLowerHalfNeg = (guard == sticky) = true`. -/
+theorem blastIsLowerHalf_edge_eq_maxNormal {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su) (x : UnpackedFloat eu su)
     (hxsignt : x.sign = true) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
     (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hmaxL : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number (-x).toRat') : PackedFloat ep sp)
+      = PackedFloat.maxNormalNumber ep sp false)
     (heq : (-x).toRat' = (PackedFloat.maxNormalNumber ep sp false).toRat) :
     (x.blastIsLowerHalf ep sp = true) ↔
-    (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat')
+    (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat') := by
+  have he' : 0 < ep := by grind
+  -- `-x` facts (sign flips, ex/sig unchanged).
+  have hnsign : (-x).sign = false := by simp [UnpackedFloat.neg_sign, hxsignt]
+  have hnnorm : (-x).normalize = -x := UnpackedFloat.normalize_neg_eq_neg_of_normalize_eq x hxnorm
+  have hnunder : (-x).blastIsUnderflowNonneg ep sp = false := by
+    rw [UnpackedFloat.blastUnderflowNonneg_eq_decide (by grind) hs heu, UnpackedFloat.neg_ex,
+      ← UnpackedFloat.blastUnderflowNonneg_eq_decide (by grind) hs heu]; exact hnotunder
+  have hnover : (-x).blastIsEarlyOverflowNonneg ep sp = false := by
+    rw [blastIsEarlyOverflowNonneg_neg]; exact hnotover
+  -- LHS: `needsRounding = false`, hence `blastIsLowerHalfNeg = (guard == sticky) = true`.
+  have hpin := smtLibLower_lower_toRat_eq_blastRoundTowardZero (by grind) hs heu hsu (-x) hnsign hnnorm
+    hnunder hnover
+  rw [hmaxL] at hpin
+  have hround : ((-x).blastRoundTowardZero ep sp).toRat' = (-x).toRat' := by rw [← hpin, heq]
+  have hxneed : x.needsRounding ep sp = false :=
+    (UnpackedFloat.blastRoundTowardZero_toRat'_eq_toRat'_iff_not_needsRounding (by grind) hs heu hsu (-x)
+      hnsign hnunder hnover).mp hround
+  have hLHS : x.blastIsLowerHalf ep sp = true := by
+    have hgst : x.blastExtractGuardBit ep sp = false ∧ x.blastExtractStickyBit ep sp = false := by
+      have h := hxneed; unfold UnpackedFloat.needsRounding at h
+      simpa [Bool.or_eq_false_iff] using h
+    obtain ⟨hg, hst⟩ := hgst
+    simp [UnpackedFloat.blastIsLowerHalf, UnpackedFloat.blastIsLowerHalfNeg, hxsignt, hg, hst]
+  -- RHS: `lowerHalf` of the representable value `maxNormal_sp(true)`.
+  have hval : x.toRat' = (PackedFloat.maxNormalNumber ep sp true).toRat := by
+    have h1 : -x.toRat' = (PackedFloat.maxNormalNumber ep sp false).toRat := by
+      rw [← UnpackedFloat.toRat'_neg]; exact heq
+    rw [show (PackedFloat.maxNormalNumber ep sp true).toRat
+        = -(PackedFloat.maxNormalNumber ep sp false).toRat from by
+      rw [← PackedFloat.neg_maxNormalNumber_false', PackedFloat.toRat_neg]]
+    grind
+  have hRHS : (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat') := by
+    rw [hval]
+    exact smtLibLowerHalf_of_representable he' hs (PackedFloat.maxNormalNumber ep sp true)
+      (PackedFloat.isNormOrNonzeroSubnorm_maxNormalNumber' (by grind) false)
+  exact iff_of_true hLHS hRHS
 
 axiom blastIsLowerHalf_edge_between_maxNormal {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su) (x : UnpackedFloat eu su)
     (hxsignt : x.sign = true) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
     (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hmaxL : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number (-x).toRat') : PackedFloat ep sp)
+      = PackedFloat.maxNormalNumber ep sp false)
     (h1 : (PackedFloat.maxNormalNumber ep sp false).toRat < (-x).toRat')
     (h2 : (-x).toRat' ≤ (PackedFloat.maxNormalNumber ep (sp + 1) false).toRat) :
     (x.blastIsLowerHalf ep sp = true) ↔
@@ -1113,7 +1180,10 @@ axiom blastIsLowerHalf_edge_between_maxNormal {eu su ep sp : Nat} (he : 2 < ep) 
 axiom blastIsLowerHalf_edge_above_maxNormal {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su) (x : UnpackedFloat eu su)
     (hxsignt : x.sign = true) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
     (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hmaxL : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number (-x).toRat') : PackedFloat ep sp)
+      = PackedFloat.maxNormalNumber ep sp false)
     (h : (PackedFloat.maxNormalNumber ep (sp + 1) false).toRat < (-x).toRat') :
     (x.blastIsLowerHalf ep sp = true) ↔
     (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat')
@@ -1125,6 +1195,7 @@ theorem blastIsLowerHalf_iff_smtLibLowerHalf_of_sign_true_edge
     {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su) (x : UnpackedFloat eu su)
     (hxsignt : x.sign = true) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
     (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
     (hmaxL : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number (-x).toRat') : PackedFloat ep sp)
       = PackedFloat.maxNormalNumber ep sp false) :
@@ -1137,12 +1208,14 @@ theorem blastIsLowerHalf_iff_smtLibLowerHalf_of_sign_true_edge
     have h := lower_toRat_le (by grind) hs (-x).toRat' hfin
     rw [hmaxL] at h; exact h
   by_cases heq : (-x).toRat' = (PackedFloat.maxNormalNumber ep sp false).toRat
-  · exact blastIsLowerHalf_edge_eq_maxNormal he hs heu hsu x hxsignt hxnorm hmsb hnotover heq
+  · exact blastIsLowerHalf_edge_eq_maxNormal he hs heu hsu x hxsignt hxnorm hmsb hnotunder hnotover
+      hmaxL heq
   · have h : (PackedFloat.maxNormalNumber ep sp false).toRat < (-x).toRat' := by grind
     by_cases h2 : (-x).toRat' ≤ (PackedFloat.maxNormalNumber ep (sp + 1) false).toRat
-    · exact blastIsLowerHalf_edge_between_maxNormal he hs heu hsu x hxsignt hxnorm hmsb hnotover h h2
-    · exact blastIsLowerHalf_edge_above_maxNormal he hs heu hsu x hxsignt hxnorm hmsb hnotover
-        (by grind)
+    · exact blastIsLowerHalf_edge_between_maxNormal he hs heu hsu x hxsignt hxnorm hmsb hnotunder
+        hnotover hmaxL h h2
+    · exact blastIsLowerHalf_edge_above_maxNormal he hs heu hsu x hxsignt hxnorm hmsb hnotunder
+        hnotover hmaxL (by grind)
 
 /-- **Negative, narrow (any range).** Dispatches the negative underflow boundary, the in-range
 non-edge case, and the `lower = maxNormal` overflow edge. -/
@@ -1167,7 +1240,7 @@ theorem blastIsLowerHalf_iff_smtLibLowerHalf_of_sign_true
         = PackedFloat.maxNormalNumber ep sp false
     · -- `lower = maxNormal` overflow edge
       exact blastIsLowerHalf_iff_smtLibLowerHalf_of_sign_true_edge he hs heu hsu x hxsignt hxnorm hmsb
-        hnotover hmaxL
+        hunder hnotover hmaxL
     · -- in-range, non-edge
       exact blastIsLowerHalf_iff_lowerHalf_of_sign_true_inRange he hs heu hsu
         (max eu (exponentWidth ep (sp + 1))) (max su (sp + 3)) hwideu hwidesu heu' hsu'
@@ -1228,11 +1301,11 @@ theorem blastIsLowerHalf_eq
   grind
 
 -- The `blastIsLowerHalf = lowerHalf` bitblasting proof is free of `sorry`: the only outstanding gaps
--- are the three named `maxNormal`-overflow-edge axioms (the `guard/sticky ↔ value` bridge).
+-- are the two named `maxNormal`-overflow-edge axioms (`|x|` strictly above `maxNormal_sp`); the
+-- representable case (`|x| = maxNormal_sp`) is now proven.
 /--
 info: 'Fp.blastIsLowerHalf_eq' depends on axioms: [propext, Classical.choice,
-  Fp.blastIsLowerHalf_edge_above_maxNormal, Fp.blastIsLowerHalf_edge_between_maxNormal,
-  Fp.blastIsLowerHalf_edge_eq_maxNormal, Quot.sound]
+  Fp.blastIsLowerHalf_edge_above_maxNormal, Fp.blastIsLowerHalf_edge_between_maxNormal, Quot.sound]
 -/
 #guard_msgs (whitespace := lax) in #print axioms blastIsLowerHalf_eq
 

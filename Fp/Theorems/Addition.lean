@@ -660,23 +660,6 @@ theorem smtLibUpper_number_toRat_eq_self {e s : Nat}
   exact Classical.epsilon_elim b hlaw huniq
 
 /--
-Every value representable with `s` significand bits is representable with
-`s + 1` significand bits: append a `0` to the trailing significand (the
-exponent layout is unchanged since the bias only depends on `e`).
-Needed because the SMT-LIB `lowerHalf`/`tieBreak` predicates compare the
-approximants of the target format with those of the format extended by one
-significand bit.
--/
-theorem PackedFloat.exists_widen {e s : Nat} (he : 0 < e) (hs : 0 < s)
-    (b : PackedFloat e s) (hb : b.isNormOrNonzeroSubnorm) :
-    ∃ b' : PackedFloat e (s + 1), b'.isNormOrNonzeroSubnorm ∧ b'.toRat = b.toRat := by
-  refine ⟨{ sign := b.sign, ex := b.ex, sig := b.sig.concat false }, ?_, ?_⟩
-  · grind [PackedFloat.isNormOrNonzeroSubnorm, PackedFloat.isNorm, PackedFloat.isNonzeroSubnorm]
-  · -- `(1 + 2·sig/2^(s+1))·2^(ex - bias) = (1 + sig/2^s)·2^(ex - bias)` (and
-    -- similarly in the subnormal case); a bit-level computation on `toEFixed`.
-    sorry
-
-/--
 For (the value of) a representable float, the SMT-LIB `lowerHalf` predicate
 holds vacuously: the lower approximants at significand widths `s` and `s + 1`
 are both the value itself, so their embeddings agree.  (Similarly `tieBreak`
@@ -1052,8 +1035,7 @@ theorem add_eq_add {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
 
 /--
 info: 'Fp.add_eq_add' depends on axioms: [propext, sorryAx, BitVec.toNat_clz_cons, Classical.choice,
-  Fp.blastIsLowerHalf_edge_above_maxNormal, Fp.blastIsLowerHalf_edge_between_maxNormal,
-  Fp.blastIsLowerHalf_edge_eq_maxNormal, Quot.sound]
+  Fp.blastIsLowerHalf_edge_above_maxNormal, Fp.blastIsLowerHalf_edge_between_maxNormal, Quot.sound]
 -/
 #guard_msgs (whitespace := lax) in #print axioms add_eq_add
 
