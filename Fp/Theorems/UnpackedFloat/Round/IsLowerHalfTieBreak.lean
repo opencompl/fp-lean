@@ -1224,7 +1224,10 @@ theorem blastIsLowerHalf_edge_between_maxNormal {eu su ep sp : Nat} (he : 2 < ep
     sorry
   exact iff_of_false (by rw [hblast_false]; simp) hlowerhalf_false
 
-axiom blastIsLowerHalf_edge_above_maxNormal {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+/-- **Range 3: `maxNormal_{sp+1} < |x|`.** Both `lower_sp` and `lower_{sp+1}` are `-∞` (Lemma A at both
+precisions, since `x.toRat' < -maxNormal_{sp+1} < -maxNormal_sp`), so `lowerHalf = true`; and
+`blastIsLowerHalf = true` (`guard = sticky = 1`). -/
+theorem blastIsLowerHalf_edge_above_maxNormal {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su) (x : UnpackedFloat eu su)
     (hxsignt : x.sign = true) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
     (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
@@ -1233,7 +1236,32 @@ axiom blastIsLowerHalf_edge_above_maxNormal {eu su ep sp : Nat} (he : 2 < ep) (h
       = PackedFloat.maxNormalNumber ep sp false)
     (h : (PackedFloat.maxNormalNumber ep (sp + 1) false).toRat < (-x).toRat') :
     (x.blastIsLowerHalf ep sp = true) ↔
-    (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat')
+    (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat') := by
+  have he' : 0 < ep := by grind
+  have hneg : (-x).toRat' = -x.toRat' := UnpackedFloat.toRat'_neg x
+  have hmaxT : ∀ q : Nat, (PackedFloat.maxNormalNumber ep q true).toRat
+      = -(PackedFloat.maxNormalNumber ep q false).toRat := fun q => by
+    rw [← PackedFloat.neg_maxNormalNumber_false', PackedFloat.toRat_neg]
+  -- `x.toRat' < -maxNormal_{sp+1} < -maxNormal_sp`.
+  have hmono := PackedFloat.toRat_maxNormalNumber_lt_toRat_maxNormalNumber_succ he hs
+  have hvlt1 : x.toRat' < (PackedFloat.maxNormalNumber ep (sp + 1) true).toRat := by rw [hmaxT]; grind
+  have hvlt : x.toRat' < (PackedFloat.maxNormalNumber ep sp true).toRat := by rw [hmaxT]; grind
+  -- both lower approximants are `-∞`, so `lowerHalf = true`.
+  have hlowsp := smtLibLower_eq_neg_getInfinity_of_lt (by grind) hs x.toRat' hvlt
+  have hlowsp1 := smtLibLower_eq_neg_getInfinity_of_lt (sp := sp + 1) (by grind) (by grind) x.toRat' hvlt1
+  have hinfsp : (PackedFloat.getInfinity ep sp true).toExtRat' = ExtRat.Infinity true :=
+    PackedFloat.toExtRat'_getInfinity hs
+  have hinfsp1 : (PackedFloat.getInfinity ep (sp + 1) true).toExtRat' = ExtRat.Infinity true :=
+    PackedFloat.toExtRat'_getInfinity (by grind)
+  have hlowerhalf_true :
+      (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat') := by
+    rw [SmtLibSemantics.smtLibRoundMethod.lowerHalf_eq]
+    simp only [SmtLibSemantics.smtLibV_lower_eq, SmtLibSemantics.smtLibV_embed_eq, hlowsp, hlowsp1,
+      SmtLibSemantics.instExtendedRat.smtLibEq, PackedFloat.toExtRat_eq_toExtRat', hinfsp, hinfsp1]
+  -- `blastIsLowerHalf = true`.
+  have hblast_true : x.blastIsLowerHalf ep sp = true := by
+    sorry
+  exact iff_of_true hblast_true hlowerhalf_true
 
 /-- The `lower = maxNormal` overflow edge: dispatch on `|x|` relative to `maxNormal_sp`, `maxNormal_{sp+1}`.
 The `|x| < maxNormal_sp` case is impossible (`hmaxL` forces `lower = maxNormal ≤ |x|`); the other three
@@ -1347,11 +1375,11 @@ theorem blastIsLowerHalf_eq
   have := blastIsLowerHalf_iff_smtLibLowerHalf he hs heu hsu x hxnorm hmsb hnotunder hnotover
   grind
 
--- WIP: `edge_between` is being de-axiomatized; `lowerHalf = false` (Lemmas A/B) is done, with Lemma B
--- and the `blastIsLowerHalf = false` side temporarily `sorry`. `edge_above` is still an axiom.
+-- WIP: all three `maxNormal`-edge cases are now theorems (no axioms). `edge_eq` is fully proven; both
+-- `edge_between`/`edge_above` have their `lowerHalf` side proven, with Lemma B and the
+-- `blastIsLowerHalf = guard==sticky` circuit side temporarily `sorry` (hence `sorryAx`).
 /--
-info: 'Fp.blastIsLowerHalf_eq' depends on axioms: [propext, sorryAx, Classical.choice,
-  Fp.blastIsLowerHalf_edge_above_maxNormal, Quot.sound]
+info: 'Fp.blastIsLowerHalf_eq' depends on axioms: [propext, sorryAx, Classical.choice, Quot.sound]
 -/
 #guard_msgs (whitespace := lax) in #print axioms blastIsLowerHalf_eq
 
