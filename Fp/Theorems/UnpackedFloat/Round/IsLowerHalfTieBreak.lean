@@ -677,6 +677,112 @@ theorem blastExtractStickyBit_eq_true_of_off_eq_succ_iff {eu su ep sp : Nat}
   · rintro ⟨i, hlt, hbit⟩
     exact ⟨i, by grind⟩
 
+/-- For `R ∈ [minSubnormal, successor(minSubnormal))`, the greatest float `≤ R` is `minSubnormal`
+(there is nothing representable strictly between consecutive subnormals). -/
+theorem lower_Number_eq_minSubnormalNumber_of_ge_of_lt_succ
+    {ep sp : Nat} (hep : 2 < ep) (hsp : 0 < sp) (R : Rat)
+    (hge : (PackedFloat.minSubnormalNumber ep sp false).toRat ≤ R)
+    (hlt : R < (PackedFloat.minSubnormalNumber ep sp false).successorAwayFromZero.toRat) :
+    (SmtLibSemantics.smtLibLower.lower (ExtRat.Number R) : PackedFloat ep sp)
+      = PackedFloat.minSubnormalNumber ep sp false := by
+  have hep0 : 0 < ep := by grind
+  have hfin := PackedFloat.isNormOrNonzeroSubnorm_minSubnormalNumber ep sp false hep0 hsp
+  have hnan := PackedFloat.not_isNaN_minSubnormalNumber ep sp false hep0 hsp
+  have hmsign : (PackedFloat.minSubnormalNumber ep sp false).sign = false :=
+    PackedFloat.sign_minSubnormalNumber ep sp false
+  have hmnonneg : (0 : Rat) ≤ (PackedFloat.minSubnormalNumber ep sp false).toRat := by
+    have h := PackedFloat.sign_iff_toRat_neg hfin
+    rw [hmsign] at h
+    have : ¬ ((PackedFloat.minSubnormalNumber ep sp false).toRat < 0) := by grind
+    grind
+  have hLnan : ¬ (PackedFloat.minSubnormalNumber ep sp false).isNaN := hnan
+  have hLinf : ¬ (PackedFloat.minSubnormalNumber ep sp false).isInfinite :=
+    by simpa using PackedFloat.not_isInfinite_of_isNormOrSubnorm hfin
+  -- successor facts
+  have hmaxLne : PackedFloat.minSubnormalNumber ep sp false ≠ PackedFloat.maxNormalNumber ep sp false := by
+    intro hc
+    have h1 : (PackedFloat.maxNormalNumber ep sp false).isNorm :=
+      PackedFloat.isNorm_maxNormalNumber_of_lt_e ep sp (by grind) false
+    rw [← hc] at h1
+    simp [PackedFloat.isNorm, PackedFloat.minSubnormalNumber, BitVec.ofInt] at h1
+  have hsucfin := PackedFloat.isNormOrNonzeroSubnorm_successorAwayFromZero_of_ne_maxNormal
+    (by grind) hsp _ hmsign hfin hmaxLne
+  have hsucnan : ¬ (PackedFloat.minSubnormalNumber ep sp false).successorAwayFromZero.isNaN :=
+    by simpa using PackedFloat.not_isNaN_of_isNormOrSubnorm hsucfin
+  have hsucinf : ¬ (PackedFloat.minSubnormalNumber ep sp false).successorAwayFromZero.isInfinite :=
+    by simpa using PackedFloat.not_isInfinite_of_isNormOrSubnorm hsucfin
+  have hsuczero : ¬ (PackedFloat.minSubnormalNumber ep sp false).successorAwayFromZero.isZero :=
+    by simpa using PackedFloat.not_isZero_of_isNormOrSubnorm hsucfin
+  have hsucsign : (PackedFloat.minSubnormalNumber ep sp false).successorAwayFromZero.sign = false := by
+    rw [PackedFloat.sign_successorAwayFromZero, hmsign]
+  rw [smtLibLower_eq_lower ep sp hep0 hsp (ExtRat.Number R) (by simp)]
+  symm
+  apply eq_lower_of_IsLawfulLower ep sp hep0 hsp _ _ (by simp)
+  constructor
+  · show (PackedFloat.minSubnormalNumber ep sp false).toExtRat ≤ ExtRat.Number R
+    rw [PackedFloat.toExtRat_eq_toExtRat', PackedFloat.toExtRat'_eq_toRat_of hfin]
+    simp only [ExtRat.ExtRat.num_le_num_iff, decide_eq_true_eq]; exact hge
+  · intro y hy
+    have hy' : y.toExtRat' ≤ ExtRat.Number R := by
+      rw [← PackedFloat.toExtRat_eq_toExtRat']; exact hy
+    clear hy
+    induction y using PackedFloat.kindCasesNaNInfZeroNum with
+    | nanCase n hn =>
+      exfalso; rw [PackedFloat.toExtRat'_eq_NaN_of_isNaN n hn] at hy'; simp at hy'
+    | infCase sign =>
+      cases sign
+      case false => exfalso; rw [PackedFloat.toExtRat'_getInfinity hsp] at hy'; simp at hy'
+      case true =>
+        exact PackedFloat.le_of_nonneg_of_neg _ _ (by simp)
+          (by simp [hmsign]) (by simp [hsp]) hnan
+    | zeroCase sign =>
+      cases sign
+      case true =>
+        exact PackedFloat.le_of_nonneg_of_neg _ _ (by simp [PackedFloat.sign_getZero])
+          (by simp [hmsign]) (by simp [hsp] <;> grind) hnan
+      case false =>
+        apply PackedFloat.le_of_toExtRat'_le_toExtRat' hep0 hsp
+          (PackedFloat.getZero ep sp false) (PackedFloat.minSubnormalNumber ep sp false)
+          (by simp [hsp] <;> grind) hnan
+        · intro h1 h2 h3
+          simp [PackedFloat.sign_getZero] at h3
+        · intro h1 _ _
+          exfalso
+          have h2 := PackedFloat.not_isZero_of_isNormOrSubnorm hfin
+          simp at h2; simp [h2] at h1
+        · rw [PackedFloat.toExtRat'_eq_zero_of_isZero _ (by simp [hsp] <;> grind),
+            PackedFloat.toExtRat'_eq_toRat_of hfin]
+          simp only [ExtRat.ExtRat.num_le_num_iff, decide_eq_true_eq]; exact hmnonneg
+    | numCase n hn =>
+      by_cases hsign : n.sign
+      · exact PackedFloat.le_of_nonneg_of_neg _ _ hsign (by simp [hmsign])
+          (by simpa using PackedFloat.not_isNaN_of_isNormOrSubnorm hn) hnan
+      · have hnsign : n.sign = false := by simpa using hsign
+        have hnnan : ¬ n.isNaN := by simpa using PackedFloat.not_isNaN_of_isNormOrSubnorm hn
+        have hnzero : ¬ n.isZero := by simpa using PackedFloat.not_isZero_of_isNormOrSubnorm hn
+        have hnle : n.toRat ≤ R := by
+          rw [PackedFloat.toExtRat'_eq_toRat_of hn] at hy'
+          simpa only [ExtRat.ExtRat.num_le_num_iff, decide_eq_true_eq] using hy'
+        have hnlt : n.toRat < (PackedFloat.minSubnormalNumber ep sp false).successorAwayFromZero.toRat :=
+          by grind
+        by_cases hle : n ≤ PackedFloat.minSubnormalNumber ep sp false
+        · exact hle
+        · exfalso
+          -- `¬ (n ≤ minSub)` ⟹ `minSub < n`, but `n < successor(minSub)` — nothing lies strictly between.
+          have hmn : PackedFloat.minSubnormalNumber ep sp false < n :=
+            PackedFloat.lt_of_not_le n _ (by grind) hle
+          have hnsucc_le : n ≤ (PackedFloat.minSubnormalNumber ep sp false).successorAwayFromZero := by
+            apply PackedFloat.le_of_toExtRat'_le_toExtRat'_of_nonneg_of_nonneg hep0 hsp n
+              ((PackedFloat.minSubnormalNumber ep sp false).successorAwayFromZero) hnnan hsucnan
+              hnzero hsuczero hnsign hsucsign
+            rw [PackedFloat.toExtRat'_eq_toRat_of hn, PackedFloat.toExtRat'_eq_toRat_of hsucfin]
+            simp only [ExtRat.ExtRat.num_le_num_iff, decide_eq_true_eq]
+            exact Rat.le_of_lt hnlt
+          have hnsucc_ne : n ≠ (PackedFloat.minSubnormalNumber ep sp false).successorAwayFromZero := by
+            intro hcon; rw [hcon] at hnlt; exact absurd hnlt (by grind)
+          exact PackedFloat.elim_self_lt_lt_successor (by grind) hsp _ n hmsign hnsign hnan hnnan
+            hLinf hmn ⟨hnsucc_le, hnsucc_ne⟩
+
 /-- A significand with its MSB set has `toNat = 2^(su-1)` iff no lower bit is set. -/
 theorem sig_toNat_eq_two_pow_iff_no_bit_below_msb {su : Nat} (sig : BitVec su) (hsu : 0 < su)
     (hmsb : sig.getLsbD (su - 1) = true) :
