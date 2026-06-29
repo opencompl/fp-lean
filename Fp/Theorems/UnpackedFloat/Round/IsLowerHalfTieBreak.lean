@@ -352,6 +352,84 @@ theorem blastIsLowerHalf_iff_lowerHalf_of_sign_false_wide
   simp only [hxsign, Bool.false_eq_true, if_false]
   cases h : x.blastExtractGuardBit ep sp <;> simp [h]
 
+/-- **Negative, in-range, wide.** For `x < 0`, `lower(r) = −upper(−r)`, so the SMT `lowerHalf` becomes
+`upper_sp(|x|) = upper_{sp+1}(|x|)`, which the upper bridge identifies with `guard == sticky` — exactly
+the (fixed) `blastIsLowerHalfNeg`. -/
+theorem blastIsLowerHalf_iff_lowerHalf_of_sign_true_wide
+    {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep (sp + 1) ≤ eu) (hsu : sp + 3 ≤ su)
+    (x : UnpackedFloat eu su) (hxsignt : x.sign = true) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hdiffLower : -2 ^ (eu - 1) ≤ minNormalExp ep - x.ex.toInt)
+    (hdiffUpper : minNormalExp ep - x.ex.toInt < 2 ^ (eu - 1))
+    (hdiffNatLe : (minNormalExp ep - x.ex.toInt).toNat ≤ sp)
+    (hmaxL : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number (-x).toRat') : PackedFloat ep sp)
+      ≠ PackedFloat.maxNormalNumber ep sp false)
+    (hmaxL1 : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number (-x).toRat') : PackedFloat ep (sp + 1))
+      ≠ PackedFloat.maxNormalNumber ep (sp + 1) false) :
+    (x.blastIsLowerHalf ep sp = true) ↔
+    (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat') := by
+  have he' : 0 < ep := by grind
+  have heu_sp : exponentWidth ep sp ≤ eu := Nat.le_trans exponentWidth_le_succ heu
+  -- `-x` facts (negation flips sign, keeps sig/ex; guard/sticky/under/overflow are sign-independent).
+  have hnsign : (-x).sign = false := by simp [UnpackedFloat.neg_sign, hxsignt]
+  have hnnorm : (-x).normalize = -x := UnpackedFloat.normalize_neg_eq_neg_of_normalize_eq x hxnorm
+  have hnunder : (-x).blastIsUnderflowNonneg ep sp = false := hnotunder
+  have hnover : (-x).blastIsEarlyOverflowNonneg ep sp = false := hnotover
+  -- `-x` is in range at `sp+1` too.
+  have hunderE : minSubnormalExp ep sp ≤ x.ex.toInt := by
+    have := UnpackedFloat.blastUnderflowNonneg_eq_decide (by grind) hs heu_sp x
+    rw [this] at hnotunder; simpa using hnotunder
+  have hnunder1 : (-x).blastIsUnderflowNonneg ep (sp + 1) = false := by
+    rw [UnpackedFloat.blastUnderflowNonneg_eq_decide (by grind) (by omega) heu]
+    simp only [decide_eq_false_iff_not, Int.not_lt]
+    have : minSubnormalExp ep (sp + 1) = minSubnormalExp ep sp - 1 := by
+      simp only [minSubnormalExp]; push_cast; grind
+    have hxex : (-x).ex.toInt = x.ex.toInt := by rw [UnpackedFloat.neg_ex]
+    omega
+  have hnover1 : (-x).blastIsEarlyOverflowNonneg ep (sp + 1) = false := by
+    rw [UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide (by grind) (by omega) heu]
+    have := UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide (by grind) hs heu_sp (-x)
+    rw [this] at hnover; exact hnover
+  -- upper(-x) is finite at both precisions.
+  have hfinU := isNormOrNonzeroSubnorm_smtLibUpper_of_sign_false_of_ne_maxNormal
+    he hs heu_sp (by omega) (-x) hnsign hnnorm hnunder hnover hmaxL
+  have hfinU1 := isNormOrNonzeroSubnorm_smtLibUpper_of_sign_false_of_ne_maxNormal (sp := sp + 1)
+    he (by omega) heu (by omega) (-x) hnsign hnnorm hnunder1 hnover1 hmaxL1
+  -- `lower(Number x.toRat') = -(upper(Number (-x).toRat'))`.
+  have hneg_val : (-(ExtRat.Number x.toRat')) = ExtRat.Number (-x).toRat' :=
+    (congrArg ExtRat.Number (UnpackedFloat.toRat'_neg x)).symm
+  have hlow : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp)
+      = -(SmtLibSemantics.smtLibUpper.upper (ExtRat.Number (-x).toRat') : PackedFloat ep sp) := by
+    rw [smtLibLower_eq_neg_smtLibUpper_neg ep sp he' hs (ExtRat.Number x.toRat') (by simp), hneg_val]
+  have hlow1 : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep (sp + 1))
+      = -(SmtLibSemantics.smtLibUpper.upper (ExtRat.Number (-x).toRat') : PackedFloat ep (sp + 1)) := by
+    rw [smtLibLower_eq_neg_smtLibUpper_neg ep (sp + 1) he' (by omega) (ExtRat.Number x.toRat') (by simp), hneg_val]
+  -- lowerHalf ⟺ upper_sp(-x) = upper_{sp+1}(-x).
+  have hlowerhalf :
+      (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat')
+        ↔ (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number (-x).toRat') : PackedFloat ep sp).toRat
+            = (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number (-x).toRat') : PackedFloat ep (sp + 1)).toRat := by
+    rw [SmtLibSemantics.smtLibRoundMethod.lowerHalf_eq]
+    simp only [SmtLibSemantics.smtLibV_lower_eq, SmtLibSemantics.smtLibV_embed_eq, hlow, hlow1,
+      SmtLibSemantics.instExtendedRat.smtLibEq]
+    rw [PackedFloat.toExtRat_eq_toExtRat', PackedFloat.toExtRat_eq_toExtRat',
+      PackedFloat.toExtRat'_eq_toRat_of (by rw [PackedFloat.isNormOrNonzeroSubnorm_neg]; exact hfinU),
+      PackedFloat.toExtRat'_eq_toRat_of (by rw [PackedFloat.isNormOrNonzeroSubnorm_neg]; exact hfinU1),
+      PackedFloat.toRat_neg, PackedFloat.toRat_neg]
+    simp only [ExtRat.Number.injEq]
+    constructor <;> intro h <;> grind
+  rw [hlowerhalf,
+    smtLibUpper_eq_iff_guard_eq_sticky he hs heu hsu (-x) hnsign hnnorm hnunder hnover hmaxL hmaxL1
+      (by rw [UnpackedFloat.neg_ex]; exact hdiffLower) (by rw [UnpackedFloat.neg_ex]; exact hdiffUpper)
+      (by rw [UnpackedFloat.neg_ex]; exact hdiffNatLe),
+    show (-x).blastExtractGuardBit ep sp = x.blastExtractGuardBit ep sp from rfl,
+    show (-x).blastExtractStickyBit ep sp = x.blastExtractStickyBit ep sp from rfl,
+    show x.blastIsLowerHalf ep sp = (x.blastExtractGuardBit ep sp == x.blastExtractStickyBit ep sp) from by
+      simp [UnpackedFloat.blastIsLowerHalf, UnpackedFloat.blastIsLowerHalfNeg, hxsignt]]
+  simp [beq_iff_eq]
+
 /-- Nonnegative at the underflow boundary (`x.ex = minSubnormalExp_sp − 1 = minSubnormalExp_{sp+1}`):
 `lower_sp = +0` but `lower_{sp+1} > 0` (x is in range at `sp+1`), so `lowerHalf = false`; and the guard
 bit is the (set) MSB, so `!guard = false`. Both sides are `false`. -/
