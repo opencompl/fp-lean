@@ -1035,7 +1035,7 @@ theorem add_eq_add {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
 
 /--
 info: 'Fp.add_eq_add' depends on axioms: [propext, sorryAx, BitVec.toNat_clz_cons, Classical.choice,
-  Fp.blastIsLowerHalf_edge_above_maxNormal, Fp.blastIsLowerHalf_edge_between_maxNormal, Quot.sound]
+  Fp.blastIsLowerHalf_edge_above_maxNormal, Quot.sound]
 -/
 #guard_msgs (whitespace := lax) in #print axioms add_eq_add
 
