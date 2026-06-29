@@ -37,6 +37,77 @@ theorem needsRounding_succ_eq_blastExtractStickyBit
       exact ⟨hall _ (by omega), fun i hi => hall i (by omega)⟩
   cases hnr : x.needsRounding ep (sp + 1) <;> cases hst : x.blastExtractStickyBit ep sp <;> simp_all
 
+/-- The lower approximant's value is the round-toward-zero value, for a nonnegative in-range
+normalized float. (The witness pins `lower = pack(roundTZ)`; this exposes just the `toRat`.) -/
+theorem smtLibLower_lower_toRat_eq_blastRoundTowardZero
+    {eu su ep sp : Nat} (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).toRat
+      = (x.blastRoundTowardZero ep sp).toRat' := by
+  obtain ⟨pf, hpfNotNaN, hpfLower, hToRat, _, _⟩ :=
+    UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero
+      he hs heu hsu x hxsign hxnorm hnotunder hnotover
+  have hpflow : pf = (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp) :=
+    eq_of_IsLawfulLower_of_IsLawfulLower ep sp (ExtRat.Number x.toRat') pf _ hpfNotNaN
+      (by simpa using not_isNaN_lower_of_ne_NaN ep sp (by grind) hs _ (by simp))
+      hpfLower (lsLawfulLower_smtLibLower ep sp (by grind) hs _)
+  rw [← hpflow]
+  exact hToRat.symm
+
+/-- The lower approximant's exponent is `x.ex + off` (from the witness's `toRatExp` conjunct). -/
+theorem smtLibLower_lower_toRatExp_eq
+    {eu su ep sp : Nat} (he : 1 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).toRatExp
+      = x.ex.toInt + ((minNormalExp ep - x.ex.toInt).toNat : Int) := by
+  obtain ⟨pf, hpfNotNaN, hpfLower, _, _, hexpeq, _⟩ :=
+    UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero
+      he hs heu hsu x hxsign hxnorm hnotunder hnotover
+  have hpflow : pf = (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp) :=
+    eq_of_IsLawfulLower_of_IsLawfulLower ep sp (ExtRat.Number x.toRat') pf _ hpfNotNaN
+      (by simpa using not_isNaN_lower_of_ne_NaN ep sp (by grind) hs _ (by simp))
+      hpfLower (lsLawfulLower_smtLibLower ep sp (by grind) hs _)
+  rw [← hpflow]; exact hexpeq
+
+/-- **Lower bridge.** `lower_{sp+1}.toRat = lower_sp.toRat + (guard ? ulp_{sp+1} : 0)`, with
+`ulp_{sp+1} = 2^(x.ex − (sp+1) + off)` — from the round-toward-zero guard-bit add lemma + the pins. -/
+theorem smtLibLower_succ_toRat_eq_lower_add_guard_ulp
+    {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep (sp + 1) ≤ eu) (hsu : sp + 3 ≤ su)
+    (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep (sp + 1)).toRat
+      = (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).toRat
+        + (if x.blastExtractGuardBit ep sp then
+            (2 : Rat) ^ (x.ex.toInt - ((sp : Int) + 1) + ((minNormalExp ep - x.ex.toInt).toNat : Int))
+          else 0) := by
+  have heu_sp : exponentWidth ep sp ≤ eu := Nat.le_trans exponentWidth_le_succ heu
+  have hunderE : minSubnormalExp ep sp ≤ x.ex.toInt := by
+    have := UnpackedFloat.blastUnderflowNonneg_eq_decide (by grind) hs heu_sp x
+    rw [this] at hnotunder; simpa using hnotunder
+  have hnotunder1 : x.blastIsUnderflowNonneg ep (sp + 1) = false := by
+    rw [UnpackedFloat.blastUnderflowNonneg_eq_decide (by grind) (by omega) heu]
+    simp only [decide_eq_false_iff_not, Int.not_lt]
+    have : minSubnormalExp ep (sp + 1) = minSubnormalExp ep sp - 1 := by
+      simp only [minSubnormalExp]; push_cast; grind
+    omega
+  have hnotover1 : x.blastIsEarlyOverflowNonneg ep (sp + 1) = false := by
+    rw [UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide (by grind) (by omega) heu]
+    have := UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide (by grind) hs heu_sp x
+    rw [this] at hnotover; exact hnotover
+  rw [smtLibLower_lower_toRat_eq_blastRoundTowardZero (sp := sp + 1) (by grind) (by omega) heu (by omega)
+        x hxsign hxnorm hnotunder1 hnotover1,
+    UnpackedFloat.blastRoundTowardZero_succ_toRat'_eq_add_guardBit (by grind) hs heu hsu x hxsign hnotunder hnotover,
+    smtLibLower_lower_toRat_eq_blastRoundTowardZero (by grind) hs heu_sp (by omega)
+        x hxsign hxnorm hnotunder hnotover]
+
 /-- **Upper foundation lemma.** For a nonnegative in-range normalized float whose lower approximant is
 not `maxNormal` (so the successor is finite), the upper approximant is the lower plus one ULP exactly
 when rounding is needed: `upper.toRat = lower.toRat + (needsRounding ? ulp : 0)` with
@@ -126,26 +197,114 @@ theorem smtLibUpper_succ_toRat_eq_lower_add_sticky_ulp
     needsRounding_succ_eq_blastExtractStickyBit (by grind) hs heu hsu x hdiffLower hdiffUpper hdiffNatLe]
   simp
 
-/-- The lower approximant's value is the round-toward-zero value, for a nonnegative in-range
-normalized float. (The witness pins `lower = pack(roundTZ)`; this exposes just the `toRat`.) -/
-theorem smtLibLower_lower_toRat_eq_blastRoundTowardZero
-    {eu su ep sp : Nat} (he : 1 < ep) (hs : 0 < sp)
+/-- The upper approximant is finite when the lower is in range and not `maxNormal` (so its successor
+doesn't overflow). -/
+theorem isNormOrNonzeroSubnorm_smtLibUpper_of_sign_false_of_ne_maxNormal
+    {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
     (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
-    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
-    (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).toRat
-      = (x.blastRoundTowardZero ep sp).toRat' := by
-  obtain ⟨pf, hpfNotNaN, hpfLower, hToRat, _, _⟩ :=
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hmaxL : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp)
+      ≠ PackedFloat.maxNormalNumber ep sp false) :
+    (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp).isNormOrNonzeroSubnorm := by
+  have hmsb := UnpackedFloat.msb_eq_true_of_normalize_of_not_blastIsUnderflowNonneg
+    (by grind) hs heu x hxnorm hnotunder
+  have hxpos : 0 < x.toRat' := by
+    have h1 := UnpackedFloat.two_pow_ex_le_toRat'_of_msb_of_sign_false x (by grind) hxsign hmsb
+    have h2 : (0 : Rat) < 2 ^ (x.ex.toInt) := Rat.two_pow_pos _
+    grind
+  have hfinL := UnpackedFloat.isNormOrNonzeroSubnorm_lower_of_in_range
+    he hs heu hsu x hxsign hxnorm hnotunder hnotover
+  obtain ⟨pf, hpfNotNaN, hpfLower, hToRat, hSign, _⟩ :=
     UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero
-      he hs heu hsu x hxsign hxnorm hnotunder hnotover
+      (by grind) hs heu hsu x hxsign hxnorm hnotunder hnotover
   have hpflow : pf = (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp) :=
     eq_of_IsLawfulLower_of_IsLawfulLower ep sp (ExtRat.Number x.toRat') pf _ hpfNotNaN
       (by simpa using not_isNaN_lower_of_ne_NaN ep sp (by grind) hs _ (by simp))
       hpfLower (lsLawfulLower_smtLibLower ep sp (by grind) hs _)
-  rw [← hpflow]
-  exact hToRat.symm
+  have hsignL : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).sign
+      = false := by rw [← hpflow, ← hSign, sign_blastRoundTowardZero, hxsign]
+  by_cases hnr : x.needsRounding ep sp = true
+  · have hne : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).toRat
+        ≠ x.toRat' := by
+      rw [← hpflow, ← hToRat]; intro hc
+      have := (UnpackedFloat.blastRoundTowardZero_toRat'_eq_toRat'_iff_not_needsRounding
+        (by grind) hs heu hsu x hxsign hnotunder hnotover).mp hc
+      rw [this] at hnr; simp at hnr
+    have hfinSucc := PackedFloat.isNormOrNonzeroSubnorm_successorAwayFromZero_of_ne_maxNormal
+      (by grind) hs _ hsignL hfinL hmaxL
+    rw [upper_eq_lower_successorAwayFromZero_of_ne (by grind) hs x.toRat' hxpos hfinL hfinSucc hsignL hne]
+    exact hfinSucc
+  · have hnr' : x.needsRounding ep sp = false := by grind
+    have hrepr : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).toRat
+        = x.toRat' := by
+      rw [← hpflow, ← hToRat]
+      exact (UnpackedFloat.blastRoundTowardZero_toRat'_eq_toRat'_iff_not_needsRounding
+        (by grind) hs heu hsu x hxsign hnotunder hnotover).mpr hnr'
+    rw [upper_eq_lower_of_lower_isNormOrNonzeroSubnorm (by grind) hs x.toRat' hfinL hrepr]
+    exact hfinL
 
+/-- **Upper bridge.** `upper_sp.toRat = upper_{sp+1}.toRat ⟺ guard == sticky` (nonnegative, in-range,
+wide, both lowers ≠ maxNormal). From the two upper foundation lemmas + the lower bridge: writing
+`u = 2^(x.ex-(sp+1)+off)`, `upper_sp − upper_{sp+1} = (needsRounding?2u:0) − (guard?u:0) − (sticky?u:0)`,
+which vanishes (with `u > 0`, `needsRounding = guard||sticky`) exactly when `guard = sticky`. -/
+theorem smtLibUpper_eq_iff_guard_eq_sticky
+    {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep (sp + 1) ≤ eu) (hsu : sp + 3 ≤ su)
+    (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hmaxL : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp)
+      ≠ PackedFloat.maxNormalNumber ep sp false)
+    (hmaxL1 : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep (sp + 1))
+      ≠ PackedFloat.maxNormalNumber ep (sp + 1) false)
+    (hdiffLower : -2 ^ (eu - 1) ≤ minNormalExp ep - x.ex.toInt)
+    (hdiffUpper : minNormalExp ep - x.ex.toInt < 2 ^ (eu - 1))
+    (hdiffNatLe : (minNormalExp ep - x.ex.toInt).toNat ≤ sp) :
+    ((SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp).toRat
+        = (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep (sp + 1)).toRat)
+      ↔ (x.blastExtractGuardBit ep sp = x.blastExtractStickyBit ep sp) := by
+  have heu_sp : exponentWidth ep sp ≤ eu := Nat.le_trans exponentWidth_le_succ heu
+  have hunderE : minSubnormalExp ep sp ≤ x.ex.toInt := by
+    have := UnpackedFloat.blastUnderflowNonneg_eq_decide (by grind) hs heu_sp x
+    rw [this] at hnotunder; simpa using hnotunder
+  have hnotunder1 : x.blastIsUnderflowNonneg ep (sp + 1) = false := by
+    rw [UnpackedFloat.blastUnderflowNonneg_eq_decide (by grind) (by omega) heu]
+    simp only [decide_eq_false_iff_not, Int.not_lt]
+    have : minSubnormalExp ep (sp + 1) = minSubnormalExp ep sp - 1 := by
+      simp only [minSubnormalExp]; push_cast; grind
+    omega
+  have hnotover1 : x.blastIsEarlyOverflowNonneg ep (sp + 1) = false := by
+    rw [UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide (by grind) (by omega) heu]
+    have := UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide (by grind) hs heu_sp x
+    rw [this] at hnotover; exact hnotover
+  rw [smtLibUpper_toRat_eq_lower_add_ulp he hs heu_sp (by omega) x hxsign hxnorm hnotunder hnotover hmaxL,
+    smtLibUpper_succ_toRat_eq_lower_add_sticky_ulp he hs heu hsu x hxsign hxnorm
+      hnotunder1 hnotover1 hmaxL1 hdiffLower hdiffUpper hdiffNatLe,
+    smtLibLower_succ_toRat_eq_lower_add_guard_ulp he hs heu hsu x hxsign hxnorm hnotunder hnotover,
+    smtLibLower_lower_toRatExp_eq (by grind) hs heu_sp (by omega) x hxsign hxnorm hnotunder hnotover,
+    smtLibLower_lower_toRatExp_eq (sp := sp + 1) (by grind) (by omega) heu (by omega) x hxsign hxnorm
+      hnotunder1 hnotover1]
+  have hzne : (2 : Rat) ≠ 0 := by grind
+  have hC : (2 : Rat) ^ (-((sp : Int) + 1)) * 2 ^ (x.ex.toInt + ((minNormalExp ep - x.ex.toInt).toNat : Int))
+      = 2 ^ (x.ex.toInt - ((sp : Int) + 1) + ((minNormalExp ep - x.ex.toInt).toNat : Int)) := by
+    rw [Rat.zpow_mul_zpow hzne]; congr 1; grind
+  have hA : (2 : Rat) ^ (-(sp : Int)) * 2 ^ (x.ex.toInt + ((minNormalExp ep - x.ex.toInt).toNat : Int))
+      = 2 * 2 ^ (x.ex.toInt - ((sp : Int) + 1) + ((minNormalExp ep - x.ex.toInt).toNat : Int)) := by
+    have h2 := Rat.zpow_mul_zpow hzne (1 : Int)
+      (x.ex.toInt - ((sp : Int) + 1) + ((minNormalExp ep - x.ex.toInt).toNat : Int))
+    rw [Rat.zpow_one] at h2
+    rw [Rat.zpow_mul_zpow hzne, h2]; congr 1; grind
+  have hupos : (0 : Rat) < 2 ^ (x.ex.toInt - ((sp : Int) + 1) + ((minNormalExp ep - x.ex.toInt).toNat : Int)) :=
+    Rat.two_pow_pos _
+  rw [hA, hC]
+  generalize hu : (2 : Rat) ^ (x.ex.toInt - ((sp : Int) + 1) + ((minNormalExp ep - x.ex.toInt).toNat : Int)) = u
+    at hupos ⊢
+  unfold UnpackedFloat.needsRounding
+  cases hg : x.blastExtractGuardBit ep sp <;> cases hst : x.blastExtractStickyBit ep sp <;>
+    simp only [hg, hst, Bool.or_false, Bool.or_true, Bool.true_or, Bool.false_or, if_true, if_false,
+      Bool.true_eq_false, Bool.false_eq_true] <;> grind
 
 /-- Nonnegative, in-range, and wide enough (`sp+1` precision fits): `blastIsLowerHalf = !guardBit`
 matches the SMT `lowerHalf` (= `lower_sp = lower_{sp+1}`) via the guard-bit bridge. -/
@@ -192,6 +351,84 @@ theorem blastIsLowerHalf_iff_lowerHalf_of_sign_false_wide
   unfold UnpackedFloat.blastIsLowerHalf UnpackedFloat.blastIsLowerHalfNonneg
   simp only [hxsign, Bool.false_eq_true, if_false]
   cases h : x.blastExtractGuardBit ep sp <;> simp [h]
+
+/-- **Negative, in-range, wide.** For `x < 0`, `lower(r) = −upper(−r)`, so the SMT `lowerHalf` becomes
+`upper_sp(|x|) = upper_{sp+1}(|x|)`, which the upper bridge identifies with `guard == sticky` — exactly
+the (fixed) `blastIsLowerHalfNeg`. -/
+theorem blastIsLowerHalf_iff_lowerHalf_of_sign_true_wide
+    {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep (sp + 1) ≤ eu) (hsu : sp + 3 ≤ su)
+    (x : UnpackedFloat eu su) (hxsignt : x.sign = true) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hdiffLower : -2 ^ (eu - 1) ≤ minNormalExp ep - x.ex.toInt)
+    (hdiffUpper : minNormalExp ep - x.ex.toInt < 2 ^ (eu - 1))
+    (hdiffNatLe : (minNormalExp ep - x.ex.toInt).toNat ≤ sp)
+    (hmaxL : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number (-x).toRat') : PackedFloat ep sp)
+      ≠ PackedFloat.maxNormalNumber ep sp false)
+    (hmaxL1 : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number (-x).toRat') : PackedFloat ep (sp + 1))
+      ≠ PackedFloat.maxNormalNumber ep (sp + 1) false) :
+    (x.blastIsLowerHalf ep sp = true) ↔
+    (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat') := by
+  have he' : 0 < ep := by grind
+  have heu_sp : exponentWidth ep sp ≤ eu := Nat.le_trans exponentWidth_le_succ heu
+  -- `-x` facts (negation flips sign, keeps sig/ex; guard/sticky/under/overflow are sign-independent).
+  have hnsign : (-x).sign = false := by simp [UnpackedFloat.neg_sign, hxsignt]
+  have hnnorm : (-x).normalize = -x := UnpackedFloat.normalize_neg_eq_neg_of_normalize_eq x hxnorm
+  have hnunder : (-x).blastIsUnderflowNonneg ep sp = false := hnotunder
+  have hnover : (-x).blastIsEarlyOverflowNonneg ep sp = false := hnotover
+  -- `-x` is in range at `sp+1` too.
+  have hunderE : minSubnormalExp ep sp ≤ x.ex.toInt := by
+    have := UnpackedFloat.blastUnderflowNonneg_eq_decide (by grind) hs heu_sp x
+    rw [this] at hnotunder; simpa using hnotunder
+  have hnunder1 : (-x).blastIsUnderflowNonneg ep (sp + 1) = false := by
+    rw [UnpackedFloat.blastUnderflowNonneg_eq_decide (by grind) (by omega) heu]
+    simp only [decide_eq_false_iff_not, Int.not_lt]
+    have : minSubnormalExp ep (sp + 1) = minSubnormalExp ep sp - 1 := by
+      simp only [minSubnormalExp]; push_cast; grind
+    have hxex : (-x).ex.toInt = x.ex.toInt := by rw [UnpackedFloat.neg_ex]
+    omega
+  have hnover1 : (-x).blastIsEarlyOverflowNonneg ep (sp + 1) = false := by
+    rw [UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide (by grind) (by omega) heu]
+    have := UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide (by grind) hs heu_sp (-x)
+    rw [this] at hnover; exact hnover
+  -- upper(-x) is finite at both precisions.
+  have hfinU := isNormOrNonzeroSubnorm_smtLibUpper_of_sign_false_of_ne_maxNormal
+    he hs heu_sp (by omega) (-x) hnsign hnnorm hnunder hnover hmaxL
+  have hfinU1 := isNormOrNonzeroSubnorm_smtLibUpper_of_sign_false_of_ne_maxNormal (sp := sp + 1)
+    he (by omega) heu (by omega) (-x) hnsign hnnorm hnunder1 hnover1 hmaxL1
+  -- `lower(Number x.toRat') = -(upper(Number (-x).toRat'))`.
+  have hneg_val : (-(ExtRat.Number x.toRat')) = ExtRat.Number (-x).toRat' :=
+    (congrArg ExtRat.Number (UnpackedFloat.toRat'_neg x)).symm
+  have hlow : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp)
+      = -(SmtLibSemantics.smtLibUpper.upper (ExtRat.Number (-x).toRat') : PackedFloat ep sp) := by
+    rw [smtLibLower_eq_neg_smtLibUpper_neg ep sp he' hs (ExtRat.Number x.toRat') (by simp), hneg_val]
+  have hlow1 : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep (sp + 1))
+      = -(SmtLibSemantics.smtLibUpper.upper (ExtRat.Number (-x).toRat') : PackedFloat ep (sp + 1)) := by
+    rw [smtLibLower_eq_neg_smtLibUpper_neg ep (sp + 1) he' (by omega) (ExtRat.Number x.toRat') (by simp), hneg_val]
+  -- lowerHalf ⟺ upper_sp(-x) = upper_{sp+1}(-x).
+  have hlowerhalf :
+      (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat')
+        ↔ (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number (-x).toRat') : PackedFloat ep sp).toRat
+            = (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number (-x).toRat') : PackedFloat ep (sp + 1)).toRat := by
+    rw [SmtLibSemantics.smtLibRoundMethod.lowerHalf_eq]
+    simp only [SmtLibSemantics.smtLibV_lower_eq, SmtLibSemantics.smtLibV_embed_eq, hlow, hlow1,
+      SmtLibSemantics.instExtendedRat.smtLibEq]
+    rw [PackedFloat.toExtRat_eq_toExtRat', PackedFloat.toExtRat_eq_toExtRat',
+      PackedFloat.toExtRat'_eq_toRat_of (by rw [PackedFloat.isNormOrNonzeroSubnorm_neg]; exact hfinU),
+      PackedFloat.toExtRat'_eq_toRat_of (by rw [PackedFloat.isNormOrNonzeroSubnorm_neg]; exact hfinU1),
+      PackedFloat.toRat_neg, PackedFloat.toRat_neg]
+    simp only [ExtRat.Number.injEq]
+    constructor <;> intro h <;> grind
+  rw [hlowerhalf,
+    smtLibUpper_eq_iff_guard_eq_sticky he hs heu hsu (-x) hnsign hnnorm hnunder hnover hmaxL hmaxL1
+      (by rw [UnpackedFloat.neg_ex]; exact hdiffLower) (by rw [UnpackedFloat.neg_ex]; exact hdiffUpper)
+      (by rw [UnpackedFloat.neg_ex]; exact hdiffNatLe),
+    show (-x).blastExtractGuardBit ep sp = x.blastExtractGuardBit ep sp from rfl,
+    show (-x).blastExtractStickyBit ep sp = x.blastExtractStickyBit ep sp from rfl,
+    show x.blastIsLowerHalf ep sp = (x.blastExtractGuardBit ep sp == x.blastExtractStickyBit ep sp) from by
+      simp [UnpackedFloat.blastIsLowerHalf, UnpackedFloat.blastIsLowerHalfNeg, hxsignt]]
+  simp [beq_iff_eq]
 
 /-- Nonnegative at the underflow boundary (`x.ex = minSubnormalExp_sp − 1 = minSubnormalExp_{sp+1}`):
 `lower_sp = +0` but `lower_{sp+1} > 0` (x is in range at `sp+1`), so `lowerHalf = false`; and the guard
