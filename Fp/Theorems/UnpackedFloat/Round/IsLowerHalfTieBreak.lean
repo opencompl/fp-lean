@@ -1,5 +1,6 @@
 import Fp.Theorems.UnpackedFloat.Round.RounderForSign
 import Fp.Theorems.UnpackedFloat.Round.IsEvenBoundary
+import Fp.Theorems.UnpackedFloat.Round.Widen
 
 namespace Fp
 
