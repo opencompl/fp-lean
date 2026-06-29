@@ -355,6 +355,16 @@ theorem BitVec.clz_eq_zero_iff_msb_of_lt (x : BitVec w) : x.clz = 0#w ↔ (x.msb
       grind only [!BitVec.clz_eq_zero_iff, !BitVec.le_toNat_of_msb_true]
 
 /--
+Shifting a nonzero bitvector left by its leading-zero count sets the msb.
+(This is what `UnpackedFloat.normalize` relies on.)
+-/
+theorem BitVec.msb_shiftLeft_clz_of_ne_zero {w : Nat} (x : BitVec w) (hx : x ≠ 0#w) :
+    (x <<< x.clz).msb = true := by
+  rw [show (x <<< x.clz) = x <<< x.clz.toNat from rfl, BitVec.msb_eq_getMsbD,
+    BitVec.getMsbD_shiftLeft, Nat.zero_add, getMsbD_true_clz_of_ne_zero]
+  simp [hx]
+
+/--
 If we shift left by 1 and we get the same bitvector, the bitvector must be zero.
 -/
 @[simp]
