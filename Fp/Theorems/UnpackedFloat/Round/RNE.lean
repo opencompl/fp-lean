@@ -740,52 +740,142 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
               toInt_ex_truncateFittingExponent he hs heu x (by simpa using hover) (by simpa using hunder),
               ← UnpackedFloat.blastIsEarlyUnderflowNonneg_eq_decide he hs heu x]
             simpa using hunder
-          rw [blastIsLowerHalf_eq hep hs (Nat.le_refl _) hsu (x.truncateFittingExponent ep sp)
-            htnorm htmsb htunder htover]
-          simp only [decide_eq_false_iff_not, decide_eq_true_eq]
-          rw [blastIsTieBreak_eq (by grind only) (by grind only)]
-          simp only [decide_eq_false_iff_not, decide_eq_true_eq]
-          rw [blastIsEvenUpper_eq hep hs (Nat.le_refl _) hsu (x.truncateFittingExponent ep sp)
-            htnorm htmsb htunder htover]
-          simp only [Bool.decide_eq_true]
-          rw [blastIsEvenLower_eq hep hs (Nat.le_refl _) hsu (x.truncateFittingExponent ep sp)
-            htnorm htmsb htunder htover]
-          simp only [Bool.decide_eq_true]
-          rw [SmtLibSemantics.RoundMethod.roundRNE]
-          simp [hx0]
-          rw [toRat'_truncateFittingExponent_of_not_blastIsOverflowNonneg_of_not_blastIsEarlyUnderflowNonneg he hs heu (by grind only) (by grind only)]
-          -- use that blastUpper rel smtLiBupper, blastLower rel smtLibLower.
-          -- this should just be pure proof automation!
-          split
-          case neg.isTrue h1 =>
-            rw [UnpackedFloat.blastUpper_truncateFittingExponent_normalize_eq_self hep hs heu hsu x hzero hxnorm (by simpa using hunder) (by simpa using hover)]
-            rw [blastUpper_truncateFittingExponent_Rel_eq_blastUpper_Rel (by grind) (by grind) (by grind) (by grind) (by grind)]
-            exact blastUpper_Rel_smtLibUpper hep hs hsu heu x hxnorm (by simpa using hover)
-          case neg.isFalse h1 =>
+          by_cases hnrd : (x.truncateFittingExponent ep sp).needsRounding ep sp = true
+          · rw [blastIsLowerHalf_eq hep hs (Nat.le_refl _) hsu (x.truncateFittingExponent ep sp)
+              htnorm htmsb htunder htover]
+            simp only [decide_eq_false_iff_not, decide_eq_true_eq]
+            rw [blastIsTieBreak_eq hep hs (Nat.le_refl _) hsu (x.truncateFittingExponent ep sp)
+              htnorm htmsb htunder htover, hnrd, Bool.true_and]
+            simp only [decide_eq_false_iff_not, decide_eq_true_eq]
+            rw [blastIsEvenUpper_eq hep hs (Nat.le_refl _) hsu (x.truncateFittingExponent ep sp)
+              htnorm htmsb htunder htover]
+            simp only [Bool.decide_eq_true]
+            rw [blastIsEvenLower_eq hep hs (Nat.le_refl _) hsu (x.truncateFittingExponent ep sp)
+              htnorm htmsb htunder htover]
+            simp only [Bool.decide_eq_true]
+            rw [SmtLibSemantics.RoundMethod.roundRNE]
+            simp [hx0]
+            rw [toRat'_truncateFittingExponent_of_not_blastIsOverflowNonneg_of_not_blastIsEarlyUnderflowNonneg he hs heu (by grind only) (by grind only)]
+            -- use that blastUpper rel smtLiBupper, blastLower rel smtLibLower.
+            -- this should just be pure proof automation!
             split
-            case isTrue h2 =>
+            next h1 =>
               rw [UnpackedFloat.blastUpper_truncateFittingExponent_normalize_eq_self hep hs heu hsu x hzero hxnorm (by simpa using hunder) (by simpa using hover)]
               rw [blastUpper_truncateFittingExponent_Rel_eq_blastUpper_Rel (by grind) (by grind) (by grind) (by grind) (by grind)]
               exact blastUpper_Rel_smtLibUpper hep hs hsu heu x hxnorm (by simpa using hover)
-            case isFalse h2 =>
+            next h1 =>
               split
-              case isTrue h3 =>
-                rw [UnpackedFloat.blastLower_truncateFittingExponent_normalize_eq_self hep hs heu hsu x hzero hxnorm (by simpa using hunder) (by simpa using hover)]
-                rw [blastLower_truncateFittingExponent_Rel_eq_blastLower_Rel (by grind) (by grind) (by grind) (by grind) (by grind)]
-                exact blastLower_Rel_smtLibLower hep hs hsu heu x hxnorm (by simpa using hover)
-              case isFalse h3 =>
+              next h2 =>
+                rw [UnpackedFloat.blastUpper_truncateFittingExponent_normalize_eq_self hep hs heu hsu x hzero hxnorm (by simpa using hunder) (by simpa using hover)]
+                rw [blastUpper_truncateFittingExponent_Rel_eq_blastUpper_Rel (by grind) (by grind) (by grind) (by grind) (by grind)]
+                exact blastUpper_Rel_smtLibUpper hep hs hsu heu x hxnorm (by simpa using hover)
+              next h2 =>
                 split
-                case isTrue h4 =>
+                next h3 =>
                   rw [UnpackedFloat.blastLower_truncateFittingExponent_normalize_eq_self hep hs heu hsu x hzero hxnorm (by simpa using hunder) (by simpa using hover)]
                   rw [blastLower_truncateFittingExponent_Rel_eq_blastLower_Rel (by grind) (by grind) (by grind) (by grind) (by grind)]
                   exact blastLower_Rel_smtLibLower hep hs hsu heu x hxnorm (by simpa using hover)
-                case isFalse h4 =>
-                  apply EUnpackedFloat.Rel_of_state_eq_NaN_of_isNaN
-                  · simp
-                  · grind
+                next h3 =>
+                  split
+                  next h4 =>
+                    rw [UnpackedFloat.blastLower_truncateFittingExponent_normalize_eq_self hep hs heu hsu x hzero hxnorm (by simpa using hunder) (by simpa using hover)]
+                    rw [blastLower_truncateFittingExponent_Rel_eq_blastLower_Rel (by grind) (by grind) (by grind) (by grind) (by grind)]
+                    exact blastLower_Rel_smtLibLower hep hs hsu heu x hxnorm (by simpa using hover)
+                  next h4 =>
+                    apply EUnpackedFloat.Rel_of_state_eq_NaN_of_isNaN
+                    · simp
+                    · grind
+          · -- needsRounding = false (representable): `blastIsLowerHalf = true`, `blastIsTieBreak = false`,
+            -- so the circuit rounds to `blastLower`; the SMT round also yields the representable value.
+            have hnrd' : (x.truncateFittingExponent ep sp).needsRounding ep sp = false := by grind
+            rw [blastIsLowerHalf_eq_true_of_not_needsRounding _ hnrd',
+              blastIsTieBreak_eq_false_of_not_needsRounding _ hnrd']
+            simp only [if_false, if_true, Bool.false_eq_true, Bool.true_eq_false, false_and]
+            -- Convenient `= false` forms of the early under/overflow flags.
+            have hoverF : x.blastIsEarlyOverflowNonneg ep sp = false := by simpa using hover
+            have hunderF : x.blastIsEarlyUnderflowNonneg ep sp = false := by simpa using hunder
+            have hsig : x.sig ≠ 0#su := by simpa [UnpackedFloat.isZero] using hzero
+            have hxmsb : x.sig.msb = true := (UnpackedFloat.normalize_eq_self_iff x hsig).mp hxnorm
+            have hxnr : x.needsRounding ep sp = false := by
+              rw [← needsRounding_truncateFittingExponent he hs heu x hoverF hunderF]; exact hnrd'
+            -- A representable, normalized, non-(early)underflow value does not underflow.
+            have hundSF : ∀ (y : UnpackedFloat eu su), y.sign = false → y.sig.msb = true →
+                y.needsRounding ep sp = false → y.blastIsEarlyUnderflowNonneg ep sp = false →
+                y.blastIsUnderflowNonneg ep sp = false := by
+              intro y hysign hymsb hynr hyunderF
+              rcases Bool.eq_false_or_eq_true (y.blastIsUnderflowNonneg ep sp) with h | h
+              · obtain ⟨hoff, hdiffLower, hdiffUpper, _, _⟩ :=
+                  boundary_facts hep hs heu hsu y hysign hymsb h hyunderF
+                have hcontra := needsRounding_eq_true_of_off_eq_succ_of_msb (by grind) hs heu hsu y
+                  hdiffLower hdiffUpper hoff hymsb
+                rw [hcontra] at hynr; simp at hynr
+              · exact h
+            -- The representable value: `lower (x).toRat = x.toRat'` (sign-generic).
+            have hlowToRat : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat')
+                : PackedFloat ep sp).toRat = x.toRat' := by
+              by_cases hsign : x.sign = false
+              · have hund := hundSF x hsign hxmsb hxnr hunderF
+                rw [smtLibLower_lower_toRat_eq_blastRoundTowardZero he hs heu hsu x hsign hxnorm hund hoverF,
+                    UnpackedFloat.blastRoundTowardZero_toRat'_eq_toRat'_of_not_needsRounding he hs heu hsu x
+                      hsign hund hoverF hxnr]
+              · have hsignt : x.sign = true := by grind
+                have hnsign : (-x).sign = false := by simp [UnpackedFloat.neg_sign, hsignt]
+                have hnnorm : (-x).normalize = -x :=
+                  UnpackedFloat.normalize_neg_eq_neg_of_normalize_eq x hxnorm
+                have hnmsb : (-x).sig.msb = true := by rw [UnpackedFloat.neg_sig]; exact hxmsb
+                have hnunderF : (-x).blastIsEarlyUnderflowNonneg ep sp = false := by
+                  rw [blastIsEarlyUnderflowNonneg_neg]; exact hunderF
+                have hnoverF : (-x).blastIsEarlyOverflowNonneg ep sp = false := by
+                  rw [blastIsEarlyOverflowNonneg_neg]; exact hoverF
+                have hnnr : (-x).needsRounding ep sp = false := hxnr
+                have hnund := hundSF (-x) hnsign hnmsb hnnr hnunderF
+                have hlowNeg : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number (-x).toRat')
+                    : PackedFloat ep sp).toRat = (-x).toRat' := by
+                  rw [smtLibLower_lower_toRat_eq_blastRoundTowardZero he hs heu hsu (-x) hnsign hnnorm
+                        hnund hnoverF,
+                      UnpackedFloat.blastRoundTowardZero_toRat'_eq_toRat'_of_not_needsRounding he hs heu hsu
+                        (-x) hnsign hnund hnoverF hnnr]
+                have hnegval : (-(ExtRat.Number x.toRat')) = ExtRat.Number ((-x).toRat') := by
+                  rw [ExtRat.ExtRat.neg_number]; congr 1; exact (UnpackedFloat.toRat'_neg x).symm
+                rw [smtLibLower_eq_neg_smtLibUpper_neg ep sp (by grind) hs (ExtRat.Number x.toRat') (by simp),
+                    hnegval, PackedFloat.toRat_neg,
+                    upper_toRat_eq_of_lower_toRat_eq (by grind) hs (-x).toRat'
+                      (by rw [UnpackedFloat.toRat'_neg]; simpa using hx0) hlowNeg]
+                rw [UnpackedFloat.toRat'_neg]; grind
+            -- Finiteness and `upper = lower` at the representable value.
+            have hfin := isNormOrNonzeroSubnorm_lower_of_toRat_eq (by grind) hs x.toRat' hx0 hlowToRat
+            have hUeqL := upper_eq_lower_of_lower_isNormOrNonzeroSubnorm (by grind) hs x.toRat' hfin hlowToRat
+            -- The SMT `lowerHalf` predicate holds (round-toward-zero is exact).
+            have hLHtrue : (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV
+                SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat') := by
+              have h1 := blastIsLowerHalf_eq hep hs (Nat.le_refl _) hsu (x.truncateFittingExponent ep sp)
+                htnorm htmsb htunder htover
+              rw [blastIsLowerHalf_eq_true_of_not_needsRounding _ hnrd',
+                toRat'_truncateFittingExponent_of_not_blastIsOverflowNonneg_of_not_blastIsEarlyUnderflowNonneg
+                  he hs heu (by grind only) (by grind only)] at h1
+              exact of_decide_eq_true h1.symm
+            have hnotnan : ¬ SmtLibSemantics.ExtendedNumber.isNaN (ExtRat.Number x.toRat') := by simp
+            have hnotzero : ¬ SmtLibSemantics.ExtendedNumber.isZero (ExtRat.Number x.toRat') := by
+              simp only [SmtLibSemantics.instExtendedRat.isZero, ← ExtRat.ExtRat.zero_def]; simp [hx0]
+            -- Rewrite the (collapsed) circuit `blastLower` of the truncate into `blastLower` of `x`.
+            rw [UnpackedFloat.blastLower_truncateFittingExponent_normalize_eq_self hep hs heu hsu x hzero
+                hxnorm hunderF hoverF]
+            rw [blastLower_truncateFittingExponent_Rel_eq_blastLower_Rel (by grind) (by grind) (by grind)
+                (by grind) (by grind)]
+            -- `roundRNE` collapses to `lower` at a representable value.
+            have hRNEeq : (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV
+                SmtLibSemantics.smtLibV).roundRNE x.sign (ExtRat.Number x.toRat')
+                = SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') := by
+              rw [SmtLibSemantics.RoundMethod.roundRNE, if_neg hnotnan]
+              simp only [SmtLibSemantics.smtLibRoundMethod.lower_eq, SmtLibSemantics.smtLibRoundMethod.upper_eq,
+                SmtLibSemantics.smtLibV_lower_eq, SmtLibSemantics.smtLibV_upper_eq, hUeqL]
+              repeat' (first | rfl | split)
+              all_goals (exfalso; grind)
+            rw [hRNEeq]
+            exact UnpackedFloat.blastLower_Rel_smtLibLower hep hs hsu heu x hxnorm hoverF
 
 /--
-info: 'Fp.UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE' depends on axioms: [propext, sorryAx,
+info: 'Fp.UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE' depends on axioms: [propext,
   Classical.choice, Quot.sound]
 -/
 #guard_msgs (whitespace := lax) in #print axioms UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
