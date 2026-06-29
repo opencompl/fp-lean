@@ -73,6 +73,182 @@ the Lean proofs are left as `sorry`; the pen-and-paper arguments are in the
 docstrings.
 -/
 
+/-! ### Bridge lemmas for `stickyEquiv_div` -/
+
+theorem div_prod_eq (sx sy X Y wp wq w1 wb wE sd : Rat)
+    (hsy : sy ≠ 0) (hY : Y ≠ 0) (hwq : wq ≠ 0)
+    (hsign : sx / sy = sd) (hwrel : wp / wq = w1 * wb * wE) :
+    (sx * X * wp) / (sy * Y * wq) = sd * (X * w1 / Y * wb) * wE := by grind
+
+theorem UnpackedFloat.toRat_eq_sign_sig_exp (uf : UnpackedFloat e s) :
+    uf.toRat = uf.sign.toSign * (uf.sig.toNat : Rat) * 2 ^ uf.toExpInt := by
+  rw [UnpackedFloat.toRat_eq_toRat', UnpackedFloat.toRat', UnpackedFloat.toNat_toSigNat_eq]
+
+theorem normShiftSticky_toNat {s : Nat} (q sticky : BitVec (s + 2)) (qn sn : Nat)
+    (hqn : q.toNat = qn) (hsn : sticky.toNat = sn)
+    (hql : 2 ^ s ≤ qn) (hqh : qn < 2 ^ (s + 2)) (hst : sn < 2 ^ (s + 1)) :
+    ((q <<< BitVec.ofBool !q.msb) ||| sticky).toNat
+      = qn * 2 ^ (if 2 ^ (s + 1) ≤ qn then 0 else 1) ||| sn := by
+  subst hqn hsn
+  rw [BitVec.toNat_or,
+    show (q <<< BitVec.ofBool !q.msb) = q <<< (BitVec.ofBool !q.msb).toNat from rfl,
+    BitVec.toNat_shiftLeft, BitVec.toNat_ofBool]
+  have hsm1 : s + 2 - 1 = s + 1 := by omega
+  have hpow : 2 ^ (s + 2) = 2 ^ (s + 1) * 2 := by rw [Nat.pow_succ]
+  congr 1
+  cases hqmsb : q.msb
+  · have hqlt : q.toNat < 2 ^ (s + 1) := by
+      have h := hqmsb; rw [BitVec.msb_eq_decide] at h
+      simp only [decide_eq_false_iff_not, Nat.not_le, hsm1] at h; exact h
+    have hif : (if 2 ^ (s + 1) ≤ q.toNat then 0 else 1) = 1 := by grind
+    rw [hif]
+    simp only [Bool.not_false, Bool.toNat_true, Nat.shiftLeft_eq, Nat.pow_one]
+    apply Nat.mod_eq_of_lt; omega
+  · have hqge : 2 ^ (s + 1) ≤ q.toNat := by
+      have h := hqmsb; rw [BitVec.msb_eq_decide] at h
+      simp only [decide_eq_true_eq, hsm1] at h; exact h
+    have hif : (if 2 ^ (s + 1) ≤ q.toNat then 0 else 1) = 0 := by grind
+    rw [hif]
+    simp only [Bool.not_true, Bool.toNat_false, Nat.shiftLeft_zero, Nat.pow_zero, Nat.mul_one,
+      Nat.mod_eq_of_lt hqh]
+
+theorem UnpackedFloat.divSig_toNat_eq {e s : Nat} (x y : UnpackedFloat e s)
+    (hs : 0 < s) (hx : x.sig.msb = true) (hy : y.sig.msb = true) :
+    (x.div y).sig.toNat
+      = (x.sig.toNat * 2 ^ (s + 1) / y.sig.toNat
+          * 2 ^ (if 2 ^ (s + 1) ≤ x.sig.toNat * 2 ^ (s + 1) / y.sig.toNat then 0 else 1))
+        ||| (if x.sig.toNat * 2 ^ (s + 1) % y.sig.toNat = 0 then 0 else 1) := by
+  have hxlo : 2 ^ (s - 1) ≤ x.sig.toNat := by
+    have h := hx; rw [BitVec.msb_eq_decide] at h; simpa using h
+  have hylo : 2 ^ (s - 1) ≤ y.sig.toNat := by
+    have h := hy; rw [BitVec.msb_eq_decide] at h; simpa using h
+  have hxhi : x.sig.toNat < 2 ^ s := x.sig.isLt
+  have hyhi : y.sig.toNat < 2 ^ s := y.sig.isLt
+  have hypos : 0 < y.sig.toNat := Nat.lt_of_lt_of_le (Nat.two_pow_pos _) hylo
+  have e2s : 2 ^ (s - 1) * 2 ^ (s + 1) = 2 ^ (2 * s) := by rw [← Nat.pow_add]; congr 1; omega
+  have hqlo : 2 ^ s ≤ x.sig.toNat * 2 ^ (s + 1) / y.sig.toNat := by
+    rw [Nat.le_div_iff_mul_le hypos]
+    have h1 : 2 ^ s * y.sig.toNat < 2 ^ (2 * s) := by
+      have : 2 ^ s * y.sig.toNat < 2 ^ s * 2 ^ s :=
+        (Nat.mul_lt_mul_left (Nat.two_pow_pos _)).mpr hyhi
+      rw [← Nat.pow_add] at this; rwa [show s + s = 2 * s by omega] at this
+    have h2 : 2 ^ (2 * s) ≤ x.sig.toNat * 2 ^ (s + 1) := by
+      calc 2 ^ (2 * s) = 2 ^ (s - 1) * 2 ^ (s + 1) := e2s.symm
+        _ ≤ x.sig.toNat * 2 ^ (s + 1) := Nat.mul_le_mul_right _ hxlo
+    omega
+  have hqhi : x.sig.toNat * 2 ^ (s + 1) / y.sig.toNat < 2 ^ (s + 2) := by
+    rw [Nat.div_lt_iff_lt_mul hypos]
+    have h1 : x.sig.toNat * 2 ^ (s + 1) < 2 ^ (2 * s + 1) := by
+      have : x.sig.toNat * 2 ^ (s + 1) < 2 ^ s * 2 ^ (s + 1) :=
+        (Nat.mul_lt_mul_right (Nat.two_pow_pos _)).mpr hxhi
+      rw [← Nat.pow_add] at this; rwa [show s + (s + 1) = 2 * s + 1 by omega] at this
+    have h2 : 2 ^ (2 * s + 1) ≤ 2 ^ (s + 2) * y.sig.toNat := by
+      calc 2 ^ (2 * s + 1) = 2 ^ (s + 2) * 2 ^ (s - 1) := by rw [← Nat.pow_add]; congr 1; omega
+        _ ≤ 2 ^ (s + 2) * y.sig.toNat := Nat.mul_le_mul_left _ hylo
+    omega
+  have hdivisor : (y.sig.setWidth' (by omega : s ≤ s + 2 + (s + 1))).toNat = y.sig.toNat := by
+    rw [BitVec.toNat_setWidth']
+  have hdivident : ((x.sig.setWidth' (by omega : s ≤ s + 2) ++ 0#(s + 1))).toNat
+      = x.sig.toNat * 2 ^ (s + 1) := by
+    rw [BitVec.toNat_append, BitVec.toNat_setWidth', BitVec.toNat_ofNat]
+    simp [Nat.shiftLeft_eq]
+  have hquot : (((x.sig.setWidth' (by omega : s ≤ s + 2) ++ 0#(s + 1))
+        / (y.sig.setWidth' (by omega : s ≤ s + 2 + (s + 1)))).truncate (s + 2)).toNat
+      = x.sig.toNat * 2 ^ (s + 1) / y.sig.toNat := by
+    simp only [BitVec.truncate_eq_setWidth, BitVec.toNat_setWidth, BitVec.toNat_udiv,
+      hdivident, hdivisor]
+    rw [Nat.mod_eq_of_lt hqhi]
+  have hstick : ((BitVec.ofBool
+        ((x.sig.setWidth' (by omega : s ≤ s + 2) ++ 0#(s + 1))
+          % (y.sig.setWidth' (by omega : s ≤ s + 2 + (s + 1))) != 0)).setWidth'
+            (by omega : 1 ≤ s + 2)).toNat
+      = (if x.sig.toNat * 2 ^ (s + 1) % y.sig.toNat = 0 then 0 else 1) := by
+    simp only [BitVec.toNat_setWidth', BitVec.toNat_ofBool, bne_iff_ne, ne_eq]
+    by_cases hm : ((x.sig.setWidth' (by omega : s ≤ s + 2) ++ 0#(s + 1))
+        % (y.sig.setWidth' (by omega : s ≤ s + 2 + (s + 1)))) = 0 <;>
+      simp_all [BitVec.toNat_eq, BitVec.toNat_umod, hdivident, hdivisor]
+  have hst3 : (if x.sig.toNat * 2 ^ (s + 1) % y.sig.toNat = 0 then 0 else 1) < 2 ^ (s + 1) := by
+    have := Nat.two_pow_pos (s + 1)
+    by_cases hm : x.sig.toNat * 2 ^ (s + 1) % y.sig.toNat = 0 <;> simp [hm] <;> omega
+  simp only [UnpackedFloat.div]
+  exact normShiftSticky_toNat _ _ _ _ hquot hstick hqlo hqhi hst3
+
+theorem signExtSubSub_toInt {e : Nat} (he : 0 < e) (A B : BitVec e) (c : BitVec (e + 1))
+    (cval : Int) (hc : c.toInt = cval) (hc0 : 0 ≤ cval) (hc1 : cval ≤ 1) :
+    ((A.signExtend (e + 1)) - (B.signExtend (e + 1)) - c).toInt
+      = A.toInt - B.toInt - cval := by
+  have hAr := BitVec.toInt_lt (x := A)
+  have hAl := BitVec.le_toInt A
+  have hBr := BitVec.toInt_lt (x := B)
+  have hBl := BitVec.le_toInt B
+  have he1 : (2:Int) ^ (e + 1) = 2 ^ e * 2 := by rw [Int.pow_succ]
+  have he0 : (2:Int) ^ e = 2 ^ (e - 1) * 2 := by
+    rw [show e = (e - 1) + 1 by omega, Int.pow_succ]; rw [show e-1+1 = e by omega]
+  have hAse : (A.signExtend (e + 1)).toInt = A.toInt := BitVec.toInt_signExtend_of_le (by omega)
+  have hBse : (B.signExtend (e + 1)).toInt = B.toInt := BitVec.toInt_signExtend_of_le (by omega)
+  rw [BitVec.toInt_sub, BitVec.toInt_sub, hAse, hBse, hc]
+  have hinner : (A.toInt - B.toInt).bmod (2 ^ (e + 1)) = A.toInt - B.toInt := by
+    apply Int.bmod_eq_of_le <;> (push_cast; omega)
+  rw [hinner]
+  apply Int.bmod_eq_of_le <;> (push_cast; omega)
+
+theorem ofBool_setWidth_toInt {e : Nat} (he : 0 < e) (β : Bool) :
+    ((BitVec.ofBool β).setWidth' (by omega : 1 ≤ e + 1)).toInt = (β.toNat : Int) := by
+  have hn : ((BitVec.ofBool β).setWidth' (by omega : 1 ≤ e + 1)).toNat = β.toNat := by
+    rw [BitVec.toNat_setWidth', BitVec.toNat_ofBool]
+  rw [BitVec.toInt_eq_toNat_bmod, hn]
+  have hbN : (β.toNat : Int) < 2 := by cases β <;> simp
+  have h2eN : (2:Nat) ≤ 2 ^ e := by
+    calc (2:Nat) = 2 ^ 1 := rfl
+      _ ≤ 2 ^ e := Nat.pow_le_pow_right (by omega) (by omega)
+  have h2e : (2:Int) ≤ 2 ^ e := by exact_mod_cast h2eN
+  have he1 : (2:Int) ^ (e + 1) = 2 ^ e * 2 := by rw [Int.pow_succ]
+  have hb0 : (0:Int) ≤ (β.toNat : Int) := by exact_mod_cast Nat.zero_le _
+  apply Int.bmod_eq_of_le <;> push_cast <;> omega
+
+theorem UnpackedFloat.divEx_toInt_eq {e s : Nat} (x y : UnpackedFloat e s)
+    (he : 0 < e) (hs : 0 < s) (hx : x.sig.msb = true) (hy : y.sig.msb = true) :
+    (x.div y).ex.toInt = x.ex.toInt - y.ex.toInt
+      - (if 2 ^ (s + 1) ≤ x.sig.toNat * 2 ^ (s + 1) / y.sig.toNat then (0:Int) else 1) := by
+  have hylo : 2 ^ (s - 1) ≤ y.sig.toNat := by
+    have h := hy; rw [BitVec.msb_eq_decide] at h; simpa using h
+  have hxlo : 2 ^ (s - 1) ≤ x.sig.toNat := by
+    have h := hx; rw [BitVec.msb_eq_decide] at h; simpa using h
+  have hxhi : x.sig.toNat < 2 ^ s := x.sig.isLt
+  have hyhi : y.sig.toNat < 2 ^ s := y.sig.isLt
+  have hypos : 0 < y.sig.toNat := Nat.lt_of_lt_of_le (Nat.two_pow_pos _) hylo
+  have hqhi : x.sig.toNat * 2 ^ (s + 1) / y.sig.toNat < 2 ^ (s + 2) := by
+    rw [Nat.div_lt_iff_lt_mul hypos]
+    have h1 : x.sig.toNat * 2 ^ (s + 1) < 2 ^ (2 * s + 1) := by
+      have : x.sig.toNat * 2 ^ (s + 1) < 2 ^ s * 2 ^ (s + 1) :=
+        (Nat.mul_lt_mul_right (Nat.two_pow_pos _)).mpr hxhi
+      rw [← Nat.pow_add] at this; rwa [show s + (s + 1) = 2 * s + 1 by omega] at this
+    have h2 : 2 ^ (2 * s + 1) ≤ 2 ^ (s + 2) * y.sig.toNat := by
+      calc 2 ^ (2 * s + 1) = 2 ^ (s + 2) * 2 ^ (s - 1) := by rw [← Nat.pow_add]; congr 1; omega
+        _ ≤ 2 ^ (s + 2) * y.sig.toNat := Nat.mul_le_mul_left _ hylo
+    omega
+  have hdivisor : (y.sig.setWidth' (by omega : s ≤ s + 2 + (s + 1))).toNat = y.sig.toNat := by
+    rw [BitVec.toNat_setWidth']
+  have hdivident : ((x.sig.setWidth' (by omega : s ≤ s + 2) ++ 0#(s + 1))).toNat
+      = x.sig.toNat * 2 ^ (s + 1) := by
+    rw [BitVec.toNat_append, BitVec.toNat_setWidth', BitVec.toNat_ofNat]; simp [Nat.shiftLeft_eq]
+  have hqmsb : (((x.sig.setWidth' (by omega : s ≤ s + 2) ++ 0#(s + 1))
+        / (y.sig.setWidth' (by omega : s ≤ s + 2 + (s + 1)))).truncate (s + 2)).msb
+      = decide (2 ^ (s + 1) ≤ x.sig.toNat * 2 ^ (s + 1) / y.sig.toNat) := by
+    rw [BitVec.msb_eq_decide]
+    rw [show s + 2 - 1 = s + 1 from rfl]
+    simp only [BitVec.truncate_eq_setWidth, BitVec.toNat_setWidth, BitVec.toNat_udiv,
+      hdivident, hdivisor, Nat.mod_eq_of_lt hqhi]
+  unfold UnpackedFloat.div
+  refine signExtSubSub_toInt he x.ex y.ex _ _ ?hc ?hc0 ?hc1
+  case hc =>
+    rw [ofBool_setWidth_toInt he, BitVec.msb_eq_decide]
+    simp only [BitVec.truncate_eq_setWidth, BitVec.toNat_setWidth, BitVec.toNat_udiv,
+      hdivident, hdivisor, Nat.mod_eq_of_lt hqhi, Nat.add_sub_cancel]
+    by_cases hP : 2 ^ (s + 1) ≤ x.sig.toNat * 2 ^ (s + 1) / y.sig.toNat <;> simp [hP]
+  case hc0 => split <;> omega
+  case hc1 => split <;> omega
+
 /--
 **The division circuit is correct up to a sticky-bit error.**
 
@@ -105,10 +281,70 @@ weight `2^E`, with the fractional part `rem/divisor ∈ [0, 1)`.
   one, and the (still set) sticky bit keeps the bottom bit odd.
 -/
 theorem UnpackedFloat.stickyEquiv_div {e s : Nat} (x y : UnpackedFloat e s)
-    (hs : 0 < s)
+    (he : 0 < e) (hs : 0 < s)
     (hx : x.sig.msb = true) (hy : y.sig.msb = true) :
     StickyEquiv ((x.div y).toExpInt) ((x.div y).toRat) (x.toRat / y.toRat) := by
-  sorry
+  have hYpos : 0 < y.sig.toNat := by
+    have hylo : 2 ^ (s - 1) ≤ y.sig.toNat := by
+      have h := hy; rw [BitVec.msb_eq_decide] at h; simpa using h
+    exact Nat.lt_of_lt_of_le (Nat.two_pow_pos _) hylo
+  have hble : (if 2 ^ (s + 1) ≤ x.sig.toNat * 2 ^ (s + 1) / y.sig.toNat then 0 else 1) ≤ 1 := by
+    split <;> omega
+  -- L2 disjunction (using the significand bridge)
+  have hL2 := floor_sticky_within_one (x.sig.toNat * 2 ^ (s + 1)) y.sig.toNat
+    (if 2 ^ (s + 1) ≤ x.sig.toNat * 2 ^ (s + 1) / y.sig.toNat then 0 else 1) hYpos hble
+    (x.div y).sig.toNat (UnpackedFloat.divSig_toNat_eq x y hs hx hy)
+  -- q identity
+  have hq : (x.div y).toRat
+      = (x.sign ^^ y.sign).toSign * ((x.div y).sig.toNat : Rat) * 2 ^ (x.div y).toExpInt :=
+    UnpackedFloat.toRat_eq_sign_sig_exp (x.div y)
+  -- exponent value
+  have hEval : (x.div y).toExpInt
+      = x.ex.toInt - y.ex.toInt
+        - (if 2 ^ (s + 1) ≤ x.sig.toNat * 2 ^ (s + 1) / y.sig.toNat then (0:Int) else 1) - (s + 1) := by
+    have h1 : (x.div y).toExpInt = (x.div y).ex.toInt - (s + 1) := by
+      simp only [UnpackedFloat.toExpInt]; push_cast; grind
+    rw [h1, UnpackedFloat.divEx_toInt_eq x y he hs hx hy]
+  -- r identity
+  have hr : x.toRat / y.toRat
+      = (x.sign ^^ y.sign).toSign
+        * ((x.sig.toNat * 2 ^ (s + 1) : Nat) / (y.sig.toNat : Rat)
+            * 2 ^ (if 2 ^ (s + 1) ≤ x.sig.toNat * 2 ^ (s + 1) / y.sig.toNat then 0 else 1))
+        * 2 ^ (x.div y).toExpInt := by
+    rw [UnpackedFloat.toRat_eq_sign_sig_exp x, UnpackedFloat.toRat_eq_sign_sig_exp y]
+    have hDcast : ((x.sig.toNat * 2 ^ (s + 1) : Nat) : Rat)
+        = (x.sig.toNat : Rat) * 2 ^ (s + 1) := by norm_cast
+    have hsign : (x.sign.toSign : Rat) / (y.sign.toSign : Rat)
+        = ((x.sign ^^ y.sign).toSign : Rat) := by
+      cases x.sign <;> cases y.sign <;> simp [Bool.toSign] <;> grind
+    have hsy : (y.sign.toSign : Rat) ≠ 0 := by cases y.sign <;> simp [Bool.toSign]
+    have hYne : (y.sig.toNat : Rat) ≠ 0 := by
+      have : (0:Rat) < (y.sig.toNat : Rat) := by exact_mod_cast hYpos
+      grind
+    have hwrel : (2:Rat) ^ x.toExpInt / 2 ^ y.toExpInt
+        = 2 ^ (s + 1)
+          * 2 ^ (if 2 ^ (s + 1) ≤ x.sig.toNat * 2 ^ (s + 1) / y.sig.toNat then 0 else 1)
+          * 2 ^ (x.div y).toExpInt := by
+      have hL : (2:Rat) ^ x.toExpInt / 2 ^ y.toExpInt = 2 ^ (x.ex.toInt - y.ex.toInt) := by
+        rw [Rat.zpow_div_zpow (by grind)]; congr 1
+        simp only [UnpackedFloat.toExpInt]; push_cast; grind
+      have hR : (2:Rat) ^ (s + 1)
+          * 2 ^ (if 2 ^ (s + 1) ≤ x.sig.toNat * 2 ^ (s + 1) / y.sig.toNat then 0 else 1)
+          * 2 ^ (x.div y).toExpInt = 2 ^ (x.ex.toInt - y.ex.toInt) := by
+        rw [← Rat.zpow_natCast 2 (s + 1),
+          ← Rat.zpow_natCast 2 (if 2 ^ (s + 1) ≤ x.sig.toNat * 2 ^ (s + 1) / y.sig.toNat then 0 else 1),
+          Rat.zpow_mul_zpow (by grind), Rat.zpow_mul_zpow (by grind)]
+        congr 1; rw [hEval]; push_cast; grind
+      rw [hL, hR]
+    rw [hDcast]
+    exact div_prod_eq _ _ _ _ _ _ _ _ _ _ hsy hYne Rat.two_pow_int_ne_zero hsign hwrel
+  rw [hq, hr]
+  exact StickyEquiv.of_sign_grid
+    (by cases (x.sign ^^ y.sign) <;> simp [Bool.toSign]) hL2
+
+/-- info: 'Fp.UnpackedFloat.stickyEquiv_div' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms UnpackedFloat.stickyEquiv_div
 
 /--
 **The division circuit produces a normalized result** (for normalized inputs).
@@ -236,7 +472,7 @@ theorem UnpackedFloat.unpackNum_div_unpackNum_stickyEquiv
   have hra := PackedFloat.unpackNum_toRat_eq_toRat (pf := a) ha
   have hrb := PackedFloat.unpackNum_toRat_eq_toRat (pf := b) hb
   rw [← hra, ← hrb]
-  exact UnpackedFloat.stickyEquiv_div a.unpackNum b.unpackNum (by omega)
+  exact UnpackedFloat.stickyEquiv_div a.unpackNum b.unpackNum zero_lt_exponentWidth (by grind)
     (PackedFloat.msb_unpackNum_eq_true ha) (PackedFloat.msb_unpackNum_eq_true hb)
 
 /-! ## Layer 1: the big theorem
