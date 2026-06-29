@@ -479,17 +479,26 @@ theorem div_eq_div {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
         simp only [SmtLibSemantics.SmtLibFunctions.xorSign]
       rw [hxor]
       rw [PackedFloat.EquivUptoNaN_symm, EUnpackedFloat.pack_eq_pack']
-      -- TODO(packing): rounder-output `Packable` (same gap as the addition/multiplication sites);
-      -- the bit-blasted rounder output, when a Number, is normalized + in-range and the SMT spec
-      -- result is finite. Analogue of `PackedFloat.unpackNum_packable` for `blastSmtLibRound`.
-      refine EUnpackedFloat.pack'_EquivUptoNaN_of_Rel he hsin _ _ ?_
-        (by sorry) (by sorry)
-      apply UnpackedFloat.blastSmtLibRound_Rel_round_of_RNE_of_stickyEquiv he hep hsin
-        (eu := exponentWidth ein sin + 1) (su := sin + 1 + 2) (by omega) (by omega)
-        (a.unpackNum.div b.unpackNum) _ _ hqne
-      · apply UnpackedFloat.normalize_eq_self_of_msb_eq_true
-        exact UnpackedFloat.msb_div_eq_true _ _ (by omega)
+      -- Rounder-output `Packable` + finiteness of the SMT spec result (the sticky-equiv variants),
+      -- discharging the two side conditions of `pack'_EquivUptoNaN_of_Rel`.
+      have hmsb : (a.unpackNum.div b.unpackNum).sig.msb = true :=
+        UnpackedFloat.msb_div_eq_true _ _ (by omega)
           (PackedFloat.msb_unpackNum_eq_true ha) (PackedFloat.msb_unpackNum_eq_true hb)
-      · exact UnpackedFloat.unpackNum_div_unpackNum_stickyEquiv hsin ha hb
+      have hxnorm : (a.unpackNum.div b.unpackNum).normalize = a.unpackNum.div b.unpackNum :=
+        UnpackedFloat.normalize_eq_self_of_msb_eq_true _ hmsb
+      have hsticky : StickyEquiv ((a.unpackNum.div b.unpackNum).toExpInt)
+          ((a.unpackNum.div b.unpackNum).toRat) (a.toRat / b.toRat) :=
+        UnpackedFloat.unpackNum_div_unpackNum_stickyEquiv hsin ha hb
+      refine EUnpackedFloat.pack'_EquivUptoNaN_of_Rel he hsin _ _ ?hrel ?hpack ?hpf
+      case hrel =>
+        exact UnpackedFloat.blastSmtLibRound_Rel_round_of_RNE_of_stickyEquiv he hep hsin
+          (eu := exponentWidth ein sin + 1) (su := sin + 1 + 2) (by omega) (by omega)
+          (a.unpackNum.div b.unpackNum) _ _ hqne hxnorm hsticky
+      case hpack =>
+        exact UnpackedFloat.blastSmtLibRound_Packable_of_RNE hep hsin (by omega) (by omega)
+          (a.unpackNum.div b.unpackNum) hxnorm
+      case hpf =>
+        exact UnpackedFloat.blastSmtLibRound_finite_of_RNE_of_stickyEquiv he hep hsin
+          (by omega) (by omega) (a.unpackNum.div b.unpackNum) _ _ hqne hxnorm hsticky
 
 end Fp
