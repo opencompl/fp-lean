@@ -677,6 +677,59 @@ theorem blastExtractStickyBit_eq_true_of_off_eq_succ_iff {eu su ep sp : Nat}
   · rintro ⟨i, hlt, hbit⟩
     exact ⟨i, by grind⟩
 
+/-- A significand with its MSB set has `toNat = 2^(su-1)` iff no lower bit is set. -/
+theorem sig_toNat_eq_two_pow_iff_no_bit_below_msb {su : Nat} (sig : BitVec su) (hsu : 0 < su)
+    (hmsb : sig.getLsbD (su - 1) = true) :
+    sig.toNat = 2 ^ (su - 1) ↔ ¬ ∃ i, i < su - 1 ∧ sig.getLsbD i = true := by
+  have hgl : ∀ j, sig.toNat.testBit j = sig.getLsbD j := fun j => by rw [BitVec.getLsbD]
+  constructor
+  · intro h
+    rintro ⟨i, hi, hbit⟩
+    have hf : sig.getLsbD i = false := by rw [← hgl, h, Nat.testBit_two_pow]; simp; omega
+    rw [hf] at hbit; simp at hbit
+  · intro h
+    apply Nat.eq_of_testBit_eq
+    intro i
+    rw [Nat.testBit_two_pow, hgl]
+    by_cases hi : i = su - 1
+    · subst hi; rw [hmsb]; simp
+    · by_cases hib : i < su - 1
+      · have hf : sig.getLsbD i = false := Bool.eq_false_iff.mpr (fun hc => h ⟨i, hib, hc⟩)
+        rw [hf]; simp; omega
+      · rw [BitVec.getLsbD_of_ge sig i (by omega)]; simp; omega
+
+/-- **At the boundary, `needsRounding_{sp+1} = sticky_sp`.** (The `off ≤ sp` sticky theory
+`needsRounding_succ_eq_blastExtractStickyBit` does not apply at `off = sp+1`; here both sides equal
+"some significand bit strictly below the MSB is set": at precision `sp+1` the guard is bit `su-2` and
+the sticky ranges over bits `< su-2`, together exactly the bits `< su-1`.) -/
+theorem needsRounding_succ_eq_blastExtractStickyBit_of_off_eq_succ {eu su ep sp : Nat}
+    (hep : 1 < ep) (hsp : 0 < sp) (heu : exponentWidth ep (sp + 1) ≤ eu) (hsu : sp + 3 ≤ su)
+    (x : UnpackedFloat eu su)
+    (hdiffLower : -2 ^ (eu - 1) ≤ minNormalExp ep - x.ex.toInt)
+    (hdiffUpper : minNormalExp ep - x.ex.toInt < 2 ^ (eu - 1))
+    (hoff : (minNormalExp ep - x.ex.toInt).toNat = sp + 1) :
+    x.needsRounding ep (sp + 1) = x.blastExtractStickyBit ep sp := by
+  have heu_sp : exponentWidth ep sp ≤ eu := Nat.le_trans exponentWidth_le_succ heu
+  rw [UnpackedFloat.needsRounding,
+    UnpackedFloat.extractGuardBit_eq_getLsbD (sp := sp + 1) hep (by omega) heu (by omega) x
+      hdiffLower hdiffUpper (by omega),
+    UnpackedFloat.blastExtractStickyBit_eq_decide (sp := sp + 1) hep (by omega) heu (by omega) x
+      hdiffLower hdiffUpper (by omega)]
+  rw [hoff]
+  rw [Bool.eq_iff_iff]
+  rw [Bool.or_eq_true, decide_eq_true_eq]
+  rw [show su - (sp + 1 + 2) + (sp + 1) = su - 2 by omega]
+  rw [blastExtractStickyBit_eq_true_of_off_eq_succ_iff hep hsp heu_sp (by omega) x
+    hdiffLower hdiffUpper hoff]
+  constructor
+  · rintro (hg | ⟨i, hi, hb⟩)
+    · exact ⟨su - 2, by omega, hg⟩
+    · exact ⟨i, by omega, hb⟩
+  · rintro ⟨i, hi, hb⟩
+    by_cases hisu2 : i = su - 2
+    · exact Or.inl (by rw [← hisu2]; exact hb)
+    · exact Or.inr ⟨i, by omega, hb⟩
+
 /-- At the underflow boundary (`off = sp+1`), the guard bit is the set MSB, so the negative
 `blastIsLowerHalf = (guard == sticky) = sticky`. Sign-independent exponent facts (derived for `x`
 directly, since `boundary_facts` itself needs `sign = false`). -/
