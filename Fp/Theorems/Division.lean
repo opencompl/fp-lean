@@ -582,4 +582,8 @@ theorem div_eq_div {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
         exact UnpackedFloat.blastSmtLibRound_finite_of_RNE_of_stickyEquiv he hep hsin
           (by omega) (by omega) (a.unpackNum.div b.unpackNum) _ _ hqne hxnorm hsticky
 
+/-- info: 'Fp.div_eq_div' depends on axioms: [propext, sorryAx, BitVec.toNat_clz_cons, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms div_eq_div
+
 end Fp
