@@ -658,6 +658,25 @@ theorem lower_succ_ne_maxNormal_of_lower_ne_maxNormal {ep sp : Nat} (he : 2 < ep
   rw [smtLibLower_eq_lower ep sp (by grind) hs (ExtRat.Number R) (by simp)]
   exact lower_Number_eq_maxNormalNumber_of_toRat_le (by grind) (by grind) hs R hRge
 
+/-- At the boundary (`off = sp+1`) the sticky bit is "some significand bit strictly below the MSB". -/
+theorem blastExtractStickyBit_eq_true_of_off_eq_succ_iff {eu su ep sp : Nat}
+    (hep : 1 < ep) (hsp : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su)
+    (hdiffLower : -2 ^ (eu - 1) ≤ minNormalExp ep - x.ex.toInt)
+    (hdiffUpper : minNormalExp ep - x.ex.toInt < 2 ^ (eu - 1))
+    (hoff : (minNormalExp ep - x.ex.toInt).toNat = sp + 1) :
+    x.blastExtractStickyBit ep sp = true ↔ (∃ i, i < su - 1 ∧ x.sig.getLsbD i = true) := by
+  have hgbi : (x.guardBitIndex ep sp).toNat = su - 1 := by
+    rw [toNat_guardBitIndex_eq_succ hep hsp heu hsu x hdiffLower hdiffUpper (by omega), hoff]; omega
+  simp only [UnpackedFloat.blastExtractStickyBit, decide_eq_true_eq]
+  rw [BitVec.ne_iff_getLsbD_ne]
+  simp only [BitVec.getLsbD_and, BitVec.getLsbD_orderEncode, BitVec.getLsbD_zero, hgbi]
+  constructor
+  · rintro ⟨i, hi⟩
+    exact ⟨i, by grind, by grind⟩
+  · rintro ⟨i, hlt, hbit⟩
+    exact ⟨i, by grind⟩
+
 /-- At the underflow boundary (`off = sp+1`), the guard bit is the set MSB, so the negative
 `blastIsLowerHalf = (guard == sticky) = sticky`. Sign-independent exponent facts (derived for `x`
 directly, since `boundary_facts` itself needs `sign = false`). -/
