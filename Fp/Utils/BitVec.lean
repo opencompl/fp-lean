@@ -281,6 +281,27 @@ info: 'BitVec.toNat_and_not_oneHotBV_or_orderEncode' depends on axioms: [propext
 -/
 #guard_msgs in #print axioms BitVec.toNat_and_not_oneHotBV_or_orderEncode
 
+/-- `orderEncode g` is the mask of the low `g.toNat` bits, so its value is `2^g.toNat − 1`. -/
+theorem BitVec.toNat_orderEncode_of_le {w : Nat} (g : BitVec w) (hg : g.toNat ≤ w) :
+    (BitVec.orderEncode g).toNat = 2 ^ g.toNat - 1 := by
+  rcases Nat.lt_or_ge g.toNat w with h | h
+  · have hw : 0 < w := by grind
+    have hstrict : 2 ^ g.toNat < 2 ^ w := Nat.pow_lt_pow_right (by grind) h
+    rw [BitVec.orderEncode_eq_oneHotBV_sub, BitVec.toNat_sub, BitVec.toNat_oneHotBV g h]
+    have h1 : (1 : BitVec w).toNat = 1 := BitVec.toNat_one hw
+    have hX1 : 1 ≤ 2 ^ g.toNat := Nat.one_le_two_pow
+    rw [h1]
+    have key : 2 ^ w - 1 + 2 ^ g.toNat = 2 ^ w + (2 ^ g.toNat - 1) := by grind
+    rw [key, Nat.add_mod_left, Nat.mod_eq_of_lt (by grind)]
+  · have hgw : g.toNat = w := by grind
+    rw [BitVec.orderEncode_eq_allOnes_of_le _ (by grind), BitVec.toNat_allOnes, hgw]
+
+/-- ANDing with `orderEncode g` keeps exactly the low `g.toNat` bits — i.e. the bits an arithmetic
+right shift by `g.toNat` would discard. This is how the addition circuit detects its sticky bit. -/
+theorem BitVec.toNat_and_orderEncode {w : Nat} (v g : BitVec w) (hg : g.toNat ≤ w) :
+    (v &&& BitVec.orderEncode g).toNat = v.toNat % 2 ^ g.toNat := by
+  rw [BitVec.toNat_and, BitVec.toNat_orderEncode_of_le g hg, Nat.and_two_pow_sub_one_eq_mod]
+
 @[simp]
 theorem BitVec.clz_zero (w : Nat) : (0#w : BitVec w).clz = w := by
   rw [BitVec.clz_eq_iff_eq_zero]
