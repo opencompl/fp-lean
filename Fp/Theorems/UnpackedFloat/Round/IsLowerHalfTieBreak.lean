@@ -935,9 +935,76 @@ theorem smtLibLowerHalf_iff_blastExtractStickyBit_of_sign_true_boundary
     rw [hnex]; simp only [decide_eq_false_iff_not, Int.not_lt]
     grind
   have hnnorm : (-x).normalize = -x := UnpackedFloat.normalize_neg_eq_neg_of_normalize_eq x hxnorm
-  -- diff facts for `-x` at `sp+1` (`off = sp+1 ≤ sp+1`).
-  have hnat1 : (minNormalExp ep - (-x).ex.toInt).toNat ≤ sp + 1 := by rw [hnex]; grind
-  sorry
+  -- `lower_{sp+1}(|x|) = minSub_{sp+1}` (the subnormal floor of a value in `[minSub_{sp+1}, 2·minSub_{sp+1})`).
+  have hge1 : (PackedFloat.minSubnormalNumber ep (sp + 1) false).toRat ≤ (-x).toRat' := by
+    rw [hminSub1]
+    have h := UnpackedFloat.two_pow_ex_le_toRat'_of_msb_of_sign_false (-x) (by grind) hnsign hnmsb
+    rw [hnex] at h; exact h
+  have h2ex : (2 : Rat) ^ (x.ex.toInt + 1) = 2 * 2 ^ (x.ex.toInt) := by
+    rw [Rat.zpow_add (by decide) x.ex.toInt 1, Rat.zpow_one, Rat.mul_comm]
+  have hlt1 : (-x).toRat' < 2 * (PackedFloat.minSubnormalNumber ep (sp + 1) false).toRat := by
+    rw [hminSub1, ← h2ex, ← hminSub]; exact hlt'
+  have hlowpin : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number (-x).toRat') : PackedFloat ep (sp + 1))
+      = PackedFloat.minSubnormalNumber ep (sp + 1) false :=
+    lower_Number_eq_minSubnormalNumber_of_ge_of_lt_succ he (by omega) (-x).toRat' hge1 hlt1
+  have hmaxL1 : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number (-x).toRat') : PackedFloat ep (sp + 1))
+      ≠ PackedFloat.maxNormalNumber ep (sp + 1) false := by
+    rw [hlowpin]; intro hc
+    have h1 : (PackedFloat.maxNormalNumber ep (sp + 1) false).isNorm :=
+      PackedFloat.isNorm_maxNormalNumber_of_lt_e ep (sp + 1) (by grind) false
+    rw [← hc] at h1; simp [PackedFloat.isNorm, PackedFloat.minSubnormalNumber, BitVec.ofInt] at h1
+  -- `upper_sp(|x|) = minSub_sp`.
+  have hupsp : (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number (-x).toRat') : PackedFloat ep sp)
+      = PackedFloat.minSubnormalNumber ep sp false := by
+    refine eq_of_IsLawfulUpper_of_IsLawfulUpper ep sp (ExtRat.Number (-x).toRat') _ _ ?_ ?_ ?_ ?_
+    · simpa using not_isNaN_upper_of_ne_NaN ep sp (by grind) hs (ExtRat.Number (-x).toRat') (by simp)
+    · simpa using PackedFloat.not_isNaN_minSubnormalNumber ep sp false (by grind) hs
+    · exact isLawfulUpper_smtLibUpper ep sp (by grind) hs (ExtRat.Number (-x).toRat')
+    · exact isLawfulUpper_minSubnormalNumber_of_pos_of_le (by grind) hs (-x).toRat' hxpos'
+        (Rat.le_of_lt hlt')
+  have hfinU : (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number (-x).toRat') : PackedFloat ep sp).isNormOrNonzeroSubnorm := by
+    rw [hupsp]; exact PackedFloat.isNormOrNonzeroSubnorm_minSubnormalNumber ep sp false (by grind) hs
+  have hfinU1 := isNormOrNonzeroSubnorm_smtLibUpper_of_sign_false_of_ne_maxNormal
+    he (by omega) heu (by omega) (-x) hnsign hnnorm hnunder1 hnover1 hmaxL1
+  -- lowerHalf reduces to `upper_sp(|x|) = upper_{sp+1}(|x|)`.
+  have hneg_val : (-(ExtRat.Number x.toRat')) = ExtRat.Number (-x).toRat' :=
+    (congrArg ExtRat.Number (UnpackedFloat.toRat'_neg x)).symm
+  have hlow : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp)
+      = -(SmtLibSemantics.smtLibUpper.upper (ExtRat.Number (-x).toRat') : PackedFloat ep sp) := by
+    rw [smtLibLower_eq_neg_smtLibUpper_neg ep sp he' hs (ExtRat.Number x.toRat') (by simp), hneg_val]
+  have hlow1 : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep (sp + 1))
+      = -(SmtLibSemantics.smtLibUpper.upper (ExtRat.Number (-x).toRat') : PackedFloat ep (sp + 1)) := by
+    rw [smtLibLower_eq_neg_smtLibUpper_neg ep (sp + 1) he' (by omega) (ExtRat.Number x.toRat') (by simp),
+      hneg_val]
+  have hlowerhalf :
+      (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat')
+        ↔ (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number (-x).toRat') : PackedFloat ep sp).toRat
+            = (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number (-x).toRat') : PackedFloat ep (sp + 1)).toRat := by
+    rw [SmtLibSemantics.smtLibRoundMethod.lowerHalf_eq]
+    simp only [SmtLibSemantics.smtLibV_lower_eq, SmtLibSemantics.smtLibV_embed_eq, hlow, hlow1,
+      SmtLibSemantics.instExtendedRat.smtLibEq]
+    rw [PackedFloat.toExtRat_eq_toExtRat', PackedFloat.toExtRat_eq_toExtRat',
+      PackedFloat.toExtRat'_eq_toRat_of (by rw [PackedFloat.isNormOrNonzeroSubnorm_neg]; exact hfinU),
+      PackedFloat.toExtRat'_eq_toRat_of (by rw [PackedFloat.isNormOrNonzeroSubnorm_neg]; exact hfinU1),
+      PackedFloat.toRat_neg, PackedFloat.toRat_neg]
+    simp only [ExtRat.Number.injEq]; constructor <;> intro h <;> grind
+  rw [hlowerhalf, hupsp, hminSub,
+    smtLibUpper_toRat_eq_lower_add_ulp (sp := sp + 1) he (by omega) heu (by omega) (-x) hnsign hnnorm
+      hnunder1 hnover1 hmaxL1,
+    needsRounding_succ_eq_blastExtractStickyBit_of_off_eq_succ (by grind) hs heu (by omega) (-x)
+      hdL' hdU' hoff',
+    show (-x).blastExtractStickyBit ep sp = x.blastExtractStickyBit ep sp from rfl,
+    smtLibLower_lower_toRatExp_eq (sp := sp + 1) (by grind) (by omega) heu (by omega) (-x) hnsign hnnorm
+      hnunder1 hnover1, hoff', hnex,
+    hlowpin, hminSub1, h2ex]
+  -- `2·2^ex = 2^ex + (sticky ? ulp : 0)` ⟺ `sticky`, with `ulp = 2^(-(sp+1))·2^(ex+(sp+1)) = 2^ex`.
+  have hulp : (2 : Rat) ^ (-(((sp + 1 : Nat) : Int))) * 2 ^ (x.ex.toInt + (((sp + 1 : Nat) : Int)))
+      = 2 ^ (x.ex.toInt) := by
+    rw [← Rat.zpow_add (by decide)]; congr 1; push_cast; omega
+  have hpos : (0 : Rat) < 2 ^ (x.ex.toInt) := Rat.two_pow_pos _
+  rw [hulp]
+  cases hst : x.blastExtractStickyBit ep sp <;> simp only [hst, if_true, if_false, Bool.false_eq_true] <;>
+    constructor <;> intro h <;> grind
 
 /-- **Negative, narrow (any range).** Dispatches the negative underflow boundary, the in-range
 non-edge case, and the `lower = maxNormal` overflow edge. -/
