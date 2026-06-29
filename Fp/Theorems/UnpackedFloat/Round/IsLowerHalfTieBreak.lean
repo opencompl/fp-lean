@@ -498,7 +498,130 @@ theorem blastIsLowerHalf_iff_lowerHalf_of_sign_false_boundary
   grind
 
 
+/-# Widening transfer
+
+The wide leaf lemmas above require `exponentWidth ep (sp+1) ≤ eu` and `sp+3 ≤ su`. At the RNE call site
+those can fail, so we transfer them to a too-narrow `x` by widening (`Fp/.../Round/Widen.lean`): the
+value (`toRat'`), the predicate (`blastIsLowerHalf`), and all flags are invariant under `widen`. -/
+
+/-- The exponent-difference bounds for an in-range `x` (no underflow, no early overflow). -/
+theorem inRange_diff_facts {eu su ep sp : Nat}
+    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu)
+    (x : UnpackedFloat eu su)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    (-2 ^ (eu - 1) ≤ minNormalExp ep - x.ex.toInt) ∧
+    (minNormalExp ep - x.ex.toInt < 2 ^ (eu - 1)) ∧
+    ((minNormalExp ep - x.ex.toInt).toNat ≤ sp) := by
+  have hms : minSubnormalExp ep sp = minNormalExp ep - sp := by
+    simp only [minSubnormalExp, maxSubnormalExp]; grind
+  have hexge : minSubnormalExp ep sp ≤ x.ex.toInt := by
+    rw [UnpackedFloat.blastUnderflowNonneg_eq_decide (by grind) hs heu] at hnotunder
+    simpa using hnotunder
+  have hexle : x.ex.toInt ≤ maxNormalExp ep := by
+    rw [UnpackedFloat.blastIsEarlyOverflowNonneg_eq_decide (by grind) hs heu] at hnotover
+    simpa using hnotover
+  obtain ⟨hdl, hdu⟩ := shift_range (by grind) hs heu (by grind) hexle
+  exact ⟨hdl, hdu, by grind⟩
+
+/-- **Nonnegative, in-range, narrow.** Transfer of `blastIsLowerHalf_iff_lowerHalf_of_sign_false_wide`
+to a too-narrow `x` (only `sp+2 ≤ su`, `exponentWidth ep sp ≤ eu`) by widening to `eu'`, `su'`. -/
+theorem blastIsLowerHalf_iff_lowerHalf_of_sign_false_inRange
+    {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (eu' su' : Nat) (hwideu : eu ≤ eu') (hwidesu : su ≤ su')
+    (heu' : exponentWidth ep (sp + 1) ≤ eu') (hsu' : sp + 3 ≤ su')
+    (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    (x.blastIsLowerHalf ep sp = true) ↔
+    (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat') := by
+  have hsupos : 0 < su := by omega
+  have heu_succ : exponentWidth ep sp ≤ eu' := Nat.le_trans exponentWidth_le_succ heu'
+  obtain ⟨hdl, hdu, hnat⟩ := inRange_diff_facts he hs heu x hnotunder hnotover
+  -- transfer LHS (predicate) and RHS (value) to the widened float.
+  rw [← blastIsLowerHalf_widen x eu' su' (by grind) hs heu (by omega) heu_succ (by omega)
+        hwideu hwidesu hdl hdu hnat,
+      ← toRat'_widen x eu' su' hwideu hwidesu hsupos]
+  -- apply the wide leaf to `x.widen eu' su'`.
+  refine blastIsLowerHalf_iff_lowerHalf_of_sign_false_wide he hs heu' hsu' (x.widen eu' su')
+    (by rw [sign_widen]; exact hxsign)
+    (normalize_widen x eu' su' hwidesu hsupos hmsb)
+    ?_ ?_
+  · rw [blastIsUnderflowNonneg_widen x eu' su' (by grind) hs heu heu_succ hwideu]; exact hnotunder
+  · rw [blastIsEarlyOverflowNonneg_widen x eu' su' (by grind) hs heu heu_succ hwideu]; exact hnotover
+
+/-- At the nonneg underflow boundary the guard bit is the (set) MSB, so `blastIsLowerHalf = !guard = false`.
+Width-generic: usable for `x` and its widening. -/
+theorem blastIsLowerHalf_eq_false_of_sign_false_boundary {eu su ep sp : Nat}
+    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hmsb : x.sig.msb = true)
+    (hunder : x.blastIsUnderflowNonneg ep sp = true)
+    (hnotearlyunder : x.blastIsEarlyUnderflowNonneg ep sp = false) :
+    x.blastIsLowerHalf ep sp = false := by
+  obtain ⟨hoff, hdiffLower, hdiffUpper, _, _⟩ :=
+    boundary_facts he hs heu hsu x hxsign hmsb hunder hnotearlyunder
+  have hguard := blastExtractGuardBit_eq_true_of_off_eq_succ_of_msb (by grind) hs heu hsu x
+    hdiffLower hdiffUpper hoff hmsb
+  simp [UnpackedFloat.blastIsLowerHalf, UnpackedFloat.blastIsLowerHalfNonneg, hxsign, hguard]
+
+/-- **Nonnegative, underflow boundary, narrow.** Transfer of the boundary leaf by widening; both sides
+are `false`. -/
+theorem blastIsLowerHalf_iff_lowerHalf_of_sign_false_boundary_narrow
+    {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (eu' su' : Nat) (hwideu : eu ≤ eu') (hwidesu : su ≤ su')
+    (heu' : exponentWidth ep (sp + 1) ≤ eu') (hsu' : sp + 3 ≤ su')
+    (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
+    (hunder : x.blastIsUnderflowNonneg ep sp = true)
+    (hnotearlyunder : x.blastIsEarlyUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    (x.blastIsLowerHalf ep sp = true) ↔
+    (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat') := by
+  have hsupos : 0 < su := by omega
+  have heu_succ : exponentWidth ep sp ≤ eu' := Nat.le_trans exponentWidth_le_succ heu'
+  -- widened-float flags
+  have hsign' : (x.widen eu' su').sign = false := by rw [sign_widen]; exact hxsign
+  have hmsb' : (x.widen eu' su').sig.msb = true := by rw [sig_msb_widen x eu' su' hwidesu hsupos]; exact hmsb
+  have hnorm' := normalize_widen x eu' su' hwidesu hsupos hmsb
+  have hunder' : (x.widen eu' su').blastIsUnderflowNonneg ep sp = true := by
+    rw [blastIsUnderflowNonneg_widen x eu' su' (by grind) hs heu heu_succ hwideu]; exact hunder
+  have hnotearlyunder' : (x.widen eu' su').blastIsEarlyUnderflowNonneg ep sp = false := by
+    rw [blastIsEarlyUnderflowNonneg_widen x eu' su' (by grind) hs heu heu_succ hwideu]; exact hnotearlyunder
+  have hnotover' : (x.widen eu' su').blastIsEarlyOverflowNonneg ep sp = false := by
+    rw [blastIsEarlyOverflowNonneg_widen x eu' su' (by grind) hs heu heu_succ hwideu]; exact hnotover
+  -- both sides are `false`.
+  rw [blastIsLowerHalf_eq_false_of_sign_false_boundary he hs heu hsu x hxsign hmsb hunder hnotearlyunder,
+      ← toRat'_widen x eu' su' hwideu hwidesu hsupos,
+      ← blastIsLowerHalf_iff_lowerHalf_of_sign_false_boundary he hs heu' hsu' (x.widen eu' su')
+        hsign' hnorm' hmsb' hunder' hnotearlyunder' hnotover',
+      blastIsLowerHalf_eq_false_of_sign_false_boundary he hs heu_succ (by omega) (x.widen eu' su')
+        hsign' hmsb' hunder' hnotearlyunder']
+
+
 /-# blastIsLowerHalf -/
+
+/-- **Nonnegative, narrow (any range).** Dispatches the underflow boundary vs the in-range case, widening
+to the `sp+1`-precision width that the bridge needs. -/
+theorem blastIsLowerHalf_iff_smtLibLowerHalf_of_sign_false
+    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
+    (hnotunder : x.blastIsEarlyUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
+    (x.blastIsLowerHalf ep sp = true) ↔
+    (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat') := by
+  have hwideu : eu ≤ max eu (exponentWidth ep (sp + 1)) := Nat.le_max_left _ _
+  have hwidesu : su ≤ max su (sp + 3) := Nat.le_max_left _ _
+  have heu' : exponentWidth ep (sp + 1) ≤ max eu (exponentWidth ep (sp + 1)) := Nat.le_max_right _ _
+  have hsu' : sp + 3 ≤ max su (sp + 3) := Nat.le_max_right _ _
+  by_cases hunder : x.blastIsUnderflowNonneg ep sp = true
+  · exact blastIsLowerHalf_iff_lowerHalf_of_sign_false_boundary_narrow he hs heu hsu
+      (max eu (exponentWidth ep (sp + 1))) (max su (sp + 3)) hwideu hwidesu heu' hsu'
+      x hxsign hxnorm hmsb hunder hnotunder hnotover
+  · simp only [Bool.not_eq_true] at hunder
+    exact blastIsLowerHalf_iff_lowerHalf_of_sign_false_inRange he hs heu hsu
+      (max eu (exponentWidth ep (sp + 1))) (max su (sp + 3)) hwideu hwidesu heu' hsu'
+      x hxsign hxnorm hmsb hunder hnotover
 
 /-- `blastIsLowerHalf` agrees with the SMT-LIB `lowerHalf` predicate. Hypotheses match the isEven
 theorems (so the RNE call site can supply them for `x.truncateFittingExponent`): a nonzero normalized
@@ -512,7 +635,11 @@ theorem blastIsLowerHalf_iff_smtLibLowerHalf
     (x.blastIsLowerHalf ep sp = true) ↔
     (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat')
     := by
-  sorry
+  by_cases hxsign : x.sign = false
+  · exact blastIsLowerHalf_iff_smtLibLowerHalf_of_sign_false he hs heu hsu x hxsign hxnorm hmsb
+      hnotunder hnotover
+  · -- negative case (in-range + edges) — next increment
+    sorry
 
 theorem blastIsLowerHalf_eq
     (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
