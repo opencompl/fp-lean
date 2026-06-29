@@ -137,7 +137,88 @@ theorem UnpackedFloat.msb_div_eq_true {e s : Nat} (x y : UnpackedFloat e s)
     (hs : 0 < s)
     (hx : x.sig.msb = true) (hy : y.sig.msb = true) :
     (x.div y).sig.msb = true := by
-  sorry
+  -- Operand bounds: `x.sig, y.sig ∈ [2^(s-1), 2^s)`.
+  have hxlo : 2 ^ (s - 1) ≤ x.sig.toNat := by
+    have h := hx; rw [BitVec.msb_eq_decide] at h; simpa using h
+  have hylo : 2 ^ (s - 1) ≤ y.sig.toNat := by
+    have h := hy; rw [BitVec.msb_eq_decide] at h; simpa using h
+  have hxhi : x.sig.toNat < 2 ^ s := x.sig.isLt
+  have hyhi : y.sig.toNat < 2 ^ s := y.sig.isLt
+  have hypos : 0 < y.sig.toNat := Nat.lt_of_lt_of_le (Nat.two_pow_pos _) hylo
+  -- Power identities (`s ≥ 1`).
+  have hs1 : s - 1 + 1 = s := by omega
+  have e2s : 2 ^ (s - 1) * 2 ^ (s + 1) = 2 ^ (2 * s) := by
+    rw [← Nat.pow_add]; congr 1; omega
+  -- `q := ⌊x.sig·2^(s+1) / y.sig⌋` is the raw quotient value.
+  have hqlo : 2 ^ s ≤ x.sig.toNat * 2 ^ (s + 1) / y.sig.toNat := by
+    rw [Nat.le_div_iff_mul_le hypos]
+    have h1 : 2 ^ s * y.sig.toNat < 2 ^ (2 * s) := by
+      have : 2 ^ s * y.sig.toNat < 2 ^ s * 2 ^ s :=
+        (Nat.mul_lt_mul_left (Nat.two_pow_pos _)).mpr hyhi
+      rw [← Nat.pow_add] at this; rwa [show s + s = 2 * s by omega] at this
+    have h2 : 2 ^ (2 * s) ≤ x.sig.toNat * 2 ^ (s + 1) := by
+      calc 2 ^ (2 * s) = 2 ^ (s - 1) * 2 ^ (s + 1) := e2s.symm
+        _ ≤ x.sig.toNat * 2 ^ (s + 1) := Nat.mul_le_mul_right _ hxlo
+    omega
+  have hqhi : x.sig.toNat * 2 ^ (s + 1) / y.sig.toNat < 2 ^ (s + 2) := by
+    rw [Nat.div_lt_iff_lt_mul hypos]
+    have h1 : x.sig.toNat * 2 ^ (s + 1) < 2 ^ (2 * s + 1) := by
+      have : x.sig.toNat * 2 ^ (s + 1) < 2 ^ s * 2 ^ (s + 1) :=
+        (Nat.mul_lt_mul_right (Nat.two_pow_pos _)).mpr hxhi
+      rw [← Nat.pow_add] at this; rwa [show s + (s + 1) = 2 * s + 1 by omega] at this
+    have h2 : 2 ^ (2 * s + 1) ≤ 2 ^ (s + 2) * y.sig.toNat := by
+      calc 2 ^ (2 * s + 1) = 2 ^ (s + 2) * 2 ^ (s - 1) := by rw [← Nat.pow_add]; congr 1; omega
+        _ ≤ 2 ^ (s + 2) * y.sig.toNat := Nat.mul_le_mul_left _ hylo
+    omega
+  -- Reduce to the quotient bitvector and its msb.
+  simp only [UnpackedFloat.div]
+  -- Value of the dividend / divisor bitvectors.
+  have hdivisor : (y.sig.setWidth' (by omega : s ≤ s + 2 + (s + 1))).toNat = y.sig.toNat := by
+    rw [BitVec.toNat_setWidth']
+  have hdivident : ((x.sig.setWidth' (by omega : s ≤ s + 2) ++ 0#(s + 1))).toNat
+      = x.sig.toNat * 2 ^ (s + 1) := by
+    rw [BitVec.toNat_append, BitVec.toNat_setWidth', BitVec.toNat_ofNat]
+    simp [Nat.shiftLeft_eq]
+  -- Generic msb fact: a value in `[2^s, 2^(s+2))`, normalized away from zero (conditional
+  -- left-shift by `!msb`) then OR-ed with a low sticky bit, has its top bit set.
+  suffices h : ∀ (q sticky : BitVec (s + 2)),
+      2 ^ s ≤ q.toNat → q.toNat < 2 ^ (s + 2) → sticky.toNat < 2 ^ (s + 1) →
+      ((q <<< BitVec.ofBool !q.msb) ||| sticky).msb = true by
+    apply h
+    · rw [BitVec.truncate_eq_setWidth, BitVec.toNat_setWidth, BitVec.toNat_udiv,
+        hdivident, hdivisor, Nat.mod_eq_of_lt hqhi]
+      exact hqlo
+    · rw [BitVec.truncate_eq_setWidth, BitVec.toNat_setWidth, BitVec.toNat_udiv,
+        hdivident, hdivisor, Nat.mod_eq_of_lt hqhi]
+      exact hqhi
+    · rw [BitVec.toNat_setWidth', BitVec.toNat_ofBool]
+      have h1 : 1 < 2 ^ (s + 1) := by rw [Nat.pow_succ]; have := Nat.two_pow_pos s; omega
+      exact Nat.lt_of_le_of_lt (Bool.toNat_le _) h1
+  -- Proof of the generic fact.
+  intro q sticky hql hqh hst
+  have hsm1 : s + 2 - 1 = s + 1 := by omega
+  have hstmsb : sticky.msb = false := by
+    rw [BitVec.msb_eq_decide]; simp only [decide_eq_false_iff_not, Nat.not_le, hsm1]; omega
+  rw [BitVec.msb_or, hstmsb, Bool.or_false, BitVec.msb_eq_decide,
+    show (q <<< BitVec.ofBool !q.msb) = q <<< (BitVec.ofBool !q.msb).toNat from rfl]
+  simp only [decide_eq_true_eq, BitVec.toNat_shiftLeft, BitVec.toNat_ofBool, Nat.shiftLeft_eq, hsm1]
+  cases hqmsb : q.msb
+  · -- msb false ⇒ shift by `1`, value `= q.toNat * 2 ≥ 2^(s+1)` (since `q.toNat ≥ 2^s`).
+    have hqlt : q.toNat < 2 ^ (s + 1) := by
+      have h := hqmsb; rw [BitVec.msb_eq_decide] at h
+      simp only [decide_eq_false_iff_not, Nat.not_le, hsm1] at h; exact h
+    have h2 : 2 ^ (s + 2) = 2 ^ (s + 1) * 2 := by rw [Nat.pow_succ]
+    have h3 : 2 ^ (s + 1) = 2 ^ s * 2 := by rw [Nat.pow_succ]
+    simp only [hqmsb, Bool.not_false, Bool.toNat_true, Nat.pow_one,
+      Nat.mod_eq_of_lt (show q.toNat * 2 < 2 ^ (s + 2) by omega)]
+    omega
+  · -- msb true ⇒ shift by `0`, value `= q.toNat ≥ 2^(s+1)`.
+    have hqge : 2 ^ (s + 1) ≤ q.toNat := by
+      have h := hqmsb; rw [BitVec.msb_eq_decide] at h
+      simp only [decide_eq_true_eq, hsm1] at h; exact h
+    simp only [hqmsb, Bool.not_true, Bool.toNat_false, Nat.pow_zero, Nat.mul_one,
+      Nat.mod_eq_of_lt hqh]
+    exact hqge
 
 /-! ## The `unpackNum` lift -/
 
