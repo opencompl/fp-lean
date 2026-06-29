@@ -37,6 +37,95 @@ theorem needsRounding_succ_eq_blastExtractStickyBit
       exact ⟨hall _ (by omega), fun i hi => hall i (by omega)⟩
   cases hnr : x.needsRounding ep (sp + 1) <;> cases hst : x.blastExtractStickyBit ep sp <;> simp_all
 
+/-- **Upper foundation lemma.** For a nonnegative in-range normalized float whose lower approximant is
+not `maxNormal` (so the successor is finite), the upper approximant is the lower plus one ULP exactly
+when rounding is needed: `upper.toRat = lower.toRat + (needsRounding ? ulp : 0)` with
+`ulp = 2^(-sp)·2^(lower.toRatExp)`. From `upper = lower` (representable) / `lower.successorAwayFromZero`
+(needs rounding) and `toRat_successorAwayFromZero_eq`. -/
+theorem smtLibUpper_toRat_eq_lower_add_ulp
+    {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
+    (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
+    (hmaxL : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp)
+      ≠ PackedFloat.maxNormalNumber ep sp false) :
+    (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp).toRat
+      = (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).toRat
+        + (if x.needsRounding ep sp then
+            (2 : Rat) ^ (-(sp : Int))
+              * 2 ^ (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).toRatExp
+          else 0) := by
+  have he' : 0 < ep := by grind
+  have hmsb := UnpackedFloat.msb_eq_true_of_normalize_of_not_blastIsUnderflowNonneg
+    (by grind) hs heu x hxnorm hnotunder
+  have hxpos : 0 < x.toRat' := by
+    have h1 := UnpackedFloat.two_pow_ex_le_toRat'_of_msb_of_sign_false x (by grind) hxsign hmsb
+    have h2 : (0 : Rat) < 2 ^ (x.ex.toInt) := Rat.two_pow_pos _
+    grind
+  have hfinL := UnpackedFloat.isNormOrNonzeroSubnorm_lower_of_in_range
+    he hs heu hsu x hxsign hxnorm hnotunder hnotover
+  have hLnan : ¬ (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).isNaN :=
+    by simpa using PackedFloat.not_isNaN_of_isNormOrSubnorm hfinL
+  have hLinf : ¬ (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).isInfinite :=
+    by simpa using PackedFloat.not_isInfinite_of_isNormOrSubnorm hfinL
+  obtain ⟨pf, hpfNotNaN, hpfLower, hToRat, hSign, _⟩ :=
+    UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero
+      (by grind) hs heu hsu x hxsign hxnorm hnotunder hnotover
+  have hpflow : pf = (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp) :=
+    eq_of_IsLawfulLower_of_IsLawfulLower ep sp (ExtRat.Number x.toRat') pf _ hpfNotNaN
+      (by simpa using not_isNaN_lower_of_ne_NaN ep sp (by grind) hs _ (by simp))
+      hpfLower (lsLawfulLower_smtLibLower ep sp (by grind) hs _)
+  have hsignL : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).sign
+      = false := by rw [← hpflow, ← hSign, sign_blastRoundTowardZero, hxsign]
+  by_cases hnr : x.needsRounding ep sp = true
+  · have hne : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).toRat
+        ≠ x.toRat' := by
+      rw [← hpflow, ← hToRat]
+      intro hc
+      have := (UnpackedFloat.blastRoundTowardZero_toRat'_eq_toRat'_iff_not_needsRounding
+        (by grind) hs heu hsu x hxsign hnotunder hnotover).mp hc
+      rw [this] at hnr; simp at hnr
+    have hfinSucc := PackedFloat.isNormOrNonzeroSubnorm_successorAwayFromZero_of_ne_maxNormal
+      (by grind) hs _ hsignL hfinL hmaxL
+    rw [upper_eq_lower_successorAwayFromZero_of_ne (by grind) hs x.toRat' hxpos hfinL hfinSucc hsignL hne,
+      PackedFloat.toRat_successorAwayFromZero_eq _ hLnan hLinf (by rw [hsignL]; exact hmaxL) (by grind) hs,
+      hnr]
+    simp [hsignL, Bool.toSign]
+  · have hnr' : x.needsRounding ep sp = false := by grind
+    have hrepr : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).toRat
+        = x.toRat' := by
+      rw [← hpflow, ← hToRat]
+      exact (UnpackedFloat.blastRoundTowardZero_toRat'_eq_toRat'_iff_not_needsRounding
+        (by grind) hs heu hsu x hxsign hnotunder hnotover).mpr hnr'
+    rw [upper_eq_lower_of_lower_isNormOrNonzeroSubnorm he' hs x.toRat' hfinL hrepr, hnr']
+    simp
+
+/-- **Upper foundation lemma at `sp+1`, sticky form.** The same statement at precision `sp+1`, with
+`needsRounding_{sp+1}` rewritten to the `sp` sticky bit (`needsRounding_succ_eq_blastExtractStickyBit`):
+`upper_{sp+1}.toRat = lower_{sp+1}.toRat + (stickyBit_sp ? ulp_{sp+1} : 0)`. -/
+theorem smtLibUpper_succ_toRat_eq_lower_add_sticky_ulp
+    {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+    (heu : exponentWidth ep (sp + 1) ≤ eu) (hsu : sp + 3 ≤ su)
+    (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
+    (hnotunder : x.blastIsUnderflowNonneg ep (sp + 1) = false)
+    (hnotover : x.blastIsEarlyOverflowNonneg ep (sp + 1) = false)
+    (hmaxL : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep (sp + 1))
+      ≠ PackedFloat.maxNormalNumber ep (sp + 1) false)
+    (hdiffLower : -2 ^ (eu - 1) ≤ minNormalExp ep - x.ex.toInt)
+    (hdiffUpper : minNormalExp ep - x.ex.toInt < 2 ^ (eu - 1))
+    (hdiffNatLe : (minNormalExp ep - x.ex.toInt).toNat ≤ sp) :
+    (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep (sp + 1)).toRat
+      = (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep (sp + 1)).toRat
+        + (if x.blastExtractStickyBit ep sp then
+            (2 : Rat) ^ (-((sp : Int) + 1))
+              * 2 ^ (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep (sp + 1)).toRatExp
+          else 0) := by
+  rw [smtLibUpper_toRat_eq_lower_add_ulp (sp := sp + 1) he (by omega) heu (by omega)
+        x hxsign hxnorm hnotunder hnotover hmaxL,
+    needsRounding_succ_eq_blastExtractStickyBit (by grind) hs heu hsu x hdiffLower hdiffUpper hdiffNatLe]
+  simp
+
 /-- The lower approximant's value is the round-toward-zero value, for a nonnegative in-range
 normalized float. (The witness pins `lower = pack(roundTZ)`; this exposes just the `toRat`.) -/
 theorem smtLibLower_lower_toRat_eq_blastRoundTowardZero
