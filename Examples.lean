@@ -1,3 +1,14 @@
 import Fp
 import Examples.MulComm
-
+import Examples.AddCommE5M2
+import Examples.AddCommE3M4
+import Examples.AddEqMulTwoE5M2
+import Examples.AddEqMulTwoE3M4
+import Examples.AddMonotoneE5M2
+import Examples.AddMonotoneE3M4
+import Examples.MulOneE5M2
+import Examples.MulOneE3M4
+import Examples.DivOneE5M2
+import Examples.DivOneE3M4
+import Examples.DivSelfE5M2
+import Examples.DivSelfE3M4

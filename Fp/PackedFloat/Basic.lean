@@ -409,6 +409,12 @@ def oneE5M2       := PackedFloat.ofBits 5 2 0b00111100#8
 /-- E5M2 floating point representation of 2.0 -/
 @[bv_normalize]
 def twoE5M2       := PackedFloat.ofBits 5 2 0b01000000#8
+/-- E3M4 floating point representation of 1.0 -/
+@[bv_normalize]
+def oneE3M4       := PackedFloat.ofBits 3 4 0b00110000#8
+/-- E3M4 floating point representation of 2.0 -/
+@[bv_normalize]
+def twoE3M4       := PackedFloat.ofBits 3 4 0b01000000#8
 /-- Smallest (positive) normal number in E5M2 floating point. -/
 @[bv_normalize]
 def minNormE5M2   := PackedFloat.ofBits 5 2 0b00000100#8
