@@ -867,17 +867,26 @@ theorem add_eq_add {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
         simp only [hcancel, cond_false, EUnpackedFloat.isZero_mkNumber, hazero, hbzero]
         rw [PackedFloat.EquivUptoNaN_symm, EUnpackedFloat.pack_eq_pack']
         subst hrm
-        -- TODO(packing): rounder-output `Packable`. The bit-blasted rounder output is `Packable`
-        -- (normalized + in-range) and the SMT spec result is finite — the `blastSmtLibRound`
-        -- analogue of `PackedFloat.unpackNum_packable` used at sites 1/2.
-        refine EUnpackedFloat.pack'_EquivUptoNaN_of_Rel he hsin _ _ ?_
-          (by sorry) (by sorry)
-        apply UnpackedFloat.blastSmtLibRound_Rel_round_of_RNE_of_stickyEquiv he hep hsin
-          (eu := exponentWidth ein sin + 1) (su := sin + 1 + 2) (by omega) (by omega)
-          (a.unpackNum.add b.unpackNum) _ _ hsumne
-        · apply UnpackedFloat.normalize_eq_self_of_msb_eq_true
-          exact UnpackedFloat.msb_add_eq_true _ _ (by omega) hamsb hbmsb hsumne'
-        · exact UnpackedFloat.unpackNum_add_unpackNum_stickyEquiv hsin ha hb hsumne
+        -- Mirror of the `div_eq_div` call site: the bit-blasted rounder output is `Packable`
+        -- (normalized + in-range) and the SMT spec result is finite, both discharged by the
+        -- `blastSmtLibRound` analogues of the lemmas used at sites 1/2.
+        have hxnorm : (a.unpackNum.add b.unpackNum).normalize = a.unpackNum.add b.unpackNum :=
+          UnpackedFloat.normalize_eq_self_of_msb_eq_true _
+            (UnpackedFloat.msb_add_eq_true _ _ (by omega) hamsb hbmsb hsumne')
+        have hsticky : StickyEquiv ((a.unpackNum.add b.unpackNum).toExpInt)
+            ((a.unpackNum.add b.unpackNum).toRat) (a.toRat + b.toRat) :=
+          UnpackedFloat.unpackNum_add_unpackNum_stickyEquiv hsin ha hb hsumne
+        refine EUnpackedFloat.pack'_EquivUptoNaN_of_Rel he hsin _ _ ?hrel ?hpack ?hpf
+        case hrel =>
+          exact UnpackedFloat.blastSmtLibRound_Rel_round_of_RNE_of_stickyEquiv he hep hsin
+            (eu := exponentWidth ein sin + 1) (su := sin + 1 + 2) (by omega) (by omega)
+            (a.unpackNum.add b.unpackNum) _ _ hsumne hxnorm hsticky
+        case hpack =>
+          exact UnpackedFloat.blastSmtLibRound_Packable_of_RNE hep hsin (by omega) (by omega)
+            (a.unpackNum.add b.unpackNum) hxnorm
+        case hpf =>
+          exact UnpackedFloat.blastSmtLibRound_finite_of_RNE_of_stickyEquiv he hep hsin
+            (by omega) (by omega) (a.unpackNum.add b.unpackNum) _ _ hsumne hxnorm hsticky
 
 /--
 info: 'Fp.add_eq_add' depends on axioms: [propext, sorryAx, BitVec.toNat_clz_cons, Classical.choice, Quot.sound]
