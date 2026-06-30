@@ -78,5 +78,32 @@ def addSum (x y : UnpackedFloat e s) : UnpackedFloat (e + 1) (s + 2) :=
 def addNormSum (x y : UnpackedFloat e s) : UnpackedFloat (e + 1) (s + 2) :=
   bif !(addSum x y).sig.msb then (addSum x y).normalize else (addSum x y)
 
+/-- **Reconstruction lemma** — the one finicky lemma tying the circuit to the named defs above.
+Every later value lemma should rewrite with this and never touch `UnpackedFloat.add` again.
+
+Status: `sorry`. The intended proof unfolds the circuit, resolves the operand-swap `Prod`
+projections, turns every `bif` into `if`, splits, and closes each branch by `rfl`:
+```
+  unfold UnpackedFloat.add addNormSum addSum addSigSum addShiftAmount addYSig addXSig
+    addBig addSmall addSwapCond addAbsExpDiff addExpDiff addSticky
+  simp only [Prod.fst_cond_eq_cond_fst, Prod.snd_cond_eq_cond_snd, Bool.cond_eq_ite]
+  repeat' split
+  all_goals rfl
+```
+Two open issues with that recipe:
+1. ~3 branches fail `rfl` with an *unreduced* `(y, x).fst` / `(x, y).snd` projection — `Bool.cond_eq_ite`
+   races the `Prod.fst_cond_eq_cond_fst` rewrite, so the literal pair projection survives. A `dsimp`
+   that reduces `Prod.fst`/`Prod.snd` of a literal pair *after* the swap is resolved (but before/after
+   `split`) should fix these.
+2. `repeat' split` over the cond-heavy goal blows the `whnf` heartbeat. Likely fixes: bump
+   `set_option maxHeartbeats`, or `generalize` the shared boolean conditions (the swap cond,
+   `sign`-equality, the overflow `sigSum.msb`, the cancellation `!sum.sig.msb`) to fresh variables and
+   `cases` them surgically instead of a blanket `split`. -/
+theorem add_eq (x y : UnpackedFloat e s) :
+    x.add y =
+      { addNormSum x y with
+        sig := (addNormSum x y).sig ||| (BitVec.ofBool (addSticky x y)).setWidth' (by omega) } := by
+  sorry
+
 end UnpackedFloat
 end Fp
