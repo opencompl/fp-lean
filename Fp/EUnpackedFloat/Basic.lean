@@ -41,6 +41,7 @@ attribute [bv_normalize] EUnpackedFloat.ext_iff
 /--
 negate the number in an EUnpackedFloat.
 -/
+@[bv_normalize]
 def EUnpackedFloat.neg (x : EUnpackedFloat e s) : EUnpackedFloat e s :=
   { x with num := - x.num }
 

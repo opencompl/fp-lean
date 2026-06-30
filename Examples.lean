@@ -12,3 +12,4 @@ import Examples.DivOneE5M2
 import Examples.DivOneE3M4
 import Examples.DivSelfE5M2
 import Examples.DivSelfE3M4
+import Examples.FastInvSqrt
