@@ -422,6 +422,60 @@ theorem BitVec.setWidth'_append0_toNat {w : Nat} (h : w ≤ w + 1) (v : BitVec w
   rw [BitVec.toNat_append, BitVec.toNat_setWidth', BitVec.toNat_ofNat]
   simp [Nat.shiftLeft_eq]
 
+/-- Negating mod a power dividing `2^w` preserves the nonzero-remainder condition: the two's-complement
+negation `2^w - a` and `a` have the same residue-is-nonzero status mod any `2^d` with `d ≤ w`. -/
+theorem Nat.sub_pow_mod_ne_zero_iff (w d a : Nat) (hdw : d ≤ w) (haw : a ≤ 2 ^ w) :
+    (2 ^ w - a) % 2 ^ d ≠ 0 ↔ a % 2 ^ d ≠ 0 := by
+  have hdvd : 2 ^ d ∣ 2 ^ w := Nat.pow_dvd_pow 2 hdw
+  have hiff : (2 ^ d ∣ (2 ^ w - a)) ↔ (2 ^ d ∣ a) := by
+    constructor
+    · intro h; have h2 := Nat.dvd_sub hdvd h; rwa [Nat.sub_sub_self haw] at h2
+    · intro h; exact Nat.dvd_sub hdvd h
+  rw [ne_eq, ne_eq, ← Nat.dvd_iff_mod_eq_zero, ← Nat.dvd_iff_mod_eq_zero]
+  exact not_congr hiff
+
+/-- The alignment shift amount is capped at `s + 3` (no hypotheses needed). -/
+theorem UnpackedFloat.addShiftAmount_le {e s : Nat} (x y : UnpackedFloat e s) :
+    (UnpackedFloat.addShiftAmount x y).toNat ≤ s + 3 := by
+  unfold UnpackedFloat.addShiftAmount
+  have hlt3 : s + 3 < 2 ^ (s + 3) := Nat.lt_two_pow_self
+  cases hu : (UnpackedFloat.addAbsExpDiff x y).ult (↑s + 3)
+  · simp only [cond_false]
+    exact Nat.le_of_eq (BitVec.toNat_natCast_add_three s hlt3)
+  · simp only [cond_true]
+    rw [BitVec.toNat_setWidth]
+    have hle : (↑s + 3 : BitVec (e + 1)).toNat ≤ s + 3 := by
+      rw [BitVec.toNat_add, BitVec.natCast_eq_ofNat, BitVec.toNat_ofNat,
+        show (3 : BitVec (e + 1)) = BitVec.ofNat (e + 1) 3 from rfl, BitVec.toNat_ofNat, ← Nat.add_mod]
+      exact Nat.mod_le _ _
+    have hlt : (UnpackedFloat.addAbsExpDiff x y).toNat < (↑s + 3 : BitVec (e + 1)).toNat := by
+      have h := hu; rw [BitVec.ult, decide_eq_true_eq] at h; exact h
+    have := Nat.mod_le (UnpackedFloat.addAbsExpDiff x y).toNat (2 ^ (s + 3))
+    grind
+
+/-- The alignment-sticky term (a bit dropped by the alignment shift) fires iff `smallS·4 % 2^d ≠ 0`,
+where `d = (addShiftAmount).toNat`. Sign-independent: two's-complement negation of the smaller operand on
+opposite signs preserves the nonzero-residue condition (`Nat.sub_pow_mod_ne_zero_iff`). -/
+theorem UnpackedFloat.addSticky_align_iff {e s : Nat} (x y : UnpackedFloat e s) :
+    (UnpackedFloat.addYSig x y &&& (UnpackedFloat.addShiftAmount x y).orderEncode) ≠ 0
+      ↔ (UnpackedFloat.addSmall x y).sig.toNat * 4
+          % 2 ^ (UnpackedFloat.addShiftAmount x y).toNat ≠ 0 := by
+  have hle := UnpackedFloat.addShiftAmount_le x y
+  have hsmallhi : (UnpackedFloat.addSmall x y).sig.toNat < 2 ^ s := (UnpackedFloat.addSmall x y).sig.isLt
+  have key : (UnpackedFloat.addYSig x y &&& (UnpackedFloat.addShiftAmount x y).orderEncode).toNat
+      = (UnpackedFloat.addYSig x y).toNat % 2 ^ (UnpackedFloat.addShiftAmount x y).toNat :=
+    BitVec.toNat_and_orderEncode _ _ hle
+  simp only [ne_eq, BitVec.toNat_eq, key]
+  simp only [UnpackedFloat.addYSig]
+  cases hsign : ((UnpackedFloat.addBig x y).sign == (UnpackedFloat.addSmall x y).sign)
+  · -- diff sign: addYSig = -(smallS·4)
+    simp only [cond_false, BitVec.toNat_neg, BitVec.setWidth'_append0_toNat,
+      Nat.mod_mod_of_dvd _ (Nat.pow_dvd_pow 2 hle)]
+    exact Nat.sub_pow_mod_ne_zero_iff (s + 3) _ _ hle (by grind)
+  · -- same sign: addYSig = smallS·4
+    simp only [cond_true, BitVec.setWidth'_append0_toNat]
+    exact Iff.rfl
+
 /-- The post-swap larger operand keeps a normalized significand. -/
 theorem UnpackedFloat.msb_addBig {e s : Nat} (x y : UnpackedFloat e s)
     (hx : x.sig.msb = true) (hy : y.sig.msb = true) :
