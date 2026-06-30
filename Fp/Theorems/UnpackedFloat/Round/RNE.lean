@@ -107,7 +107,7 @@ theorem roundRNE_eq_infinity_of_maxNormalExp_lt
   case pos =>
     -- negative case: `r ≤ -2 ^ (maxNormalExp + 1)`
     have habs : r.abs = -r := by
-      simp [Rat.abs, hneg]
+      rw [Rat.abs, if_neg (by grind)]
     rw [habs] at hr
     have hsignT : sign = true := by simp [hsign, hneg]
     have hflip : (PackedFloat.maxNormalNumber ep sp true).toRat
