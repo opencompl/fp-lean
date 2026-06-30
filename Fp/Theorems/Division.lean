@@ -80,10 +80,6 @@ theorem div_prod_eq (sx sy X Y wp wq w1 wb wE sd : Rat)
     (hsign : sx / sy = sd) (hwrel : wp / wq = w1 * wb * wE) :
     (sx * X * wp) / (sy * Y * wq) = sd * (X * w1 / Y * wb) * wE := by grind
 
-theorem UnpackedFloat.toRat_eq_sign_sig_exp (uf : UnpackedFloat e s) :
-    uf.toRat = uf.sign.toSign * (uf.sig.toNat : Rat) * 2 ^ uf.toExpInt := by
-  rw [UnpackedFloat.toRat_eq_toRat', UnpackedFloat.toRat', UnpackedFloat.toNat_toSigNat_eq]
-
 theorem normShiftSticky_toNat {s : Nat} (q sticky : BitVec (s + 2)) (qn sn : Nat)
     (hqn : q.toNat = qn) (hsn : sticky.toNat = sn)
     (hql : 2 ^ s ≤ qn) (hqh : qn < 2 ^ (s + 2)) (hst : sn < 2 ^ (s + 1)) :
@@ -172,39 +168,6 @@ theorem UnpackedFloat.divSig_toNat_eq {e s : Nat} (x y : UnpackedFloat e s)
     by_cases hm : x.sig.toNat * 2 ^ (s + 1) % y.sig.toNat = 0 <;> simp [hm] <;> omega
   simp only [UnpackedFloat.div]
   exact normShiftSticky_toNat _ _ _ _ hquot hstick hqlo hqhi hst3
-
-theorem signExtSubSub_toInt {e : Nat} (he : 0 < e) (A B : BitVec e) (c : BitVec (e + 1))
-    (cval : Int) (hc : c.toInt = cval) (hc0 : 0 ≤ cval) (hc1 : cval ≤ 1) :
-    ((A.signExtend (e + 1)) - (B.signExtend (e + 1)) - c).toInt
-      = A.toInt - B.toInt - cval := by
-  have hAr := BitVec.toInt_lt (x := A)
-  have hAl := BitVec.le_toInt A
-  have hBr := BitVec.toInt_lt (x := B)
-  have hBl := BitVec.le_toInt B
-  have he1 : (2:Int) ^ (e + 1) = 2 ^ e * 2 := by rw [Int.pow_succ]
-  have he0 : (2:Int) ^ e = 2 ^ (e - 1) * 2 := by
-    rw [show e = (e - 1) + 1 by omega, Int.pow_succ]; rw [show e-1+1 = e by omega]
-  have hAse : (A.signExtend (e + 1)).toInt = A.toInt := BitVec.toInt_signExtend_of_le (by omega)
-  have hBse : (B.signExtend (e + 1)).toInt = B.toInt := BitVec.toInt_signExtend_of_le (by omega)
-  rw [BitVec.toInt_sub, BitVec.toInt_sub, hAse, hBse, hc]
-  have hinner : (A.toInt - B.toInt).bmod (2 ^ (e + 1)) = A.toInt - B.toInt := by
-    apply Int.bmod_eq_of_le <;> (push_cast; omega)
-  rw [hinner]
-  apply Int.bmod_eq_of_le <;> (push_cast; omega)
-
-theorem ofBool_setWidth_toInt {e : Nat} (he : 0 < e) (β : Bool) :
-    ((BitVec.ofBool β).setWidth' (by omega : 1 ≤ e + 1)).toInt = (β.toNat : Int) := by
-  have hn : ((BitVec.ofBool β).setWidth' (by omega : 1 ≤ e + 1)).toNat = β.toNat := by
-    rw [BitVec.toNat_setWidth', BitVec.toNat_ofBool]
-  rw [BitVec.toInt_eq_toNat_bmod, hn]
-  have hbN : (β.toNat : Int) < 2 := by cases β <;> simp
-  have h2eN : (2:Nat) ≤ 2 ^ e := by
-    calc (2:Nat) = 2 ^ 1 := rfl
-      _ ≤ 2 ^ e := Nat.pow_le_pow_right (by omega) (by omega)
-  have h2e : (2:Int) ≤ 2 ^ e := by exact_mod_cast h2eN
-  have he1 : (2:Int) ^ (e + 1) = 2 ^ e * 2 := by rw [Int.pow_succ]
-  have hb0 : (0:Int) ≤ (β.toNat : Int) := by exact_mod_cast Nat.zero_le _
-  apply Int.bmod_eq_of_le <;> push_cast <;> omega
 
 theorem UnpackedFloat.divEx_toInt_eq {e s : Nat} (x y : UnpackedFloat e s)
     (he : 0 < e) (hs : 0 < s) (hx : x.sig.msb = true) (hy : y.sig.msb = true) :

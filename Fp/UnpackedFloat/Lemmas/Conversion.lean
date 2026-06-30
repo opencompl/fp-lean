@@ -126,4 +126,9 @@ theorem UnpackedFloat.toRat_normalize_eq {uf : UnpackedFloat e s}
     simp only [Int.neg_sub]
     simp only [Rat.zpow_sub_eq_zpow_mul_zpow (b := 2) (hb := by decide)]
     grind only [two_pow_mul_two_pow_neg_intCast_eq_one]
+
+/-- A float's value as (signed) significand times a power of two at its exponent. -/
+theorem toRat_eq_sign_sig_exp (uf : UnpackedFloat e s) :
+    uf.toRat = uf.sign.toSign * (uf.sig.toNat : Rat) * 2 ^ uf.toExpInt := by
+  rw [UnpackedFloat.toRat_eq_toRat', UnpackedFloat.toRat', UnpackedFloat.toNat_toSigNat_eq]
 end UnpackedFloat

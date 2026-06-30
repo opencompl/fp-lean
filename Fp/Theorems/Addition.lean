@@ -138,6 +138,182 @@ theorem UnpackedFloat.stickyEquiv_add {e s : Nat} (x y : UnpackedFloat e s)
     StickyEquiv ((x.add y).toExpInt) ((x.add y).toRat) (x.toRat + y.toRat) := by
   sorry
 
+/-- `bmod` is nonzero for a nonzero value lying strictly within one modulus of zero. -/
+theorem bmod_ne_zero_of_lt (S : Int) (m : Nat) (hS0 : S ≠ 0) (hlo : -(m : Int) < S) (hhi : S < m) :
+    S.bmod m ≠ 0 := by
+  intro h
+  have hdvd := Int.dvd_of_bmod_eq_zero h
+  rcases (by omega : S < 0 ∨ S = 0 ∨ 0 < S) with hS | hS | hS
+  · have : (m : Int) ≤ -S := Int.le_of_dvd (by omega) (Int.dvd_neg.mpr hdvd)
+    omega
+  · exact hS0 hS
+  · have : (m : Int) ≤ S := Int.le_of_dvd hS hdvd
+    omega
+
+/-- **The aligned significand sum is nonzero.** For a larger significand `xS` and a smaller one `yS0`,
+both normalized into the band `[2^(s+1), 2^(s+2))` (with `yS0` a multiple of four, so `≤ 2^(s+2) - 4`),
+the aligned sum `xS ± (yS0 ≫ sh)` is nonzero — unless the operands cancel exactly (`sh = 0`, opposite
+signs, equal significands), which `hcancel` rules out. Different signs: for `sh ≥ 1` the shifted smaller
+operand has magnitude `< 2^(s+1) ≤ xS`, so the leading bit survives; for `sh = 0` it is exact
+cancellation. Same sign: the sum is at least `xS ≥ 2^(s+1)`. This is the magnitude core shared by
+`msb_add_eq_true` and (eventually) `stickyEquiv_add`. -/
+theorem aligned_ne_zero {s : Nat} (xS yS0 sh : BitVec (s + 3)) (same : Bool)
+    (hxlo : 2 ^ (s + 1) ≤ xS.toNat) (hxhi : xS.toNat < 2 ^ (s + 2))
+    (hylo : 2 ^ (s + 1) ≤ yS0.toNat) (hyhi4 : yS0.toNat ≤ 2 ^ (s + 2) - 4)
+    (hcancel : sh.toNat = 0 → same = false → xS.toNat = yS0.toNat → False) :
+    xS + (bif same then yS0 else -yS0).sshiftRight' sh ≠ 0#(s + 3) := by
+  have hp1 : 2 ^ (s + 1) * 2 = 2 ^ (s + 2) := by rw [← Nat.pow_succ]
+  have hp2 : 2 ^ (s + 2) * 2 = 2 ^ (s + 3) := by rw [← Nat.pow_succ]
+  have hxi : xS.toInt = (xS.toNat : Int) := BitVec.toInt_eq_toNat_of_lt (by omega)
+  have hyi : yS0.toInt = (yS0.toNat : Int) := BitVec.toInt_eq_toNat_of_lt (by omega)
+  have hdpos : (0 : Int) < ((2 ^ sh.toNat : Nat) : Int) := by exact_mod_cast Nat.two_pow_pos _
+  intro hzero
+  have hz : (xS + (bif same then yS0 else -yS0).sshiftRight' sh).toInt = 0 := by
+    rw [hzero]; exact BitVec.toInt_zero
+  rw [BitVec.toInt_add, BitVec.toInt_sshiftRight'] at hz
+  have hmod1 : -(((2 ^ (s + 3) : Nat) : Int) / 2) ≤ -(yS0.toNat : Int) := by omega
+  have hmod2 : -(yS0.toNat : Int) < (((2 ^ (s + 3) : Nat) : Int) + 1) / 2 := by omega
+  cases hsame : same
+  · -- different sign
+    simp only [hsame, cond_false] at hz
+    have hnegi : (-yS0).toInt = -(yS0.toNat : Int) := by
+      rw [BitVec.toInt_neg, hyi]; exact Int.bmod_eq_of_le hmod1 hmod2
+    rw [hnegi, Int.shiftRight_eq_div_pow, hxi] at hz
+    have hqle0 : (-(yS0.toNat : Int)) / ((2 ^ sh.toNat : Nat) : Int) ≤ 0 := by
+      have h := Int.ediv_le_ediv hdpos (show (-(yS0.toNat : Int)) ≤ 0 by omega)
+      simpa using h
+    rcases Nat.eq_zero_or_pos sh.toNat with hsh | hsh
+    · -- shift 0: exact cancellation
+      have hq_eq : (-(yS0.toNat : Int)) / ((2 ^ sh.toNat : Nat) : Int) = -(yS0.toNat : Int) := by
+        rw [hsh]; simp
+      rw [hq_eq] at hz
+      refine bmod_ne_zero_of_lt _ _ ?_ ?_ ?_ hz
+      · intro h0; exact hcancel hsh hsame (by omega)
+      · omega
+      · omega
+    · -- shift ≥ 1: the smaller operand cannot cancel the leading bit
+      have h2sh : 2 ≤ 2 ^ sh.toNat := by
+        calc 2 = 2 ^ 1 := rfl
+          _ ≤ 2 ^ sh.toNat := Nat.pow_le_pow_right (by omega) hsh
+      have h1le : (1 : Nat) ≤ 2 ^ (s + 1) := Nat.one_le_two_pow
+      have hqlb : -((2 ^ (s + 1) : Nat) : Int) + 1
+          ≤ (-(yS0.toNat : Int)) / ((2 ^ sh.toNat : Nat) : Int) := by
+        rw [Int.le_ediv_iff_mul_le hdpos]
+        have hmul : (2 ^ (s + 1) - 1) * 2 ≤ (2 ^ (s + 1) - 1) * 2 ^ sh.toNat :=
+          Nat.mul_le_mul_left _ h2sh
+        have hdist : (2 ^ (s + 1) - 1) * 2 ^ sh.toNat
+            = 2 ^ (s + 1) * 2 ^ sh.toNat - 2 ^ sh.toNat := by rw [Nat.sub_mul, Nat.one_mul]
+        have key2 : yS0.toNat + 2 ^ sh.toNat ≤ 2 ^ (s + 1) * 2 ^ sh.toNat := by omega
+        have key2I : (yS0.toNat : Int) + ((2 ^ sh.toNat : Nat) : Int)
+            ≤ ((2 ^ (s + 1) * 2 ^ sh.toNat : Nat) : Int) := by exact_mod_cast key2
+        have hexpand : (-((2 ^ (s + 1) : Nat) : Int) + 1) * ((2 ^ sh.toNat : Nat) : Int)
+            = ((2 ^ sh.toNat : Nat) : Int)
+              - ((2 ^ (s + 1) : Nat) : Int) * ((2 ^ sh.toNat : Nat) : Int) := by grind
+        have hpm : ((2 ^ (s + 1) : Nat) : Int) * ((2 ^ sh.toNat : Nat) : Int)
+            = ((2 ^ (s + 1) * 2 ^ sh.toNat : Nat) : Int) := by push_cast; grind
+        rw [hexpand, hpm]; omega
+      refine bmod_ne_zero_of_lt _ _ ?_ ?_ ?_ hz <;> omega
+  · -- same sign
+    simp only [hsame, cond_true] at hz
+    rw [hyi, Int.shiftRight_eq_div_pow, hxi] at hz
+    have hq0 : 0 ≤ (yS0.toNat : Int) / ((2 ^ sh.toNat : Nat) : Int) :=
+      Int.ediv_nonneg (by exact_mod_cast Nat.zero_le _) (by omega)
+    have hqle : (yS0.toNat : Int) / ((2 ^ sh.toNat : Nat) : Int) ≤ (yS0.toNat : Int) :=
+      Int.ediv_le_self _ (by exact_mod_cast Nat.zero_le _)
+    refine bmod_ne_zero_of_lt _ _ ?_ ?_ ?_ hz <;> omega
+
+/-- A zero alignment shift forces equal exponents: the circuit's `shiftAmount` is `0` only via the
+`ult` branch (the `↑s + 3` else-branch has `toNat = s + 3 ≠ 0`), which bounds `absExpDiff.toNat <
+s + 3 < 2^(s+3)`, so the capping `setWidth` is exact and `absExpDiff = 0`, hence `expDiff = 0` and
+(`signExtend` injective on `toInt`) `x.ex = y.ex`. -/
+theorem UnpackedFloat.addShift_zero_imp_ex_eq {e s : Nat} (x y : UnpackedFloat e s)
+    (expDiff : BitVec (e + 1)) (hed : expDiff = x.ex.signExtend (e + 1) - y.ex.signExtend (e + 1))
+    (absExpDiff : BitVec (e + 1)) (had : absExpDiff = bif expDiff.msb then -expDiff else expDiff)
+    (shiftAmount : BitVec (s + 3))
+    (hsa : shiftAmount = bif absExpDiff.ult (↑s + 3)
+        then BitVec.setWidth (s + 3) absExpDiff else (↑s + 3))
+    (hsh0 : shiftAmount.toNat = 0) : x.ex = y.ex := by
+  have hlt : s + 3 < 2 ^ (s + 3) := Nat.lt_two_pow_self
+  have hsM : s % 2 ^ (s + 3) = s := Nat.mod_eq_of_lt (by omega)
+  have h3M : 3 % 2 ^ (s + 3) = 3 := Nat.mod_eq_of_lt (by omega)
+  have hsumM : (s + 3) % 2 ^ (s + 3) = s + 3 := Nat.mod_eq_of_lt (by omega)
+  have h3v : (3 : BitVec (s + 3)).toNat = 3 := by
+    rw [show (3 : BitVec (s + 3)) = BitVec.ofNat (s + 3) 3 from rfl, BitVec.toNat_ofNat]; exact h3M
+  have hsv : (↑s : BitVec (s + 3)).toNat = s := by
+    rw [BitVec.natCast_eq_ofNat, BitVec.toNat_ofNat]; exact hsM
+  have helse : ((↑s + 3 : BitVec (s + 3))).toNat = s + 3 := by
+    rw [BitVec.toNat_add, hsv, h3v, hsumM]
+  rw [hsa] at hsh0
+  have habs0 : absExpDiff = 0 := by
+    cases hu : absExpDiff.ult (↑s + 3)
+    · simp only [hu, cond_false] at hsh0
+      rw [helse] at hsh0; exact absurd hsh0 (by omega)
+    · simp only [hu, cond_true] at hsh0
+      have hb1 : absExpDiff.toNat < ((↑s + 3 : BitVec (e + 1))).toNat := by
+        have h := hu; rw [BitVec.ult, decide_eq_true_eq] at h; exact h
+      have hb2 : ((↑s + 3 : BitVec (e + 1))).toNat ≤ s + 3 := by
+        rw [BitVec.toNat_add]
+        have h1 : (↑s : BitVec (e + 1)).toNat ≤ s := by
+          rw [BitVec.natCast_eq_ofNat, BitVec.toNat_ofNat]; exact Nat.mod_le _ _
+        have h2 : (3 : BitVec (e + 1)).toNat ≤ 3 := by
+          rw [show (3 : BitVec (e + 1)) = BitVec.ofNat (e + 1) 3 from rfl, BitVec.toNat_ofNat]
+          exact Nat.mod_le _ _
+        have h3 := Nat.mod_le ((↑s : BitVec (e + 1)).toNat + (3 : BitVec (e + 1)).toNat) (2 ^ (e + 1))
+        omega
+      rw [BitVec.toNat_setWidth, Nat.mod_eq_of_lt (by omega)] at hsh0
+      exact BitVec.eq_of_toNat_eq (by simpa using hsh0)
+  have hed0 : expDiff = 0 := by
+    rw [had] at habs0
+    cases hm : expDiff.msb <;> simp only [hm, cond_true, cond_false] at habs0
+    · exact habs0
+    · exact BitVec.neg_inj.mp (habs0.trans (BitVec.neg_zero (e + 1)).symm)
+  have hed0' : x.ex.signExtend (e + 1) - y.ex.signExtend (e + 1) = 0 := hed.symm.trans hed0
+  have hAB : x.ex.signExtend (e + 1) = y.ex.signExtend (e + 1) := by
+    have h2 := congrArg (· + y.ex.signExtend (e + 1)) hed0'
+    simp only [BitVec.sub_add_cancel] at h2
+    simpa using h2
+  apply BitVec.toInt_inj.mp
+  have ha : (x.ex.signExtend (e + 1)).toInt = x.ex.toInt :=
+    BitVec.toInt_signExtend_of_le (by omega)
+  have hb : (y.ex.signExtend (e + 1)).toInt = y.ex.toInt :=
+    BitVec.toInt_signExtend_of_le (by omega)
+  rw [← ha, ← hb, hAB]
+
+/-- The cancellation-renormalisation step (`bif !uf.sig.msb then uf.normalize else uf`) yields a
+result with msb set exactly when the input significand is nonzero: if the msb is already set there is
+nothing to do, otherwise `normalize` sets it (`msb_normalize_eq_decide`). -/
+theorem UnpackedFloat.msb_cond_normalize_of_sig_ne_zero {e s : Nat} (uf : UnpackedFloat e s)
+    (zsign : Bool) (h : uf.sig ≠ 0#s) :
+    (bif !uf.sig.msb then uf.normalize zsign else uf).sig.msb = true := by
+  cases huf : uf.sig.msb
+  · simp only [huf, Bool.not_false, cond_true]
+    rw [UnpackedFloat.msb_normalize_eq_decide]
+    simp [h]
+  · simp [huf]
+
+/-- `structBeq` is sound for cancellation detection: if `x` is structurally the negation of `y`, the
+exact sum is zero. -/
+theorem UnpackedFloat.toRat_add_toRat_eq_zero_of_structBeq_neg
+    {e s : Nat} (x y : UnpackedFloat e s)
+    (h : x.structBeq y.neg) : x.toRat + y.toRat = 0 := by
+  have hx : x = y.neg := by
+    simp only [UnpackedFloat.structBeq, Bool.and_eq_true, beq_iff_eq] at h
+    rcases x with ⟨xsign, xex, xsig⟩
+    rcases y with ⟨ysign, yex, ysig⟩
+    simp_all [UnpackedFloat.neg]
+  subst hx
+  have : y.neg = -y := Eq.refl _
+  rw [this, UnpackedFloat.toRat_eq_toRat', UnpackedFloat.toRat_eq_toRat',
+    UnpackedFloat.toRat'_neg]
+  grind
+
+/-- The extended significand `sig.setWidth' _ ++ 0#2` has `toNat = sig.toNat * 4` (one overflow bit on
+the left, two round/sticky zero bits on the right). -/
+theorem BitVec.setWidth'_append0_toNat {w : Nat} (h : w ≤ w + 1) (v : BitVec w) :
+    (v.setWidth' h ++ (0#2)).toNat = v.toNat * 4 := by
+  rw [BitVec.toNat_append, BitVec.toNat_setWidth', BitVec.toNat_ofNat]
+  simp [Nat.shiftLeft_eq]
+
 /--
 **The addition circuit produces a normalized result** (for normalized inputs
 with nonzero exact sum).
@@ -159,27 +335,99 @@ theorem UnpackedFloat.msb_add_eq_true {e s : Nat} (x y : UnpackedFloat e s)
     (hx : x.sig.msb = true) (hy : y.sig.msb = true)
     (hne : x.toRat + y.toRat ≠ 0) :
     (x.add y).sig.msb = true := by
-  sorry
+  -- Tame the bif-heavy circuit: keep every `let` named (`extract_lets`), resolve the operand swap
+  -- by casing its condition (zeta off so the inner `let`s survive), then both branches share one
+  -- tactic block referring only to the named intermediates.
+  unfold UnpackedFloat.add
+  extract_lets expDiff absExpDiff shiftAmount
+  cases hc : expDiff.msb || (absExpDiff == 0 && x.sig.ult y.sig) <;>
+    simp (config := { zeta := false }) only [hc, cond_true, cond_false]
+  all_goals
+    extract_lets xSig ySig0 ySig sigSum sticky sum normSum
+    -- Strip the sticky OR (it never clears the top bit) and collapse the normalize via the general
+    -- `msb_cond_normalize` lemma, reducing the goal to `sum.sig ≠ 0`.
+    show (normSum.sig ||| (BitVec.ofBool sticky).setWidth' (by omega)).msb = true
+    rw [BitVec.msb_or, BitVec.msb_setWidth'_ofBool_eq_false (by omega), Bool.or_false]
+    apply UnpackedFloat.msb_cond_normalize_of_sig_ne_zero
+    show sum.sig ≠ 0#(s + 2)
+    -- Bridge `sum.sig = truncate(s+2)(sigSum >>> ofBool sigSum.msb) ≠ 0` to `sigSum ≠ 0`.
+    suffices hss : sigSum ≠ 0#(s + 3) by
+      show BitVec.truncate (s + 2) (sigSum >>> BitVec.ofBool sigSum.msb) ≠ 0#(s + 2)
+      rw [show (sigSum >>> BitVec.ofBool sigSum.msb)
+            = sigSum >>> (BitVec.ofBool sigSum.msb).toNat from rfl,
+        Ne, BitVec.toNat_eq, BitVec.truncate_eq_setWidth, BitVec.toNat_setWidth,
+        BitVec.toNat_ushiftRight, BitVec.toNat_ofBool, BitVec.toNat_ofNat, Nat.zero_mod]
+      have hlt : sigSum.toNat < 2 ^ (s + 3) := sigSum.isLt
+      have hne' : sigSum.toNat ≠ 0 := by rw [Ne, BitVec.toNat_eq] at hss; simpa using hss
+      cases hm : sigSum.msb
+      · have hlo : sigSum.toNat < 2 ^ (s + 2) := by
+          have h := hm; rw [BitVec.msb_eq_decide] at h
+          simp only [decide_eq_false_iff_not, Nat.not_le, show s + 3 - 1 = s + 2 from rfl] at h
+          exact h
+        simp only [hm, Bool.toNat_false, Nat.shiftRight_zero, Nat.mod_eq_of_lt hlo]
+        exact hne'
+      · have hge : 2 ^ (s + 2) ≤ sigSum.toNat := by
+          have h := hm; rw [BitVec.msb_eq_decide] at h
+          simp only [decide_eq_true_eq, show s + 3 - 1 = s + 2 from rfl] at h
+          exact h
+        simp only [hm, Bool.toNat_true, Nat.shiftRight_succ, Nat.shiftRight_zero]
+        have h1 : 2 ^ (s + 1) ≤ sigSum.toNat / 2 := by
+          rw [Nat.le_div_iff_mul_le (by decide)]; rw [Nat.pow_succ] at hge ⊢; omega
+        have h2 : sigSum.toNat / 2 < 2 ^ (s + 2) := by
+          rw [Nat.div_lt_iff_lt_mul (by decide)]; rw [Nat.pow_succ] at hlt; omega
+        rw [Nat.mod_eq_of_lt h2]
+        have := Nat.two_pow_pos (s + 1); omega
+  -- `sigSum ≠ 0` via `aligned_ne_zero`, per swap branch. `shiftAmount` is the same let in both, so we
+  -- apply it inline. Bounds from `(·).sig.setWidth' ++ 0#2` (`toNat = sig.toNat * 4`) + msb; `hcancel`
+  -- via `addShift_zero_imp_ex_eq` (zero shift ⇒ equal exponents) + `structBeq` ⇒ exact sum `0`.
+  · -- swap `false`: `x` is the larger operand
+    have hxval : xSig.toNat = x.sig.toNat * 4 := BitVec.setWidth'_append0_toNat _ x.sig
+    have hyval : ySig0.toNat = y.sig.toNat * 4 := BitVec.setWidth'_append0_toNat _ y.sig
+    have e1 : 2 ^ (s - 1) * 4 = 2 ^ (s + 1) := by
+      rw [show (4 : Nat) = 2 ^ 2 from rfl, ← Nat.pow_add]; congr 1; omega
+    have e2 : 2 ^ s * 4 = 2 ^ (s + 2) := by
+      rw [show (4 : Nat) = 2 ^ 2 from rfl, ← Nat.pow_add]
+    have hxlo' : 2 ^ (s - 1) ≤ x.sig.toNat := BitVec.le_toNat_of_msb_true hx
+    have hylo' : 2 ^ (s - 1) ≤ y.sig.toNat := BitVec.le_toNat_of_msb_true hy
+    have hxhi' : x.sig.toNat < 2 ^ s := x.sig.isLt
+    have hyhi' : y.sig.toNat < 2 ^ s := y.sig.isLt
+    refine aligned_ne_zero xSig ySig0 shiftAmount (x.sign == y.sign)
+      (by rw [hxval]; omega) (by rw [hxval]; omega) (by rw [hyval]; omega) (by rw [hyval]; omega) ?_
+    intro hsh0 hsamef hxyeq
+    have hexeq : x.ex = y.ex :=
+      UnpackedFloat.addShift_zero_imp_ex_eq x y expDiff rfl absExpDiff rfl shiftAmount rfl hsh0
+    have hsigeq : x.sig = y.sig := by
+      apply BitVec.eq_of_toNat_eq; rw [hxval, hyval] at hxyeq; omega
+    have hsignneq : x.sign = !y.sign := by
+      cases hxs : x.sign <;> cases hys : y.sign <;> simp_all
+    exact hne (UnpackedFloat.toRat_add_toRat_eq_zero_of_structBeq_neg x y (by
+      simp only [UnpackedFloat.structBeq, UnpackedFloat.neg, Bool.and_eq_true, beq_iff_eq]
+      exact ⟨⟨hsignneq, hexeq⟩, hsigeq⟩))
+  · -- swap `true`: `y` is the larger operand
+    have hxval : xSig.toNat = y.sig.toNat * 4 := BitVec.setWidth'_append0_toNat _ y.sig
+    have hyval : ySig0.toNat = x.sig.toNat * 4 := BitVec.setWidth'_append0_toNat _ x.sig
+    have e1 : 2 ^ (s - 1) * 4 = 2 ^ (s + 1) := by
+      rw [show (4 : Nat) = 2 ^ 2 from rfl, ← Nat.pow_add]; congr 1; omega
+    have e2 : 2 ^ s * 4 = 2 ^ (s + 2) := by
+      rw [show (4 : Nat) = 2 ^ 2 from rfl, ← Nat.pow_add]
+    have hxlo' : 2 ^ (s - 1) ≤ y.sig.toNat := BitVec.le_toNat_of_msb_true hy
+    have hylo' : 2 ^ (s - 1) ≤ x.sig.toNat := BitVec.le_toNat_of_msb_true hx
+    have hxhi' : y.sig.toNat < 2 ^ s := y.sig.isLt
+    have hyhi' : x.sig.toNat < 2 ^ s := x.sig.isLt
+    refine aligned_ne_zero xSig ySig0 shiftAmount (y.sign == x.sign)
+      (by rw [hxval]; omega) (by rw [hxval]; omega) (by rw [hyval]; omega) (by rw [hyval]; omega) ?_
+    intro hsh0 hsamef hxyeq
+    have hexeq : x.ex = y.ex :=
+      UnpackedFloat.addShift_zero_imp_ex_eq x y expDiff rfl absExpDiff rfl shiftAmount rfl hsh0
+    have hsigeq : x.sig = y.sig := by
+      apply BitVec.eq_of_toNat_eq; rw [hxval, hyval] at hxyeq; omega
+    have hsignneq : x.sign = !y.sign := by
+      cases hxs : x.sign <;> cases hys : y.sign <;> simp_all
+    exact hne (UnpackedFloat.toRat_add_toRat_eq_zero_of_structBeq_neg x y (by
+      simp only [UnpackedFloat.structBeq, UnpackedFloat.neg, Bool.and_eq_true, beq_iff_eq]
+      exact ⟨⟨hsignneq, hexeq⟩, hsigeq⟩))
 
 /-! ## Layer 5: exact-cancellation detection -/
-
-/--
-`structBeq` is sound for cancellation detection: if `x` is structurally the
-negation of `y`, the exact sum is zero.
--/
-theorem UnpackedFloat.toRat_add_toRat_eq_zero_of_structBeq_neg
-    {e s : Nat} (x y : UnpackedFloat e s)
-    (h : x.structBeq y.neg) : x.toRat + y.toRat = 0 := by
-  have hx : x = y.neg := by
-    simp only [UnpackedFloat.structBeq, Bool.and_eq_true, beq_iff_eq] at h
-    rcases x with ⟨xsign, xex, xsig⟩
-    rcases y with ⟨ysign, yex, ysig⟩
-    simp_all [UnpackedFloat.neg]
-  subst hx
-  have : y.neg = -y := Eq.refl _
-  rw [this, UnpackedFloat.toRat_eq_toRat', UnpackedFloat.toRat_eq_toRat',
-    UnpackedFloat.toRat'_neg]
-  grind
 
 /--
 The normalized representation of a nonzero value is unique: two
@@ -867,17 +1115,26 @@ theorem add_eq_add {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
         simp only [hcancel, cond_false, EUnpackedFloat.isZero_mkNumber, hazero, hbzero]
         rw [PackedFloat.EquivUptoNaN_symm, EUnpackedFloat.pack_eq_pack']
         subst hrm
-        -- TODO(packing): rounder-output `Packable`. The bit-blasted rounder output is `Packable`
-        -- (normalized + in-range) and the SMT spec result is finite — the `blastSmtLibRound`
-        -- analogue of `PackedFloat.unpackNum_packable` used at sites 1/2.
-        refine EUnpackedFloat.pack'_EquivUptoNaN_of_Rel he hsin _ _ ?_
-          (by sorry) (by sorry)
-        apply UnpackedFloat.blastSmtLibRound_Rel_round_of_RNE_of_stickyEquiv he hep hsin
-          (eu := exponentWidth ein sin + 1) (su := sin + 1 + 2) (by omega) (by omega)
-          (a.unpackNum.add b.unpackNum) _ _ hsumne
-        · apply UnpackedFloat.normalize_eq_self_of_msb_eq_true
-          exact UnpackedFloat.msb_add_eq_true _ _ (by omega) hamsb hbmsb hsumne'
-        · exact UnpackedFloat.unpackNum_add_unpackNum_stickyEquiv hsin ha hb hsumne
+        -- Mirror of the `div_eq_div` call site: the bit-blasted rounder output is `Packable`
+        -- (normalized + in-range) and the SMT spec result is finite, both discharged by the
+        -- `blastSmtLibRound` analogues of the lemmas used at sites 1/2.
+        have hxnorm : (a.unpackNum.add b.unpackNum).normalize = a.unpackNum.add b.unpackNum :=
+          UnpackedFloat.normalize_eq_self_of_msb_eq_true _
+            (UnpackedFloat.msb_add_eq_true _ _ (by omega) hamsb hbmsb hsumne')
+        have hsticky : StickyEquiv ((a.unpackNum.add b.unpackNum).toExpInt)
+            ((a.unpackNum.add b.unpackNum).toRat) (a.toRat + b.toRat) :=
+          UnpackedFloat.unpackNum_add_unpackNum_stickyEquiv hsin ha hb hsumne
+        refine EUnpackedFloat.pack'_EquivUptoNaN_of_Rel he hsin _ _ ?hrel ?hpack ?hpf
+        case hrel =>
+          exact UnpackedFloat.blastSmtLibRound_Rel_round_of_RNE_of_stickyEquiv he hep hsin
+            (eu := exponentWidth ein sin + 1) (su := sin + 1 + 2) (by omega) (by omega)
+            (a.unpackNum.add b.unpackNum) _ _ hsumne hxnorm hsticky
+        case hpack =>
+          exact UnpackedFloat.blastSmtLibRound_Packable_of_RNE hep hsin (by omega) (by omega)
+            (a.unpackNum.add b.unpackNum) hxnorm
+        case hpf =>
+          exact UnpackedFloat.blastSmtLibRound_finite_of_RNE_of_stickyEquiv he hep hsin
+            (by omega) (by omega) (a.unpackNum.add b.unpackNum) _ _ hsumne hxnorm hsticky
 
 /--
 info: 'Fp.add_eq_add' depends on axioms: [propext, sorryAx, BitVec.toNat_clz_cons, Classical.choice, Quot.sound]
