@@ -789,3 +789,38 @@ theorem BitVec.and_or_eq_zero_iff {w : Nat} (a b c : BitVec w) :
 info: 'BitVec.and_or_eq_zero_iff' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in #print axioms BitVec.and_or_eq_zero_iff
+
+/-- `toInt` of a sign-extended subtraction with a small (0/1) borrow, when no overflow occurs. -/
+theorem signExtSubSub_toInt {e : Nat} (he : 0 < e) (A B : BitVec e) (c : BitVec (e + 1))
+    (cval : Int) (hc : c.toInt = cval) (hc0 : 0 ≤ cval) (hc1 : cval ≤ 1) :
+    ((A.signExtend (e + 1)) - (B.signExtend (e + 1)) - c).toInt
+      = A.toInt - B.toInt - cval := by
+  have hAr := BitVec.toInt_lt (x := A)
+  have hAl := BitVec.le_toInt A
+  have hBr := BitVec.toInt_lt (x := B)
+  have hBl := BitVec.le_toInt B
+  have he1 : (2:Int) ^ (e + 1) = 2 ^ e * 2 := by rw [Int.pow_succ]
+  have he0 : (2:Int) ^ e = 2 ^ (e - 1) * 2 := by
+    rw [show e = (e - 1) + 1 by omega, Int.pow_succ]; rw [show e-1+1 = e by omega]
+  have hAse : (A.signExtend (e + 1)).toInt = A.toInt := BitVec.toInt_signExtend_of_le (by omega)
+  have hBse : (B.signExtend (e + 1)).toInt = B.toInt := BitVec.toInt_signExtend_of_le (by omega)
+  rw [BitVec.toInt_sub, BitVec.toInt_sub, hAse, hBse, hc]
+  have hinner : (A.toInt - B.toInt).bmod (2 ^ (e + 1)) = A.toInt - B.toInt := by
+    apply Int.bmod_eq_of_le <;> (push_cast; omega)
+  rw [hinner]
+  apply Int.bmod_eq_of_le <;> (push_cast; omega)
+
+/-- `toInt` of a one-bit boolean widened by `setWidth'` is its `Nat` value. -/
+theorem ofBool_setWidth_toInt {e : Nat} (he : 0 < e) (β : Bool) :
+    ((BitVec.ofBool β).setWidth' (by omega : 1 ≤ e + 1)).toInt = (β.toNat : Int) := by
+  have hn : ((BitVec.ofBool β).setWidth' (by omega : 1 ≤ e + 1)).toNat = β.toNat := by
+    rw [BitVec.toNat_setWidth', BitVec.toNat_ofBool]
+  rw [BitVec.toInt_eq_toNat_bmod, hn]
+  have hbN : (β.toNat : Int) < 2 := by cases β <;> simp
+  have h2eN : (2:Nat) ≤ 2 ^ e := by
+    calc (2:Nat) = 2 ^ 1 := rfl
+      _ ≤ 2 ^ e := Nat.pow_le_pow_right (by omega) (by omega)
+  have h2e : (2:Int) ≤ 2 ^ e := by exact_mod_cast h2eN
+  have he1 : (2:Int) ^ (e + 1) = 2 ^ e * 2 := by rw [Int.pow_succ]
+  have hb0 : (0:Int) ≤ (β.toNat : Int) := by exact_mod_cast Nat.zero_le _
+  apply Int.bmod_eq_of_le <;> push_cast <;> omega
