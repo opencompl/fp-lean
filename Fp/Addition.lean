@@ -2,41 +2,87 @@ import Fp.Comparison
 import Fp.Negation
 import Fp.UnpackedRound
 
+namespace UnpackedFloat
+
+variable {e s : Nat}
+
+/-- Signed exponent difference (widened by one bit) — used to pick the larger operand and the shift. -/
 @[bv_normalize]
-def UnpackedFloat.add (x y : UnpackedFloat e s) : UnpackedFloat (e + 1) (s + 2) :=
-  -- Compute absolute exponent difference to determine significant shift amount.
-  let expDiff : BitVec (e + 1)  := x.ex.signExtend (e + 1) - y.ex.signExtend (e + 1)
-  let absExpDiff := bif expDiff.msb then -expDiff else expDiff
-  -- Determine the smaller number whose significant we are going to shift.
-  let (x, y) := bif expDiff.msb || absExpDiff == 0 && x.sig.ult y.sig then (y, x) else (x, y)
-  -- Extend by 1 bit to the left to account for overflow and two bits to the right to account for
-  -- round and sticky bits.
-  let xSig := x.sig.setWidth' (by omega) ++ 0#2
-  let ySig := y.sig.setWidth' (by omega) ++ 0#2
-  -- Reuse the same circuit for both addition and subtraction by negating the smaller significant.
-  -- Note: we always treat significants as unsigned integers. However, we make an exception here
-  -- to reuse the same adder circuit for both addition and subtraction.
-  let ySig := bif x.sign == y.sign then ySig else -ySig
-  -- Cap the right shift at `s + 3` in case `absExpDiff` is too big.
-  let shiftAmount := bif absExpDiff.ult (s + 3) then absExpDiff.setWidth (s + 3) else (s + 3)
-  -- Note: we use signed shift for `ySig` here to preserve its sign since it's now a signed integer.
-  let sigSum : BitVec (s + 3) := xSig + ySig.sshiftRight' shiftAmount
-  -- Sticky bit depends on bits we lose when we right shift `ySig` and `sigSum` (in case of an overflow).
-  let sticky := ySig &&& shiftAmount.orderEncode != 0 || sigSum.msb && sigSum[0]
-  let sum : UnpackedFloat (e + 1) (s + 2) :=
-    {
-      -- Sign of sum is sign of the bigger number!
-      sign := x.sign
-      -- Exponent of sum is exponent of bigger number (`+1` if there is an overflow).
-      ex := x.ex.signExtend (e + 1) + (BitVec.ofBool sigSum.msb).setWidth' (by omega)
-      -- Renormalize `sigSum` if there is an overflow.
-      sig := (sigSum >>> BitVec.ofBool sigSum.msb).truncate (s + 2)
-    }
-  -- If a catastrophic cancellation occured, we have to normalize. In case the sum is `0` (i.e., full
-  -- cancellation), the sign depends on the rounding mode.
-  let normSum := bif !sum.sig.msb then sum.normalize else sum
-  -- Sticky bit is independent of normalization: add it at the very end.
-  { normSum with sig := normSum.sig ||| (BitVec.ofBool sticky).setWidth' (by omega) }
+def addExpDiff (x y : UnpackedFloat e s) : BitVec (e + 1) :=
+  x.ex.signExtend (e + 1) - y.ex.signExtend (e + 1)
+
+/-- Absolute exponent difference. -/
+@[bv_normalize]
+def addAbsExpDiff (x y : UnpackedFloat e s) : BitVec (e + 1) :=
+  bif (addExpDiff x y).msb then -(addExpDiff x y) else addExpDiff x y
+
+/-- The circuit swaps operands so the first is the larger; this is that condition. -/
+@[bv_normalize]
+def addSwapCond (x y : UnpackedFloat e s) : Bool :=
+  (addExpDiff x y).msb || ((addAbsExpDiff x y == 0) && x.sig.ult y.sig)
+
+/-- Post-swap larger operand (the circuit's rebound `x`). -/
+@[bv_normalize]
+def addBig (x y : UnpackedFloat e s) : UnpackedFloat e s :=
+  bif addSwapCond x y then y else x
+
+/-- Post-swap smaller operand (the circuit's rebound `y`). -/
+@[bv_normalize]
+def addSmall (x y : UnpackedFloat e s) : UnpackedFloat e s :=
+  bif addSwapCond x y then x else y
+
+/-- Larger significand, extended (1 overflow bit on the left, 2 round/sticky bits on the right). -/
+@[bv_normalize]
+def addXSig (x y : UnpackedFloat e s) : BitVec (s + 3) :=
+  (addBig x y).sig.setWidth' (by grind) ++ 0#2
+
+/-- Smaller significand, similarly extended and negated when the signs differ (so one adder serves
+both addition and subtraction). -/
+@[bv_normalize]
+def addYSig (x y : UnpackedFloat e s) : BitVec (s + 3) :=
+  bif (addBig x y).sign == (addSmall x y).sign
+    then (addSmall x y).sig.setWidth' (by grind) ++ 0#2
+    else -((addSmall x y).sig.setWidth' (by grind) ++ 0#2)
+
+/-- Right-shift amount for alignment, capped at `s + 3`. -/
+@[bv_normalize]
+def addShiftAmount (x y : UnpackedFloat e s) : BitVec (s + 3) :=
+  bif (addAbsExpDiff x y).ult (s + 3) then (addAbsExpDiff x y).setWidth (s + 3) else (s + 3)
+
+/-- The aligned (signed) significand sum. -/
+@[bv_normalize]
+def addSigSum (x y : UnpackedFloat e s) : BitVec (s + 3) :=
+  addXSig x y + (addYSig x y).sshiftRight' (addShiftAmount x y)
+
+/-- Sticky bit: set if the alignment shift dropped a nonzero bit, or an overflow folded a bit out. -/
+@[bv_normalize]
+def addSticky (x y : UnpackedFloat e s) : Bool :=
+  (addYSig x y &&& (addShiftAmount x y).orderEncode != 0)
+    || ((addSigSum x y).msb && (addSigSum x y)[0])
+
+/-- The pre-normalisation result (sign of the larger; exponent bumped on overflow; significand
+right-shifted on overflow). -/
+@[bv_normalize]
+def addSum (x y : UnpackedFloat e s) : UnpackedFloat (e + 1) (s + 2) :=
+  { sign := (addBig x y).sign
+    ex := (addBig x y).ex.signExtend (e + 1) + (BitVec.ofBool (addSigSum x y).msb).setWidth' (by grind)
+    sig := ((addSigSum x y) >>> BitVec.ofBool (addSigSum x y).msb).truncate (s + 2) }
+
+/-- Normalised result: on catastrophic cancellation (`!sum.sig.msb`) renormalise. -/
+@[bv_normalize]
+def addNormSum (x y : UnpackedFloat e s) : UnpackedFloat (e + 1) (s + 2) :=
+  bif !(addSum x y).sig.msb then (addSum x y).normalize else (addSum x y)
+
+/-- Floating-point addition. The intermediates are the named `add*` definitions above (each marked
+`@[bv_normalize]` so `bv_decide` still flattens the whole circuit, and so proofs can `unfold` the
+circuit one layer at a time). The sticky bit is OR-ed into the bottom bit at the very end, after
+normalisation. -/
+@[bv_normalize]
+def add (x y : UnpackedFloat e s) : UnpackedFloat (e + 1) (s + 2) :=
+  { addNormSum x y with
+    sig := (addNormSum x y).sig ||| (BitVec.ofBool (addSticky x y)).setWidth' (by grind) }
+
+end UnpackedFloat
 
 @[bv_normalize]
 theorem Prod.fst_cond_eq_cond_fst {t e : α × β} : (bif b then t else e).fst = bif b then t.fst else e.fst :=
