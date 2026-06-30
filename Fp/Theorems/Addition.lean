@@ -92,73 +92,10 @@ open SmtLibSemantics
 
 /-! ## Layer 3: circuit-level error bound
 
-These are the bit-level facts about `UnpackedFloat.add`.  Pen-and-paper
-proofs are given in the docstrings; the Lean proofs are left as `sorry`
-(they are bitvector/rational mixed arithmetic, analogous in spirit to —
-but heavier than — `UnpackedFloat.toRat_mulUnadjustedMsb_eq_toRat_mul_toRat`).
+These are the bit-level facts about `UnpackedFloat.add` (bitvector/rational mixed
+arithmetic, analogous in spirit to — but heavier than —
+`UnpackedFloat.toRat_mulUnadjustedMsb_eq_toRat_mul_toRat`).
 -/
-
-/--
-**The addition circuit is correct up to a sticky-bit error.**
-
-For normalized inputs (`msb = true`) with nonzero exact sum,
-`(x.add y).toRat` is a sticky compression of the exact sum
-`x.toRat + y.toRat` at the weight `2^((x.add y).toExpInt)` of the result's
-last significand bit.
-
-Pen-and-paper proof.  WLOG (the circuit swaps internally) `x` has the larger
-exponent (or equal exponents and the larger significand), so the result is
-computed as `±(X - Y)` or `±(X + Y)` at the grid `L₀ = 2^(x.ex - (s+1))`,
-where `X = 4·x.sig` is exact on the grid and `Y` is `y`'s significand
-aligned by an arithmetic right shift by `d = |x.ex - y.ex|` (capped at
-`s+3`, which is harmless because then `y` contributes at most a sticky bit).
-
-* The arithmetic shift computes `floor` over the *signed* value, so
-  `sigSum = ⌊(exact aligned sum)/L₀⌋` and the lost bits
-  (`ySig &&& orderEncode shift ≠ 0`) are nonzero iff the floor is strict.
-  Hence `exact = (sigSum + f)·L₀` with `f ∈ [0, 1)`, `f > 0` iff sticky.
-* If the (same-sign) sum overflows into the top bit, the circuit shifts
-  right by one and folds the dropped bit into the sticky; the same
-  invariant holds at grid `2·L₀`.
-* If bits were lost (`sticky = true`) then `d ≥ 3` (the two appended low
-  zero bits absorb shifts of `1` and `2`), so at most one leading bit
-  cancels in `X - Y`; the post-cancellation `normalize` shifts left by at
-  most one and the invariant holds at grid `L₀/2` with the kept value an
-  *even* multiple of the new grid.
-* Finally the sticky bit is OR-ed into the bottom bit: if the kept value
-  `z₀` was even at the final grid `L`, the result becomes `z₀ + L`; in all
-  cases the result is an odd multiple of `L` and the exact sum lies in
-  `(z₀, z₀ + 2L') ⊆ (result - L, result + L)` strictly.
-* If no bits were lost the result equals the exact sum (left disjunct).
--/
-theorem UnpackedFloat.stickyEquiv_add {e s : Nat} (x y : UnpackedFloat e s)
-    (hs : 0 < s)
-    (hx : x.sig.msb = true) (hy : y.sig.msb = true)
-    (hne : x.toRat + y.toRat ≠ 0) :
-    StickyEquiv ((x.add y).toExpInt) ((x.add y).toRat) (x.toRat + y.toRat) := by
-  -- L1 assembly: strip the shared sign `sd = (x.add y).sign.toSign` and grid `2^k`, reducing to the
-  -- integer-significand disjunction `addCore` on `n = (x.add y).sig.toNat`, `t = sd·exact·2^(-k)`.
-  rw [UnpackedFloat.toRat_eq_sign_sig_exp (x.add y)]
-  have hsd : ((x.add y).sign.toSign : Rat) = 1 ∨ ((x.add y).sign.toSign : Rat) = -1 := by
-    cases (x.add y).sign <;> simp [Bool.toSign]
-  have hss : ((x.add y).sign.toSign : Rat) * (x.add y).sign.toSign = 1 := by
-    rcases hsd with h | h <;> rw [h] <;> grind
-  have hzz : (2 : Rat) ^ (-(x.add y).toExpInt) * 2 ^ ((x.add y).toExpInt) = 1 := by
-    have hk0 : -(x.add y).toExpInt + (x.add y).toExpInt = 0 := by grind
-    rw [← Rat.zpow_add (by grind), hk0]; simp
-  have key : x.toRat + y.toRat
-      = (x.add y).sign.toSign
-        * ((x.add y).sign.toSign * (x.toRat + y.toRat) * (2 : Rat) ^ (-(x.add y).toExpInt))
-        * 2 ^ ((x.add y).toExpInt) := by
-    generalize x.toRat + y.toRat = E
-    generalize ((x.add y).sign.toSign : Rat) = S at hss ⊢
-    generalize (2 : Rat) ^ ((x.add y).toExpInt) = P at hzz ⊢
-    generalize (2 : Rat) ^ (-(x.add y).toExpInt) = Q at hzz ⊢
-    grind
-  rw [key]
-  refine StickyEquiv.of_sign_grid hsd ?_
-  -- `addCore`: `t = n ∨ (n odd ∧ |t − n| < 1)`. Case split on `addSticky x y` (Phase C: lemmas A–G).
-  sorry
 
 /-- `bmod` is nonzero for a nonzero value lying strictly within one modulus of zero. -/
 theorem bmod_ne_zero_of_lt (S : Int) (m : Nat) (hS0 : S ≠ 0) (hlo : -(m : Int) < S) (hhi : S < m) :
@@ -1342,6 +1279,109 @@ theorem UnpackedFloat.add_ex_toInt_eq' {e s : Nat} (x y : UnpackedFloat e s)
     rw [hclz0]; simp
 
 /--
+**The addition circuit is correct up to a sticky-bit error.**
+
+For normalized inputs (`msb = true`) with nonzero exact sum,
+`(x.add y).toRat` is a sticky compression of the exact sum
+`x.toRat + y.toRat` at the weight `2^((x.add y).toExpInt)` of the result's
+last significand bit.
+
+Pen-and-paper proof.  WLOG (the circuit swaps internally) `x` has the larger
+exponent (or equal exponents and the larger significand), so the result is
+computed as `±(X - Y)` or `±(X + Y)` at the grid `L₀ = 2^(x.ex - (s+1))`,
+where `X = 4·x.sig` is exact on the grid and `Y` is `y`'s significand
+aligned by an arithmetic right shift by `d = |x.ex - y.ex|` (capped at
+`s+3`, which is harmless because then `y` contributes at most a sticky bit).
+
+* The arithmetic shift computes `floor` over the *signed* value, so
+  `sigSum = ⌊(exact aligned sum)/L₀⌋` and the lost bits
+  (`ySig &&& orderEncode shift ≠ 0`) are nonzero iff the floor is strict.
+  Hence `exact = (sigSum + f)·L₀` with `f ∈ [0, 1)`, `f > 0` iff sticky.
+* If the (same-sign) sum overflows into the top bit, the circuit shifts
+  right by one and folds the dropped bit into the sticky; the same
+  invariant holds at grid `2·L₀`.
+* If bits were lost (`sticky = true`) then `d ≥ 3` (the two appended low
+  zero bits absorb shifts of `1` and `2`), so at most one leading bit
+  cancels in `X - Y`; the post-cancellation `normalize` shifts left by at
+  most one and the invariant holds at grid `L₀/2` with the kept value an
+  *even* multiple of the new grid.
+* Finally the sticky bit is OR-ed into the bottom bit: if the kept value
+  `z₀` was even at the final grid `L`, the result becomes `z₀ + L`; in all
+  cases the result is an odd multiple of `L` and the exact sum lies in
+  `(z₀, z₀ + 2L') ⊆ (result - L, result + L)` strictly.
+* If no bits were lost the result equals the exact sum (left disjunct).
+-/
+theorem UnpackedFloat.stickyEquiv_add {e s : Nat} (x y : UnpackedFloat e s)
+    (hs : 0 < s) (he : 0 < e) (hes : s + 3 < 2 ^ (e + 1)) (hbnd : s + 1 ≤ 2 ^ (e - 1))
+    (hx : x.sig.msb = true) (hy : y.sig.msb = true)
+    (hne : x.toRat + y.toRat ≠ 0) :
+    StickyEquiv ((x.add y).toExpInt) ((x.add y).toRat) (x.toRat + y.toRat) := by
+  -- L1 assembly: strip the shared sign `sd = (x.add y).sign.toSign` and grid `2^k`, reducing to the
+  -- integer-significand disjunction `addCore` on `n = (x.add y).sig.toNat`, `t = sd·exact·2^(-k)`.
+  rw [UnpackedFloat.toRat_eq_sign_sig_exp (x.add y)]
+  have hsd : ((x.add y).sign.toSign : Rat) = 1 ∨ ((x.add y).sign.toSign : Rat) = -1 := by
+    cases (x.add y).sign <;> simp [Bool.toSign]
+  have hss : ((x.add y).sign.toSign : Rat) * (x.add y).sign.toSign = 1 := by
+    rcases hsd with h | h <;> rw [h] <;> grind
+  have hzz : (2 : Rat) ^ (-(x.add y).toExpInt) * 2 ^ ((x.add y).toExpInt) = 1 := by
+    have hk0 : -(x.add y).toExpInt + (x.add y).toExpInt = 0 := by grind
+    rw [← Rat.zpow_add (by grind), hk0]; simp
+  have key : x.toRat + y.toRat
+      = (x.add y).sign.toSign
+        * ((x.add y).sign.toSign * (x.toRat + y.toRat) * (2 : Rat) ^ (-(x.add y).toExpInt))
+        * 2 ^ ((x.add y).toExpInt) := by
+    generalize x.toRat + y.toRat = E
+    generalize ((x.add y).sign.toSign : Rat) = S at hss ⊢
+    generalize (2 : Rat) ^ ((x.add y).toExpInt) = P at hzz ⊢
+    generalize (2 : Rat) ^ (-(x.add y).toExpInt) = Q at hzz ⊢
+    grind
+  rw [key]
+  refine StickyEquiv.of_sign_grid hsd ?_
+  -- `addCore`: single division-style path. `n = ⌊D/Y⌋·2^clz ||| sticky` (any clz), `t = (D:Rat)/Y·2^clz`,
+  -- and `floor_sticky_within_one'` (with `clz ≤ 1 ∨ D%Y = 0` from lemma E) finishes both regimes.
+  have hYpos : 0 < UnpackedFloat.addDivisor x y := Nat.two_pow_pos _
+  have hsig := UnpackedFloat.add_sig_toNat_eq' x y hx hy hs hes
+  have hbor : (UnpackedFloat.addSum x y).sig.clz.toNat ≤ 1
+      ∨ UnpackedFloat.addDividend x y % UnpackedFloat.addDivisor x y = 0 := by
+    by_cases hdy : UnpackedFloat.addDividend x y % UnpackedFloat.addDivisor x y = 0
+    · exact Or.inr hdy
+    · refine Or.inl ?_
+      have hst : UnpackedFloat.addSticky x y = true := by
+        rw [UnpackedFloat.addSticky_eq_mod x y hx hy hs hes]; simp [hdy]
+      have hge := UnpackedFloat.addSum_sig_ge_of_sticky x y hx hy hs hes hst
+      have h1 := BitVec.toNat_lt_two_pow_sub_clz (x := (UnpackedFloat.addSum x y).sig)
+      have hlt : (2:Nat) ^ s < 2 ^ (s + 2 - (UnpackedFloat.addSum x y).sig.clz.toNat) := by omega
+      have := (Nat.pow_lt_pow_iff_right (by decide : 1 < 2)).mp hlt
+      omega
+  -- the exact value, scaled and de-signed, equals the floor grid value `(D/Y)·2^clz`
+  have hsign : (x.add y).sign = (UnpackedFloat.addBig x y).sign := by
+    show (UnpackedFloat.addNormSum x y).sign = (UnpackedFloat.addBig x y).sign
+    unfold UnpackedFloat.addNormSum
+    cases (UnpackedFloat.addSum x y).sig.msb <;>
+      simp [UnpackedFloat.sign_normalize, UnpackedFloat.addSum]
+  have hk : (x.add y).toExpInt
+      = (UnpackedFloat.addSum x y).toExpInt - ((UnpackedFloat.addSum x y).sig.clz.toNat : Int) := by
+    simp only [UnpackedFloat.toExpInt]
+    rw [UnpackedFloat.add_ex_toInt_eq' x y hx hy hs he hes hne hbnd]; omega
+  have hG := UnpackedFloat.add_grid_factor x y hs he hx hy hes
+  have hbss : ((UnpackedFloat.addBig x y).sign.toSign : Rat) * (UnpackedFloat.addBig x y).sign.toSign = 1 := by
+    cases (UnpackedFloat.addBig x y).sign <;> simp [Bool.toSign] <;> grind
+  have ht : (x.add y).sign.toSign * (x.toRat + y.toRat) * (2:Rat) ^ (-(x.add y).toExpInt)
+      = (UnpackedFloat.addDividend x y : Rat) / (UnpackedFloat.addDivisor x y : Rat)
+        * 2 ^ ((UnpackedFloat.addSum x y).sig.clz.toNat) := by
+    rw [show ((x.add y).sign.toSign : Rat) = (UnpackedFloat.addBig x y).sign.toSign from by rw [hsign],
+      hG, hk]
+    have hzc : (2:Rat) ^ (UnpackedFloat.addSum x y).toExpInt
+        * (2:Rat) ^ (-((UnpackedFloat.addSum x y).toExpInt
+            - ((UnpackedFloat.addSum x y).sig.clz.toNat : Int)))
+        = (2:Rat) ^ ((UnpackedFloat.addSum x y).sig.clz.toNat) := by
+      rw [← Rat.zpow_add (by decide), ← Rat.zpow_natCast (2:Rat) (UnpackedFloat.addSum x y).sig.clz.toNat]
+      congr 1; omega
+    grind
+  rw [ht]
+  exact floor_sticky_within_one' _ _ _ hYpos hbor _ hsig
+
+/--
 The normalized representation of a nonzero value is unique: two
 `UnpackedFloat`s with set msb and the same nonzero rational value are
 structurally equal.
@@ -1764,7 +1804,7 @@ The unpacked sum of two unpacked (norm/nonzero-subnorm) packed floats is a
 sticky compression of the exact rational sum.
 -/
 theorem UnpackedFloat.unpackNum_add_unpackNum_stickyEquiv
-    {e s : Nat} {a b : PackedFloat e s} (hs : 0 < s)
+    {e s : Nat} {a b : PackedFloat e s} (hs : 0 < s) (he : 1 < e)
     (ha : a.isNormOrNonzeroSubnorm) (hb : b.isNormOrNonzeroSubnorm)
     (hne : a.toRat + b.toRat ≠ 0) :
     StickyEquiv ((a.unpackNum.add b.unpackNum).toExpInt)
@@ -1772,7 +1812,21 @@ theorem UnpackedFloat.unpackNum_add_unpackNum_stickyEquiv
   have hra := PackedFloat.unpackNum_toRat_eq_toRat (pf := a) ha
   have hrb := PackedFloat.unpackNum_toRat_eq_toRat (pf := b) hb
   rw [← hra, ← hrb] at hne ⊢
+  -- the unpacked widths are `(exponentWidth e s, s+1)`; discharge the exponent-range hypotheses
+  have h2e : 2 ≤ 2 ^ (e - 1) := by
+    calc (2:Nat) = 2 ^ 1 := rfl
+      _ ≤ 2 ^ (e - 1) := Nat.pow_le_pow_right (by omega) (by omega)
+  have hlog : 2 ^ (e - 1) + s - 1 < 2 ^ ((2 ^ (e - 1) + s - 1).log2 + 1) := Nat.lt_log2_self
+  have hexp : exponentWidth e s - 1 = (2 ^ (e - 1) + s - 1).log2 + 1 := by
+    unfold exponentWidth; omega
+  have hbnd' : s + 1 + 1 ≤ 2 ^ (exponentWidth e s - 1) := by rw [hexp]; omega
+  have hes' : s + 1 + 3 < 2 ^ (exponentWidth e s + 1) := by
+    have hexp1 : (2:Nat) ^ (exponentWidth e s + 1) = 2 ^ (exponentWidth e s - 1) * 4 := by
+      have h0 := one_lt_exponentWidth (e := e) (s := s)
+      rw [show exponentWidth e s + 1 = (exponentWidth e s - 1) + 2 by omega, Nat.pow_add]
+    rw [hexp1, hexp]; omega
   exact UnpackedFloat.stickyEquiv_add a.unpackNum b.unpackNum (by omega)
+    zero_lt_exponentWidth hes' hbnd'
     (PackedFloat.msb_unpackNum_eq_true ha) (PackedFloat.msb_unpackNum_eq_true hb) hne
 
 /-! ## Layer 1: the big theorem
@@ -2035,7 +2089,7 @@ theorem add_eq_add {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
             (UnpackedFloat.msb_add_eq_true _ _ (by omega) hamsb hbmsb hsumne')
         have hsticky : StickyEquiv ((a.unpackNum.add b.unpackNum).toExpInt)
             ((a.unpackNum.add b.unpackNum).toRat) (a.toRat + b.toRat) :=
-          UnpackedFloat.unpackNum_add_unpackNum_stickyEquiv hsin ha hb hsumne
+          UnpackedFloat.unpackNum_add_unpackNum_stickyEquiv hsin he ha hb hsumne
         refine EUnpackedFloat.pack'_EquivUptoNaN_of_Rel he hsin _ _ ?hrel ?hpack ?hpf
         case hrel =>
           exact UnpackedFloat.blastSmtLibRound_Rel_round_of_RNE_of_stickyEquiv he hep hsin
@@ -2049,7 +2103,7 @@ theorem add_eq_add {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
             (by omega) (by omega) (a.unpackNum.add b.unpackNum) _ _ hsumne hxnorm hsticky
 
 /--
-info: 'Fp.add_eq_add' depends on axioms: [propext, sorryAx, BitVec.toNat_clz_cons, Classical.choice, Quot.sound]
+info: 'Fp.add_eq_add' depends on axioms: [propext, BitVec.toNat_clz_cons, Classical.choice, Quot.sound]
 -/
 #guard_msgs (whitespace := lax) in #print axioms add_eq_add
 
