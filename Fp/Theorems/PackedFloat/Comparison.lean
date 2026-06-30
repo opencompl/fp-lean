@@ -25,12 +25,12 @@ These relations live on `F_{ε,σ}` (floats *without* NaN): NaN is unordered, so
 every statement below is guarded by `¬ a.isNaN ∧ ¬ b.isNaN`. On that domain the
 `whenBothNaN` choice carried by the `smt*` order operators is irrelevant.
 
-`smtBeq` (the `eq` relation) and `smtBlt` (the `lt` relation) are proved. The
-`eq` relation bottoms out at `Fp.UnpackedFloat.eq_of_toRat_eq_toRat_of_msb`, and
-the `lt` relation at `bltAux_false_eq_decide_toRat_lt_of_finite`, the ordering
-analogue introduced here. Everything else (the NaN guard, the infinity boundary,
-the embedding into `ExtRat`) is discharged. `ieeeBeq`, `smtBle`, `smtBgt`,
-`smtBge` remain stated and `sorry`'d.
+All the comparison relations are proved sorry-free. The `eq` relation bottoms out
+at `Fp.UnpackedFloat.eq_of_toRat_eq_toRat_of_msb`, the `lt`/`le` relations at
+`bltAux_false_eq_decide_toRat_lt_of_finite` / `bleAux_true_eq_decide_toRat_le_of_finite`
+(the ordering kernels introduced here); `gt`/`ge` are the swapped corollaries of
+`lt`/`le`, and `ieeeBeq` agrees with `smtBeq` off-NaN. Everything else (the NaN
+guard, the infinity boundary, the embedding into `ExtRat`) is discharged.
 -/
 
 set_option maxHeartbeats 1000000
@@ -119,6 +119,59 @@ theorem UnpackedFloat.bltAux_false_eq_decide_toRat_lt {e s : Nat} (x y : Unpacke
   · have hnp : ¬ (x.toRat < y.toRat) := by rw [← key]; simp [hb]
     simp [hnp]
   · have hp : x.toRat < y.toRat := key.mp hb
+    simp [hp]
+
+theorem UnpackedFloat.bleAux_true_eq_decide_toRat_le {e s : Nat} (x y : UnpackedFloat e s)
+    (hx : x.sig.msb = true) (hy : y.sig.msb = true) :
+    UnpackedFloat.bleAux true x y = decide (x.toRat ≤ y.toRat) := by
+  have hxlo : 2 ^ (s - 1) ≤ x.sig.toNat := BitVec.le_toNat_of_msb_true hx
+  have hylo : 2 ^ (s - 1) ≤ y.sig.toNat := BitVec.le_toNat_of_msb_true hy
+  have hxhi : x.sig.toNat < 2 ^ s := x.sig.isLt
+  have hyhi : y.sig.toNat < 2 ^ s := y.sig.isLt
+  have hppos := Nat.two_pow_pos (s - 1)
+  have hxz : x.isZero = false := by
+    simp only [UnpackedFloat.isZero, beq_eq_false_iff_ne, ne_eq]
+    intro h; rw [h, BitVec.msb_zero] at hx; exact Bool.noConfusion hx
+  have hyz : y.isZero = false := by
+    simp only [UnpackedFloat.isZero, beq_eq_false_iff_ne, ne_eq]
+    intro h; rw [h, BitVec.msb_zero] at hy; exact Bool.noConfusion hy
+  have hvalx : x.toRat = (x.sign.toSign : Rat) *
+      ((x.sig.toNat : Rat) * (2 : Rat) ^ (x.toExpInt (s - 1))) := by
+    rw [UnpackedFloat.toRat_eq_toRat', UnpackedFloat.toRat']
+    simp only [UnpackedFloat.toNat_toSigNat_eq]; rw [Rat.mul_assoc]
+  have hvaly : y.toRat = (y.sign.toSign : Rat) *
+      ((y.sig.toNat : Rat) * (2 : Rat) ^ (y.toExpInt (s - 1))) := by
+    rw [UnpackedFloat.toRat_eq_toRat', UnpackedFloat.toRat']
+    simp only [UnpackedFloat.toNat_toSigNat_eq]; rw [Rat.mul_assoc]
+  have hMxpos : (0 : Rat) < (x.sig.toNat : Rat) * (2 : Rat) ^ (x.toExpInt (s - 1)) :=
+    Rat.mul_positive (by exact_mod_cast (by omega : 0 < x.sig.toNat)) (Fp.Rat.two_pow_pos _)
+  have hMypos : (0 : Rat) < (y.sig.toNat : Rat) * (2 : Rat) ^ (y.toExpInt (s - 1)) :=
+    Rat.mul_positive (by exact_mod_cast (by omega : 0 < y.sig.toNat)) (Fp.Rat.two_pow_pos _)
+  -- magnitude ≤, both orientations, via ¬(strict swapped)
+  have hmagXY : ((x.sig.toNat : Rat) * (2 : Rat) ^ (x.toExpInt (s - 1))
+        ≤ (y.sig.toNat : Rat) * (2 : Rat) ^ (y.toExpInt (s - 1)))
+      ↔ (x.ex.toInt < y.ex.toInt ∨ (x.ex.toInt = y.ex.toInt ∧ x.sig.toNat ≤ y.sig.toNat)) := by
+    rw [← Rat.not_lt, Rat.mul_two_zpow_lt hylo hyhi hxlo hxhi]
+    simp only [UnpackedFloat.toExpInt]; omega
+  have hmagYX : ((y.sig.toNat : Rat) * (2 : Rat) ^ (y.toExpInt (s - 1))
+        ≤ (x.sig.toNat : Rat) * (2 : Rat) ^ (x.toExpInt (s - 1)))
+      ↔ (y.ex.toInt < x.ex.toInt ∨ (y.ex.toInt = x.ex.toInt ∧ y.sig.toNat ≤ x.sig.toNat)) := by
+    rw [← Rat.not_lt, Rat.mul_two_zpow_lt hxlo hxhi hylo hyhi]
+    simp only [UnpackedFloat.toExpInt]; omega
+  have key : UnpackedFloat.bleAux true x y = true ↔ x.toRat ≤ y.toRat := by
+    rw [hvalx, hvaly]
+    unfold UnpackedFloat.bleAux
+    cases hsx : x.sign <;> cases hsy : y.sign <;>
+      simp only [hxz, hyz, toSign_true, toSign_false, Bool.and_self,
+        Bool.and_true, Bool.and_false, Bool.true_and, Bool.false_and, Bool.not_true,
+        Bool.not_false, Bool.or_true, Bool.or_false, Bool.false_or, Bool.true_or, cond_true,
+        cond_false, BitVec.slt_eq_decide, decide_eq_true_eq, Bool.or_eq_true, Bool.and_eq_true,
+        beq_iff_eq, BitVec.ule_iff_toNat_le, ← BitVec.toInt_inj, Rat.one_mul] <;>
+      grind
+  cases hb : UnpackedFloat.bleAux true x y
+  · have hnp : ¬ (x.toRat ≤ y.toRat) := by rw [← key]; simp [hb]
+    simp [hnp]
+  · have hp : x.toRat ≤ y.toRat := key.mp hb
     simp [hp]
 
 namespace PackedFloat
@@ -239,6 +292,116 @@ theorem bltAux_false_eq_decide_toRat_lt_of_finite {e s : Nat} (a b : PackedFloat
       cond_false, EUnpackedFloat.num_mkNumber]
     rw [UnpackedFloat.bltAux_false_eq_decide_toRat_lt a.unpackNum b.unpackNum hams hbms, hra, hrb]
 
+set_option maxHeartbeats 1000000 in
+theorem bleAux_true_eq_decide_toRat_le_of_finite {e s : Nat} (a b : PackedFloat e s)
+    (ha : a.isNaN = false) (hb : b.isNaN = false)
+    (hai : a.isInfinite = false) (hbi : b.isInfinite = false) :
+    PackedFloat.bleAux true a b = decide (a.toRat ≤ b.toRat) := by
+  rw [PackedFloat.bleAux]
+  by_cases haz : a.isZero <;> by_cases hbz : b.isZero
+  · -- both zero: `0 < 0` is false, and zero is never `bltAux`-below zero
+    have hua : a.unpack = EUnpackedFloat.mkZero a.sign := by simp [PackedFloat.unpack, ha, hai, haz]
+    have hub : b.unpack = EUnpackedFloat.mkZero b.sign := by simp [PackedFloat.unpack, hb, hbi, hbz]
+    have har : a.toRat = 0 := PackedFloat.toRat_eq_Zero_of_isZero a haz
+    have hbr : b.toRat = 0 := PackedFloat.toRat_eq_Zero_of_isZero b hbz
+    rw [hua, hub, EUnpackedFloat.bleAux]
+    simp only [EUnpackedFloat.isNaN_mkZero, EUnpackedFloat.isInfinite_mkZero, Bool.or_self,
+      cond_false, EUnpackedFloat.num_mkZero, har, hbr]
+    cases a.sign <;> cases b.sign <;>
+      simp [UnpackedFloat.bleAux, UnpackedFloat.mkZero, UnpackedFloat.isZero,
+        BitVec.slt_eq_decide, BitVec.ule_eq_decide]
+  · -- a zero, b nonzero: reduces to the sign of `b`
+    have hbn : b.isNormOrNonzeroSubnorm := by grind [PackedFloat.isNormOrNonzeroSubnorm]
+    have hua : a.unpack = EUnpackedFloat.mkZero a.sign := by simp [PackedFloat.unpack, ha, hai, haz]
+    have hub : b.unpack = EUnpackedFloat.mkNumber b.unpackNum := PackedFloat.unpack_eq_unpackNum_of b hbn
+    have hbms : b.unpackNum.sig.msb = true := PackedFloat.msb_unpackNum_eq_true hbn
+    have hrb : b.unpackNum.toRat = b.toRat := PackedFloat.unpackNum_toRat_eq_toRat hbn
+    have har : a.toRat = 0 := PackedFloat.toRat_eq_Zero_of_isZero a haz
+    have hbrne : b.toRat ≠ 0 := PackedFloat.toRat_ne_zero hbn
+    have hbpos : 0 < b.unpackNum.sig.toNat :=
+      Nat.lt_of_lt_of_le (Nat.two_pow_pos _) (BitVec.le_toNat_of_msb_true hbms)
+    have hbnz : b.unpackNum.isZero = false := by
+      simp only [UnpackedFloat.isZero, beq_eq_false_iff_ne, ne_eq]
+      intro h; rw [h] at hbpos; simp at hbpos
+    have hbmin := BitVec.toInt_intMin_le b.unpackNum.ex
+    have hbmin' : BitVec.intMin (exponentWidth e s) = b.unpackNum.ex ∨
+        (BitVec.intMin (exponentWidth e s)).toInt < b.unpackNum.ex.toInt := by
+      rcases Int.lt_or_eq_of_le hbmin with h | h
+      · exact Or.inr h
+      · exact Or.inl (BitVec.toInt_inj.mp h)
+    have hbsign : b.unpackNum.sign = decide (b.toRat < 0) := by
+      have hne : b.unpackNum.toRat' ≠ 0 := by
+        rw [← UnpackedFloat.toRat_eq_toRat', hrb]; exact hbrne
+      rw [Fp.UnpackedFloat.sign_eq_decide_toRat'_lt_zero b.unpackNum hne,
+        ← UnpackedFloat.toRat_eq_toRat', hrb]
+    have hmz : ∀ {e' s' : Nat} (sgn : Bool),
+        (UnpackedFloat.mkZero sgn : UnpackedFloat e' s').isZero = true := by
+      intro e' s' sgn; simp [UnpackedFloat.isZero, UnpackedFloat.mkZero]
+    rw [hua, hub, EUnpackedFloat.bleAux]
+    simp only [EUnpackedFloat.isNaN_mkZero, EUnpackedFloat.isNaN_mkNumber,
+      EUnpackedFloat.isInfinite_mkZero, EUnpackedFloat.isInfinite_mkNumber, Bool.or_self,
+      Bool.false_or, Bool.or_false, cond_false, EUnpackedFloat.num_mkZero,
+      EUnpackedFloat.num_mkNumber, har]
+    unfold UnpackedFloat.bleAux
+    simp only [UnpackedFloat.sign_mkZero, UnpackedFloat.ex_mkZero, UnpackedFloat.sig_mkZero,
+      hmz, hbnz, BitVec.slt_eq_decide, BitVec.ule_eq_decide, BitVec.toNat_ofNat, Nat.zero_mod,
+      Bool.not_true, Bool.not_false, Bool.or_true, Bool.or_false, Bool.false_or, Bool.true_or,
+      Bool.and_self, Bool.true_and, Bool.false_and, cond_true, cond_false]
+    rw [hbsign]
+    cases a.sign <;> rcases hbmin' with heq | hlt <;> grind [Rat.not_lt]
+  · -- a nonzero, b zero: reduces to the sign of `a`
+    have han : a.isNormOrNonzeroSubnorm := by grind [PackedFloat.isNormOrNonzeroSubnorm]
+    have hua : a.unpack = EUnpackedFloat.mkNumber a.unpackNum := PackedFloat.unpack_eq_unpackNum_of a han
+    have hub : b.unpack = EUnpackedFloat.mkZero b.sign := by simp [PackedFloat.unpack, hb, hbi, hbz]
+    have hams : a.unpackNum.sig.msb = true := PackedFloat.msb_unpackNum_eq_true han
+    have hra : a.unpackNum.toRat = a.toRat := PackedFloat.unpackNum_toRat_eq_toRat han
+    have hbr : b.toRat = 0 := PackedFloat.toRat_eq_Zero_of_isZero b hbz
+    have harne : a.toRat ≠ 0 := PackedFloat.toRat_ne_zero han
+    have hapos : 0 < a.unpackNum.sig.toNat :=
+      Nat.lt_of_lt_of_le (Nat.two_pow_pos _) (BitVec.le_toNat_of_msb_true hams)
+    have hanz : a.unpackNum.isZero = false := by
+      simp only [UnpackedFloat.isZero, beq_eq_false_iff_ne, ne_eq]
+      intro h; rw [h] at hapos; simp at hapos
+    have hamin := BitVec.toInt_intMin_le a.unpackNum.ex
+    have hamin' : BitVec.intMin (exponentWidth e s) = a.unpackNum.ex ∨
+        (BitVec.intMin (exponentWidth e s)).toInt < a.unpackNum.ex.toInt := by
+      rcases Int.lt_or_eq_of_le hamin with h | h
+      · exact Or.inr h
+      · exact Or.inl (BitVec.toInt_inj.mp h)
+    have hasign : a.unpackNum.sign = decide (a.toRat < 0) := by
+      have hne : a.unpackNum.toRat' ≠ 0 := by
+        rw [← UnpackedFloat.toRat_eq_toRat', hra]; exact harne
+      rw [Fp.UnpackedFloat.sign_eq_decide_toRat'_lt_zero a.unpackNum hne,
+        ← UnpackedFloat.toRat_eq_toRat', hra]
+    have hmz : ∀ {e' s' : Nat} (sgn : Bool),
+        (UnpackedFloat.mkZero sgn : UnpackedFloat e' s').isZero = true := by
+      intro e' s' sgn; simp [UnpackedFloat.isZero, UnpackedFloat.mkZero]
+    rw [hua, hub, EUnpackedFloat.bleAux]
+    simp only [EUnpackedFloat.isNaN_mkZero, EUnpackedFloat.isNaN_mkNumber,
+      EUnpackedFloat.isInfinite_mkZero, EUnpackedFloat.isInfinite_mkNumber, Bool.or_self,
+      Bool.false_or, Bool.or_false, cond_false, EUnpackedFloat.num_mkZero,
+      EUnpackedFloat.num_mkNumber, hbr]
+    unfold UnpackedFloat.bleAux
+    simp only [UnpackedFloat.sign_mkZero, UnpackedFloat.ex_mkZero, UnpackedFloat.sig_mkZero,
+      hmz, hanz, BitVec.slt_eq_decide, BitVec.ule_eq_decide, BitVec.toNat_ofNat, Nat.zero_mod,
+      Bool.not_true, Bool.not_false, Bool.or_true, Bool.or_false, Bool.false_or, Bool.true_or,
+      Bool.and_self, Bool.true_and, Bool.false_and, cond_true, cond_false]
+    rw [hasign]
+    cases b.sign <;> rcases hamin' with heq | hlt <;> grind [Rat.not_lt]
+  · -- both nonzero: the normalized magnitude kernel
+    have han : a.isNormOrNonzeroSubnorm := by grind [PackedFloat.isNormOrNonzeroSubnorm]
+    have hbn : b.isNormOrNonzeroSubnorm := by grind [PackedFloat.isNormOrNonzeroSubnorm]
+    have hua : a.unpack = EUnpackedFloat.mkNumber a.unpackNum := PackedFloat.unpack_eq_unpackNum_of a han
+    have hub : b.unpack = EUnpackedFloat.mkNumber b.unpackNum := PackedFloat.unpack_eq_unpackNum_of b hbn
+    have hams : a.unpackNum.sig.msb = true := PackedFloat.msb_unpackNum_eq_true han
+    have hbms : b.unpackNum.sig.msb = true := PackedFloat.msb_unpackNum_eq_true hbn
+    have hra : a.unpackNum.toRat = a.toRat := PackedFloat.unpackNum_toRat_eq_toRat han
+    have hrb : b.unpackNum.toRat = b.toRat := PackedFloat.unpackNum_toRat_eq_toRat hbn
+    rw [hua, hub, EUnpackedFloat.bleAux]
+    simp only [EUnpackedFloat.isNaN_mkNumber, EUnpackedFloat.isInfinite_mkNumber, Bool.or_self,
+      cond_false, EUnpackedFloat.num_mkNumber]
+    rw [UnpackedFloat.bleAux_true_eq_decide_toRat_le a.unpackNum b.unpackNum hams hbms, hra, hrb]
+
 /--
 **BTRW15 §V.B.2, `eq` relation.** For non-NaN `a, b`, the structural SMT
 equality `smtBeq` holds iff the embedded values are equal:
@@ -336,7 +499,11 @@ equality coincides with `eq` (the two differ only at NaN):
 theorem ieeeBeq_iff_toExtRat_eq {e s : Nat} (a b : PackedFloat e s)
     (ha : a.isNaN = false) (hb : b.isNaN = false) :
     a.ieeeBeq b = true ↔ a.toExtRat = b.toExtRat := by
-  sorry
+  have h : a.ieeeBeq b = a.smtBeq b := by
+    simp only [PackedFloat.ieeeBeq, PackedFloat.smtBeq, EUnpackedFloat.ieeeBeq,
+      EUnpackedFloat.smtBeq, PackedFloat.isNaN_unpack_eq_isNaN, ha, hb]
+    grind
+  rw [h]; exact PackedFloat.smtBeq_iff_toExtRat_eq a b ha hb
 
 /--
 **BTRW15 §V.B.2, `lt` relation.** For non-NaN `a, b` and any `whenBothNaN`
@@ -399,7 +566,45 @@ choice: `smtBle wbn a b ↔ v(a) ≤ v(b)`.
 theorem smtBle_iff_toExtRat_le {e s : Nat} (wbn : Bool) (a b : PackedFloat e s)
     (ha : a.isNaN = false) (hb : b.isNaN = false) :
     PackedFloat.smtBle wbn a b = true ↔ a.toExtRat ≤ b.toExtRat := by
-  sorry
+  rw [PackedFloat.toExtRat_eq_toExtRat', PackedFloat.toExtRat_eq_toExtRat']
+  -- `¬a.isNaN` collapses the `(NaN, NaN)` guard, leaving `bltAux false a b`.
+  simp only [PackedFloat.smtBle, ha, Bool.false_and, cond_false]
+  by_cases hai : a.isInfinite <;> by_cases hbi : b.isInfinite
+  · -- both infinite: `Infinity a.sign < Infinity b.sign ↔ -∞ < +∞`
+    have hua : a.unpack = EUnpackedFloat.mkInfinity a.sign := by simp [PackedFloat.unpack, ha, hai]
+    have hub : b.unpack = EUnpackedFloat.mkInfinity b.sign := by simp [PackedFloat.unpack, hb, hbi]
+    rw [PackedFloat.toExtRat'_eq_Infinity_of_isInfinite a hai,
+        PackedFloat.toExtRat'_eq_Infinity_of_isInfinite b hbi, PackedFloat.bleAux,
+        EUnpackedFloat.bleAux]
+    simp only [hua, hub, hai, hbi, EUnpackedFloat.isNaN_mkInfinity, EUnpackedFloat.isInfinite_mkInfinity,
+      EUnpackedFloat.sign_mkInfinity, Bool.or_self, cond_false, Bool.true_or, cond_true]
+    cases a.sign <;> cases b.sign <;> simp
+  · -- a infinite, b finite: `Infinity a.sign < Number b.toRat ↔ a.sign` (only `-∞`)
+    have hua : a.unpack = EUnpackedFloat.mkInfinity a.sign := by simp [PackedFloat.unpack, ha, hai]
+    have hb' : b.toExtRat' = .Number b.toRat := by simp [PackedFloat.toExtRat', hb, hbi]
+    rw [PackedFloat.toExtRat'_eq_Infinity_of_isInfinite a hai, hb', PackedFloat.bleAux,
+        EUnpackedFloat.bleAux]
+    simp only [hua, hai, hbi, PackedFloat.isNaN_unpack_eq_isNaN, hb,
+      PackedFloat.isInfinite_unpack_eq_isInfinite, EUnpackedFloat.isNaN_mkInfinity,
+      EUnpackedFloat.isInfinite_mkInfinity, EUnpackedFloat.sign_mkInfinity, Bool.or_false,
+      Bool.false_or, Bool.or_self, cond_false, Bool.true_or, cond_true]
+    cases a.sign <;> simp
+  · -- a finite, b infinite: `Number a.toRat < Infinity b.sign ↔ ¬b.sign` (only `+∞`)
+    have hub : b.unpack = EUnpackedFloat.mkInfinity b.sign := by simp [PackedFloat.unpack, hb, hbi]
+    have ha' : a.toExtRat' = .Number a.toRat := by simp [PackedFloat.toExtRat', ha, hai]
+    rw [PackedFloat.toExtRat'_eq_Infinity_of_isInfinite b hbi, ha', PackedFloat.bleAux,
+        EUnpackedFloat.bleAux]
+    simp only [hub, hai, hbi, PackedFloat.isNaN_unpack_eq_isNaN, ha,
+      PackedFloat.isInfinite_unpack_eq_isInfinite, EUnpackedFloat.isNaN_mkInfinity,
+      EUnpackedFloat.isInfinite_mkInfinity, EUnpackedFloat.sign_mkInfinity, Bool.or_false,
+      Bool.false_or, Bool.or_self, cond_false]
+    cases b.sign <;> simp
+  · -- both finite: the ordering kernel
+    have ha' : a.toExtRat' = .Number a.toRat := by simp [PackedFloat.toExtRat', ha, hai]
+    have hb' : b.toExtRat' = .Number b.toRat := by simp [PackedFloat.toExtRat', hb, hbi]
+    rw [PackedFloat.bleAux_true_eq_decide_toRat_le_of_finite a b ha hb (by simp [hai]) (by simp [hbi]),
+        ha', hb']
+    simp
 
 /--
 **BTRW15 §V.B.2, `gt` relation.** For non-NaN `a, b` and any `whenBothNaN`
@@ -408,7 +613,10 @@ choice: `smtBgt wbn a b ↔ v(a) > v(b)`, i.e. `v(b) < v(a)`.
 theorem smtBgt_iff_toExtRat_gt {e s : Nat} (wbn : Bool) (a b : PackedFloat e s)
     (ha : a.isNaN = false) (hb : b.isNaN = false) :
     PackedFloat.smtBgt wbn a b = true ↔ b.toExtRat < a.toExtRat := by
-  sorry
+  have h : PackedFloat.smtBgt wbn a b = PackedFloat.smtBlt wbn b a := by
+    simp only [PackedFloat.smtBgt, PackedFloat.smtBlt, PackedFloat.bgtAux, ha, hb,
+      Bool.and_false, Bool.false_and, cond_false, Bool.not_true]
+  rw [h]; exact PackedFloat.smtBlt_iff_toExtRat_lt wbn b a hb ha
 
 /--
 **BTRW15 §V.B.2, `geq` relation.** For non-NaN `a, b` and any `whenBothNaN`
@@ -417,6 +625,32 @@ choice: `smtBge wbn a b ↔ v(a) ≥ v(b)`, i.e. `v(b) ≤ v(a)`.
 theorem smtBge_iff_toExtRat_ge {e s : Nat} (wbn : Bool) (a b : PackedFloat e s)
     (ha : a.isNaN = false) (hb : b.isNaN = false) :
     PackedFloat.smtBge wbn a b = true ↔ b.toExtRat ≤ a.toExtRat := by
-  sorry
+  have h : PackedFloat.smtBge wbn a b = PackedFloat.smtBle wbn b a := by
+    simp only [PackedFloat.smtBge, PackedFloat.smtBle, PackedFloat.bgeAux, ha, hb,
+      Bool.and_false, Bool.false_and, cond_false, Bool.not_false]
+  rw [h]; exact smtBle_iff_toExtRat_le wbn b a hb ha
+
+
+-- The four comparison relations are `sorry`-free: they rest only on the standard
+-- axioms plus the project's `BitVec.toNat_clz_cons`.
+/--
+info: 'PackedFloat.smtBle_iff_toExtRat_le' depends on axioms: [propext, BitVec.toNat_clz_cons, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms smtBle_iff_toExtRat_le
+
+/--
+info: 'PackedFloat.smtBgt_iff_toExtRat_gt' depends on axioms: [propext, BitVec.toNat_clz_cons, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms smtBgt_iff_toExtRat_gt
+
+/--
+info: 'PackedFloat.smtBge_iff_toExtRat_ge' depends on axioms: [propext, BitVec.toNat_clz_cons, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms smtBge_iff_toExtRat_ge
+
+/--
+info: 'PackedFloat.ieeeBeq_iff_toExtRat_eq' depends on axioms: [propext, BitVec.toNat_clz_cons, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms ieeeBeq_iff_toExtRat_eq
 
 end PackedFloat

@@ -306,8 +306,6 @@ theorem round_eq_mkZero_of_mkZero {zeroSign : Bool} {eout sout : Nat} {rm : Roun
         rm zeroSign (ExtRat.Number 0) = PackedFloat.getZero eout sout zeroSign := by
   rcases rm <;> simp [heout]
 
-set_option warn.sorry false in
-
 @[simp]
 theorem IsLawfulLower_Infinity_iff (x : PackedFloat e s)
     (he : 0 < e) (hs : 0 < s) :
