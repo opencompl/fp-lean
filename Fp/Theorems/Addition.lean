@@ -1222,6 +1222,125 @@ theorem UnpackedFloat.msb_add_eq_true {e s : Nat} (x y : UnpackedFloat e s)
 
 /-! ## Layer 5: exact-cancellation detection -/
 
+/-- The normalized significand value for ANY clz: `addSum.sig.toNat · 2^clz`. -/
+theorem UnpackedFloat.addNormSum_sig_toNat_eq' {e s : Nat} (x y : UnpackedFloat e s) :
+    (UnpackedFloat.addNormSum x y).sig.toNat
+      = (UnpackedFloat.addSum x y).sig.toNat * 2 ^ ((UnpackedFloat.addSum x y).sig.clz.toNat) := by
+  unfold UnpackedFloat.addNormSum
+  cases hmsb : (UnpackedFloat.addSum x y).sig.msb
+  · -- msb false: full clz normalize
+    simp only [Bool.not_false, cond_true]
+    unfold UnpackedFloat.normalize
+    cases hz : (UnpackedFloat.addSum x y).sig == 0#(s + 2)
+    · -- sig ≠ 0
+      simp only [cond_false]
+      rw [show ((UnpackedFloat.addSum x y).sig <<< (UnpackedFloat.addSum x y).sig.clz)
+            = (UnpackedFloat.addSum x y).sig <<< (UnpackedFloat.addSum x y).sig.clz.toNat from rfl,
+        toNat_shiftLeft_clz_eq_toNat, Nat.shiftLeft_eq]
+    · -- sig = 0
+      simp only [cond_true]
+      have h0 : (UnpackedFloat.addSum x y).sig = 0#(s + 2) := by simpa using hz
+      rw [h0]; simp
+  · -- msb true: clz = 0
+    simp only [Bool.not_true, cond_false]
+    have hclz0 : (UnpackedFloat.addSum x y).sig.clz.toNat = 0 := by
+      have : (UnpackedFloat.addSum x y).sig.clz = 0#(s + 2) :=
+        (BitVec.clz_eq_zero_iff_msb_of_lt _).mpr (Or.inl hmsb)
+      rw [this]; simp
+    rw [hclz0]; simp
+
+/-- **Lemma C′ (any clz)** — the result significand: `(D/Y)·2^clz ||| sticky`, `clz = addSum.sig.clz`. -/
+theorem UnpackedFloat.add_sig_toNat_eq' {e s : Nat} (x y : UnpackedFloat e s)
+    (hx : x.sig.msb = true) (hy : y.sig.msb = true) (hs : 0 < s) (hes : s + 3 < 2 ^ (e + 1)) :
+    (x.add y).sig.toNat
+      = (UnpackedFloat.addDividend x y / UnpackedFloat.addDivisor x y)
+          * 2 ^ ((UnpackedFloat.addSum x y).sig.clz.toNat)
+        ||| (if UnpackedFloat.addDividend x y % UnpackedFloat.addDivisor x y = 0 then 0 else 1) := by
+  have hnorm := UnpackedFloat.addNormSum_sig_toNat_eq' x y
+  have hC1 := UnpackedFloat.addSum_sig_toNat_eq x y hx hy hs hes
+  have hsticky : (UnpackedFloat.addSticky x y).toNat
+      = if UnpackedFloat.addDividend x y % UnpackedFloat.addDivisor x y = 0 then 0 else 1 := by
+    rw [UnpackedFloat.addSticky_eq_mod x y hx hy hs hes]
+    by_cases h : UnpackedFloat.addDividend x y % UnpackedFloat.addDivisor x y = 0 <;> simp [h]
+  unfold UnpackedFloat.add
+  simp only [BitVec.toNat_or, BitVec.toNat_setWidth', BitVec.toNat_ofBool]
+  rw [hnorm, hC1, hsticky]
+
+/-- **Lemma D′ (any clz)** — the result exponent: `addSum.ex.toInt − clz`. Needs the exponent-range
+bound `hbnd : s + 1 ≤ 2^(e−1)` so the renormalize subtraction does not underflow. -/
+theorem UnpackedFloat.add_ex_toInt_eq' {e s : Nat} (x y : UnpackedFloat e s)
+    (hx : x.sig.msb = true) (hy : y.sig.msb = true) (hs : 0 < s) (he : 0 < e)
+    (hes : s + 3 < 2 ^ (e + 1)) (hne : x.toRat + y.toRat ≠ 0) (hbnd : s + 1 ≤ 2 ^ (e - 1)) :
+    (x.add y).ex.toInt
+      = (UnpackedFloat.addSum x y).ex.toInt - ((UnpackedFloat.addSum x y).sig.clz.toNat : Int) := by
+  -- addSum.sig ≠ 0  (else x + y = 0, contradicting hne via the grid factor)
+  have hDYne : UnpackedFloat.addDividend x y / UnpackedFloat.addDivisor x y ≠ 0 := by
+    intro h0
+    have hge : 2 ^ (s + 1) ≤ (x.add y).sig.toNat := by
+      have := BitVec.le_toNat_of_msb_true (UnpackedFloat.msb_add_eq_true x y hs hx hy hne)
+      simpa using this
+    rw [UnpackedFloat.add_sig_toNat_eq' x y hx hy hs hes, h0] at hge
+    simp only [Nat.zero_mul, Nat.zero_or] at hge
+    have h1 : (if UnpackedFloat.addDividend x y % UnpackedFloat.addDivisor x y = 0 then 0 else 1) ≤ 1 := by
+      split <;> omega
+    have := Nat.one_lt_two_pow (n := s + 1) (by omega)
+    omega
+  have haddne : (UnpackedFloat.addSum x y).sig ≠ 0#(s + 2) := by
+    intro h0; apply hDYne
+    rw [← UnpackedFloat.addSum_sig_toNat_eq x y hx hy hs hes, h0]; simp
+  have hclzlt : (UnpackedFloat.addSum x y).sig.clz.toNat < s + 2 :=
+    (toNat_clz_lt_iff_ne_zero (UnpackedFloat.addSum x y).sig).mpr haddne
+  -- exponent bounds
+  have hexval := UnpackedFloat.addSum_ex_toInt_eq x y he
+  have hpe : (2:Int) ^ (e + 1) = 2 ^ e * 2 := by rw [Int.pow_succ]
+  have he0 : (2:Int) ^ e = 2 ^ (e - 1) * 2 := by
+    rw [show e = (e - 1) + 1 by omega, Int.pow_succ]; rw [show e - 1 + 1 = e by omega]
+  -- tighter bounds from addSum.ex = bigEx + ov (bigEx fits in e bits)
+  have hbigr : (UnpackedFloat.addBig x y).ex.toInt < 2 ^ (e - 1) := BitVec.toInt_lt (x := (UnpackedFloat.addBig x y).ex)
+  have hbigl : -(2:Int) ^ (e - 1) ≤ (UnpackedFloat.addBig x y).ex.toInt := BitVec.le_toInt (UnpackedFloat.addBig x y).ex
+  have hovle : ((UnpackedFloat.addSigSum x y).msb.toNat : Int) ≤ 1 := by
+    cases (UnpackedFloat.addSigSum x y).msb <;> simp
+  have hbndI : ((s : Int) + 1) ≤ 2 ^ (e - 1) := by exact_mod_cast hbnd
+  have hclzI : ((UnpackedFloat.addSum x y).sig.clz.toNat : Int) ≤ s + 1 := by
+    have : (UnpackedFloat.addSum x y).sig.clz.toNat ≤ s + 1 := by omega
+    exact_mod_cast this
+  -- clz.setWidth toInt
+  have hclzset : ((UnpackedFloat.addSum x y).sig.clz.setWidth (e + 1)).toInt
+      = ((UnpackedFloat.addSum x y).sig.clz.toNat : Int) := by
+    have htn : ((UnpackedFloat.addSum x y).sig.clz.setWidth (e + 1)).toNat
+        = (UnpackedFloat.addSum x y).sig.clz.toNat := by
+      rw [BitVec.toNat_setWidth, Nat.mod_eq_of_lt (by
+        have : (UnpackedFloat.addSum x y).sig.clz.toNat < 2 ^ (e + 1) := by
+          have h1 : s + 1 < 2 ^ (e + 1) := by
+            have : (2:Nat) ^ (e - 1) ≤ 2 ^ (e + 1) := Nat.pow_le_pow_right (by omega) (by omega)
+            omega
+          omega
+        exact this)]
+    have hlt : 2 * ((UnpackedFloat.addSum x y).sig.clz.setWidth (e + 1)).toNat < 2 ^ (e + 1) := by
+      rw [htn]
+      have hpeN : (2:Nat) ^ (e + 1) = 2 ^ e * 2 := by rw [Nat.pow_succ]
+      have : (UnpackedFloat.addSum x y).sig.clz.toNat < 2 ^ e := by
+        have : (2:Nat) ^ (e - 1) < 2 ^ e := Nat.pow_lt_pow_right (by decide) (by omega)
+        omega
+      omega
+    rw [BitVec.toInt_eq_toNat_of_lt hlt, htn]
+  -- assemble
+  show (UnpackedFloat.addNormSum x y).ex.toInt = _
+  unfold UnpackedFloat.addNormSum
+  cases hmsb : (UnpackedFloat.addSum x y).sig.msb
+  · simp only [Bool.not_false, cond_true]
+    unfold UnpackedFloat.normalize
+    simp only [show ((UnpackedFloat.addSum x y).sig == 0#(s + 2)) = false from by simpa using haddne,
+      cond_false]
+    rw [BitVec.toInt_sub, hclzset]
+    apply Int.bmod_eq_of_le <;> (rw [hexval]; push_cast; omega)
+  · simp only [Bool.not_true, cond_false]
+    have hclz0 : (UnpackedFloat.addSum x y).sig.clz.toNat = 0 := by
+      have : (UnpackedFloat.addSum x y).sig.clz = 0#(s + 2) :=
+        (BitVec.clz_eq_zero_iff_msb_of_lt _).mpr (Or.inl hmsb)
+      rw [this]; simp
+    rw [hclz0]; simp
+
 /--
 The normalized representation of a nonzero value is unique: two
 `UnpackedFloat`s with set msb and the same nonzero rational value are
