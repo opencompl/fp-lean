@@ -196,6 +196,60 @@ theorem floor_sticky_within_one (D Y b : Nat) (hY : 0 < Y) (hb : b ≤ 1)
         grind
     exact Rat.abs_intSub_div_natCast_lt_one (D * 2^b) n Y hY hz
 
+/-- **L2′.** As `floor_sticky_within_one`, but the shift bound is weakened to `b ≤ 1 ∨ D % Y = 0`:
+when the division is exact (`D % Y = 0`) the left disjunct holds for *any* `b`; the `b ≤ 1` bound is
+only needed for the within-one (right) disjunct, which is reached only when `D % Y ≠ 0`. Used by the
+addition `addCore` assembly, where `b = clz` can exceed `1` exactly when the sum is exact. -/
+theorem floor_sticky_within_one' (D Y b : Nat) (hY : 0 < Y) (hb : b ≤ 1 ∨ D % Y = 0)
+    (n : Nat) (hn : n = (D / Y * 2 ^ b) ||| (if D % Y = 0 then 0 else 1)) :
+    ((D : Rat) / (Y : Rat) * (2:Rat) ^ b = (n : Rat))
+      ∨ (¬ (2 ∣ (n : Int)) ∧
+          ((D : Rat) / (Y : Rat) * (2:Rat) ^ b - (n : Rat)).abs < 1) := by
+  have hcast : ((2^b:Nat):Rat) = (2:Rat)^b := by grind
+  have hdecomp := Rat.ofNat_div_decomp D Y hY
+  by_cases hrem : D % Y = 0
+  · left
+    rw [if_pos hrem, Nat.or_zero] at hn
+    rw [hn, hdecomp, hrem]
+    push_cast
+    rw [← hcast]
+    push_cast
+    grind
+  · right
+    rw [if_neg hrem] at hn
+    have hrem0 : 0 < D % Y := by grind
+    have hremlt : D % Y < Y := Nat.mod_lt _ hY
+    have hnval : n = 2 * ((D / Y * 2 ^ b) / 2) + 1 := by rw [hn]; exact Nat.lor_one_eq _
+    clear hn hcast hdecomp
+    refine ⟨by rw [hnval]; push_cast; grind, ?_⟩
+    rw [Rat.div_mul_two_pow_sub_natCast_eq D n Y b hY]
+    have hdm : Y * (D / Y) + D % Y = D := Nat.div_add_mod D Y
+    have hz : -(Y:Int) < ((D * 2^b : Nat) : Int) - (n:Int)*(Y:Int)
+        ∧ ((D * 2^b : Nat) : Int) - (n:Int)*(Y:Int) < (Y:Int) := by
+      rcases (show b = 0 ∨ b = 1 by have := hb.resolve_right hrem; omega) with rfl | rfl
+      · simp only [Nat.pow_zero, Nat.mul_one] at hnval ⊢
+        have hq : 2 * ((D / Y) / 2) + (D / Y) % 2 = D / Y := Nat.div_add_mod (D / Y) 2
+        have hp : (D / Y) % 2 = 0 ∨ (D / Y) % 2 = 1 := by grind
+        generalize hH : (D / Y) / 2 = qh at *
+        generalize hQ : D / Y = q at *
+        generalize hR : D % Y = r at *
+        subst hnval
+        rcases hp with hp | hp
+        · have hqv : q = 2 * qh := by grind
+          rw [hqv] at hdm; push_cast; push_cast at hdm; grind
+        · have hqv : q = 2 * qh + 1 := by grind
+          rw [hqv] at hdm; push_cast; push_cast at hdm; grind
+      · simp only [Nat.pow_one] at hnval ⊢
+        have hd2 : D / Y * 2 / 2 = D / Y := by grind
+        rw [hd2] at hnval
+        generalize hQ : D / Y = q at hnval hdm
+        generalize hR : D % Y = r at hdm hremlt hrem0
+        subst hnval
+        push_cast
+        push_cast at hdm
+        grind
+    exact Rat.abs_intSub_div_natCast_lt_one (D * 2^b) n Y hY hz
+
 /-- Factor a signed scaled ratio `(sx·X·wp)/(sy·Y·wq)` into `sd·(X·w1/Y·wb)·wE` given the sign and
 weight relations. Shared by the division and addition `hr` assembly steps. -/
 theorem div_prod_eq (sx sy X Y wp wq w1 wb wE sd : Rat)
