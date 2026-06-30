@@ -733,6 +733,104 @@ theorem UnpackedFloat.addSticky_eq_mod {e s : Nat} (x y : UnpackedFloat e s)
     rw [Nat.mod_pow_succ_ne_zero_iff, UnpackedFloat.addDividend_div_eq x y hx hy hs hes]
     exact or_congr hmod.symm hbit
 
+/-- C1: the pre-normalization significand value is the exact quotient `D / Y`. -/
+theorem UnpackedFloat.addSum_sig_toNat_eq {e s : Nat} (x y : UnpackedFloat e s)
+    (hx : x.sig.msb = true) (hy : y.sig.msb = true) (hs : 0 < s) (hes : s + 3 < 2 ^ (e + 1)) :
+    (UnpackedFloat.addSum x y).sig.toNat
+      = UnpackedFloat.addDividend x y / UnpackedFloat.addDivisor x y := by
+  have hSlt : (UnpackedFloat.addSigSum x y).toNat < 2 ^ (s + 3) := (UnpackedFloat.addSigSum x y).isLt
+  have hbound : (UnpackedFloat.addSigSum x y).toNat >>> (UnpackedFloat.addSigSum x y).msb.toNat
+      < 2 ^ (s + 2) := by
+    rw [Nat.shiftRight_eq_div_pow]
+    cases hmsb : (UnpackedFloat.addSigSum x y).msb
+    · simp only [Bool.toNat_false, Nat.pow_zero, Nat.div_one]
+      have h := hmsb; rw [BitVec.msb_eq_decide] at h
+      simp only [decide_eq_false_iff_not, Nat.not_le, show s + 3 - 1 = s + 2 from rfl] at h; exact h
+    · simp only [Bool.toNat_true, Nat.pow_one]
+      rw [Nat.div_lt_iff_lt_mul (by decide)]; rw [Nat.pow_succ] at hSlt; grind
+  unfold UnpackedFloat.addSum
+  simp only
+  rw [BitVec.truncate_eq_setWidth, BitVec.toNat_setWidth,
+    show ((UnpackedFloat.addSigSum x y) >>> BitVec.ofBool (UnpackedFloat.addSigSum x y).msb)
+      = (UnpackedFloat.addSigSum x y) >>> (BitVec.ofBool (UnpackedFloat.addSigSum x y).msb).toNat
+      from rfl,
+    BitVec.toNat_ushiftRight, BitVec.toNat_ofBool, Nat.mod_eq_of_lt hbound,
+    Nat.shiftRight_eq_div_pow]
+  unfold UnpackedFloat.addDivisor
+  rw [Nat.pow_add, ← Nat.div_div_eq_div_mul, UnpackedFloat.addDividend_div_eq x y hx hy hs hes]
+
+theorem BitVec.clz_eq_one_of_ge {s : Nat} (q : BitVec (s+2)) (hge : 2^s ≤ q.toNat)
+    (hmsb : q.msb = false) : q.clz.toNat = 1 := by
+  have hlt : q.toNat < 2^(s+1) := by
+    have h := hmsb; rw [BitVec.msb_eq_decide] at h
+    simp only [decide_eq_false_iff_not, Nat.not_le, show s+2-1=s+1 from rfl] at h; exact h
+  have hpos := Nat.two_pow_pos s
+  have hne : q ≠ 0#(s+2) := by intro h0; rw [h0, BitVec.toNat_zero] at hge; omega
+  have h1 := BitVec.toNat_lt_two_pow_sub_clz (x := q)
+  have h2 := BitVec.two_pow_sub_clz_le_toNat_of_ne_zero (x := q) (Nat.succ_pos _) hne
+  rw [show s+2-1-q.clz.toNat = s+1-q.clz.toNat from by omega] at h2
+  have hle1 : q.clz.toNat ≤ 1 := by
+    have hps : 2^s < 2^(s+2 - q.clz.toNat) := by omega
+    have := (Nat.pow_lt_pow_iff_right (by decide : 1 < 2)).mp hps
+    omega
+  have hge1 : 1 ≤ q.clz.toNat := by
+    have hps : 2^(s+1 - q.clz.toNat) < 2^(s+1) := by omega
+    have := (Nat.pow_lt_pow_iff_right (by decide : 1 < 2)).mp hps
+    omega
+  omega
+
+/-- C2a: the normalized significand value (under `clz ≤ 1`, i.e. `2^s ≤ addSum.sig.toNat`). -/
+theorem UnpackedFloat.addNormSum_sig_toNat_eq {e s : Nat} (x y : UnpackedFloat e s)
+    (hge : 2 ^ s ≤ (UnpackedFloat.addSum x y).sig.toNat) :
+    (UnpackedFloat.addNormSum x y).sig.toNat
+      = (UnpackedFloat.addSum x y).sig.toNat
+          * 2 ^ (if 2 ^ (s + 1) ≤ (UnpackedFloat.addSum x y).sig.toNat then 0 else 1) := by
+  unfold UnpackedFloat.addNormSum
+  have hpos := Nat.two_pow_pos s
+  cases hmsb : (UnpackedFloat.addSum x y).sig.msb
+  · have hlt : (UnpackedFloat.addSum x y).sig.toNat < 2 ^ (s + 1) := by
+      have h := hmsb; rw [BitVec.msb_eq_decide] at h
+      simp only [decide_eq_false_iff_not, Nat.not_le, show s + 2 - 1 = s + 1 from rfl] at h; exact h
+    have hif : (if 2 ^ (s + 1) ≤ (UnpackedFloat.addSum x y).sig.toNat then 0 else 1) = 1 := by grind
+    simp only [Bool.not_false, cond_true]
+    unfold UnpackedFloat.normalize
+    have hne : (UnpackedFloat.addSum x y).sig ≠ 0#(s + 2) := by
+      intro h0; rw [h0, BitVec.toNat_zero] at hge; omega
+    simp only [show ((UnpackedFloat.addSum x y).sig == 0#(s + 2)) = false from by simp [hne],
+      cond_false]
+    rw [hif, Nat.pow_one,
+      show ((UnpackedFloat.addSum x y).sig <<< (UnpackedFloat.addSum x y).sig.clz)
+        = (UnpackedFloat.addSum x y).sig <<< (UnpackedFloat.addSum x y).sig.clz.toNat from rfl,
+      BitVec.clz_eq_one_of_ge (UnpackedFloat.addSum x y).sig hge hmsb,
+      BitVec.toNat_shiftLeft, Nat.shiftLeft_eq, Nat.pow_one,
+      Nat.mod_eq_of_lt (by rw [Nat.pow_succ] at *; grind)]
+  · have hge1 : 2 ^ (s + 1) ≤ (UnpackedFloat.addSum x y).sig.toNat :=
+      BitVec.le_toNat_of_msb_true hmsb
+    have hif : (if 2 ^ (s + 1) ≤ (UnpackedFloat.addSum x y).sig.toNat then 0 else 1) = 0 := by grind
+    simp only [Bool.not_true, cond_false]
+    rw [hif, Nat.pow_zero, Nat.mul_one]
+
+/-- **Lemma C** — the result significand in the sticky=true regime (`clz ≤ 1`): the floor quotient
+`D/Y` shifted by the normalize amount, OR-ed with the sticky bit — exactly `floor_sticky_within_one`'s
+`n` form. -/
+theorem UnpackedFloat.addSig_toNat_eq {e s : Nat} (x y : UnpackedFloat e s)
+    (hx : x.sig.msb = true) (hy : y.sig.msb = true) (hs : 0 < s) (hes : s + 3 < 2 ^ (e + 1))
+    (hge : 2 ^ s ≤ (UnpackedFloat.addSum x y).sig.toNat) :
+    (x.add y).sig.toNat
+      = (UnpackedFloat.addDividend x y / UnpackedFloat.addDivisor x y
+          * 2 ^ (if 2 ^ (s + 1) ≤ UnpackedFloat.addDividend x y / UnpackedFloat.addDivisor x y
+                  then 0 else 1))
+        ||| (if UnpackedFloat.addDividend x y % UnpackedFloat.addDivisor x y = 0 then 0 else 1) := by
+  have hC1 := UnpackedFloat.addSum_sig_toNat_eq x y hx hy hs hes
+  have hnorm := UnpackedFloat.addNormSum_sig_toNat_eq x y hge
+  have hsticky : (UnpackedFloat.addSticky x y).toNat
+      = if UnpackedFloat.addDividend x y % UnpackedFloat.addDivisor x y = 0 then 0 else 1 := by
+    rw [UnpackedFloat.addSticky_eq_mod x y hx hy hs hes]
+    by_cases h : UnpackedFloat.addDividend x y % UnpackedFloat.addDivisor x y = 0 <;> simp [h]
+  unfold UnpackedFloat.add
+  simp only [BitVec.toNat_or, BitVec.toNat_setWidth', BitVec.toNat_ofBool]
+  rw [hnorm, hC1, hsticky]
+
 /--
 **The addition circuit produces a normalized result** (for normalized inputs
 with nonzero exact sum).
