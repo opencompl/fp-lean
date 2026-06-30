@@ -29,12 +29,11 @@ theorem toExtRat_eq_toExtRat' {pf : PackedFloat e s}
   · simp only [Rat.add_mul]
     ac_nf
     norm_cast
-    congr 1
-    · simp only [← Rat.zpow_add (q := 2) (hq := by decide)]
-      congr 1
-      grind only
-    · rw [Rat.zpow_add (q := 2) (hq := by decide)]
-      grind only
+    simp only [Rat.zpow_add (q := 2) (hq := by decide)]
+    have hcancel : (2:Rat) ^ (s : Int) * 2 ^ (-(s : Int)) = 1 := by
+      rw [← Rat.zpow_add (q := 2) (hq := by decide)]
+      rw [show ((s : Int) + -(s : Int)) = 0 from by omega]; simp
+    grind
   · -- TODO: disgusting, write a solver for this that does power-of-2 simplification.
     simp only [Rat.add_mul]
     simp only [Rat.zpow_add (q := 2) (hq := by decide)]

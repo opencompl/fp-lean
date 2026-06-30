@@ -347,7 +347,7 @@ theorem BitVec.getLsbDBV_eq_getLsbD {w : Nat} (x : BitVec w) (i : BitVec w) :
       grind
     grind
   · simp [hx]
-    simp at hx
+    try simp at hx
     have : (x &&& (1#w <<< i.toNat)).getLsbD i.toNat = true := by
       simp
       grind
