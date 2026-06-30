@@ -138,6 +138,90 @@ theorem UnpackedFloat.stickyEquiv_add {e s : Nat} (x y : UnpackedFloat e s)
     StickyEquiv ((x.add y).toExpInt) ((x.add y).toRat) (x.toRat + y.toRat) := by
   sorry
 
+/-- `bmod` is nonzero for a nonzero value lying strictly within one modulus of zero. -/
+theorem bmod_ne_zero_of_lt (S : Int) (m : Nat) (hS0 : S ≠ 0) (hlo : -(m : Int) < S) (hhi : S < m) :
+    S.bmod m ≠ 0 := by
+  intro h
+  have hdvd := Int.dvd_of_bmod_eq_zero h
+  rcases (by omega : S < 0 ∨ S = 0 ∨ 0 < S) with hS | hS | hS
+  · have : (m : Int) ≤ -S := Int.le_of_dvd (by omega) (Int.dvd_neg.mpr hdvd)
+    omega
+  · exact hS0 hS
+  · have : (m : Int) ≤ S := Int.le_of_dvd hS hdvd
+    omega
+
+/-- **The aligned significand sum is nonzero.** For a larger significand `xS` and a smaller one `yS0`,
+both normalized into the band `[2^(s+1), 2^(s+2))` (with `yS0` a multiple of four, so `≤ 2^(s+2) - 4`),
+the aligned sum `xS ± (yS0 ≫ sh)` is nonzero — unless the operands cancel exactly (`sh = 0`, opposite
+signs, equal significands), which `hcancel` rules out. Different signs: for `sh ≥ 1` the shifted smaller
+operand has magnitude `< 2^(s+1) ≤ xS`, so the leading bit survives; for `sh = 0` it is exact
+cancellation. Same sign: the sum is at least `xS ≥ 2^(s+1)`. This is the magnitude core shared by
+`msb_add_eq_true` and (eventually) `stickyEquiv_add`. -/
+theorem aligned_ne_zero {s : Nat} (xS yS0 sh : BitVec (s + 3)) (same : Bool)
+    (hxlo : 2 ^ (s + 1) ≤ xS.toNat) (hxhi : xS.toNat < 2 ^ (s + 2))
+    (hylo : 2 ^ (s + 1) ≤ yS0.toNat) (hyhi4 : yS0.toNat ≤ 2 ^ (s + 2) - 4)
+    (hcancel : sh.toNat = 0 → same = false → xS.toNat = yS0.toNat → False) :
+    xS + (bif same then yS0 else -yS0).sshiftRight' sh ≠ 0#(s + 3) := by
+  have hp1 : 2 ^ (s + 1) * 2 = 2 ^ (s + 2) := by rw [← Nat.pow_succ]
+  have hp2 : 2 ^ (s + 2) * 2 = 2 ^ (s + 3) := by rw [← Nat.pow_succ]
+  have hxi : xS.toInt = (xS.toNat : Int) := BitVec.toInt_eq_toNat_of_lt (by omega)
+  have hyi : yS0.toInt = (yS0.toNat : Int) := BitVec.toInt_eq_toNat_of_lt (by omega)
+  have hdpos : (0 : Int) < ((2 ^ sh.toNat : Nat) : Int) := by exact_mod_cast Nat.two_pow_pos _
+  intro hzero
+  have hz : (xS + (bif same then yS0 else -yS0).sshiftRight' sh).toInt = 0 := by
+    rw [hzero]; exact BitVec.toInt_zero
+  rw [BitVec.toInt_add, BitVec.toInt_sshiftRight'] at hz
+  have hmod1 : -(((2 ^ (s + 3) : Nat) : Int) / 2) ≤ -(yS0.toNat : Int) := by omega
+  have hmod2 : -(yS0.toNat : Int) < (((2 ^ (s + 3) : Nat) : Int) + 1) / 2 := by omega
+  cases hsame : same
+  · -- different sign
+    simp only [hsame, cond_false] at hz
+    have hnegi : (-yS0).toInt = -(yS0.toNat : Int) := by
+      rw [BitVec.toInt_neg, hyi]; exact Int.bmod_eq_of_le hmod1 hmod2
+    rw [hnegi, Int.shiftRight_eq_div_pow, hxi] at hz
+    have hqle0 : (-(yS0.toNat : Int)) / ((2 ^ sh.toNat : Nat) : Int) ≤ 0 := by
+      have h := Int.ediv_le_ediv hdpos (show (-(yS0.toNat : Int)) ≤ 0 by omega)
+      simpa using h
+    rcases Nat.eq_zero_or_pos sh.toNat with hsh | hsh
+    · -- shift 0: exact cancellation
+      have hq_eq : (-(yS0.toNat : Int)) / ((2 ^ sh.toNat : Nat) : Int) = -(yS0.toNat : Int) := by
+        rw [hsh]; simp
+      rw [hq_eq] at hz
+      refine bmod_ne_zero_of_lt _ _ ?_ ?_ ?_ hz
+      · intro h0; exact hcancel hsh hsame (by omega)
+      · omega
+      · omega
+    · -- shift ≥ 1: the smaller operand cannot cancel the leading bit
+      have h2sh : 2 ≤ 2 ^ sh.toNat := by
+        calc 2 = 2 ^ 1 := rfl
+          _ ≤ 2 ^ sh.toNat := Nat.pow_le_pow_right (by omega) hsh
+      have h1le : (1 : Nat) ≤ 2 ^ (s + 1) := Nat.one_le_two_pow
+      have hqlb : -((2 ^ (s + 1) : Nat) : Int) + 1
+          ≤ (-(yS0.toNat : Int)) / ((2 ^ sh.toNat : Nat) : Int) := by
+        rw [Int.le_ediv_iff_mul_le hdpos]
+        have hmul : (2 ^ (s + 1) - 1) * 2 ≤ (2 ^ (s + 1) - 1) * 2 ^ sh.toNat :=
+          Nat.mul_le_mul_left _ h2sh
+        have hdist : (2 ^ (s + 1) - 1) * 2 ^ sh.toNat
+            = 2 ^ (s + 1) * 2 ^ sh.toNat - 2 ^ sh.toNat := by rw [Nat.sub_mul, Nat.one_mul]
+        have key2 : yS0.toNat + 2 ^ sh.toNat ≤ 2 ^ (s + 1) * 2 ^ sh.toNat := by omega
+        have key2I : (yS0.toNat : Int) + ((2 ^ sh.toNat : Nat) : Int)
+            ≤ ((2 ^ (s + 1) * 2 ^ sh.toNat : Nat) : Int) := by exact_mod_cast key2
+        have hexpand : (-((2 ^ (s + 1) : Nat) : Int) + 1) * ((2 ^ sh.toNat : Nat) : Int)
+            = ((2 ^ sh.toNat : Nat) : Int)
+              - ((2 ^ (s + 1) : Nat) : Int) * ((2 ^ sh.toNat : Nat) : Int) := by grind
+        have hpm : ((2 ^ (s + 1) : Nat) : Int) * ((2 ^ sh.toNat : Nat) : Int)
+            = ((2 ^ (s + 1) * 2 ^ sh.toNat : Nat) : Int) := by push_cast; grind
+        rw [hexpand, hpm]; omega
+      refine bmod_ne_zero_of_lt _ _ ?_ ?_ ?_ hz <;> omega
+  · -- same sign
+    simp only [hsame, cond_true] at hz
+    rw [hyi, Int.shiftRight_eq_div_pow, hxi] at hz
+    have hq0 : 0 ≤ (yS0.toNat : Int) / ((2 ^ sh.toNat : Nat) : Int) :=
+      Int.ediv_nonneg (by exact_mod_cast Nat.zero_le _) (by omega)
+    have hqle : (yS0.toNat : Int) / ((2 ^ sh.toNat : Nat) : Int) ≤ (yS0.toNat : Int) :=
+      Int.ediv_le_self _ (by exact_mod_cast Nat.zero_le _)
+    refine bmod_ne_zero_of_lt _ _ ?_ ?_ ?_ hz <;> omega
+
 /-- The cancellation-renormalisation step (`bif !uf.sig.msb then uf.normalize else uf`) yields a
 result with msb set exactly when the input significand is nonzero: if the msb is already set there is
 nothing to do, otherwise `normalize` sets it (`msb_normalize_eq_decide`). -/
