@@ -434,6 +434,67 @@ theorem Nat.sub_pow_mod_ne_zero_iff (w d a : Nat) (hdw : d ≤ w) (haw : a ≤ 2
   rw [ne_eq, ne_eq, ← Nat.dvd_iff_mod_eq_zero, ← Nat.dvd_iff_mod_eq_zero]
   exact not_congr hiff
 
+/-- One extra power of two in the modulus exposes the next bit of the quotient. -/
+theorem Nat.mod_pow_succ_ne_zero_iff (D Δ : Nat) :
+    D % 2 ^ (Δ + 1) ≠ 0 ↔ D % 2 ^ Δ ≠ 0 ∨ (D / 2 ^ Δ) % 2 = 1 := by
+  have hsplit : D % 2 ^ (Δ + 1) = D % 2 ^ Δ + 2 ^ Δ * ((D / 2 ^ Δ) % 2) := by
+    rw [Nat.pow_succ, Nat.mod_mul]
+  rw [hsplit]
+  have hlt : D % 2 ^ Δ < 2 ^ Δ := Nat.mod_lt _ (Nat.two_pow_pos _)
+  constructor
+  · intro h
+    rcases Nat.eq_zero_or_pos ((D / 2 ^ Δ) % 2) with h0 | h1
+    · left; grind
+    · right; grind
+  · rintro (h | h)
+    · grind
+    · rw [h]; have := Nat.two_pow_pos Δ; grind
+
+/-- Subtracting `b` from a multiple of `m` preserves nonzero residue mod `m` (diff-sign dividend). -/
+theorem Nat.mul_sub_mod_ne_zero_iff (a b m : Nat) (hb : b ≤ a * m) :
+    (a * m - b) % m ≠ 0 ↔ b % m ≠ 0 := by
+  have hdvd : m ∣ a * m := Nat.dvd_mul_left m a
+  have hiff : (m ∣ (a * m - b)) ↔ (m ∣ b) := by
+    constructor
+    · intro h; have h2 := Nat.dvd_sub hdvd h
+      rwa [Nat.sub_sub_self hb] at h2
+    · intro h; exact Nat.dvd_sub hdvd h
+  rw [ne_eq, ne_eq, ← Nat.dvd_iff_mod_eq_zero, ← Nat.dvd_iff_mod_eq_zero]
+  exact not_congr hiff
+
+/-- Adding `b` to a multiple of `m` (same-sign dividend). -/
+theorem Nat.mul_add_mod_ne_zero_iff (a b m : Nat) :
+    (a * m + b) % m ≠ 0 ↔ b % m ≠ 0 := by
+  rw [Nat.add_comm, Nat.add_mul_mod_self_right]
+
+/-- Capping the shift exponent at `c1 ≥ c2` does not change nonzero-residue status for `a < 2^c2`
+(the cap only saturates beyond `a`'s significant bits). -/
+theorem Nat.mod_cap_ne_zero_iff (a Δ c1 c2 : Nat) (hac : a < 2 ^ c2) (hc : c2 ≤ c1) :
+    a % 2 ^ (min Δ c1) ≠ 0 ↔ a % 2 ^ Δ ≠ 0 := by
+  rcases (by grind : Δ ≤ c1 ∨ c1 < Δ) with hle | hgt
+  · rw [Nat.min_eq_left hle]
+  · rw [Nat.min_eq_right (by grind)]
+    have h1 : a < 2 ^ c1 := by calc a < 2 ^ c2 := hac
+                                  _ ≤ 2 ^ c1 := Nat.pow_le_pow_right (by grind) hc
+    have h2 : a < 2 ^ Δ := by calc a < 2 ^ c1 := h1
+                                  _ ≤ 2 ^ Δ := Nat.pow_le_pow_right (by grind) (by grind)
+    rw [Nat.mod_eq_of_lt h1, Nat.mod_eq_of_lt h2]
+
+/-- The floor of `(a·m − b)/m` is `a − ⌈b/m⌉` (diff-sign quotient). -/
+theorem Nat.mul_sub_div_eq (a b m : Nat) (hm : 0 < m) (hb : b ≤ a * m) :
+    (a * m - b) / m = a - (b + m - 1) / m := by
+  have hge : b ≤ (b + m - 1) / m * m := by
+    have hdm := Nat.div_add_mod (b + m - 1) m
+    have hmod := Nat.mod_lt (b + m - 1) hm
+    grind
+  have hle2 : (b + m - 1) / m * m ≤ b + m - 1 := Nat.div_mul_le_self _ _
+  have hca : (b + m - 1) / m ≤ a := by
+    have h1 : (b + m - 1) / m * m < (a + 1) * m := by rw [Nat.add_mul, Nat.one_mul]; grind
+    exact Nat.le_of_lt_succ (Nat.lt_of_mul_lt_mul_right h1)
+  exact Nat.div_eq_of_lt_le
+    (by rw [Nat.sub_mul]; grind)
+    (by rw [Nat.add_mul, Nat.one_mul, Nat.sub_mul]; grind)
+
 /-- The alignment shift amount is capped at `s + 3` (no hypotheses needed). -/
 theorem UnpackedFloat.addShiftAmount_le {e s : Nat} (x y : UnpackedFloat e s) :
     (UnpackedFloat.addShiftAmount x y).toNat ≤ s + 3 := by
@@ -556,6 +617,121 @@ theorem UnpackedFloat.addSigSum_toNat_eq {e s : Nat} (x y : UnpackedFloat e s)
         (UnpackedFloat.addAbsExpDiff x y) rfl (UnpackedFloat.addShiftAmount x y) rfl hsh0
     have hle := UnpackedFloat.addSmall_sig_le_addBig_sig_of_ex_eq x y hexeq
     grind
+
+/-- Uncapped exact dividend `D`: `bigS·4·2^Δ ± smallS·4` (Nat sub on diff sign, never underflows). -/
+def UnpackedFloat.addDividend (x y : UnpackedFloat e s) : Nat :=
+  if (UnpackedFloat.addBig x y).sign == (UnpackedFloat.addSmall x y).sign
+  then (UnpackedFloat.addBig x y).sig.toNat * 4 * 2 ^ (UnpackedFloat.addAbsExpDiff x y).toNat
+        + (UnpackedFloat.addSmall x y).sig.toNat * 4
+  else (UnpackedFloat.addBig x y).sig.toNat * 4 * 2 ^ (UnpackedFloat.addAbsExpDiff x y).toNat
+        - (UnpackedFloat.addSmall x y).sig.toNat * 4
+
+/-- Divisor `Y = 2^(Δ + ov)` where `ov = addSigSum.msb.toNat`. -/
+def UnpackedFloat.addDivisor (x y : UnpackedFloat e s) : Nat :=
+  2 ^ ((UnpackedFloat.addAbsExpDiff x y).toNat + (UnpackedFloat.addSigSum x y).msb.toNat)
+
+/-- The smaller operand (×4) never exceeds the larger operand (×4) shifted up by `Δ`. -/
+theorem UnpackedFloat.addSmall4_le_addBig4_shift {e s : Nat} (x y : UnpackedFloat e s)
+    (hx : x.sig.msb = true) (hy : y.sig.msb = true) (hs : 0 < s) (hes : s + 3 < 2 ^ (e + 1)) :
+    (UnpackedFloat.addSmall x y).sig.toNat * 4
+      ≤ (UnpackedFloat.addBig x y).sig.toNat * 4 * 2 ^ (UnpackedFloat.addAbsExpDiff x y).toNat := by
+  have hbig := UnpackedFloat.msb_addBig x y hx hy
+  have hbiglo : 2 ^ (s - 1) ≤ (UnpackedFloat.addBig x y).sig.toNat := BitVec.le_toNat_of_msb_true hbig
+  have hsmallhi : (UnpackedFloat.addSmall x y).sig.toNat < 2 ^ s := (UnpackedFloat.addSmall x y).sig.isLt
+  have e1 : 2 ^ (s - 1) * 4 = 2 ^ (s + 1) := by
+    rw [show (4 : Nat) = 2 ^ 2 from rfl, ← Nat.pow_add]; congr 1; grind
+  have e2 : 2 ^ s * 4 = 2 ^ (s + 2) := by rw [show (4 : Nat) = 2 ^ 2 from rfl, ← Nat.pow_add]
+  have hp : 2 ^ (s + 1) * 2 = 2 ^ (s + 2) := by rw [← Nat.pow_succ]
+  rcases Nat.eq_zero_or_pos (UnpackedFloat.addAbsExpDiff x y).toNat with hΔ0 | hΔp
+  · have hd0 : (UnpackedFloat.addShiftAmount x y).toNat = 0 := by
+      rw [UnpackedFloat.addShiftAmount_toNat_eq x y hes, hΔ0]; simp
+    have hexeq := UnpackedFloat.addShift_zero_imp_ex_eq x y (UnpackedFloat.addExpDiff x y) rfl
+      (UnpackedFloat.addAbsExpDiff x y) rfl (UnpackedFloat.addShiftAmount x y) rfl hd0
+    have hle := UnpackedFloat.addSmall_sig_le_addBig_sig_of_ex_eq x y hexeq
+    rw [hΔ0, Nat.pow_zero, Nat.mul_one]; grind
+  · have h2 : 2 ≤ 2 ^ (UnpackedFloat.addAbsExpDiff x y).toNat := by
+      calc 2 = 2 ^ 1 := rfl
+        _ ≤ 2 ^ (UnpackedFloat.addAbsExpDiff x y).toNat := Nat.pow_le_pow_right (by grind) hΔp
+    have hbig4 : 2 ^ (s + 1) ≤ (UnpackedFloat.addBig x y).sig.toNat * 4 := by grind
+    refine Nat.le_of_lt ?_
+    calc (UnpackedFloat.addSmall x y).sig.toNat * 4 < 2 ^ (s + 2) := by grind
+      _ = 2 ^ (s + 1) * 2 := hp.symm
+      _ ≤ (UnpackedFloat.addBig x y).sig.toNat * 4 * 2 ^ (UnpackedFloat.addAbsExpDiff x y).toNat :=
+          Nat.mul_le_mul hbig4 h2
+
+/-- `D / 2^Δ` equals the circuit's aligned sum `addSigSum.toNat` (capped shift agrees with the
+uncapped `Δ` on the quotient via `div_cap_eq`). -/
+theorem UnpackedFloat.addDividend_div_eq {e s : Nat} (x y : UnpackedFloat e s)
+    (hx : x.sig.msb = true) (hy : y.sig.msb = true) (hs : 0 < s) (hes : s + 3 < 2 ^ (e + 1)) :
+    (UnpackedFloat.addDividend x y) / 2 ^ (UnpackedFloat.addAbsExpDiff x y).toNat
+      = (UnpackedFloat.addSigSum x y).toNat := by
+  have hd : (UnpackedFloat.addShiftAmount x y).toNat
+      = min (UnpackedFloat.addAbsExpDiff x y).toNat (s + 3) :=
+    UnpackedFloat.addShiftAmount_toNat_eq x y hes
+  have hS := UnpackedFloat.addSigSum_toNat_eq x y hx hy hs
+  have hsmallhi : (UnpackedFloat.addSmall x y).sig.toNat < 2 ^ s := (UnpackedFloat.addSmall x y).sig.isLt
+  have hsmalllo : 2 ^ (s - 1) ≤ (UnpackedFloat.addSmall x y).sig.toNat :=
+    BitVec.le_toNat_of_msb_true (UnpackedFloat.msb_addSmall x y hx hy)
+  have e2 : 2 ^ s * 4 = 2 ^ (s + 2) := by rw [show (4 : Nat) = 2 ^ 2 from rfl, ← Nat.pow_add]
+  have hsm4pos : 0 < (UnpackedFloat.addSmall x y).sig.toNat * 4 := by
+    have := Nat.two_pow_pos (s - 1); grind
+  have hsm4lt : (UnpackedFloat.addSmall x y).sig.toNat * 4 < 2 ^ (s + 3) := by
+    have h1 : (UnpackedFloat.addSmall x y).sig.toNat * 4 < 2 ^ (s + 2) := by grind
+    have h2 : 2 ^ (s + 2) < 2 ^ (s + 3) := by apply Nat.pow_lt_pow_right (by grind); grind
+    grind
+  have hcap := div_cap_eq ((UnpackedFloat.addSmall x y).sig.toNat * 4)
+    (UnpackedFloat.addAbsExpDiff x y).toNat (s + 3) hsm4pos hsm4lt
+  have hbnd := UnpackedFloat.addSmall4_le_addBig4_shift x y hx hy hs hes
+  unfold UnpackedFloat.addDividend
+  rw [hS, hd]
+  cases hsame : (UnpackedFloat.addBig x y).sign == (UnpackedFloat.addSmall x y).sign
+  · simp only [Bool.false_eq_true, if_false]
+    rw [Nat.mul_sub_div_eq _ _ _ (Nat.two_pow_pos _) hbnd, hcap.2]
+  · simp only [if_true]
+    rw [Nat.add_comm, Nat.add_mul_div_right _ _ (Nat.two_pow_pos _), hcap.1, Nat.add_comm]
+
+/-- `D % 2^Δ ≠ 0` iff the alignment shift dropped a bit (`smallS·4 % 2^d ≠ 0`, `d` the capped shift). -/
+theorem UnpackedFloat.addDividend_mod_ne_zero_iff {e s : Nat} (x y : UnpackedFloat e s)
+    (hx : x.sig.msb = true) (hy : y.sig.msb = true) (hs : 0 < s) (hes : s + 3 < 2 ^ (e + 1)) :
+    (UnpackedFloat.addDividend x y) % 2 ^ (UnpackedFloat.addAbsExpDiff x y).toNat ≠ 0
+      ↔ (UnpackedFloat.addSmall x y).sig.toNat * 4
+          % 2 ^ (UnpackedFloat.addShiftAmount x y).toNat ≠ 0 := by
+  have hd : (UnpackedFloat.addShiftAmount x y).toNat
+      = min (UnpackedFloat.addAbsExpDiff x y).toNat (s + 3) :=
+    UnpackedFloat.addShiftAmount_toNat_eq x y hes
+  have hsmallhi : (UnpackedFloat.addSmall x y).sig.toNat < 2 ^ s := (UnpackedFloat.addSmall x y).sig.isLt
+  have e2 : 2 ^ s * 4 = 2 ^ (s + 2) := by rw [show (4 : Nat) = 2 ^ 2 from rfl, ← Nat.pow_add]
+  have hsm4lt : (UnpackedFloat.addSmall x y).sig.toNat * 4 < 2 ^ (s + 2) := by grind
+  have hbnd := UnpackedFloat.addSmall4_le_addBig4_shift x y hx hy hs hes
+  have hcap := (Nat.mod_cap_ne_zero_iff ((UnpackedFloat.addSmall x y).sig.toNat * 4)
+    (UnpackedFloat.addAbsExpDiff x y).toNat (s + 3) (s + 2) hsm4lt (by grind)).symm
+  unfold UnpackedFloat.addDividend
+  rw [hd]
+  cases hsame : (UnpackedFloat.addBig x y).sign == (UnpackedFloat.addSmall x y).sign
+  · simp only [Bool.false_eq_true, if_false]
+    rw [Nat.mul_sub_mod_ne_zero_iff _ _ _ hbnd]; exact hcap
+  · simp only [if_true]
+    rw [Nat.mul_add_mod_ne_zero_iff]; exact hcap
+
+/-- **Lemma B** — the sticky bit fires exactly when the exact dividend `D` has a nonzero remainder mod
+the divisor `Y = 2^(Δ+ov)`: unifies the alignment-drop term and the overflow-fold term. -/
+theorem UnpackedFloat.addSticky_eq_mod {e s : Nat} (x y : UnpackedFloat e s)
+    (hx : x.sig.msb = true) (hy : y.sig.msb = true) (hs : 0 < s) (hes : s + 3 < 2 ^ (e + 1)) :
+    UnpackedFloat.addSticky x y
+      = decide (UnpackedFloat.addDividend x y % UnpackedFloat.addDivisor x y ≠ 0) := by
+  have hmod := UnpackedFloat.addDividend_mod_ne_zero_iff x y hx hy hs hes
+  have hbit : ((UnpackedFloat.addSigSum x y)[0] = true)
+      ↔ (UnpackedFloat.addSigSum x y).toNat % 2 = 1 := by
+    simp [BitVec.getElem_eq_testBit_toNat, Nat.testBit_zero]
+  unfold UnpackedFloat.addSticky UnpackedFloat.addDivisor
+  rw [Bool.eq_iff_iff, decide_eq_true_eq, Bool.or_eq_true, Bool.and_eq_true, bne_iff_ne,
+    UnpackedFloat.addSticky_align_iff]
+  cases hmsb : (UnpackedFloat.addSigSum x y).msb
+  · simp only [Bool.toNat_false, Nat.add_zero, Bool.false_eq_true, false_and, or_false]
+    exact hmod.symm
+  · simp only [Bool.toNat_true, true_and]
+    rw [Nat.mod_pow_succ_ne_zero_iff, UnpackedFloat.addDividend_div_eq x y hx hy hs hes]
+    exact or_congr hmod.symm hbit
 
 /--
 **The addition circuit produces a normalized result** (for normalized inputs
