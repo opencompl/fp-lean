@@ -810,6 +810,36 @@ theorem signExtSubSub_toInt {e : Nat} (he : 0 < e) (A B : BitVec e) (c : BitVec 
   rw [hinner]
   apply Int.bmod_eq_of_le <;> (push_cast; omega)
 
+/-- `toInt` of `A.signExtend (e+1) + b` for a small `b ∈ [0,1]` (the overflow-bump exponent). -/
+theorem signExtAdd_toInt {e : Nat} (he : 0 < e) (A : BitVec e) (b : BitVec (e + 1))
+    (bval : Int) (hb : b.toInt = bval) (hb0 : 0 ≤ bval) (hb1 : bval ≤ 1) :
+    ((A.signExtend (e + 1)) + b).toInt = A.toInt + bval := by
+  have hAr := BitVec.toInt_lt (x := A)
+  have hAl := BitVec.le_toInt A
+  have he1 : (2:Int) ^ (e + 1) = 2 ^ e * 2 := by rw [Int.pow_succ]
+  have he0 : (2:Int) ^ e = 2 ^ (e - 1) * 2 := by
+    rw [show e = (e - 1) + 1 by omega, Int.pow_succ]; rw [show e-1+1 = e by omega]
+  have hAse : (A.signExtend (e + 1)).toInt = A.toInt := BitVec.toInt_signExtend_of_le (by omega)
+  rw [BitVec.toInt_add, hAse, hb]
+  apply Int.bmod_eq_of_le <;> (push_cast; omega)
+
+/-- `toInt` of `A.signExtend (e+1) + b - c` for small `b, c ∈ [0,1]` (overflow-bump then renormalize). -/
+theorem signExtAddSub_toInt {e : Nat} (he : 0 < e) (A : BitVec e) (b c : BitVec (e + 1))
+    (bval cval : Int) (hb : b.toInt = bval) (hc : c.toInt = cval)
+    (hb0 : 0 ≤ bval) (hb1 : bval ≤ 1) (hc0 : 0 ≤ cval) (hc1 : cval ≤ 1) :
+    ((A.signExtend (e + 1)) + b - c).toInt = A.toInt + bval - cval := by
+  have hAr := BitVec.toInt_lt (x := A)
+  have hAl := BitVec.le_toInt A
+  have he1 : (2:Int) ^ (e + 1) = 2 ^ e * 2 := by rw [Int.pow_succ]
+  have he0 : (2:Int) ^ e = 2 ^ (e - 1) * 2 := by
+    rw [show e = (e - 1) + 1 by omega, Int.pow_succ]; rw [show e-1+1 = e by omega]
+  have hAse : (A.signExtend (e + 1)).toInt = A.toInt := BitVec.toInt_signExtend_of_le (by omega)
+  rw [BitVec.toInt_sub, BitVec.toInt_add, hAse, hb, hc]
+  have hinner : (A.toInt + bval).bmod (2 ^ (e + 1)) = A.toInt + bval := by
+    apply Int.bmod_eq_of_le <;> (push_cast; omega)
+  rw [hinner]
+  apply Int.bmod_eq_of_le <;> (push_cast; omega)
+
 /-- `toInt` of a one-bit boolean widened by `setWidth'` is its `Nat` value. -/
 theorem ofBool_setWidth_toInt {e : Nat} (he : 0 < e) (β : Bool) :
     ((BitVec.ofBool β).setWidth' (by omega : 1 ≤ e + 1)).toInt = (β.toNat : Int) := by
