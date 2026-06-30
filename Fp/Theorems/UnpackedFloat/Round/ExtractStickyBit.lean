@@ -37,7 +37,7 @@ theorem extractStickyBit_eq_true_iff
       exists i
       grind only
     · intros h
-      simp at h
+      try simp at h
       intros hcontra
       rw [BitVec.eq_iff_getLsbD_eq] at hcontra
       simp at hcontra
@@ -85,7 +85,7 @@ theorem UnpackedFloat.blastExtractStickyBit_eq_decide
   · have := extractStickyBit_eq_true_iff hep hsp heu hsu x hdiffLower hdiffUpper hdiffNatLe
     grind
   · have := extractStickyBit_eq_true_iff hep hsp heu hsu x hdiffLower hdiffUpper hdiffNatLe
-    simp at this
+    try simp at this
     grind
 
 /--
