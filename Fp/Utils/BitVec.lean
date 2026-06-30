@@ -834,3 +834,34 @@ theorem BitVec.msb_setWidth'_ofBool_eq_false {w : Nat} (hw : 2 ≤ w) (b : Bool)
     have : 2 ^ 1 ≤ 2 ^ (w - 1) := Nat.pow_le_pow_right (by grind) (by grind)
     grind
   grind
+
+/-- The shift-normalize-then-OR-sticky combine: a value `q ∈ [2^s, 2^(s+2))` is normalized away from
+zero by a conditional left shift `<<< !q.msb` and the sticky bit OR-ed into bit 0. Shared by the
+division and addition significand value lemmas. -/
+theorem normShiftSticky_toNat {s : Nat} (q sticky : BitVec (s + 2)) (qn sn : Nat)
+    (hqn : q.toNat = qn) (hsn : sticky.toNat = sn)
+    (hql : 2 ^ s ≤ qn) (hqh : qn < 2 ^ (s + 2)) (hst : sn < 2 ^ (s + 1)) :
+    ((q <<< BitVec.ofBool !q.msb) ||| sticky).toNat
+      = qn * 2 ^ (if 2 ^ (s + 1) ≤ qn then 0 else 1) ||| sn := by
+  subst hqn hsn
+  rw [BitVec.toNat_or,
+    show (q <<< BitVec.ofBool !q.msb) = q <<< (BitVec.ofBool !q.msb).toNat from rfl,
+    BitVec.toNat_shiftLeft, BitVec.toNat_ofBool]
+  have hsm1 : s + 2 - 1 = s + 1 := by omega
+  have hpow : 2 ^ (s + 2) = 2 ^ (s + 1) * 2 := by rw [Nat.pow_succ]
+  congr 1
+  cases hqmsb : q.msb
+  · have hqlt : q.toNat < 2 ^ (s + 1) := by
+      have h := hqmsb; rw [BitVec.msb_eq_decide] at h
+      simp only [decide_eq_false_iff_not, Nat.not_le, hsm1] at h; exact h
+    have hif : (if 2 ^ (s + 1) ≤ q.toNat then 0 else 1) = 1 := by grind
+    rw [hif]
+    simp only [Bool.not_false, Bool.toNat_true, Nat.shiftLeft_eq, Nat.pow_one]
+    apply Nat.mod_eq_of_lt; omega
+  · have hqge : 2 ^ (s + 1) ≤ q.toNat := by
+      have h := hqmsb; rw [BitVec.msb_eq_decide] at h
+      simp only [decide_eq_true_eq, hsm1] at h; exact h
+    have hif : (if 2 ^ (s + 1) ≤ q.toNat then 0 else 1) = 0 := by grind
+    rw [hif]
+    simp only [Bool.not_true, Bool.toNat_false, Nat.shiftLeft_zero, Nat.pow_zero, Nat.mul_one,
+      Nat.mod_eq_of_lt hqh]

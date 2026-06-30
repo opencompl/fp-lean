@@ -75,39 +75,6 @@ docstrings.
 
 /-! ### Bridge lemmas for `stickyEquiv_div` -/
 
-theorem div_prod_eq (sx sy X Y wp wq w1 wb wE sd : Rat)
-    (hsy : sy ≠ 0) (hY : Y ≠ 0) (hwq : wq ≠ 0)
-    (hsign : sx / sy = sd) (hwrel : wp / wq = w1 * wb * wE) :
-    (sx * X * wp) / (sy * Y * wq) = sd * (X * w1 / Y * wb) * wE := by grind
-
-theorem normShiftSticky_toNat {s : Nat} (q sticky : BitVec (s + 2)) (qn sn : Nat)
-    (hqn : q.toNat = qn) (hsn : sticky.toNat = sn)
-    (hql : 2 ^ s ≤ qn) (hqh : qn < 2 ^ (s + 2)) (hst : sn < 2 ^ (s + 1)) :
-    ((q <<< BitVec.ofBool !q.msb) ||| sticky).toNat
-      = qn * 2 ^ (if 2 ^ (s + 1) ≤ qn then 0 else 1) ||| sn := by
-  subst hqn hsn
-  rw [BitVec.toNat_or,
-    show (q <<< BitVec.ofBool !q.msb) = q <<< (BitVec.ofBool !q.msb).toNat from rfl,
-    BitVec.toNat_shiftLeft, BitVec.toNat_ofBool]
-  have hsm1 : s + 2 - 1 = s + 1 := by omega
-  have hpow : 2 ^ (s + 2) = 2 ^ (s + 1) * 2 := by rw [Nat.pow_succ]
-  congr 1
-  cases hqmsb : q.msb
-  · have hqlt : q.toNat < 2 ^ (s + 1) := by
-      have h := hqmsb; rw [BitVec.msb_eq_decide] at h
-      simp only [decide_eq_false_iff_not, Nat.not_le, hsm1] at h; exact h
-    have hif : (if 2 ^ (s + 1) ≤ q.toNat then 0 else 1) = 1 := by grind
-    rw [hif]
-    simp only [Bool.not_false, Bool.toNat_true, Nat.shiftLeft_eq, Nat.pow_one]
-    apply Nat.mod_eq_of_lt; omega
-  · have hqge : 2 ^ (s + 1) ≤ q.toNat := by
-      have h := hqmsb; rw [BitVec.msb_eq_decide] at h
-      simp only [decide_eq_true_eq, hsm1] at h; exact h
-    have hif : (if 2 ^ (s + 1) ≤ q.toNat then 0 else 1) = 0 := by grind
-    rw [hif]
-    simp only [Bool.not_true, Bool.toNat_false, Nat.shiftLeft_zero, Nat.pow_zero, Nat.mul_one,
-      Nat.mod_eq_of_lt hqh]
-
 theorem UnpackedFloat.divSig_toNat_eq {e s : Nat} (x y : UnpackedFloat e s)
     (hs : 0 < s) (hx : x.sig.msb = true) (hy : y.sig.msb = true) :
     (x.div y).sig.toNat
