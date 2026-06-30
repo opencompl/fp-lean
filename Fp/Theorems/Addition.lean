@@ -1033,6 +1033,91 @@ theorem UnpackedFloat.addSum_sig_ge_of_sticky {e s : Nat} (x y : UnpackedFloat e
     simp at hst
   · exact hge
 
+/-- The pre-normalization exponent: `addBig.ex + ov`. -/
+theorem UnpackedFloat.addSum_ex_toInt_eq {e s : Nat} (x y : UnpackedFloat e s) (he : 0 < e) :
+    (UnpackedFloat.addSum x y).ex.toInt
+      = (UnpackedFloat.addBig x y).ex.toInt + ((UnpackedFloat.addSigSum x y).msb.toNat : Int) := by
+  have hov : ((BitVec.ofBool (UnpackedFloat.addSigSum x y).msb).setWidth' (by grind : 1 ≤ e + 1)).toInt
+      = ((UnpackedFloat.addSigSum x y).msb.toNat : Int) := ofBool_setWidth_toInt he _
+  have hexeq : (UnpackedFloat.addSum x y).ex
+      = (UnpackedFloat.addBig x y).ex.signExtend (e + 1)
+        + (BitVec.ofBool (UnpackedFloat.addSigSum x y).msb).setWidth' (by grind) := rfl
+  rw [hexeq]
+  exact signExtAdd_toInt he (UnpackedFloat.addBig x y).ex _ _ hov
+    (by exact_mod_cast Nat.zero_le _) (by cases (UnpackedFloat.addSigSum x y).msb <;> simp)
+
+/-- The pre-normalization grid exponent `addSum.toExpInt = bigEx + ov − (s+1)`. -/
+theorem UnpackedFloat.addSum_toExpInt_eq {e s : Nat} (x y : UnpackedFloat e s) (he : 0 < e) :
+    (UnpackedFloat.addSum x y).toExpInt
+      = (UnpackedFloat.addBig x y).ex.toInt + ((UnpackedFloat.addSigSum x y).msb.toNat : Int)
+        - (s + 1) := by
+  simp only [UnpackedFloat.toExpInt]
+  rw [UnpackedFloat.addSum_ex_toInt_eq x y he]; push_cast; grind
+
+/-- **Lemma G (grid factor)** — the exact sum decomposed on the result grid. -/
+theorem UnpackedFloat.add_grid_factor {e s : Nat} (x y : UnpackedFloat e s) (hs : 0 < s) (he : 0 < e)
+    (hx : x.sig.msb = true) (hy : y.sig.msb = true) (hes : s + 3 < 2 ^ (e + 1)) :
+    x.toRat + y.toRat
+      = (UnpackedFloat.addBig x y).sign.toSign
+        * ((UnpackedFloat.addDividend x y : Rat) / (UnpackedFloat.addDivisor x y : Rat))
+        * (2:Rat) ^ (UnpackedFloat.addSum x y).toExpInt := by
+  have hΔ := UnpackedFloat.absExpDiff_toNat_eq x y he
+  have hSumExp := UnpackedFloat.addSum_toExpInt_eq x y he
+  have hswap := UnpackedFloat.addSmall4_le_addBig4_shift x y hx hy hs hes
+  rw [← UnpackedFloat.toRat_addBig_add_addSmall x y,
+    UnpackedFloat.toRat_eq_sign_sig_exp (UnpackedFloat.addBig x y),
+    UnpackedFloat.toRat_eq_sign_sig_exp (UnpackedFloat.addSmall x y)]
+  -- bExp, sExp as ex − (s−1)
+  have hbExp : (UnpackedFloat.addBig x y).toExpInt = (UnpackedFloat.addBig x y).ex.toInt - (s - 1) := by
+    simp only [UnpackedFloat.toExpInt]; omega
+  have hsExp : (UnpackedFloat.addSmall x y).toExpInt = (UnpackedFloat.addSmall x y).ex.toInt - (s - 1) := by
+    simp only [UnpackedFloat.toExpInt]; omega
+  rw [hbExp, hsExp]
+  -- Y = 2^(Δ+ov)
+  have h2ne : (2:Rat) ≠ 0 := by decide
+  have hYpow : ((UnpackedFloat.addDivisor x y : Nat) : Rat)
+      = (2:Rat) ^ (((UnpackedFloat.addAbsExpDiff x y).toNat : Int) + ((UnpackedFloat.addSigSum x y).msb.toNat : Int)) := by
+    unfold UnpackedFloat.addDivisor
+    rw [show (((UnpackedFloat.addAbsExpDiff x y).toNat : Int) + ((UnpackedFloat.addSigSum x y).msb.toNat : Int))
+        = (((UnpackedFloat.addAbsExpDiff x y).toNat + (UnpackedFloat.addSigSum x y).msb.toNat : Nat) : Int) from by push_cast; omega,
+      Rat.zpow_natCast]
+    push_cast; rfl
+  have h4 : (4:Rat) = (2:Rat) ^ (2:Int) := by decide
+  -- the two coefficient power-identities (Δ := addAbsExpDiff.toNat, ov := msb.toNat, E := addSum.toExpInt)
+  have hp1 : (4:Rat) * (2:Rat) ^ ((UnpackedFloat.addAbsExpDiff x y).toNat : Int)
+        / ((UnpackedFloat.addDivisor x y : Nat) : Rat) * (2:Rat) ^ (UnpackedFloat.addSum x y).toExpInt
+      = (2:Rat) ^ ((UnpackedFloat.addBig x y).ex.toInt - ((s:Int) - 1)) := by
+    rw [hYpow, h4, ← Rat.zpow_add h2ne, Rat.zpow_div_zpow h2ne, ← Rat.zpow_add h2ne]
+    congr 1; rw [hSumExp]; push_cast; omega
+  have hp2 : (4:Rat) / ((UnpackedFloat.addDivisor x y : Nat) : Rat)
+        * (2:Rat) ^ (UnpackedFloat.addSum x y).toExpInt
+      = (2:Rat) ^ ((UnpackedFloat.addSmall x y).ex.toInt - ((s:Int) - 1)) := by
+    rw [hYpow, h4, Rat.zpow_div_zpow h2ne, ← Rat.zpow_add h2ne]
+    congr 1; rw [hSumExp]; push_cast; omega
+  cases hsame : (UnpackedFloat.addBig x y).sign == (UnpackedFloat.addSmall x y).sign
+  · -- diff sign  (== is false)
+    have hbnd := UnpackedFloat.addSmall4_le_addBig4_shift x y hx hy hs hes
+    have hD : (UnpackedFloat.addDividend x y : Rat)
+        = (UnpackedFloat.addBig x y).sig.toNat * 4 * (2:Rat) ^ ((UnpackedFloat.addAbsExpDiff x y).toNat : Int)
+          - (UnpackedFloat.addSmall x y).sig.toNat * 4 := by
+      unfold UnpackedFloat.addDividend; simp only [hsame, Bool.false_eq_true, if_false]
+      rw [Rat.natCast_sub_of_le hbnd, Rat.zpow_natCast]; push_cast; grind
+    have hsgn : (UnpackedFloat.addSmall x y).sign.toSign = -(UnpackedFloat.addBig x y).sign.toSign := by
+      cases hb : (UnpackedFloat.addBig x y).sign <;> cases hsm : (UnpackedFloat.addSmall x y).sign <;>
+        simp_all [Bool.toSign]
+    rw [hsgn, ← hp1, ← hp2, hD]
+    grind
+  · -- same sign  (== is true)
+    have hse : (UnpackedFloat.addBig x y).sign = (UnpackedFloat.addSmall x y).sign := eq_of_beq hsame
+    have hD : (UnpackedFloat.addDividend x y : Rat)
+        = (UnpackedFloat.addBig x y).sig.toNat * 4 * (2:Rat) ^ ((UnpackedFloat.addAbsExpDiff x y).toNat : Int)
+          + (UnpackedFloat.addSmall x y).sig.toNat * 4 := by
+      unfold UnpackedFloat.addDividend; simp only [hsame, if_true]
+      rw [Rat.zpow_natCast]; push_cast; grind
+    rw [show (UnpackedFloat.addSmall x y).sign.toSign = (UnpackedFloat.addBig x y).sign.toSign from by rw [hse],
+      ← hp1, ← hp2, hD]
+    grind
+
 /--
 **The addition circuit produces a normalized result** (for normalized inputs
 with nonzero exact sum).
