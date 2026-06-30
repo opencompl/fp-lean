@@ -196,4 +196,11 @@ theorem floor_sticky_within_one (D Y b : Nat) (hY : 0 < Y) (hb : b ≤ 1)
         grind
     exact Rat.abs_intSub_div_natCast_lt_one (D * 2^b) n Y hY hz
 
+/-- Factor a signed scaled ratio `(sx·X·wp)/(sy·Y·wq)` into `sd·(X·w1/Y·wb)·wE` given the sign and
+weight relations. Shared by the division and addition `hr` assembly steps. -/
+theorem div_prod_eq (sx sy X Y wp wq w1 wb wE sd : Rat)
+    (hsy : sy ≠ 0) (hY : Y ≠ 0) (hwq : wq ≠ 0)
+    (hsign : sx / sy = sd) (hwrel : wp / wq = w1 * wb * wE) :
+    (sx * X * wp) / (sy * Y * wq) = sd * (X * w1 / Y * wb) * wE := by grind
+
 end Fp

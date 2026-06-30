@@ -105,3 +105,24 @@ theorem Nat.div_mul_two_pow_add_div_two_pow (n a b : Nat) :
     n / 2 ^ (a + b) * 2 ^ (a + b) / 2 ^ b = n / 2 ^ (a + b) * 2 ^ a := by
   rw [Nat.mul_div_assoc _ (Nat.pow_dvd_pow 2 (Nat.le_add_left b a)),
     Nat.pow_div (Nat.le_add_left b a) (by grind), Nat.add_sub_cancel]
+
+/-- Floor-division of a negated `Nat` is the negated ceiling: `⌊-a / d⌋ = -⌈a/d⌉`, with the Nat ceiling
+written `⌈a/d⌉ = (a + d - 1)/d`. Used by the addition aligned-sum value lemma (signed right shift of the
+negated smaller operand floors toward −∞). -/
+theorem Int.neg_natCast_ediv_eq (a d : Nat) (hd : 0 < d) :
+    (-(a : Int)) / (d : Int) = -(((a + d - 1) / d : Nat) : Int) := by
+  have hdI : (0 : Int) < (d : Int) := by exact_mod_cast hd
+  have hub : (a + d - 1) / d * d ≤ a + d - 1 := Nat.div_mul_le_self _ _
+  have hdm := Nat.div_add_mod (a + d - 1) d
+  have hmlt := Nat.mod_lt (a + d - 1) hd
+  have hcomm : d * ((a + d - 1) / d) = (a + d - 1) / d * d := Nat.mul_comm _ _
+  have hge : a ≤ (a + d - 1) / d * d := by omega
+  have hlt : (a + d - 1) / d * d < a + d := by omega
+  have hgeI : (a : Int) ≤ ((a + d - 1) / d : Nat) * (d : Nat) := by exact_mod_cast hge
+  have hltI : (((a + d - 1) / d : Nat) : Int) * (d : Nat) < (a : Int) + (d : Nat) := by
+    exact_mod_cast hlt
+  have h1 : -(((a + d - 1) / d : Nat) : Int) ≤ (-(a : Int)) / (d : Int) := by
+    rw [Int.le_ediv_iff_mul_le hdI]; grind
+  have h2 : (-(a : Int)) / (d : Int) < -(((a + d - 1) / d : Nat) : Int) + 1 := by
+    rw [Int.ediv_lt_iff_lt_mul hdI]; grind
+  omega
