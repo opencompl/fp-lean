@@ -881,6 +881,104 @@ theorem UnpackedFloat.addEx_toInt_eq {e s : Nat} (x y : UnpackedFloat e s) (he :
         (by exact_mod_cast Nat.zero_le _) (by cases (UnpackedFloat.addSigSum x y).msb <;> simp),
       hif, Int.sub_zero]
 
+/-- Core arithmetic for the crux: if the floor quotient `D/Y` underflows below `2^s` (catastrophic
+cancellation) then the division was exact (`D % Y = 0`, no sticky). -/
+theorem UnpackedFloat.addDividend_mod_eq_zero_of_div_lt {e s : Nat} (x y : UnpackedFloat e s)
+    (hx : x.sig.msb = true) (hy : y.sig.msb = true) (hs : 0 < s) (hes : s + 3 < 2 ^ (e + 1))
+    (h : UnpackedFloat.addDividend x y / UnpackedFloat.addDivisor x y < 2 ^ s) :
+    UnpackedFloat.addDividend x y % UnpackedFloat.addDivisor x y = 0 := by
+  have hbig := UnpackedFloat.msb_addBig x y hx hy
+  have hsmall := UnpackedFloat.msb_addSmall x y hx hy
+  have hbiglo : 2 ^ (s - 1) ≤ (UnpackedFloat.addBig x y).sig.toNat := BitVec.le_toNat_of_msb_true hbig
+  have hsmallhi : (UnpackedFloat.addSmall x y).sig.toNat < 2 ^ s := (UnpackedFloat.addSmall x y).sig.isLt
+  have e1 : 2 ^ (s - 1) * 4 = 2 ^ (s + 1) := by
+    rw [show (4 : Nat) = 2 ^ 2 from rfl, ← Nat.pow_add]; congr 1; grind
+  have e2 : 2 ^ s * 4 = 2 ^ (s + 2) := by rw [show (4 : Nat) = 2 ^ 2 from rfl, ← Nat.pow_add]
+  have hbig4 : 2 ^ (s + 1) ≤ (UnpackedFloat.addBig x y).sig.toNat * 4 := by grind
+  have hsmall4 : (UnpackedFloat.addSmall x y).sig.toNat * 4 < 2 ^ (s + 2) := by grind
+  have hswap := UnpackedFloat.addSmall4_le_addBig4_shift x y hx hy hs hes
+  have hSdiv := UnpackedFloat.addDividend_div_eq x y hx hy hs hes
+  have hSform := UnpackedFloat.addSigSum_toNat_eq x y hx hy hs
+  unfold UnpackedFloat.addDivisor at h ⊢
+  cases hmsb : (UnpackedFloat.addSigSum x y).msb
+  · -- ov = 0 : divisor 2^Δ
+    simp only [hmsb, Bool.toNat_false, Nat.add_zero] at h ⊢
+    -- h : addDividend / 2^Δ < 2^s ;  goal : addDividend % 2^Δ = 0
+    cases hsame : (UnpackedFloat.addBig x y).sign == (UnpackedFloat.addSmall x y).sign
+    · -- diff sign:  D = bigS4·2^Δ − smallS4
+      unfold UnpackedFloat.addDividend at h ⊢
+      simp only [hsame, Bool.false_eq_true, if_false] at h ⊢
+      -- abbreviations: bigS4 = bigS·4, smallS4 = smallS·4, Δ = addAbsExpDiff.toNat
+      have hDlt : (UnpackedFloat.addBig x y).sig.toNat * 4 * 2 ^ (UnpackedFloat.addAbsExpDiff x y).toNat
+            - (UnpackedFloat.addSmall x y).sig.toNat * 4
+          < 2 ^ s * 2 ^ (UnpackedFloat.addAbsExpDiff x y).toNat :=
+        (Nat.div_lt_iff_lt_mul (Nat.two_pow_pos _)).mp h
+      have hadd : (UnpackedFloat.addBig x y).sig.toNat * 4 * 2 ^ (UnpackedFloat.addAbsExpDiff x y).toNat
+          = ((UnpackedFloat.addBig x y).sig.toNat * 4 * 2 ^ (UnpackedFloat.addAbsExpDiff x y).toNat
+              - (UnpackedFloat.addSmall x y).sig.toNat * 4) + (UnpackedFloat.addSmall x y).sig.toNat * 4 :=
+        (Nat.sub_add_cancel hswap).symm
+      have hb : 2 ^ (s + 1) * 2 ^ (UnpackedFloat.addAbsExpDiff x y).toNat
+          ≤ (UnpackedFloat.addBig x y).sig.toNat * 4 * 2 ^ (UnpackedFloat.addAbsExpDiff x y).toNat :=
+        Nat.mul_le_mul_right _ hbig4
+      have e3 : 2 ^ (s + 1) * 2 ^ (UnpackedFloat.addAbsExpDiff x y).toNat
+          = 2 ^ s * 2 ^ (UnpackedFloat.addAbsExpDiff x y).toNat
+            + 2 ^ s * 2 ^ (UnpackedFloat.addAbsExpDiff x y).toNat := by rw [Nat.pow_succ]; grind
+      have hP : 2 ^ s * 2 ^ (UnpackedFloat.addAbsExpDiff x y).toNat < 2 ^ (s + 2) := by
+        rw [hadd] at hb; omega
+      have hΔ : (UnpackedFloat.addAbsExpDiff x y).toNat ≤ 1 := by
+        have hPe : 2 ^ (s + (UnpackedFloat.addAbsExpDiff x y).toNat) < 2 ^ (s + 2) := by
+          rw [Nat.pow_add]; exact hP
+        have := (Nat.pow_lt_pow_iff_right (by decide : 1 < 2)).mp hPe
+        omega
+      have hdvdsmall : 2 ^ (UnpackedFloat.addAbsExpDiff x y).toNat ∣ (UnpackedFloat.addSmall x y).sig.toNat * 4 := by
+        have h4 : (2 : Nat) ^ (UnpackedFloat.addAbsExpDiff x y).toNat ∣ 4 := by
+          calc (2 : Nat) ^ (UnpackedFloat.addAbsExpDiff x y).toNat ∣ 2 ^ 2 := Nat.pow_dvd_pow 2 (by omega)
+            _ = 4 := rfl
+        exact Nat.dvd_mul_left_of_dvd h4 _
+      have hdvdbig : 2 ^ (UnpackedFloat.addAbsExpDiff x y).toNat
+          ∣ (UnpackedFloat.addBig x y).sig.toNat * 4 * 2 ^ (UnpackedFloat.addAbsExpDiff x y).toNat :=
+        Nat.dvd_mul_left _ _
+      have hdvdD := Nat.dvd_sub hdvdbig hdvdsmall
+      rwa [Nat.dvd_iff_mod_eq_zero] at hdvdD
+    · -- same sign: S ≥ bigS4 ≥ 2^(s+1) > 2^s, contradicts h
+      exfalso
+      rw [hSdiv] at h
+      have hSge : 2 ^ (s + 1) ≤ (UnpackedFloat.addSigSum x y).toNat := by
+        rw [hSform]; simp only [hsame, if_true]
+        exact Nat.le_trans hbig4 (Nat.le_add_right _ _)
+      have hlt2 : 2 ^ s < 2 ^ (s + 1) := by have := Nat.two_pow_pos s; rw [Nat.pow_succ]; omega
+      omega
+  · -- ov = 1 : divisor 2^(Δ+1); S ≥ 2^(s+2), D/2^(Δ+1) = S/2 ≥ 2^(s+1) > 2^s, contradicts h
+    exfalso
+    simp only [hmsb, Bool.toNat_true] at h
+    have hSge : 2 ^ (s + 2) ≤ (UnpackedFloat.addSigSum x y).toNat := by
+      have hh := hmsb; rw [BitVec.msb_eq_decide] at hh
+      simp only [decide_eq_true_eq, show s + 3 - 1 = s + 2 from rfl] at hh; exact hh
+    have hdd : UnpackedFloat.addDividend x y / 2 ^ ((UnpackedFloat.addAbsExpDiff x y).toNat + 1)
+        = (UnpackedFloat.addSigSum x y).toNat / 2 := by
+      rw [Nat.pow_succ, ← Nat.div_div_eq_div_mul, hSdiv]
+    rw [hdd] at h
+    have : 2 ^ (s + 1) ≤ (UnpackedFloat.addSigSum x y).toNat / 2 := by
+      rw [Nat.le_div_iff_mul_le (by decide)]; rw [Nat.pow_succ] at hSge; grind
+    have h2 : 2 ^ s ≤ 2 ^ (s + 1) := Nat.pow_le_pow_right (by omega) (by omega)
+    omega
+
+/-- **Lemma E (crux)** — when the sticky bit is set, the pre-normalization significand has at most one
+leading zero (`2^s ≤ addSum.sig.toNat`, i.e. `clz ≤ 1`). Contrapositive of
+`addDividend_mod_eq_zero_of_div_lt` via `addSum_sig_toNat_eq` (= D/Y) and `addSticky_eq_mod`. -/
+theorem UnpackedFloat.addSum_sig_ge_of_sticky {e s : Nat} (x y : UnpackedFloat e s)
+    (hx : x.sig.msb = true) (hy : y.sig.msb = true) (hs : 0 < s) (hes : s + 3 < 2 ^ (e + 1))
+    (hst : UnpackedFloat.addSticky x y = true) :
+    2 ^ s ≤ (UnpackedFloat.addSum x y).sig.toNat := by
+  rcases (by omega : (UnpackedFloat.addSum x y).sig.toNat < 2 ^ s
+      ∨ 2 ^ s ≤ (UnpackedFloat.addSum x y).sig.toNat) with hlt | hge
+  · exfalso
+    rw [UnpackedFloat.addSum_sig_toNat_eq x y hx hy hs hes] at hlt
+    have hz := UnpackedFloat.addDividend_mod_eq_zero_of_div_lt x y hx hy hs hes hlt
+    rw [UnpackedFloat.addSticky_eq_mod x y hx hy hs hes, hz] at hst
+    simp at hst
+  · exact hge
+
 /--
 **The addition circuit produces a normalized result** (for normalized inputs
 with nonzero exact sum).
