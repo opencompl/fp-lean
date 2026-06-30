@@ -25,21 +25,19 @@ theorem isNaN_of_isLawfulLower (x : PackedFloat e s)
 @[simp]
 theorem isLawfulLower_of_isNaN :
   (SmtLibSemantics.IsLawfulLower ExtRat.NaN (PackedFloat.getNaN e s)) := by
-  simp only [SmtLibSemantics.IsLawfulLower]
-  simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
-    PackedFloat.isNaN_getNaN, PackedFloat.toExtRat'_eq_NaN_of_isNaN, ExtRat.ge_eq_le_symm,
-    ExtRat.ExtRat.le_NaN_iff, decide_true, PackedFloat.toExtRat'_eq_NaN_iff_isNaN,
-    Bool.decide_eq_true, PackedFloat.le_iff_eq_of_isNaN', imp_self, implies_true, and_self]
+  simp [SmtLibSemantics.IsLawfulLower, PackedFloat.toExtRat_eq_toExtRat',
+    PackedFloat.toExtRat'_eq_NaN_of_isNaN, ExtRat.ge_eq_le_symm,
+    ExtRat.ExtRat.le_NaN_iff, PackedFloat.toExtRat'_eq_NaN_iff_isNaN,
+    PackedFloat.le_iff_eq_of_isNaN']
 
 @[simp]
 theorem isLawfulLower_NaN_iff_isNaN (x : PackedFloat e s) :
    SmtLibSemantics.IsLawfulLower ExtRat.NaN x ↔ x.isNaN := by
-  simp only [SmtLibSemantics.IsLawfulLower, SmtLibSemantics.smtLibV_embed_eq,
+  simp [SmtLibSemantics.IsLawfulLower,
     PackedFloat.toExtRat_eq_toExtRat', ExtRat.ge_eq_le_symm, ExtRat.ExtRat.le_NaN_iff,
-    PackedFloat.toExtRat'_eq_NaN_iff_isNaN, Bool.decide_eq_true, and_iff_left_iff_imp]
-  intros hx
-  intros lower hlower
-  simp [hx, hlower]
+    PackedFloat.toExtRat'_eq_NaN_iff_isNaN, PackedFloat.le_iff_eq_of_isNaN']
+  intro hx lower' hlower'
+  exact (PackedFloat.le_iff_eq_of_isNaN' lower' x hx).mpr hlower'
 
 @[elab_as_elim]
 theorem Classical.epsilon_elim {α : Sort u} {p q : α → Prop} (y : α) (hy : p y)
@@ -59,11 +57,11 @@ theorem IsLawfulUpper_NaN_mkNaN :
 @[simp]
 theorem isLawfulUpper_NaN_iff_isNaN (x : PackedFloat e s) :
    SmtLibSemantics.IsLawfulUpper ExtRat.NaN x ↔ x.isNaN := by
-  simp only [SmtLibSemantics.IsLawfulUpper, SmtLibSemantics.smtLibV_embed_eq,
+  simp [SmtLibSemantics.IsLawfulUpper,
     PackedFloat.toExtRat_eq_toExtRat', ExtRat.ge_eq_le_symm, ExtRat.ExtRat.NaN_le_iff,
-    PackedFloat.toExtRat'_eq_NaN_iff_isNaN, Bool.decide_eq_true, and_iff_left_iff_imp]
-  intros hx upper
-  simp [hx]
+    PackedFloat.toExtRat'_eq_NaN_iff_isNaN, PackedFloat.le_iff_eq_of_isNaN']
+  intro hx upper' hupper'
+  exact (PackedFloat.le_iff_eq_of_isNaN' x upper' hupper').mpr hx
 
 @[simp]
 theorem isNaN_upper_NaN :

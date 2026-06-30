@@ -128,6 +128,10 @@ structure RoundableLower (X : Type) (R : Type) where
 instance  : RoundableEmbed (PackedFloat e s) ExtRat where
   embed (x : PackedFloat e s) : ExtRat := x.toExtRat
 
+@[simp]
+theorem RoundableEmbed.embed_packedFloat_eq (x : PackedFloat e s) :
+    (RoundableEmbed.embed x : ExtRat) = x.toExtRat := rfl
+
 
 /-- A rounding adjunction is a triple (lower, embed, upper), where
 `lower` and `upper` compute the lower and upper approximants of `embed`. -/
