@@ -37,7 +37,7 @@ theorem toRat'_eq_zero_iff_isZero (uf : UnpackedFloat e s) (prec : Nat) :
   simp [toRat']
   simp [UnpackedFloat.isZero]
   grind only [= BitVec.toNat_zero, = BitVec.ofNat_toNat, = BitVec.getElem_zero,
-    = BitVec.getElem_setWidth, = BitVec.getLsbD_eq_getElem, #b51e, #2e5b]
+    = BitVec.getElem_setWidth, = BitVec.getLsbD_eq_getElem ]
 
 @[simp, grind =>]
 theorem toRat'_ne_zero_iff_not_isZero (uf : UnpackedFloat e s) :

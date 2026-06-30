@@ -38,32 +38,16 @@ theorem Rat.abs_neg_eq (x : Rat) : (-x).abs = x.abs := by
 
 theorem Rat.abs_mul_pos {x w : Rat} (hw : 0 < w) : (x * w).abs = x.abs * w := by
   unfold Rat.abs
-  by_cases hx : x < 0
-  · have hxw : x * w < 0 := by
+  by_cases hx : 0 ≤ x
+  · have hxw : 0 ≤ x * w := Rat.mul_nonneg hx (Rat.le_of_lt hw)
+    rw [if_pos hx, if_pos hxw]
+  · have hxw : ¬ 0 ≤ x * w := by
       have h : 0 ≤ (-x) * w := Rat.mul_nonneg (by grind) (Rat.le_of_lt hw)
       grind
-    rw [if_pos hxw, if_pos hx, Rat.neg_mul]
-  · have hx' : 0 ≤ x := by grind
-    have hxw : ¬ (x * w < 0) := by
-      have h : 0 ≤ x * w := Rat.mul_nonneg hx' (Rat.le_of_lt hw)
-      grind
-    rw [if_neg hxw, if_neg hx]
+    rw [if_neg hx, if_neg hxw, Rat.neg_mul]
 
 theorem Rat.abs_div_pos {x w : Rat} (hw : 0 < w) : (x / w).abs = x.abs / w := by
-  unfold Rat.abs
-  by_cases hx : x < 0
-  · have hxw : x / w < 0 := by
-      have h : 0 ≤ (-x) / w := by
-        rw [Rat.div_def]; exact Rat.mul_nonneg (by grind) (by grind [Rat.inv_pos])
-      have : (-x) / w = -(x / w) := by rw [Rat.div_def, Rat.div_def]; grind
-      grind
-    rw [if_pos hxw, if_pos hx]
-    rw [Rat.div_def, Rat.div_def]; grind
-  · have hx' : 0 ≤ x := by grind
-    have hxw : ¬ (x / w < 0) := by
-      have h : 0 ≤ x / w := by rw [Rat.div_def]; exact Rat.mul_nonneg hx' (by grind [Rat.inv_pos])
-      grind
-    rw [if_neg hxw, if_neg hx]
+  rw [Rat.div_def, Rat.div_def, Rat.abs_mul_pos (Rat.inv_pos.mpr hw)]
 
 /-- If the integer numerator `A − B·Y` lies strictly within `(−Y, Y)`, the
 rational `(A − B·Y)/Y` has absolute value below one. -/

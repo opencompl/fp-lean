@@ -31,7 +31,7 @@ theorem toNat_lsbIndex_eq_succ (hep : 1 < ep) (hsp : 0 < sp)
   · simp only [hminNormal]
     split
     case isTrue h =>
-      grind only [= Int.toNat_neg_eq_zero_of_nonpos, = Nat.mod_eq_of_lt, #37a5855c772b74a3]
+      grind only [= Int.toNat_neg_eq_zero_of_nonpos, = Nat.mod_eq_of_lt]
     case isFalse h => grind only [= Nat.mod_eq_of_lt]
   · grind only
   · rw [toInt_ofInt_minNormalExp_eq_minNormalExp_of_le hep hsp heu]; grind only

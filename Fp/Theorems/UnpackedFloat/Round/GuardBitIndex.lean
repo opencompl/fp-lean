@@ -79,7 +79,7 @@ theorem UnpackedFloat.toNat_lsbIndex_eq (hep : 1 < ep) (hsp : 0 < sp)
   · simp only [hminNormal]
     split
     case isTrue h =>
-      grind only [= Int.toNat_neg_eq_zero_of_nonpos, = Nat.mod_eq_of_lt, #37a5855c772b74a3]
+      grind only [= Int.toNat_neg_eq_zero_of_nonpos, = Nat.mod_eq_of_lt]
     case isFalse h =>
       grind only [= Nat.mod_eq_of_lt]
   · grind only

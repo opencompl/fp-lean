@@ -165,7 +165,7 @@ instance {P : UnpackedFloat e s → Prop}
   cases hp : decideProp (fun sign ex sig => P (UnpackedFloat.mk sign ex sig))
   case isFalse h => exact isFalse (by
     simp at h ⊢
-    grind only [#f34e]
+    grind
   )
   case isTrue h => exact isTrue (by
     intro x
@@ -185,8 +185,8 @@ instance {P : UnpackedFloat e s → Prop}
     simp at h ⊢
     intros x
     rcases x with ⟨rfl | rfl, ex, sig⟩
-    · grind only [#b5c5]
-    · grind only [#b5c5]
+    · grind
+    · grind
   )
   case isTrue h => exact isTrue (by
     obtain ⟨sign, ex, sig, h⟩ := h

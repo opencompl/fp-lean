@@ -448,7 +448,7 @@ theorem classification {P : PackedFloat e s → Prop}
       · by_cases h4 : x.isNonzeroSubnorm
         · grind
         · by_cases h5 : x.isNorm
-          · grind only [→ isNormOrSubnorm_of_isNorm, #d1e2]
+          · grind only [→ isNormOrSubnorm_of_isNorm]
           · grind only
 
 end PackedFloat

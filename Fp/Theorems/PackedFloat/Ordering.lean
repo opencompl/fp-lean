@@ -485,7 +485,7 @@ theorem sign_eq_sign_of_toExtRat_eq_toExtRat_of_not_isNaN_not_isZero  (hs : 0 < 
     PackedFloat.isNorm_of_not_isNaN_of_not_isInfinity_of_not_isZero_isNonzeroSubnorm,
     → isNormOrSubnorm_of_isNorm, eq_getInfinity_iff_isInfinity,
     = isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero,
-    isNormOrSubnorm_eq_isNorm_or_isSubnorm, !toExtRat'_getInfinity, !isInfinite_getInfinity, #1df7]
+    isNormOrSubnorm_eq_isNorm_or_isSubnorm, !toExtRat'_getInfinity, !isInfinite_getInfinity ]
 
 
 /--
@@ -500,8 +500,7 @@ theorem sign_eq_false_of_zero_lt (x z : PackedFloat e s)
     not_le_of_sign_eq_false_of_sign_eq_true, le_antisymm_of_ne_NaN, le_of_lt,
     eq_getInfinity_iff_isInfinity, le_eq_of_sign_eq_true_of_sign_eq_true, ex_eq_of_isZero,
     = BitVec.toNat_ofNat, = BitVec.toNat_zero, = sig_getZero, = BitVec.ofNat_eq_ofNat,
-    usr BitVec.isLt, => PackedFloat.getInfinity_true_le_of_not_isNaN, #dc3ec9ab964d6921,
-    #af0af811d666fbae, #1df7, #9dc9]
+    usr BitVec.isLt, => PackedFloat.getInfinity_true_le_of_not_isNaN ]
 
 /--
 A number that's strictly smaller than zero is negative.
@@ -515,8 +514,7 @@ theorem sign_eq_true_of_lt_zero (x z : PackedFloat e s)
     not_le_of_sign_eq_false_of_sign_eq_true, le_antisymm_of_ne_NaN, le_of_lt,
     eq_getInfinity_iff_isInfinity, le_eq_of_sign_eq_true_of_sign_eq_true, ex_eq_of_isZero,
     = BitVec.toNat_ofNat, = BitVec.toNat_zero, = sig_getZero, = BitVec.ofNat_eq_ofNat,
-    usr BitVec.isLt, => PackedFloat.getInfinity_true_le_of_not_isNaN, #dc3ec9ab964d6921,
-    #af0af811d666fbae, #1df7, #9dc9]
+    usr BitVec.isLt, => PackedFloat.getInfinity_true_le_of_not_isNaN ]
 
 
 /--
@@ -579,16 +577,14 @@ theorem toExtRat'_lt_toExtRat'_of_lt (he : 0 < e) (hs : 0 < s)
       = isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero,
       isNormOrSubnorm_eq_isNorm_or_isSubnorm,
       PackedFloat.isNorm_of_not_isNaN_of_not_isInfinity_of_not_isZero_isNonzeroSubnorm,
-      eq_getInfinity_iff_isInfinity, !toExtRat'_getInfinity, !isInfinite_getInfinity, #3cf6, #d176,
-      #9085, #b00e, #1ffb]
+      eq_getInfinity_iff_isInfinity, !toExtRat'_getInfinity, !isInfinite_getInfinity ]
     have : x.sig = y.sig := by grind only [=> isNaN_iff_ex_eq_sig_eq,
       => not_isNaN_iff_ex_ne_or_sig_ne, ne_of_lt, = toExtRat'_eq_Infinity_of_isInfinite,
       = toExtRat'_eq_toRat_of, sig_eq_and_ex_eq_of_toRat_eq,
       = isNormOrNonzeroSubnorm_of_not_NaN_not_Infinite_not_Zero,
       isNormOrSubnorm_eq_isNorm_or_isSubnorm,
       PackedFloat.isNorm_of_not_isNaN_of_not_isInfinity_of_not_isZero_isNonzeroSubnorm,
-      eq_getInfinity_iff_isInfinity, !toExtRat'_getInfinity, !isInfinite_getInfinity, #7328, #1059,
-      #5c26, #b00e, #9276, #b246, #063f]
+      eq_getInfinity_iff_isInfinity, !toExtRat'_getInfinity, !isInfinite_getInfinity ]
     have : x = y := by
       ext
       · grind only
@@ -762,7 +758,7 @@ theorem le_of_ex_le_ex_or_sig_le_sig_of_nonneg_of_nonneg (a b : PackedFloat e s)
   a ≤ b ↔ a.ex.toNat < b.ex.toNat ∨ (a.ex.toNat = b.ex.toNat ∧ a.sig.toNat ≤ b.sig.toNat) := by
   rw [← PackedFloat.le_def]
   simp [PackedFloat.le, hasign, hbsign, hanan, hbnan]
-  grind only [BitVec.toNat_inj, #c695bb6e572d0f9f]
+  grind only [BitVec.toNat_inj]
 
 /--
 Packed floats are less than each other if the tuple (exponent, significand)
@@ -773,7 +769,7 @@ theorem le_of_ex_le_ex_or_sig_le_sig_of_neg_of_neg (a b : PackedFloat e s)
   a ≤ b ↔ b.ex.toNat < a.ex.toNat ∨ (b.ex.toNat = a.ex.toNat ∧ b.sig.toNat ≤ a.sig.toNat) := by
   rw [← PackedFloat.le_def]
   simp [PackedFloat.le, hasign, hbsign, hanan, hbnan]
-  grind only [BitVec.toNat_inj, #8f52c9ba759470ab]
+  grind only [BitVec.toNat_inj]
 
 @[simp, grind .]
 theorem le_of_nonneg_of_neg (a b : PackedFloat e s)
@@ -1037,7 +1033,7 @@ theorem PackedFloat.maxSubnormalNumber_le_minNormalNumber_of_nonneg (he : 1 < e)
   (PackedFloat.maxSubnormalNumber e s false ≤ PackedFloat.minNormalNumber e s false) := by
   rw [PackedFloat.le_of_ex_le_ex_or_sig_le_sig_of_nonneg_of_nonneg]
   · simp
-    grind only [= Nat.mod_eq_of_lt, !Nat.two_pow_pos, usr Nat.div_pow_of_pos, #56f6]
+    grind only [= Nat.mod_eq_of_lt, !Nat.two_pow_pos, usr Nat.div_pow_of_pos]
   · simp
   · simp
   · have := isNonzeroSubnorm_maxSubnormalNumber_eq_decide e s false
@@ -1071,7 +1067,7 @@ theorem toNat_ex_le_of_isNormOrNonzeroSubnorm (x : PackedFloat e s)
     apply BitVec.eq_of_toNat_eq
     simp; grind
   have : x.ex.toNat ≤ 2 ^ e - 1 := by grind only [!Nat.two_pow_pos, usr BitVec.isLt]
-  grind only [!Nat.two_pow_pos, usr BitVec.isLt, #11341de38214aa15]
+  grind only [!Nat.two_pow_pos, usr BitVec.isLt]
 
 /--
 The exponent of a nonzero number is ≤ the exponent of the max normal number.
@@ -1653,13 +1649,13 @@ theorem le_of_toExtRat'_le_toExtRat'
       grind only [not_eq_of_not_le, → not_isInfinite_of_isNaN, → eq_mkZero_of_isZero,
         eq_getInfinity_iff_isInfinity, !toExtRat'_getInfinity, !isInfinite_getInfinity,
         = toExtRat'_eq_Infinity_of_isInfinite, = sign_getZero, eq_mkZero_of_isZero',
-        getZero_le_of_nonneg, #d3f8, #f757]
+        getZero_le_of_nonneg ]
     · grind only [le_of_lt, isZero_lt_of_nonneg_of_not_isZero]
   · by_cases hyzero : y.isZero
     · simp [hyzero, hxzero] at hxy
       grind only [→ eq_mkZero_of_isZero, le_eq_of_sign_eq_false_of_sign_eq_false,
         le_eq_of_sign_eq_true_of_sign_eq_true, le_of_nonneg_of_neg, ex_eq_of_isZero,
-        = BitVec.toNat_zero, = sig_getZero, = BitVec.ofNat_eq_ofNat, #d3f8, #2af0]
+        = BitVec.toNat_zero, = sig_getZero, = BitVec.ofNat_eq_ofNat ]
     · by_cases hxsign : x.sign
       · -- x -ve
         by_cases hysign : y.sign
@@ -1748,7 +1744,7 @@ theorem lt_iff_toExtRat'_lt_toExtRat'_of_not_isZero_or_not_isZero
           PackedFloat.not_lt_of_nonneg_of_neg, → eq_mkZero_of_isZero, le_of_lt,
           le_antisymm_of_ne_NaN, le_eq_of_sign_eq_true_of_sign_eq_true, ex_eq_of_isZero,
           = zero_ne_allOnes_eq_decide, BitVec.toNat_inj, = BitVec.toNat_zero, = sig_getZero,
-          = BitVec.ofNat_eq_ofNat, #f757, #ec28, #b00e, #9276, #e5e2]
+          = BitVec.ofNat_eq_ofNat ]
     · by_cases hyzero : y.isZero
       · simp [hyzero]
         grind only [not_eq_of_not_le, ne_of_lt, le_of_lt, le_antisymm_of_ne_NaN,

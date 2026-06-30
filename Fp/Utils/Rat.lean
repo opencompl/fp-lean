@@ -7,9 +7,6 @@ import Fp.Grind
 open Lean
 
 
-/-- Absolute value of a rational number. -/
-def Rat.abs (r : Rat) : Rat := if r < 0 then -r else r
-
 def Rat.ofNat (n : Nat) : Rat := Rat.ofInt (n : Int)
 
 attribute [grind! .] Nat.two_pow_pos
@@ -147,7 +144,7 @@ theorem Rat.div_lt_div_self {a b c : Rat} (hc : 0 < c) :
 theorem Rat.add_le_iff_le {a b c : Rat} : a + c ≤ b + c ↔ a ≤ b := by
   grind
 
-  @[simp]
+@[simp]
 theorem Rat.add_le_iff_le' {a b c : Rat} : c + a ≤  c + b ↔ a ≤ b := by
   grind
 
@@ -778,9 +775,6 @@ theorem Rat.div_le_of_le_mul (a b c : Rat) (hc : 0 < c) (hle : a ≤ b * c) : a 
   · rw [show a * c⁻¹ * c = a by grind only]
     grind only
   · grind only
-@[simp]
-theorem Rat.add_lt_add_left {a b c : Rat} : c + a < c + b ↔ a < b := by
-  grind
 @[simp]
 theorem Rat.div_add_eq_div_add_div (a b c : Rat) : a / c + b / c = (a + b) / c := by
   grind

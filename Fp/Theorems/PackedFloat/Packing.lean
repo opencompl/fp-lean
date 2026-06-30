@@ -81,7 +81,7 @@ theorem toRat_sig_zero_eq_toRat_mkZero {uf : UnpackedFloat e s}
 
 theorem sigWidth_le_exponentWidth_sub_one : s ≤ 2 ^ (exponentWidth e s - 1) := by
   unfold exponentWidth
-  have : s ≤ (2 ^ (e - 1) + s - 1) := by grind only [Nat.pow_pos, #5690]
+  have : s ≤ (2 ^ (e - 1) + s - 1) := by grind only [Nat.pow_pos]
   have : 2 ^ (s.log2 + 2 - 1) ≤ 2 ^ ((2 ^ (e - 1) + s - 1).log2 + 2 - 1) := by
     apply Nat.pow_le_pow_of_le
     · decide
@@ -92,7 +92,7 @@ theorem sigWidth_le_exponentWidth_sub_one : s ≤ 2 ^ (exponentWidth e s - 1) :=
 
 theorem sigWidth_lt_exponentWidth_sub_one : s < 2 ^ (exponentWidth e s - 1) := by
   unfold exponentWidth
-  have : s ≤ (2 ^ (e - 1) + s - 1) := by grind only [Nat.pow_pos, #5690]
+  have : s ≤ (2 ^ (e - 1) + s - 1) := by grind only [Nat.pow_pos]
   have : 2 ^ (s.log2 + 2 - 1) ≤ 2 ^ ((2 ^ (e - 1) + s - 1).log2 + 2 - 1) := by
     apply Nat.pow_le_pow_of_le
     · decide
@@ -114,7 +114,7 @@ theorem expWidth_le_exponentWidth : e ≤ exponentWidth e s := by
 
 theorem sigWidth_add_bias_le_exponentWidth_sub_one : s + bias e ≤ 2 ^ (exponentWidth e s - 1) := by
   simp only [bias, exponentWidth]
-  grind only [!Nat.two_pow_pos, !Nat.log2_eq_iff, #569066451790c837, #ccfcc644d1be4e5b]
+  grind only [!Nat.two_pow_pos, !Nat.log2_eq_iff]
 
 -- theorem expWidth_lt_exponentWidth : e < exponentWidth e s := by
 --   unfold exponentWidth
@@ -129,16 +129,16 @@ theorem sigWidth_add_bias_le_exponentWidth_sub_one : s + bias e ≤ 2 ^ (exponen
 
 theorem bias_lt_exponentWidth : bias e < 2 ^ exponentWidth e s := by
   simp only [exponentWidth, bias]
-  grind only [!Nat.two_pow_pos, !Nat.log2_eq_iff, #569066451790c837, #ccfcc644d1be4e5b]
+  grind only [!Nat.two_pow_pos, !Nat.log2_eq_iff]
 
 theorem bias_lt_exponentWidth_sub_one : bias e < 2 ^ (exponentWidth e s - 1) := by
   simp only [exponentWidth, bias]
-  grind only [!Nat.two_pow_pos, !Nat.log2_eq_iff, #569066451790c837, #ccfcc644d1be4e5b]
+  grind only [!Nat.two_pow_pos, !Nat.log2_eq_iff]
 
 
 theorem sigWidth_add_one_lt_exponentWidth : s + 1 < 2 ^ exponentWidth e s := by
   unfold exponentWidth
-  grind only [!Nat.two_pow_pos, !Nat.log2_eq_iff, #569066451790c837, #ccfcc644d1be4e5b]
+  grind only [!Nat.two_pow_pos, !Nat.log2_eq_iff]
 
 
 theorem toRat'_normalize_eq_toRat' {uf : UnpackedFloat e s}
@@ -271,8 +271,8 @@ theorem minNormalExp_fits₁ : -2 ^ (exponentWidth e s - 1) ≤ minNormalExp e :
   simp only [Int.neg_le_neg_iff]
   norm_cast
   simp only [bias, exponentWidth]
-  grind only [!Nat.two_pow_pos, !Nat.log2_eq_iff, #569066451790c837, #542258ac646a68ca,
-    #ccfcc644d1be4e5b]
+  grind only [!Nat.two_pow_pos, !Nat.log2_eq_iff
+    ]
 
 theorem minNormalExp_fits₂ : minNormalExp e < 2 ^ (exponentWidth e s - 1) := by
   apply Int.lt_of_le_of_lt (b := 0)
@@ -336,8 +336,8 @@ theorem toExtRat_unpack_eq_toExtRat {pf : PackedFloat e s}
                   Int.natCast_pow, Int.cast_ofNat_Int, Int.neg_neg]
                 norm_cast
                 simp only [bias, exponentWidth]
-                grind only [usr Nat.pow_pos, !Nat.log2_eq_iff, #569066451790c837, #542258ac646a68ca,
-                  #ccfcc644d1be4e5b]
+                grind only [usr Nat.pow_pos, !Nat.log2_eq_iff
+                  ]
               · simp only [minNormalExp, Int.natCast_pow, Int.cast_ofNat_Int]
                 have : (2 ^ exponentWidth e s + 1) / (2 : Int) = 2 ^ (exponentWidth e s - 1) := by
                   cases exponentWidth e s <;> grind
@@ -521,7 +521,7 @@ theorem pack_isNaN_eq_isNaN (he : 1 < e) (hs : 0 < s)
     uf.pack'.isNaN = uf.isNaN := by
   have h1 := isNaN_pack'_of_isNaN uf
   have h2 := isNaN_of_isNaN_pack he hs uf
-  grind only [= PackedFloat.isNaN_iff_toExtRat'_eq_NaN, #9c18]
+  grind only [= PackedFloat.isNaN_iff_toExtRat'_eq_NaN]
 -/
 
 

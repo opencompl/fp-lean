@@ -19,26 +19,26 @@ instance {P : State → Prop} [∀ (s : State), Decidable (P s)] :
   if hnan : P .NaN then
     if hinf : P .Infinity then
       if hnum : P .Number then
-        isTrue (by grind only [#0000])
+        isTrue (by grind)
       else
-        isFalse (by grind only [#b4e6])
+        isFalse (by grind)
     else
-      isFalse (by grind only [#b4e6])
+      isFalse (by grind)
   else
-    isFalse (by grind only [#b4e6])
+    isFalse (by grind)
 
 instance {P : State → Prop} [∀ (s : State), Decidable (P s)] :
     Decidable (∃ (s : State), P s) :=
   if hnan : P .NaN then
-    isTrue (by grind only [#5c30])
+    isTrue (by grind)
   else
     if hinf : P .Infinity then
-      isTrue (by grind only [#5c30])
+      isTrue (by grind)
     else
       if hnum : P .Number then
-        isTrue (by grind only [#5c30])
+        isTrue (by grind)
       else
-        isFalse (by grind only [#0000])
+        isFalse (by grind)
 
 attribute [bv_normalize] State.eq_iff_enumToBitVec_eq
 
@@ -115,7 +115,7 @@ theorem bias_plus_bias_eq_twoPow_minus_two
     rw [Nat.pow_succ]
     grind only
   have : 1 ≤ 2 ^ (e - 1) := by exact Nat.one_le_two_pow
-  grind only [!Nat.two_pow_pos, #11341de38214aa15]
+  grind only [!Nat.two_pow_pos]
 
 theorem two_mul_bias_eq_twoPow_minus_two (e : Nat) (he : 1 < e) : 2 * bias e = 2 ^ e - 2 := by
   have := bias_plus_bias_eq_twoPow_minus_two e he
@@ -146,7 +146,7 @@ theorem bias_le_of_le {e1 e2 : Nat} (he : e1 ≤ e2) : bias e1 ≤ bias e2 := by
   have : 0 < 2 ^ (e2 - 1) := by grind only [!Nat.two_pow_pos]
   suffices 2 ^ (e1 - 1) ≤ 2 ^ (e2 - 1) by grind only
   apply Nat.pow_le_pow_of_le (by decide)
-  · grind only [#2ce3]
+  · grind
 
 /-- Bias is strictly monotone for exponents over 0. -/
 @[simp]
@@ -171,11 +171,9 @@ theorem bias_eq_bias_iff {e1 e2 : Nat}  :
   by_cases he1 : e1 ≤ 1 <;> by_cases he2 : e2 ≤ 1
   · simp [he1, he2]
   · simp [he1, he2]
-    grind => instantiate approx
+    grind
   · simp [he1, he2]
-    grind =>
-      instantiate approx
-      cases #70e3
+    grind
   · simp [he1, he2]
     constructor
     · intros heq
@@ -314,7 +312,7 @@ the exponentWidth is strictly larger than the exponent itself.
 theorem self_lt_exponentWidth (e s : Nat) (he : 1 < e) (hs : 0 < s) :
   e < exponentWidth e s := by
   simp [exponentWidth]
-  have : 0 < 2 ^ (e - 1) + s - 1 := by grind only [!Nat.two_pow_pos, #5690]
+  have : 0 < 2 ^ (e - 1) + s - 1 := by grind only [!Nat.two_pow_pos]
   have : e - 1 = (2 ^ (e - 1)).log2 := by
     exact Eq.symm Nat.log2_two_pow
   have : (2 ^ (e - 1)).log2 ≤ (2 ^ (e - 1) + s - 1).log2 := by
@@ -381,9 +379,9 @@ theorem toInt_ofNat_bias_eq_bias (he : 1 < e) (hs : 0 < s) :
   · rw [toNat_ofNat_bias_eq_bias he hs]
   · rw [toNat_ofNat_bias_eq_bias he hs]
     rw [bias, exponentWidth]
-    have := Nat.log2_eq_exists (n := 2 ^ (e - 1) + s - 1) (by grind only [!Nat.two_pow_pos, #5690])
+    have := Nat.log2_eq_exists (n := 2 ^ (e - 1) + s - 1) (by grind only [!Nat.two_pow_pos])
     obtain ⟨log, hlogeq, hloglt, hlogle⟩ := this
-    grind only [!Nat.two_pow_pos, #569066451790c837]
+    grind only [!Nat.two_pow_pos]
 /--
 The bound between bias and the exponent width: `bias e + 1 < 2 ^ (exponentWidth e s - 1)`.
 This is tight.
@@ -562,10 +560,10 @@ theorem neg_two_pow_exponentWidth_lt_minSubnormalExp {e : Nat} {s : Nat} (he : 1
   simp
   have hbias := bias_plus_one_lt_two_pow_exponentWidth_minus_one e s he hs
   rw [exponentWidth, bias] at hbias ⊢
-  have hlog := Nat.log2_eq_exists ((2 ^ (e - 1) + s - 1)) (by grind only [!Nat.two_pow_pos,
-      #569066451790c837])
+  have hlog := Nat.log2_eq_exists ((2 ^ (e - 1) + s - 1)) (by grind only [!Nat.two_pow_pos
+      ])
   obtain ⟨log, hlogeq, hloglt, hlogle⟩ := hlog -- log2 value.
-  grind only [!Nat.two_pow_pos, #569066451790c837]
+  grind only [!Nat.two_pow_pos]
 
 theorem minSubnormalExp_lt_two_pow_exponentWidth {e : Nat} {s : Nat} (he : 1 < e) (hs : 0 < s) :
     minSubnormalExp e s < 2 ^ (exponentWidth e s - 1) := by
@@ -577,10 +575,10 @@ theorem minSubnormalExp_lt_two_pow_exponentWidth {e : Nat} {s : Nat} (he : 1 < e
   simp
   have hbias := bias_plus_one_lt_two_pow_exponentWidth_minus_one e s he hs
   rw [exponentWidth, bias] at hbias ⊢
-  have hlog := Nat.log2_eq_exists ((2 ^ (e - 1) + s - 1)) (by grind only [!Nat.two_pow_pos,
-      #569066451790c837])
+  have hlog := Nat.log2_eq_exists ((2 ^ (e - 1) + s - 1)) (by grind only [!Nat.two_pow_pos
+      ])
   obtain ⟨log, hlogeq, hloglt, hlogle⟩ := hlog -- log2 value.
-  grind only [!Nat.two_pow_pos, #569066451790c837]
+  grind only [!Nat.two_pow_pos]
 
 @[simp, grind =]
 theorem toInt_ofInt_minSubnormalExp_eq_minSubnormalExp (he : 1 < e) (hs : 0 < s) :
@@ -638,8 +636,8 @@ theorem maxNormalExp_plus_bias_lt_two_pow_exponentWidth (hs : 0 < s) :
   simp [maxNormalExp, bias, exponentWidth]
   have : 0 < 2 ^ (e - 1) + s - 1 := by grind only [!Nat.two_pow_pos]
   have : 0 < s := hs
-  have : 0 < 2 ^ (e - 1) + s - 1 := by grind only [!Nat.two_pow_pos, #5690]
-  have hlog2 := Nat.log2_eq_exists (2 ^ (e - 1) + s - 1) (by grind only [!Nat.two_pow_pos, #569066451790c837])
+  have : 0 < 2 ^ (e - 1) + s - 1 := by grind only [!Nat.two_pow_pos]
+  have hlog2 := Nat.log2_eq_exists (2 ^ (e - 1) + s - 1) (by grind only [!Nat.two_pow_pos])
   obtain ⟨log, hlogeq, hloglt, hlogle⟩ := hlog2
   simp [hlogeq]
-  grind only [!Nat.two_pow_pos, #569066451790c837]
+  grind only [!Nat.two_pow_pos]

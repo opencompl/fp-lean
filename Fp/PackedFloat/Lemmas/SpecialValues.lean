@@ -115,7 +115,7 @@ theorem toRatExp_maxNormalNumber (e s : Nat) (he : 2 < e) (sign : Bool) :
   rw [BitVec.toNat_allOnes_sub_one_eq_twoPow_sub_two _ (by grind only)]
   grind =>
     instantiate approx
-    cases #1134
+    
 
 @[simp, grind .]
 theorem isNonzeroSubnorm_minSubnormalNumber_eq_decide

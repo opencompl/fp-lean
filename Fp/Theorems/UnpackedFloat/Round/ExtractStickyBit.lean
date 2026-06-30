@@ -62,7 +62,7 @@ theorem extractStickyBit_eq_false_iff
       x.sig.getLsbD i = false) := by
   have htrue := extractStickyBit_eq_true_iff hep hsp heu hsu x hdiffLower hdiffUpper hdiffNatLe
   rw [iff_iff_not_iff_not] at htrue
-  grind only [#da50, #0b53, #b326]
+  grind
 
 /--
 The sticky bit tracks whether there is a bit
@@ -83,10 +83,10 @@ theorem UnpackedFloat.blastExtractStickyBit_eq_decide
       x.sig.getLsbD i = true) := by
   by_cases hextract : x.blastExtractStickyBit ep sp = true
   · have := extractStickyBit_eq_true_iff hep hsp heu hsu x hdiffLower hdiffUpper hdiffNatLe
-    grind only [#46e5, #0b53]
+    grind
   · have := extractStickyBit_eq_true_iff hep hsp heu hsu x hdiffLower hdiffUpper hdiffNatLe
     simp at this
-    grind only [#46e5, #0b53]
+    grind
 
 /--
 info: 'Fp.UnpackedFloat.blastExtractStickyBit_eq_decide' depends on axioms: [propext, Classical.choice, Quot.sound]

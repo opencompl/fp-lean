@@ -48,9 +48,9 @@ theorem toExtRat_eq_toExtRat' {pf : PackedFloat e s}
     · rw [Rat.zpow_add (q := 2) (hq := by decide)]
       grind only
   · grind only [→ eq_mkZero_of_isZero, Rat.natCast_eq_zero_iff, = sig_getZero,
-    = BitVec.ofNat_eq_ofNat, = BitVec.toNat_zero, #a5422ce67b0854c8]
+    = BitVec.ofNat_eq_ofNat, = BitVec.toNat_zero ]
   · grind only [→ eq_mkZero_of_isZero, Rat.natCast_eq_zero_iff, = sig_getZero,
-    = BitVec.ofNat_eq_ofNat, = BitVec.toNat_zero, #a5422ce67b0854c8]
+    = BitVec.ofNat_eq_ofNat, = BitVec.toNat_zero ]
   · grind only [→ not_isNorm_of_isZero]
   · grind only [→ not_isNorm_of_isZero]
 

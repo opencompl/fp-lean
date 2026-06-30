@@ -70,7 +70,7 @@ instance {P : EUnpackedFloat e s → Prop}
   cases hp : decideProp (fun state num => P { state := state, num := num })
   case isFalse h => exact isFalse (by
     simp at h ⊢
-    grind only [#a55c]
+    grind
   )
   case isTrue h => exact isTrue (by
     intro x
