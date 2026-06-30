@@ -329,14 +329,14 @@ theorem IsLawfulLower_lower (e s : Nat) (he : 0 < e) (hs : 0 < s) (r : ExtRat) :
     · simp [hr, he, hs]
     · simp [hr]
       constructor
-      · simp only [smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat', ExtRat.ge_eq_le_symm]
+      · simp only [smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, PackedFloat.toExtRat_eq_toExtRat', ExtRat.ge_eq_le_symm]
         apply maxPackedFloatNaN_toExtRat'_le_of_toExtRat'_le
         · grind
         · intros x hx
           simp at hx
           grind only
       · intros x hx
-        simp only [smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat', ExtRat.ge_eq_le_symm] at hx
+        simp only [smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, PackedFloat.toExtRat_eq_toExtRat', ExtRat.ge_eq_le_symm] at hx
         apply le_maxPackedFloatNonNaN
         simp only [mem_lowerList_iff, Bool.not_eq_true, PackedFloat.toExtRat_eq_toExtRat']
         constructor
@@ -353,7 +353,7 @@ We know that that we have a lawful upper iff it's a lawful lower for the negated
 @[simp ←]
 theorem IsLawfulUpper_iff_IsLawfulLower_neg_neg (r : ExtRat) (x : PackedFloat e s) :
     SmtLibSemantics.IsLawfulUpper r x ↔ SmtLibSemantics.IsLawfulLower (-r) (-x) := by
-  simp only [IsLawfulUpper, smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
+  simp only [IsLawfulUpper, smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, PackedFloat.toExtRat_eq_toExtRat',
     ExtRat.ge_eq_le_symm, IsLawfulLower, PackedFloat.toExtRat'_neg]
   constructor
   · intros h
@@ -439,7 +439,7 @@ theorem IsLawfulLower_eq_NaN_of_isNaN (e s : Nat) (r : ExtRat) (x : PackedFloat 
     x.isNaN = true → r = .NaN := by
   intros hnan
   have hlower1 := hlower.1
-  simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
+  simp only [SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, PackedFloat.toExtRat_eq_toExtRat',
     ExtRat.ge_eq_le_symm] at hlower1
   simp [hnan] at hlower1
   grind
@@ -526,7 +526,7 @@ theorem IsLawfulUpper_eq_NaN_of_isNaN (e s : Nat) (r : ExtRat) (x : PackedFloat 
     x.isNaN = true → r = .NaN := by
   intros hnan
   have hupper1 := hupper.1
-  simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
+  simp only [SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, PackedFloat.toExtRat_eq_toExtRat',
     ExtRat.ge_eq_le_symm] at hupper1
   simp [hnan] at hupper1
   grind only
@@ -680,13 +680,13 @@ theorem smtLibLower_eq_self_of_eq_toExtRat_of_not_isNaN
   (SmtLibSemantics.smtLibLower.lower r : PackedFloat e s) = x := by
   have hlower := lsLawfulLower_smtLibLower e s he hs r
   have hlower1 := hlower.1
-  simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
+  simp only [SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, PackedFloat.toExtRat_eq_toExtRat',
     ExtRat.ge_eq_le_symm] at hlower1
 
   have hlower2 := hlower.2
   subst h
   specialize (hlower2 x)
-  simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
+  simp only [SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, PackedFloat.toExtRat_eq_toExtRat',
     ExtRat.ExtRat.le_refl, forall_const] at hlower2
   simp only [PackedFloat.toExtRat_eq_toExtRat']
   have : SmtLibSemantics.smtLibLower.lower x.toExtRat' ≤ x := by
@@ -903,7 +903,7 @@ theorem lower_toRat_le
     (hfin : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat e s).isNormOrNonzeroSubnorm) :
     (SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat e s).toRat ≤ r := by
   have hlow := (lsLawfulLower_smtLibLower e s he hs (ExtRat.Number r)).1
-  simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat'] at hlow
+  simp only [SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, PackedFloat.toExtRat_eq_toExtRat'] at hlow
   rw [PackedFloat.toExtRat'_eq_toRat_of hfin, ExtRat.ExtRat.num_le_num_iff] at hlow
   simpa using hlow
 
@@ -918,7 +918,7 @@ theorem le_upper_toRat
     (hfin : (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r) : PackedFloat e s).isNormOrNonzeroSubnorm) :
     r ≤ (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number r) : PackedFloat e s).toRat := by
   have hup := (isLawfulUpper_smtLibUpper e s he hs (ExtRat.Number r)).1
-  simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat'] at hup
+  simp only [SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, PackedFloat.toExtRat_eq_toExtRat'] at hup
   rw [PackedFloat.toExtRat'_eq_toRat_of hfin, ExtRat.ExtRat.num_le_num_iff] at hup
   simpa using hup
 

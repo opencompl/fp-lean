@@ -76,7 +76,7 @@ theorem roundRNE_eq_infinity_of_maxNormalExp_lt
     have hLH : ¬ ((SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV
         SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number r)) := by
       rw [SmtLibSemantics.smtLibRoundMethod.lowerHalf_eq]
-      simp only [SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.smtLibV_lower_eq, hL, hL1,
+      simp only [SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, SmtLibSemantics.smtLibV_lower_eq, hL, hL1,
         SmtLibSemantics.instExtendedRat.smtLibEq]
       rw [PackedFloat.toExtRat_eq_toExtRat', PackedFloat.toExtRat_eq_toExtRat',
         PackedFloat.toExtRat'_eq_toRat_of hfinN, PackedFloat.toExtRat'_eq_toRat_of hfinN1]
@@ -85,7 +85,7 @@ theorem roundRNE_eq_infinity_of_maxNormalExp_lt
     have hTB : ¬ ((SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV
         SmtLibSemantics.smtLibV).tieBreak (ExtRat.Number r)) := by
       rw [SmtLibSemantics.smtLibRoundMethod.tieBreak_eq]
-      simp only [SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.smtLibV_lower_eq,
+      simp only [SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, SmtLibSemantics.smtLibV_lower_eq,
         SmtLibSemantics.smtLibV_upper_eq, hL, hL1, hU, hU1]
       rw [PackedFloat.toExtRat_eq_toExtRat', PackedFloat.toExtRat_eq_toExtRat',
         PackedFloat.toExtRat_eq_toExtRat', PackedFloat.toExtRat_eq_toExtRat',
@@ -139,14 +139,14 @@ theorem roundRNE_eq_infinity_of_maxNormalExp_lt
     have hLH : ((SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV
         SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number r)) := by
       rw [SmtLibSemantics.smtLibRoundMethod.lowerHalf_eq]
-      simp only [SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.smtLibV_lower_eq, hL, hL1,
+      simp only [SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, SmtLibSemantics.smtLibV_lower_eq, hL, hL1,
         SmtLibSemantics.instExtendedRat.smtLibEq]
       rw [PackedFloat.toExtRat_eq_toExtRat', PackedFloat.toExtRat_eq_toExtRat',
         PackedFloat.toExtRat'_getInfinity hs, PackedFloat.toExtRat'_getInfinity hsp1]
     have hTB : ¬ ((SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV
         SmtLibSemantics.smtLibV).tieBreak (ExtRat.Number r)) := by
       rw [SmtLibSemantics.smtLibRoundMethod.tieBreak_eq]
-      simp only [SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.smtLibV_lower_eq,
+      simp only [SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, SmtLibSemantics.smtLibV_lower_eq,
         SmtLibSemantics.smtLibV_upper_eq, hL, hL1, hU, hU1]
       rw [PackedFloat.toExtRat_eq_toExtRat', PackedFloat.toExtRat_eq_toExtRat',
         PackedFloat.toExtRat_eq_toExtRat', PackedFloat.toExtRat_eq_toExtRat',
@@ -575,13 +575,13 @@ theorem roundRNE_eq_zero_of_lt_minNormalExp
     have hLH : (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV
         SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number r) := by
       rw [SmtLibSemantics.smtLibRoundMethod.lowerHalf_eq]
-      simp only [SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.smtLibV_lower_eq, hLsp, hLsp1,
+      simp only [SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, SmtLibSemantics.smtLibV_lower_eq, hLsp, hLsp1,
         SmtLibSemantics.instExtendedRat.smtLibEq]
       rw [hgz, hgz]
     have hTB : ¬ (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV
         SmtLibSemantics.smtLibV).tieBreak (ExtRat.Number r) := by
       rw [SmtLibSemantics.smtLibRoundMethod.tieBreak_eq]
-      simp only [SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.smtLibV_lower_eq,
+      simp only [SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, SmtLibSemantics.smtLibV_lower_eq,
         SmtLibSemantics.smtLibV_upper_eq, hLsp, hLsp1, hUsp, hUsp1]
       rw [hgz, hgz, hms _ _ hs, hms _ _ hsp1]
       have h1 : ¬ ((ExtRat.Number 0 : ExtRat) < ExtRat.Number 0) := by simp
@@ -617,7 +617,7 @@ theorem roundRNE_eq_zero_of_lt_minNormalExp
     have hLH : ¬ (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV
         SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number r) := by
       rw [SmtLibSemantics.smtLibRoundMethod.lowerHalf_eq]
-      simp only [SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.smtLibV_lower_eq, hLsp, hLsp1,
+      simp only [SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, SmtLibSemantics.smtLibV_lower_eq, hLsp, hLsp1,
         SmtLibSemantics.instExtendedRat.smtLibEq]
       rw [hms _ _ hs, hms _ _ hsp1, hmt _ hs, hmt _ hsp1]
       simp only [ExtRat.Number.injEq]
@@ -625,7 +625,7 @@ theorem roundRNE_eq_zero_of_lt_minNormalExp
     have hTB : ¬ (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV
         SmtLibSemantics.smtLibV).tieBreak (ExtRat.Number r) := by
       rw [SmtLibSemantics.smtLibRoundMethod.tieBreak_eq]
-      simp only [SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.smtLibV_lower_eq,
+      simp only [SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, SmtLibSemantics.smtLibV_lower_eq,
         SmtLibSemantics.smtLibV_upper_eq, hLsp, hLsp1, hUsp, hUsp1]
       rw [hgz, hgz, hms _ _ hs, hms _ _ hsp1, hmt _ hs, hmt _ hsp1]
       have h1 : (ExtRat.Number (-(PackedFloat.minSubnormalNumber ep sp false).toRat)
