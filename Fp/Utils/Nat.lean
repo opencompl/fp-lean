@@ -126,3 +126,19 @@ theorem Int.neg_natCast_ediv_eq (a d : Nat) (hd : 0 < d) :
   have h2 : (-(a : Int)) / (d : Int) < -(((a + d - 1) / d : Nat) : Int) + 1 := by
     rw [Int.ediv_lt_iff_lt_mul hdI]; grind
   omega
+
+/-- Capping a right shift at `cap` changes neither the floor `a / 2^Δ` nor the ceiling
+`(a + 2^Δ - 1)/2^Δ` of `a`, provided `0 < a < 2^cap` (so when `Δ ≥ cap` both saturate: floor `= 0`,
+ceil `= 1`). Used to fold the `s+3` shift cap away in the addition aligned-sum value lemma. -/
+theorem div_cap_eq (a Δ cap : Nat) (hpos : 0 < a) (ha : a < 2 ^ cap) :
+    a / 2 ^ (min Δ cap) = a / 2 ^ Δ
+  ∧ (a + 2 ^ (min Δ cap) - 1) / 2 ^ (min Δ cap) = (a + 2 ^ Δ - 1) / 2 ^ Δ := by
+  rcases (by grind : Δ ≤ cap ∨ cap < Δ) with hle | hgt
+  · rw [Nat.min_eq_left hle]; exact ⟨rfl, rfl⟩
+  · rw [Nat.min_eq_right (Nat.le_of_lt hgt)]
+    have haΔ : a < 2 ^ Δ := Nat.lt_of_lt_of_le ha (Nat.pow_le_pow_right (by grind) (Nat.le_of_lt hgt))
+    have hac : a / 2 ^ cap = 0 := Nat.div_eq_of_lt ha
+    have haΔ0 : a / 2 ^ Δ = 0 := Nat.div_eq_of_lt haΔ
+    have hcc : (a + 2 ^ cap - 1) / 2 ^ cap = 1 := Nat.div_eq_of_lt_le (by grind) (by grind)
+    have hcΔ : (a + 2 ^ Δ - 1) / 2 ^ Δ = 1 := Nat.div_eq_of_lt_le (by grind) (by grind)
+    exact ⟨by rw [hac, haΔ0], by rw [hcc, hcΔ]⟩
