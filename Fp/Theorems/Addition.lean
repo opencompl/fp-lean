@@ -575,6 +575,60 @@ theorem UnpackedFloat.addSmall_sig_le_addBig_sig_of_ex_eq {e s : Nat} (x y : Unp
   · simp only [cond_true]
     have h := hu; rw [BitVec.ult, decide_eq_true_eq] at h; exact Nat.le_of_lt h
 
+/-- The swap orders by exponent: the absolute exponent difference equals `bigEx − smallEx ≥ 0`. -/
+theorem UnpackedFloat.absExpDiff_toNat_eq {e s : Nat} (x y : UnpackedFloat e s) (he : 0 < e) :
+    ((UnpackedFloat.addAbsExpDiff x y).toNat : Int)
+      = (UnpackedFloat.addBig x y).ex.toInt - (UnpackedFloat.addSmall x y).ex.toInt := by
+  have hxr := BitVec.toInt_lt (x := x.ex); have hxl := BitVec.le_toInt x.ex
+  have hyr := BitVec.toInt_lt (x := y.ex); have hyl := BitVec.le_toInt y.ex
+  have he1 : (2:Int) ^ (e + 1) = 2 ^ e * 2 := by rw [Int.pow_succ]
+  have he0 : (2:Int) ^ e = 2 ^ (e - 1) * 2 := by
+    rw [show e = (e - 1) + 1 by omega, Int.pow_succ]; rw [show e-1+1 = e by omega]
+  have hed : (UnpackedFloat.addExpDiff x y).toInt = x.ex.toInt - y.ex.toInt := by
+    unfold UnpackedFloat.addExpDiff
+    rw [BitVec.toInt_sub, BitVec.toInt_signExtend_of_le (by omega : e ≤ e + 1),
+      BitVec.toInt_signExtend_of_le (by omega : e ≤ e + 1)]
+    apply Int.bmod_eq_of_le <;> (push_cast; omega)
+  -- |x.ex − y.ex|, expressed as a `bif` on the sign bit
+  have habsI : (UnpackedFloat.addAbsExpDiff x y).toInt
+      = bif (UnpackedFloat.addExpDiff x y).msb then y.ex.toInt - x.ex.toInt
+        else x.ex.toInt - y.ex.toInt := by
+    unfold UnpackedFloat.addAbsExpDiff
+    cases hm : (UnpackedFloat.addExpDiff x y).msb
+    · simp only [cond_false, hed]
+    · simp only [cond_true]
+      have hneg : (UnpackedFloat.addExpDiff x y).toInt < 0 := BitVec.toInt_neg_of_msb_true hm
+      rw [hed] at hneg
+      rw [BitVec.toInt_neg, hed]
+      rw [show -(x.ex.toInt - y.ex.toInt) = y.ex.toInt - x.ex.toInt from by omega]
+      apply Int.bmod_eq_of_le <;> (push_cast; omega)
+  -- bigEx − smallEx, a `bif` on the swap condition
+  have hbigI : (UnpackedFloat.addBig x y).ex.toInt - (UnpackedFloat.addSmall x y).ex.toInt
+      = bif UnpackedFloat.addSwapCond x y then y.ex.toInt - x.ex.toInt else x.ex.toInt - y.ex.toInt := by
+    unfold UnpackedFloat.addBig UnpackedFloat.addSmall
+    cases UnpackedFloat.addSwapCond x y <;> simp
+  -- relate the two `bif`s through the swap condition, then drop down to `toNat`
+  have hnn : 0 ≤ (UnpackedFloat.addAbsExpDiff x y).toInt := by
+    rw [habsI]; cases hm : (UnpackedFloat.addExpDiff x y).msb
+    · have : 0 ≤ (UnpackedFloat.addExpDiff x y).toInt := BitVec.toInt_nonneg_of_msb_false hm
+      rw [hed] at this; simp; omega
+    · have : (UnpackedFloat.addExpDiff x y).toInt < 0 := BitVec.toInt_neg_of_msb_true hm
+      rw [hed] at this; simp; omega
+  rw [← BitVec.toInt_eq_toNat_of_toInt_nonneg _ hnn, habsI, hbigI]
+  unfold UnpackedFloat.addSwapCond
+  cases hm : (UnpackedFloat.addExpDiff x y).msb
+  · -- !msb branch: swap = (absExpDiff == 0 && x.sig.ult y.sig)
+    simp only [Bool.false_or, cond_false]
+    cases hc : (UnpackedFloat.addAbsExpDiff x y == 0) && x.sig.ult y.sig
+    · simp only [cond_false]
+    · simp only [cond_true]
+      -- swap true requires absExpDiff = 0, i.e. x.ex.toInt = y.ex.toInt
+      rw [Bool.and_eq_true] at hc
+      have h0 : UnpackedFloat.addAbsExpDiff x y = 0 := by simpa using hc.1
+      have : (UnpackedFloat.addAbsExpDiff x y).toInt = 0 := by rw [h0]; simp
+      rw [habsI] at this; simp only [hm, cond_false] at this; omega
+  · simp only [Bool.true_or, cond_true]
+
 /-- **Lemma A (circuit form)** — the aligned signed significand sum as a `Nat`. Same sign ⇒
 `bigS·4 + ⌊smallS·4 / 2^d⌋`; diff sign ⇒ `bigS·4 − ⌈smallS·4 / 2^d⌉`, with `d = addShiftAmount.toNat`.
 Instantiates `aligned_toNat` on the circuit's named pieces; `hdom` is discharged via
