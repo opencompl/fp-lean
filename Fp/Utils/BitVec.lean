@@ -824,3 +824,13 @@ theorem ofBool_setWidth_toInt {e : Nat} (he : 0 < e) (β : Bool) :
   have he1 : (2:Int) ^ (e + 1) = 2 ^ e * 2 := by rw [Int.pow_succ]
   have hb0 : (0:Int) ≤ (β.toNat : Int) := by exact_mod_cast Nat.zero_le _
   apply Int.bmod_eq_of_le <;> push_cast <;> omega
+
+/-- A single boolean bit widened to `≥ 2` bits has a clear top bit: its value is `≤ 1 < 2^(w-1)`. -/
+theorem BitVec.msb_setWidth'_ofBool_eq_false {w : Nat} (hw : 2 ≤ w) (b : Bool) (h : 1 ≤ w) :
+    ((BitVec.ofBool b).setWidth' h : BitVec w).msb = false := by
+  rw [BitVec.msb_eq_decide, BitVec.toNat_setWidth', BitVec.toNat_ofBool]
+  have h1 : b.toNat ≤ 1 := Bool.toNat_le b
+  have h2 : 1 < 2 ^ (w - 1) := by
+    have : 2 ^ 1 ≤ 2 ^ (w - 1) := Nat.pow_le_pow_right (by grind) (by grind)
+    grind
+  grind

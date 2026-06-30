@@ -138,6 +138,18 @@ theorem UnpackedFloat.stickyEquiv_add {e s : Nat} (x y : UnpackedFloat e s)
     StickyEquiv ((x.add y).toExpInt) ((x.add y).toRat) (x.toRat + y.toRat) := by
   sorry
 
+/-- The cancellation-renormalisation step (`bif !uf.sig.msb then uf.normalize else uf`) yields a
+result with msb set exactly when the input significand is nonzero: if the msb is already set there is
+nothing to do, otherwise `normalize` sets it (`msb_normalize_eq_decide`). -/
+theorem UnpackedFloat.msb_cond_normalize_of_sig_ne_zero {e s : Nat} (uf : UnpackedFloat e s)
+    (zsign : Bool) (h : uf.sig ≠ 0#s) :
+    (bif !uf.sig.msb then uf.normalize zsign else uf).sig.msb = true := by
+  cases huf : uf.sig.msb
+  · simp only [huf, Bool.not_false, cond_true]
+    rw [UnpackedFloat.msb_normalize_eq_decide]
+    simp [h]
+  · simp [huf]
+
 /--
 **The addition circuit produces a normalized result** (for normalized inputs
 with nonzero exact sum).
@@ -159,7 +171,53 @@ theorem UnpackedFloat.msb_add_eq_true {e s : Nat} (x y : UnpackedFloat e s)
     (hx : x.sig.msb = true) (hy : y.sig.msb = true)
     (hne : x.toRat + y.toRat ≠ 0) :
     (x.add y).sig.msb = true := by
-  sorry
+  -- Tame the bif-heavy circuit: keep every `let` named (`extract_lets`), resolve the operand swap
+  -- by casing its condition (zeta off so the inner `let`s survive), then both branches share one
+  -- tactic block referring only to the named intermediates.
+  unfold UnpackedFloat.add
+  extract_lets expDiff absExpDiff shiftAmount
+  cases hc : expDiff.msb || (absExpDiff == 0 && x.sig.ult y.sig) <;>
+    simp (config := { zeta := false }) only [hc, cond_true, cond_false]
+  all_goals
+    extract_lets xSig ySig0 ySig sigSum sticky sum normSum
+    -- Strip the sticky OR (it never clears the top bit) and collapse the normalize via the general
+    -- `msb_cond_normalize` lemma, reducing the goal to `sum.sig ≠ 0`.
+    show (normSum.sig ||| (BitVec.ofBool sticky).setWidth' (by omega)).msb = true
+    rw [BitVec.msb_or, BitVec.msb_setWidth'_ofBool_eq_false (by omega), Bool.or_false]
+    apply UnpackedFloat.msb_cond_normalize_of_sig_ne_zero
+    show sum.sig ≠ 0#(s + 2)
+    -- Bridge `sum.sig = truncate(s+2)(sigSum >>> ofBool sigSum.msb) ≠ 0` to `sigSum ≠ 0`.
+    suffices hss : sigSum ≠ 0#(s + 3) by
+      show BitVec.truncate (s + 2) (sigSum >>> BitVec.ofBool sigSum.msb) ≠ 0#(s + 2)
+      rw [show (sigSum >>> BitVec.ofBool sigSum.msb)
+            = sigSum >>> (BitVec.ofBool sigSum.msb).toNat from rfl,
+        Ne, BitVec.toNat_eq, BitVec.truncate_eq_setWidth, BitVec.toNat_setWidth,
+        BitVec.toNat_ushiftRight, BitVec.toNat_ofBool, BitVec.toNat_ofNat, Nat.zero_mod]
+      have hlt : sigSum.toNat < 2 ^ (s + 3) := sigSum.isLt
+      have hne' : sigSum.toNat ≠ 0 := by rw [Ne, BitVec.toNat_eq] at hss; simpa using hss
+      cases hm : sigSum.msb
+      · have hlo : sigSum.toNat < 2 ^ (s + 2) := by
+          have h := hm; rw [BitVec.msb_eq_decide] at h
+          simp only [decide_eq_false_iff_not, Nat.not_le, show s + 3 - 1 = s + 2 from rfl] at h
+          exact h
+        simp only [hm, Bool.toNat_false, Nat.shiftRight_zero, Nat.mod_eq_of_lt hlo]
+        exact hne'
+      · have hge : 2 ^ (s + 2) ≤ sigSum.toNat := by
+          have h := hm; rw [BitVec.msb_eq_decide] at h
+          simp only [decide_eq_true_eq, show s + 3 - 1 = s + 2 from rfl] at h
+          exact h
+        simp only [hm, Bool.toNat_true, Nat.shiftRight_succ, Nat.shiftRight_zero]
+        have h1 : 2 ^ (s + 1) ≤ sigSum.toNat / 2 := by
+          rw [Nat.le_div_iff_mul_le (by decide)]; rw [Nat.pow_succ] at hge ⊢; omega
+        have h2 : sigSum.toNat / 2 < 2 ^ (s + 2) := by
+          rw [Nat.div_lt_iff_lt_mul (by decide)]; rw [Nat.pow_succ] at hlt; omega
+        rw [Nat.mod_eq_of_lt h2]
+        have := Nat.two_pow_pos (s + 1); omega
+    -- Remaining core (shared with Phase C `stickyEquiv_add`): the aligned signed significand sum is
+    -- nonzero. Same sign ⇒ `sigSum ≥ 2^(s+1)`; different sign with equal exponents ⇒ full
+    -- cancellation means `x = y.neg`, excluded by `hne`; different sign with a shift ⇒ the larger
+    -- operand's leading bit survives. TODO: discharge via the `addSigSum` magnitude bounds.
+    sorry
 
 /-! ## Layer 5: exact-cancellation detection -/
 
