@@ -51,8 +51,9 @@ theorem toRat_eq' {uf : UnpackedFloat e s}
 
 theorem toDyadic_eq {uf : UnpackedFloat e s}
   : uf.toDyadic = uf.sign.toSign * uf.sig.toNat * (.ofOdd 1 ((s - 1 : Nat) - uf.ex.toInt) rfl) := by
+  have hfold : uf.toDyadic.toRat = uf.toRat := rfl
   simpa only [← Dyadic.toRat_inj, Dyadic.toRat_mul, Dyadic.toRat_intCast, Dyadic.toRat_natCast,
-    Dyadic.toRat_ofOdd_eq_mul_two_pow, Rat.intCast_ofNat, Int.neg_sub, Rat.one_mul] using toRat_eq
+    Dyadic.toRat_ofOdd_eq_mul_two_pow, Rat.intCast_ofNat, Int.neg_sub, Rat.one_mul, hfold] using toRat_eq
 
 @[simp]
 theorem toDyadic_mkZero_eq_zero {e s : Nat} {sign : Bool}
@@ -298,7 +299,9 @@ theorem toExtRat_unpack_eq_toExtRat {pf : PackedFloat e s}
           simp only [toRat, PackedFloat.toRatSig, PackedFloat.toRatExp]
           simp only [hNorm, Bool.false_eq_true, ↓reduceIte,
             Rat.zero_add]
-          rewrite [UnpackedFloat.toRat_normalize_eq_toRat UnpackedFloat.sigWidth_lt_exponentWidth_sub_one]
+          rewrite [UnpackedFloat.toRat_normalize_eq_toRat
+              (uf := ⟨pf.sign, BitVec.ofInt (exponentWidth e s) (minNormalExp e), BitVec.cons false pf.sig⟩)
+              UnpackedFloat.sigWidth_lt_exponentWidth_sub_one]
           · simp only [UnpackedFloat.toRat_eq, Rat.mul_assoc]
             congr 1
             simp only [BitVec.toNat_cons, Bool.toNat_false, Nat.zero_shiftLeft, Nat.zero_or, Rat.div_def, Rat.mul_assoc]
