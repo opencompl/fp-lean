@@ -496,6 +496,67 @@ theorem UnpackedFloat.toRat_addBig_add_addSmall {e s : Nat} (x y : UnpackedFloat
   unfold UnpackedFloat.addBig UnpackedFloat.addSmall
   cases UnpackedFloat.addSwapCond x y <;> simp [Rat.add_comm]
 
+/-- When the exponents are equal the swap orders by significand, so the smaller operand's significand is
+≤ the larger operand's. -/
+theorem UnpackedFloat.addSmall_sig_le_addBig_sig_of_ex_eq {e s : Nat} (x y : UnpackedFloat e s)
+    (hexeq : x.ex = y.ex) :
+    (UnpackedFloat.addSmall x y).sig.toNat ≤ (UnpackedFloat.addBig x y).sig.toNat := by
+  have hz : UnpackedFloat.addExpDiff x y = 0 := by
+    unfold UnpackedFloat.addExpDiff; rw [hexeq]; simp
+  have hswap : UnpackedFloat.addSwapCond x y = x.sig.ult y.sig := by
+    unfold UnpackedFloat.addSwapCond UnpackedFloat.addAbsExpDiff
+    rw [hz]; simp
+  unfold UnpackedFloat.addBig UnpackedFloat.addSmall
+  rw [hswap]
+  cases hu : x.sig.ult y.sig
+  · simp only [cond_false]
+    have h := hu; rw [BitVec.ult, decide_eq_false_iff_not, Nat.not_lt] at h; exact h
+  · simp only [cond_true]
+    have h := hu; rw [BitVec.ult, decide_eq_true_eq] at h; exact Nat.le_of_lt h
+
+/-- **Lemma A (circuit form)** — the aligned signed significand sum as a `Nat`. Same sign ⇒
+`bigS·4 + ⌊smallS·4 / 2^d⌋`; diff sign ⇒ `bigS·4 − ⌈smallS·4 / 2^d⌉`, with `d = addShiftAmount.toNat`.
+Instantiates `aligned_toNat` on the circuit's named pieces; `hdom` is discharged via
+`addSmall_sig_le_addBig_sig_of_ex_eq` (the swap orders by significand at equal exponents). -/
+theorem UnpackedFloat.addSigSum_toNat_eq {e s : Nat} (x y : UnpackedFloat e s)
+    (hx : x.sig.msb = true) (hy : y.sig.msb = true) (hs : 0 < s) :
+    (UnpackedFloat.addSigSum x y).toNat
+      = if (UnpackedFloat.addBig x y).sign == (UnpackedFloat.addSmall x y).sign
+        then (UnpackedFloat.addBig x y).sig.toNat * 4
+              + (UnpackedFloat.addSmall x y).sig.toNat * 4 / 2 ^ (UnpackedFloat.addShiftAmount x y).toNat
+        else (UnpackedFloat.addBig x y).sig.toNat * 4
+              - ((UnpackedFloat.addSmall x y).sig.toNat * 4 + 2 ^ (UnpackedFloat.addShiftAmount x y).toNat - 1)
+                  / 2 ^ (UnpackedFloat.addShiftAmount x y).toNat := by
+  unfold UnpackedFloat.addSigSum UnpackedFloat.addYSig
+  have hbig := UnpackedFloat.msb_addBig x y hx hy
+  have hsmall := UnpackedFloat.msb_addSmall x y hx hy
+  have hxval : (UnpackedFloat.addXSig x y).toNat = (UnpackedFloat.addBig x y).sig.toNat * 4 := by
+    unfold UnpackedFloat.addXSig; exact BitVec.setWidth'_append0_toNat _ _
+  have hyval : ((UnpackedFloat.addSmall x y).sig.setWidth' (Nat.le_succ s) ++ 0#2).toNat
+      = (UnpackedFloat.addSmall x y).sig.toNat * 4 := BitVec.setWidth'_append0_toNat _ _
+  have hbiglo : 2 ^ (s - 1) ≤ (UnpackedFloat.addBig x y).sig.toNat := BitVec.le_toNat_of_msb_true hbig
+  have hsmalllo : 2 ^ (s - 1) ≤ (UnpackedFloat.addSmall x y).sig.toNat :=
+    BitVec.le_toNat_of_msb_true hsmall
+  have hbighi : (UnpackedFloat.addBig x y).sig.toNat < 2 ^ s := (UnpackedFloat.addBig x y).sig.isLt
+  have hsmallhi : (UnpackedFloat.addSmall x y).sig.toNat < 2 ^ s :=
+    (UnpackedFloat.addSmall x y).sig.isLt
+  have e1 : 2 ^ (s - 1) * 4 = 2 ^ (s + 1) := by
+    rw [show (4 : Nat) = 2 ^ 2 from rfl, ← Nat.pow_add]; congr 1; grind
+  have e2 : 2 ^ s * 4 = 2 ^ (s + 2) := by rw [show (4 : Nat) = 2 ^ 2 from rfl, ← Nat.pow_add]
+  rw [aligned_toNat (UnpackedFloat.addXSig x y)
+    ((UnpackedFloat.addSmall x y).sig.setWidth' (Nat.le_succ s) ++ 0#2)
+    (UnpackedFloat.addShiftAmount x y)
+    ((UnpackedFloat.addBig x y).sign == (UnpackedFloat.addSmall x y).sign)
+    (by rw [hxval]; grind) (by rw [hxval]; grind) (by rw [hyval]; grind) (by rw [hyval]; grind) ?_]
+  · rw [hxval, hyval]
+  · intro hsamef hsh0
+    rw [hxval, hyval]
+    have hexeq : x.ex = y.ex :=
+      UnpackedFloat.addShift_zero_imp_ex_eq x y (UnpackedFloat.addExpDiff x y) rfl
+        (UnpackedFloat.addAbsExpDiff x y) rfl (UnpackedFloat.addShiftAmount x y) rfl hsh0
+    have hle := UnpackedFloat.addSmall_sig_le_addBig_sig_of_ex_eq x y hexeq
+    grind
+
 /--
 **The addition circuit produces a normalized result** (for normalized inputs
 with nonzero exact sum).
