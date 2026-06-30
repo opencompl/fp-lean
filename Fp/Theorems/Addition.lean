@@ -222,6 +222,63 @@ theorem aligned_ne_zero {s : Nat} (xS yS0 sh : BitVec (s + 3)) (same : Bool)
       Int.ediv_le_self _ (by exact_mod_cast Nat.zero_le _)
     refine bmod_ne_zero_of_lt _ _ ?_ ?_ ?_ hz <;> omega
 
+/-- A zero alignment shift forces equal exponents: the circuit's `shiftAmount` is `0` only via the
+`ult` branch (the `↑s + 3` else-branch has `toNat = s + 3 ≠ 0`), which bounds `absExpDiff.toNat <
+s + 3 < 2^(s+3)`, so the capping `setWidth` is exact and `absExpDiff = 0`, hence `expDiff = 0` and
+(`signExtend` injective on `toInt`) `x.ex = y.ex`. -/
+theorem UnpackedFloat.addShift_zero_imp_ex_eq {e s : Nat} (x y : UnpackedFloat e s)
+    (expDiff : BitVec (e + 1)) (hed : expDiff = x.ex.signExtend (e + 1) - y.ex.signExtend (e + 1))
+    (absExpDiff : BitVec (e + 1)) (had : absExpDiff = bif expDiff.msb then -expDiff else expDiff)
+    (shiftAmount : BitVec (s + 3))
+    (hsa : shiftAmount = bif absExpDiff.ult (↑s + 3)
+        then BitVec.setWidth (s + 3) absExpDiff else (↑s + 3))
+    (hsh0 : shiftAmount.toNat = 0) : x.ex = y.ex := by
+  have hlt : s + 3 < 2 ^ (s + 3) := Nat.lt_two_pow_self
+  have hsM : s % 2 ^ (s + 3) = s := Nat.mod_eq_of_lt (by omega)
+  have h3M : 3 % 2 ^ (s + 3) = 3 := Nat.mod_eq_of_lt (by omega)
+  have hsumM : (s + 3) % 2 ^ (s + 3) = s + 3 := Nat.mod_eq_of_lt (by omega)
+  have h3v : (3 : BitVec (s + 3)).toNat = 3 := by
+    rw [show (3 : BitVec (s + 3)) = BitVec.ofNat (s + 3) 3 from rfl, BitVec.toNat_ofNat]; exact h3M
+  have hsv : (↑s : BitVec (s + 3)).toNat = s := by
+    rw [BitVec.natCast_eq_ofNat, BitVec.toNat_ofNat]; exact hsM
+  have helse : ((↑s + 3 : BitVec (s + 3))).toNat = s + 3 := by
+    rw [BitVec.toNat_add, hsv, h3v, hsumM]
+  rw [hsa] at hsh0
+  have habs0 : absExpDiff = 0 := by
+    cases hu : absExpDiff.ult (↑s + 3)
+    · simp only [hu, cond_false] at hsh0
+      rw [helse] at hsh0; exact absurd hsh0 (by omega)
+    · simp only [hu, cond_true] at hsh0
+      have hb1 : absExpDiff.toNat < ((↑s + 3 : BitVec (e + 1))).toNat := by
+        have h := hu; rw [BitVec.ult, decide_eq_true_eq] at h; exact h
+      have hb2 : ((↑s + 3 : BitVec (e + 1))).toNat ≤ s + 3 := by
+        rw [BitVec.toNat_add]
+        have h1 : (↑s : BitVec (e + 1)).toNat ≤ s := by
+          rw [BitVec.natCast_eq_ofNat, BitVec.toNat_ofNat]; exact Nat.mod_le _ _
+        have h2 : (3 : BitVec (e + 1)).toNat ≤ 3 := by
+          rw [show (3 : BitVec (e + 1)) = BitVec.ofNat (e + 1) 3 from rfl, BitVec.toNat_ofNat]
+          exact Nat.mod_le _ _
+        have h3 := Nat.mod_le ((↑s : BitVec (e + 1)).toNat + (3 : BitVec (e + 1)).toNat) (2 ^ (e + 1))
+        omega
+      rw [BitVec.toNat_setWidth, Nat.mod_eq_of_lt (by omega)] at hsh0
+      exact BitVec.eq_of_toNat_eq (by simpa using hsh0)
+  have hed0 : expDiff = 0 := by
+    rw [had] at habs0
+    cases hm : expDiff.msb <;> simp only [hm, cond_true, cond_false] at habs0
+    · exact habs0
+    · exact BitVec.neg_inj.mp (habs0.trans (BitVec.neg_zero (e + 1)).symm)
+  have hed0' : x.ex.signExtend (e + 1) - y.ex.signExtend (e + 1) = 0 := hed.symm.trans hed0
+  have hAB : x.ex.signExtend (e + 1) = y.ex.signExtend (e + 1) := by
+    have h2 := congrArg (· + y.ex.signExtend (e + 1)) hed0'
+    simp only [BitVec.sub_add_cancel] at h2
+    simpa using h2
+  apply BitVec.toInt_inj.mp
+  have ha : (x.ex.signExtend (e + 1)).toInt = x.ex.toInt :=
+    BitVec.toInt_signExtend_of_le (by omega)
+  have hb : (y.ex.signExtend (e + 1)).toInt = y.ex.toInt :=
+    BitVec.toInt_signExtend_of_le (by omega)
+  rw [← ha, ← hb, hAB]
+
 /-- The cancellation-renormalisation step (`bif !uf.sig.msb then uf.normalize else uf`) yields a
 result with msb set exactly when the input significand is nonzero: if the msb is already set there is
 nothing to do, otherwise `normalize` sets it (`msb_normalize_eq_decide`). -/
@@ -233,6 +290,29 @@ theorem UnpackedFloat.msb_cond_normalize_of_sig_ne_zero {e s : Nat} (uf : Unpack
     rw [UnpackedFloat.msb_normalize_eq_decide]
     simp [h]
   · simp [huf]
+
+/-- `structBeq` is sound for cancellation detection: if `x` is structurally the negation of `y`, the
+exact sum is zero. -/
+theorem UnpackedFloat.toRat_add_toRat_eq_zero_of_structBeq_neg
+    {e s : Nat} (x y : UnpackedFloat e s)
+    (h : x.structBeq y.neg) : x.toRat + y.toRat = 0 := by
+  have hx : x = y.neg := by
+    simp only [UnpackedFloat.structBeq, Bool.and_eq_true, beq_iff_eq] at h
+    rcases x with ⟨xsign, xex, xsig⟩
+    rcases y with ⟨ysign, yex, ysig⟩
+    simp_all [UnpackedFloat.neg]
+  subst hx
+  have : y.neg = -y := Eq.refl _
+  rw [this, UnpackedFloat.toRat_eq_toRat', UnpackedFloat.toRat_eq_toRat',
+    UnpackedFloat.toRat'_neg]
+  grind
+
+/-- The extended significand `sig.setWidth' _ ++ 0#2` has `toNat = sig.toNat * 4` (one overflow bit on
+the left, two round/sticky zero bits on the right). -/
+theorem BitVec.setWidth'_append0_toNat {w : Nat} (h : w ≤ w + 1) (v : BitVec w) :
+    (v.setWidth' h ++ (0#2)).toNat = v.toNat * 4 := by
+  rw [BitVec.toNat_append, BitVec.toNat_setWidth', BitVec.toNat_ofNat]
+  simp [Nat.shiftLeft_eq]
 
 /--
 **The addition circuit produces a normalized result** (for normalized inputs
@@ -297,36 +377,57 @@ theorem UnpackedFloat.msb_add_eq_true {e s : Nat} (x y : UnpackedFloat e s)
           rw [Nat.div_lt_iff_lt_mul (by decide)]; rw [Nat.pow_succ] at hlt; omega
         rw [Nat.mod_eq_of_lt h2]
         have := Nat.two_pow_pos (s + 1); omega
-    -- `sigSum ≠ 0` discharges by `aligned_ne_zero` (the magnitude core, proven above), applied per
-    -- branch with `a,b := x,y` (false) / `y,x` (true). Remaining wiring:
-    -- • bounds `2^(s+1) ≤ xSig.toNat < 2^(s+2)` and `… ≤ ySig0.toNat ≤ 2^(s+2) - 4` from
-    --   `xSig = (·).sig.setWidth' ++ 0#2` (so `.toNat = sig.toNat * 4`) and `sig.msb = true`;
-    -- • `hcancel`: `shiftAmount.toNat = 0 ⇒ x.ex = y.ex` (the `↑s + 3` else-branch is `≠ 0`, so the
-    --   `ult` branch is taken, forcing `absExpDiff = 0 ⇒ expDiff = 0 ⇒ x.ex = y.ex`), combined with
-    --   `xSig.toNat = ySig0.toNat ⇒ x.sig = y.sig` and `same = false ⇒ x.sign ≠ y.sign`, gives
-    --   `x.structBeq y.neg`, so the exact sum is `0` (`toRat_add_toRat_eq_zero_of_structBeq_neg`),
-    --   contradicting `hne`.
-    sorry
+  -- `sigSum ≠ 0` via `aligned_ne_zero`, per swap branch. `shiftAmount` is the same let in both, so we
+  -- apply it inline. Bounds from `(·).sig.setWidth' ++ 0#2` (`toNat = sig.toNat * 4`) + msb; `hcancel`
+  -- via `addShift_zero_imp_ex_eq` (zero shift ⇒ equal exponents) + `structBeq` ⇒ exact sum `0`.
+  · -- swap `false`: `x` is the larger operand
+    have hxval : xSig.toNat = x.sig.toNat * 4 := BitVec.setWidth'_append0_toNat _ x.sig
+    have hyval : ySig0.toNat = y.sig.toNat * 4 := BitVec.setWidth'_append0_toNat _ y.sig
+    have e1 : 2 ^ (s - 1) * 4 = 2 ^ (s + 1) := by
+      rw [show (4 : Nat) = 2 ^ 2 from rfl, ← Nat.pow_add]; congr 1; omega
+    have e2 : 2 ^ s * 4 = 2 ^ (s + 2) := by
+      rw [show (4 : Nat) = 2 ^ 2 from rfl, ← Nat.pow_add]
+    have hxlo' : 2 ^ (s - 1) ≤ x.sig.toNat := BitVec.le_toNat_of_msb_true hx
+    have hylo' : 2 ^ (s - 1) ≤ y.sig.toNat := BitVec.le_toNat_of_msb_true hy
+    have hxhi' : x.sig.toNat < 2 ^ s := x.sig.isLt
+    have hyhi' : y.sig.toNat < 2 ^ s := y.sig.isLt
+    refine aligned_ne_zero xSig ySig0 shiftAmount (x.sign == y.sign)
+      (by rw [hxval]; omega) (by rw [hxval]; omega) (by rw [hyval]; omega) (by rw [hyval]; omega) ?_
+    intro hsh0 hsamef hxyeq
+    have hexeq : x.ex = y.ex :=
+      UnpackedFloat.addShift_zero_imp_ex_eq x y expDiff rfl absExpDiff rfl shiftAmount rfl hsh0
+    have hsigeq : x.sig = y.sig := by
+      apply BitVec.eq_of_toNat_eq; rw [hxval, hyval] at hxyeq; omega
+    have hsignneq : x.sign = !y.sign := by
+      cases hxs : x.sign <;> cases hys : y.sign <;> simp_all
+    exact hne (UnpackedFloat.toRat_add_toRat_eq_zero_of_structBeq_neg x y (by
+      simp only [UnpackedFloat.structBeq, UnpackedFloat.neg, Bool.and_eq_true, beq_iff_eq]
+      exact ⟨⟨hsignneq, hexeq⟩, hsigeq⟩))
+  · -- swap `true`: `y` is the larger operand
+    have hxval : xSig.toNat = y.sig.toNat * 4 := BitVec.setWidth'_append0_toNat _ y.sig
+    have hyval : ySig0.toNat = x.sig.toNat * 4 := BitVec.setWidth'_append0_toNat _ x.sig
+    have e1 : 2 ^ (s - 1) * 4 = 2 ^ (s + 1) := by
+      rw [show (4 : Nat) = 2 ^ 2 from rfl, ← Nat.pow_add]; congr 1; omega
+    have e2 : 2 ^ s * 4 = 2 ^ (s + 2) := by
+      rw [show (4 : Nat) = 2 ^ 2 from rfl, ← Nat.pow_add]
+    have hxlo' : 2 ^ (s - 1) ≤ y.sig.toNat := BitVec.le_toNat_of_msb_true hy
+    have hylo' : 2 ^ (s - 1) ≤ x.sig.toNat := BitVec.le_toNat_of_msb_true hx
+    have hxhi' : y.sig.toNat < 2 ^ s := y.sig.isLt
+    have hyhi' : x.sig.toNat < 2 ^ s := x.sig.isLt
+    refine aligned_ne_zero xSig ySig0 shiftAmount (y.sign == x.sign)
+      (by rw [hxval]; omega) (by rw [hxval]; omega) (by rw [hyval]; omega) (by rw [hyval]; omega) ?_
+    intro hsh0 hsamef hxyeq
+    have hexeq : x.ex = y.ex :=
+      UnpackedFloat.addShift_zero_imp_ex_eq x y expDiff rfl absExpDiff rfl shiftAmount rfl hsh0
+    have hsigeq : x.sig = y.sig := by
+      apply BitVec.eq_of_toNat_eq; rw [hxval, hyval] at hxyeq; omega
+    have hsignneq : x.sign = !y.sign := by
+      cases hxs : x.sign <;> cases hys : y.sign <;> simp_all
+    exact hne (UnpackedFloat.toRat_add_toRat_eq_zero_of_structBeq_neg x y (by
+      simp only [UnpackedFloat.structBeq, UnpackedFloat.neg, Bool.and_eq_true, beq_iff_eq]
+      exact ⟨⟨hsignneq, hexeq⟩, hsigeq⟩))
 
 /-! ## Layer 5: exact-cancellation detection -/
-
-/--
-`structBeq` is sound for cancellation detection: if `x` is structurally the
-negation of `y`, the exact sum is zero.
--/
-theorem UnpackedFloat.toRat_add_toRat_eq_zero_of_structBeq_neg
-    {e s : Nat} (x y : UnpackedFloat e s)
-    (h : x.structBeq y.neg) : x.toRat + y.toRat = 0 := by
-  have hx : x = y.neg := by
-    simp only [UnpackedFloat.structBeq, Bool.and_eq_true, beq_iff_eq] at h
-    rcases x with ⟨xsign, xex, xsig⟩
-    rcases y with ⟨ysign, yex, ysig⟩
-    simp_all [UnpackedFloat.neg]
-  subst hx
-  have : y.neg = -y := Eq.refl _
-  rw [this, UnpackedFloat.toRat_eq_toRat', UnpackedFloat.toRat_eq_toRat',
-    UnpackedFloat.toRat'_neg]
-  grind
 
 /--
 The normalized representation of a nonzero value is unique: two
