@@ -297,10 +297,15 @@ theorem UnpackedFloat.msb_add_eq_true {e s : Nat} (x y : UnpackedFloat e s)
           rw [Nat.div_lt_iff_lt_mul (by decide)]; rw [Nat.pow_succ] at hlt; omega
         rw [Nat.mod_eq_of_lt h2]
         have := Nat.two_pow_pos (s + 1); omega
-    -- Remaining core (shared with Phase C `stickyEquiv_add`): the aligned signed significand sum is
-    -- nonzero. Same sign ⇒ `sigSum ≥ 2^(s+1)`; different sign with equal exponents ⇒ full
-    -- cancellation means `x = y.neg`, excluded by `hne`; different sign with a shift ⇒ the larger
-    -- operand's leading bit survives. TODO: discharge via the `addSigSum` magnitude bounds.
+    -- `sigSum ≠ 0` discharges by `aligned_ne_zero` (the magnitude core, proven above), applied per
+    -- branch with `a,b := x,y` (false) / `y,x` (true). Remaining wiring:
+    -- • bounds `2^(s+1) ≤ xSig.toNat < 2^(s+2)` and `… ≤ ySig0.toNat ≤ 2^(s+2) - 4` from
+    --   `xSig = (·).sig.setWidth' ++ 0#2` (so `.toNat = sig.toNat * 4`) and `sig.msb = true`;
+    -- • `hcancel`: `shiftAmount.toNat = 0 ⇒ x.ex = y.ex` (the `↑s + 3` else-branch is `≠ 0`, so the
+    --   `ult` branch is taken, forcing `absExpDiff = 0 ⇒ expDiff = 0 ⇒ x.ex = y.ex`), combined with
+    --   `xSig.toNat = ySig0.toNat ⇒ x.sig = y.sig` and `same = false ⇒ x.sign ≠ y.sign`, gives
+    --   `x.structBeq y.neg`, so the exact sum is `0` (`toRat_add_toRat_eq_zero_of_structBeq_neg`),
+    --   contradicting `hne`.
     sorry
 
 /-! ## Layer 5: exact-cancellation detection -/
