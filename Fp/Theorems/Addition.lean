@@ -136,6 +136,28 @@ theorem UnpackedFloat.stickyEquiv_add {e s : Nat} (x y : UnpackedFloat e s)
     (hx : x.sig.msb = true) (hy : y.sig.msb = true)
     (hne : x.toRat + y.toRat ≠ 0) :
     StickyEquiv ((x.add y).toExpInt) ((x.add y).toRat) (x.toRat + y.toRat) := by
+  -- L1 assembly: strip the shared sign `sd = (x.add y).sign.toSign` and grid `2^k`, reducing to the
+  -- integer-significand disjunction `addCore` on `n = (x.add y).sig.toNat`, `t = sd·exact·2^(-k)`.
+  rw [UnpackedFloat.toRat_eq_sign_sig_exp (x.add y)]
+  have hsd : ((x.add y).sign.toSign : Rat) = 1 ∨ ((x.add y).sign.toSign : Rat) = -1 := by
+    cases (x.add y).sign <;> simp [Bool.toSign]
+  have hss : ((x.add y).sign.toSign : Rat) * (x.add y).sign.toSign = 1 := by
+    rcases hsd with h | h <;> rw [h] <;> grind
+  have hzz : (2 : Rat) ^ (-(x.add y).toExpInt) * 2 ^ ((x.add y).toExpInt) = 1 := by
+    have hk0 : -(x.add y).toExpInt + (x.add y).toExpInt = 0 := by grind
+    rw [← Rat.zpow_add (by grind), hk0]; simp
+  have key : x.toRat + y.toRat
+      = (x.add y).sign.toSign
+        * ((x.add y).sign.toSign * (x.toRat + y.toRat) * (2 : Rat) ^ (-(x.add y).toExpInt))
+        * 2 ^ ((x.add y).toExpInt) := by
+    generalize x.toRat + y.toRat = E
+    generalize ((x.add y).sign.toSign : Rat) = S at hss ⊢
+    generalize (2 : Rat) ^ ((x.add y).toExpInt) = P at hzz ⊢
+    generalize (2 : Rat) ^ (-(x.add y).toExpInt) = Q at hzz ⊢
+    grind
+  rw [key]
+  refine StickyEquiv.of_sign_grid hsd ?_
+  -- `addCore`: `t = n ∨ (n odd ∧ |t − n| < 1)`. Case split on `addSticky x y` (Phase C: lemmas A–G).
   sorry
 
 /-- `bmod` is nonzero for a nonzero value lying strictly within one modulus of zero. -/
