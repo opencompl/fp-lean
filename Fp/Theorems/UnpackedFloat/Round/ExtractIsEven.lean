@@ -18,7 +18,7 @@ theorem UnpackedFloat.blastExtractIsEven_eq_true_iff
   simp [UnpackedFloat.blastExtractIsEven]
   constructor
   · intros h
-    simp only at h
+    try simp only at h
     rw [BitVec.eq_iff_getLsbD_eq] at h
     simp only [BitVec.getLsbD_and, BitVec.getlsbD_oneHotBV, BitVec.getLsbD_zero, Bool.and_eq_false_imp, decide_eq_true_eq,
       decide_eq_false_iff_not] at h
@@ -29,7 +29,7 @@ theorem UnpackedFloat.blastExtractIsEven_eq_true_iff
     rw [UnpackedFloat.toNat_lsbIndex_eq hep hsp heu hsu x hdiffLower hdiffUpper hdiffNatLe] at h
     grind only
   · intros h
-    simp only at h
+    try simp only at h
     rw [BitVec.eq_iff_getLsbD_eq]
     intros i
     simp
