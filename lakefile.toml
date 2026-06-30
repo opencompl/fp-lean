@@ -1,14 +1,17 @@
 name = "fp-lean"
 version = "0.1.0"
 defaultTargets = ["Fp", "fp-lean", "Examples"]
-moreLeanArgs = ["--tstack=4096"]
-moreGlobalServerArgs = ["--tstack=4096"]
+moreLeanArgs = ["--tstack=1000000"]
+moreGlobalServerArgs = ["--tstack=1000000"]
 
 [[lean_lib]]
 name = "Fp"
 
 [[lean_lib]]
 name = "Examples"
+# Only the `Examples` root module (and whatever it imports) is built. This keeps the heavy,
+# non-CI `Examples/FastInvSqrtFp32.lean` (intentionally not imported) out of `lake build`.
+globs = ["Examples"]
 
 [[lean_exe]]
 name = "fp-lean"
