@@ -1,11 +1,14 @@
 name = "fp-lean"
 version = "0.1.0"
-defaultTargets = ["Fp", "fp-lean"]
+defaultTargets = ["Fp", "fp-lean", "Examples"]
 moreLeanArgs = ["--tstack=4096"]
 moreGlobalServerArgs = ["--tstack=4096"]
 
 [[lean_lib]]
 name = "Fp"
+
+[[lean_lib]]
+name = "Examples"
 
 [[lean_exe]]
 name = "fp-lean"

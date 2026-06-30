@@ -603,6 +603,7 @@ If a number has a guard/sticky bit, then it needs to be rounded.
 If it does not, then no rounding is necessary,
 and the result is already correctly rounded for all rounding modes.
 -/
+@[bv_normalize]
 def UnpackedFloat.needsRounding {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) : Bool :=
   uf.blastExtractGuardBit tep tsp || uf.blastExtractStickyBit tep tsp
 
@@ -610,6 +611,7 @@ def UnpackedFloat.needsRounding {eu su : Nat} (uf : UnpackedFloat eu su) (tep ts
 If the number is perfectly represented, then upper = lower,
 otherwise, upper is the successor away from zero of lower.
 -/
+@[bv_normalize]
 def UnpackedFloat.blastSuccessorAwayFromZeroNonnegAux {eu su : Nat} (uf : UnpackedFloat eu su) (tep tsp : Nat) :
     UnpackedFloat (eu) (tsp + 1) :=
   if uf.needsRounding tep tsp then
@@ -822,6 +824,7 @@ def UnpackedFloat.blastSmtLibRound {eu su : Nat}
     let rounded := rounded.normalize
     rounded
 
+@[bv_normalize]
 def EUnpackedFloat.blastSmtLibRound {eu su : Nat}
     (tep tsp : Nat) (mode : RoundingMode) (euf : EUnpackedFloat eu su) :
     EUnpackedFloat (exponentWidth tep tsp) (tsp + 1) :=
