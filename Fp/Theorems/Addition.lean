@@ -244,6 +244,37 @@ theorem aligned_ne_zero {s : Nat} (xS yS0 sh : BitVec (s + 3)) (same : Bool)
       Int.ediv_le_self _ (by exact_mod_cast Nat.zero_le _)
     refine bmod_ne_zero_of_lt _ _ ?_ ?_ ?_ hz <;> omega
 
+/-- **Lemma A (value form of `aligned_ne_zero`)** — the aligned signed sum `xS + (±yS0) >> sh` as a
+`Nat` (big dominates ⇒ ≥ 0). Same sign ⇒ `xS + ⌊yS0/2^sh⌋`; diff sign ⇒ `xS − ⌈yS0/2^sh⌉`. `hdom`
+supplies the swap ordering needed only for the diff-sign `sh = 0` (equal-exponent) case. WIP: diff-sign
+branch is `sorry` (the same-sign branch + `toInt`/`sshiftRight'` scaffolding are proven). -/
+theorem aligned_toNat {s : Nat} (xS yS0 sh : BitVec (s + 3)) (same : Bool)
+    (hxlo : 2 ^ (s + 1) ≤ xS.toNat) (hxhi : xS.toNat < 2 ^ (s + 2))
+    (hylo : 2 ^ (s + 1) ≤ yS0.toNat) (hyhi4 : yS0.toNat ≤ 2 ^ (s + 2) - 4)
+    (hdom : same = false → sh.toNat = 0 → yS0.toNat ≤ xS.toNat) :
+    (xS + (bif same then yS0 else -yS0).sshiftRight' sh).toNat
+      = if same = true then xS.toNat + yS0.toNat / 2 ^ sh.toNat
+        else xS.toNat - (yS0.toNat + (2 ^ sh.toNat - 1)) / 2 ^ sh.toNat := by
+  have hp1 : 2 ^ (s + 1) * 2 = 2 ^ (s + 2) := by rw [← Nat.pow_succ]
+  have hp2 : 2 ^ (s + 2) * 2 = 2 ^ (s + 3) := by rw [← Nat.pow_succ]
+  have hyi : yS0.toInt = (yS0.toNat : Int) := BitVec.toInt_eq_toNat_of_lt (by grind)
+  have hdiv_le : yS0.toNat / 2 ^ sh.toNat ≤ yS0.toNat := Nat.div_le_self _ _
+  cases hsame : same
+  · -- different sign (ceil + swap-ordering + bmod): WIP
+    sorry
+  · -- same sign: `yS0 >> sh` is a logical shift (`yS0.msb = false`)
+    simp only [cond_true]
+    have hge : 0 ≤ (yS0.sshiftRight' sh).toInt := by
+      rw [BitVec.toInt_sshiftRight', hyi, Int.shiftRight_eq_div_pow]
+      exact Int.ediv_nonneg (by exact_mod_cast Nat.zero_le _) (by exact_mod_cast Nat.zero_le _)
+    have heq : (yS0.sshiftRight' sh).toInt = ((yS0.toNat / 2 ^ sh.toNat : Nat) : Int) := by
+      rw [BitVec.toInt_sshiftRight', hyi, Int.shiftRight_eq_div_pow, Int.natCast_ediv]
+    have hshift : (yS0.sshiftRight' sh).toNat = yS0.toNat / 2 ^ sh.toNat := by
+      have h := BitVec.toInt_eq_toNat_of_toInt_nonneg (yS0.sshiftRight' sh) hge
+      rw [heq] at h; exact_mod_cast h.symm
+    rw [BitVec.toNat_add, hshift, Nat.mod_eq_of_lt (by grind)]
+    simp [hsame]
+
 /-- A zero alignment shift forces equal exponents: the circuit's `shiftAmount` is `0` only via the
 `ult` branch (the `↑s + 3` else-branch has `toNat = s + 3 ≠ 0`), which bounds `absExpDiff.toNat <
 s + 3 < 2^(s+3)`, so the capping `setWidth` is exact and `absExpDiff = 0`, hence `expDiff = 0` and
