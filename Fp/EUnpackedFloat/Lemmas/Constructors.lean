@@ -51,12 +51,17 @@ theorem state_eq_number_of_isZero (x : EUnpackedFloat e s) (h : x.isZero) : x.st
   simp [isZero] at h ⊢
   grind only
 
-@[simp]
+@[simp, bv_normalize]
 theorem neg_sign (x : EUnpackedFloat e s) : (-x).sign = !x.sign := by
   rw [← EUnpackedFloat.neg_def]
   simp [sign, neg]
 
-@[simp]
+@[simp, bv_normalize]
+theorem neg_num (x : EUnpackedFloat e s) : (-x).num = -(x.num) := by
+  rw [← EUnpackedFloat.neg_def]
+  rfl
+
+@[simp, bv_normalize]
 theorem neg_state (uf : EUnpackedFloat e s) : (-uf).state = uf.state := by
   rw [← EUnpackedFloat.neg_def]
   simp [neg]

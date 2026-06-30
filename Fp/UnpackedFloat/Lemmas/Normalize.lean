@@ -16,13 +16,13 @@ theorem neg_def {x : UnpackedFloat e s} : -x = UnpackedFloat.neg x := rfl
 theorem neg_neg (x : UnpackedFloat e s) : -(-x) = x := by
   simp [neg_def, neg]
 
-@[simp]
+@[simp, bv_normalize]
 theorem neg_sign (x : UnpackedFloat e s) : (-x).sign = !x.sign := rfl
 
-@[simp]
+@[simp, bv_normalize]
 theorem neg_ex (x : UnpackedFloat e s) : (-x).ex = x.ex := rfl
 
-@[simp]
+@[simp, bv_normalize]
 theorem neg_sig (x : UnpackedFloat e s) : (-x).sig = x.sig := rfl
 
 
