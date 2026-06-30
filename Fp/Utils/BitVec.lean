@@ -865,3 +865,11 @@ theorem normShiftSticky_toNat {s : Nat} (q sticky : BitVec (s + 2)) (qn sn : Nat
     rw [hif]
     simp only [Bool.not_true, Bool.toNat_false, Nat.shiftLeft_zero, Nat.pow_zero, Nat.mul_one,
       Nat.mod_eq_of_lt hqh]
+
+/-- The `↑n + 3` BitVec literal equals `n + 3` when it does not wrap. Factors the recurring `↑s + 3`
+shift-cap reasoning in the addition circuit proofs. -/
+theorem BitVec.toNat_natCast_add_three {w : Nat} (n : Nat) (h : n + 3 < 2 ^ w) :
+    ((↑n + 3 : BitVec w)).toNat = n + 3 := by
+  rw [BitVec.toNat_add, BitVec.natCast_eq_ofNat, BitVec.toNat_ofNat,
+    show (3 : BitVec w) = BitVec.ofNat w 3 from rfl, BitVec.toNat_ofNat,
+    Nat.mod_eq_of_lt (by grind), Nat.mod_eq_of_lt (by grind), Nat.mod_eq_of_lt (by grind)]

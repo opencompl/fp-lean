@@ -397,6 +397,24 @@ theorem UnpackedFloat.toRat_add_toRat_eq_zero_of_structBeq_neg
     UnpackedFloat.toRat'_neg]
   grind
 
+/-- **Lemma A″** — the capped alignment shift is `min Δ (s+3)`, where `Δ = (addAbsExpDiff x y).toNat` is
+the uncapped exponent difference. Needs `s + 3 < 2^(e+1)` so the `↑s + 3` cap literal doesn't wrap. -/
+theorem UnpackedFloat.addShiftAmount_toNat_eq {e s : Nat} (x y : UnpackedFloat e s)
+    (hes : s + 3 < 2 ^ (e + 1)) :
+    (UnpackedFloat.addShiftAmount x y).toNat = min (UnpackedFloat.addAbsExpDiff x y).toNat (s + 3) := by
+  unfold UnpackedFloat.addShiftAmount
+  have hlt3 : s + 3 < 2 ^ (s + 3) := Nat.lt_two_pow_self
+  have hcap : ((↑s + 3 : BitVec (e + 1))).toNat = s + 3 := BitVec.toNat_natCast_add_three s hes
+  cases hu : (UnpackedFloat.addAbsExpDiff x y).ult (↑s + 3)
+  · simp only [hu, cond_false]
+    have hge : s + 3 ≤ (UnpackedFloat.addAbsExpDiff x y).toNat := by
+      have h := hu; rw [BitVec.ult, decide_eq_false_iff_not, Nat.not_lt, hcap] at h; exact h
+    rw [BitVec.toNat_natCast_add_three s hlt3]; grind
+  · simp only [hu, cond_true]
+    have hlt : (UnpackedFloat.addAbsExpDiff x y).toNat < s + 3 := by
+      have h := hu; rw [BitVec.ult, decide_eq_true_eq, hcap] at h; exact h
+    rw [BitVec.toNat_setWidth, Nat.mod_eq_of_lt (by grind)]; grind
+
 /-- The extended significand `sig.setWidth' _ ++ 0#2` has `toNat = sig.toNat * 4` (one overflow bit on
 the left, two round/sticky zero bits on the right). -/
 theorem BitVec.setWidth'_append0_toNat {w : Nat} (h : w ≤ w + 1) (v : BitVec w) :
