@@ -245,23 +245,60 @@ theorem aligned_ne_zero {s : Nat} (xS yS0 sh : BitVec (s + 3)) (same : Bool)
     refine bmod_ne_zero_of_lt _ _ ?_ ?_ ?_ hz <;> omega
 
 /-- **Lemma A (value form of `aligned_ne_zero`)** — the aligned signed sum `xS + (±yS0) >> sh` as a
-`Nat` (big dominates ⇒ ≥ 0). Same sign ⇒ `xS + ⌊yS0/2^sh⌋`; diff sign ⇒ `xS − ⌈yS0/2^sh⌉`. `hdom`
-supplies the swap ordering needed only for the diff-sign `sh = 0` (equal-exponent) case. WIP: diff-sign
-branch is `sorry` (the same-sign branch + `toInt`/`sshiftRight'` scaffolding are proven). -/
+`Nat` (big dominates ⇒ ≥ 0). Same sign ⇒ `xS + ⌊yS0/2^sh⌋` (logical shift, `yS0.msb = false`); diff
+sign ⇒ `xS − ⌈yS0/2^sh⌉` (the signed shift floors the negated operand toward −∞, via
+`Int.neg_natCast_ediv_eq`). `hdom` supplies the swap ordering needed only for the diff-sign `sh = 0`
+(equal-exponent) case. -/
 theorem aligned_toNat {s : Nat} (xS yS0 sh : BitVec (s + 3)) (same : Bool)
     (hxlo : 2 ^ (s + 1) ≤ xS.toNat) (hxhi : xS.toNat < 2 ^ (s + 2))
     (hylo : 2 ^ (s + 1) ≤ yS0.toNat) (hyhi4 : yS0.toNat ≤ 2 ^ (s + 2) - 4)
     (hdom : same = false → sh.toNat = 0 → yS0.toNat ≤ xS.toNat) :
     (xS + (bif same then yS0 else -yS0).sshiftRight' sh).toNat
       = if same = true then xS.toNat + yS0.toNat / 2 ^ sh.toNat
-        else xS.toNat - (yS0.toNat + (2 ^ sh.toNat - 1)) / 2 ^ sh.toNat := by
+        else xS.toNat - (yS0.toNat + 2 ^ sh.toNat - 1) / 2 ^ sh.toNat := by
   have hp1 : 2 ^ (s + 1) * 2 = 2 ^ (s + 2) := by rw [← Nat.pow_succ]
   have hp2 : 2 ^ (s + 2) * 2 = 2 ^ (s + 3) := by rw [← Nat.pow_succ]
   have hyi : yS0.toInt = (yS0.toNat : Int) := BitVec.toInt_eq_toNat_of_lt (by grind)
+  have hxi : xS.toInt = (xS.toNat : Int) := BitVec.toInt_eq_toNat_of_lt (by grind)
   have hdiv_le : yS0.toNat / 2 ^ sh.toNat ≤ yS0.toNat := Nat.div_le_self _ _
+  have hd2pos : 0 < 2 ^ sh.toNat := Nat.two_pow_pos _
   cases hsame : same
-  · -- different sign (ceil + swap-ordering + bmod): WIP
-    sorry
+  · -- different sign: the shift floors the negated operand toward −∞, giving a ceiling.
+    simp only [cond_false, Bool.false_eq_true, if_false]
+    -- shifted value = -⌈yS0/2^sh⌉
+    have hnegi : (-yS0).toInt = -(yS0.toNat : Int) := by
+      rw [BitVec.toInt_neg, hyi]; apply Int.bmod_eq_of_le <;> grind
+    have hshiftI : ((-yS0).sshiftRight' sh).toInt
+        = -(((yS0.toNat + 2 ^ sh.toNat - 1) / 2 ^ sh.toNat : Nat) : Int) := by
+      rw [BitVec.toInt_sshiftRight', hnegi, Int.shiftRight_eq_div_pow]
+      exact Int.neg_natCast_ediv_eq yS0.toNat (2 ^ sh.toNat) hd2pos
+    -- big dominates: `xS.toNat ≥ ⌈yS0/2^sh⌉`
+    have hCLle : (yS0.toNat + 2 ^ sh.toNat - 1) / 2 ^ sh.toNat ≤ xS.toNat := by
+      rcases Nat.eq_zero_or_pos sh.toNat with hsh0 | hshp
+      · rw [hsh0]; simpa using hdom hsame hsh0
+      · have h2sh : 2 ≤ 2 ^ sh.toNat := by
+          calc 2 = 2 ^ 1 := rfl
+            _ ≤ 2 ^ sh.toNat := Nat.pow_le_pow_right (by grind) hshp
+        have hdr : yS0.toNat / 2 ^ sh.toNat ≤ yS0.toNat / 2 := Nat.div_le_div_left h2sh (by grind)
+        have hstep : (yS0.toNat + 2 ^ sh.toNat - 1) / 2 ^ sh.toNat ≤ yS0.toNat / 2 ^ sh.toNat + 1 := by
+          rw [show yS0.toNat + 2 ^ sh.toNat - 1 = (yS0.toNat - 1) + 2 ^ sh.toNat by grind,
+            Nat.add_div_right _ hd2pos]
+          have hh : (yS0.toNat - 1) / 2 ^ sh.toNat ≤ yS0.toNat / 2 ^ sh.toNat :=
+            Nat.div_le_div_right (Nat.sub_le _ _)
+          grind
+        grind
+    -- the (nonneg) sum value
+    have hsum : (xS + (-yS0).sshiftRight' sh).toInt
+        = ((xS.toNat - (yS0.toNat + 2 ^ sh.toNat - 1) / 2 ^ sh.toNat : Nat) : Int) := by
+      rw [BitVec.toInt_add, hshiftI, hxi,
+        show (xS.toNat : Int) + -(((yS0.toNat + 2 ^ sh.toNat - 1) / 2 ^ sh.toNat : Nat) : Int)
+          = ((xS.toNat - (yS0.toNat + 2 ^ sh.toNat - 1) / 2 ^ sh.toNat : Nat) : Int) by
+          grind]
+      apply Int.bmod_eq_of_le <;> grind
+    have hsumnn : 0 ≤ (xS + (-yS0).sshiftRight' sh).toInt := by
+      rw [hsum]; exact_mod_cast Nat.zero_le _
+    have htoNat := BitVec.toInt_eq_toNat_of_toInt_nonneg _ hsumnn
+    rw [hsum] at htoNat; exact_mod_cast htoNat.symm
   · -- same sign: `yS0 >> sh` is a logical shift (`yS0.msb = false`)
     simp only [cond_true]
     have hge : 0 ≤ (yS0.sshiftRight' sh).toInt := by
