@@ -38,9 +38,10 @@ namespace FpAgainstFloatModel
 /-- `binary64` has exactly the `PackedFloat 11 52` bit width. -/
 theorem binary64_numBits : Float.Model.Format.binary64.numBits = 1 + 11 + 52 := rfl
 
-/-- The 64-bit pattern of a `PackedFloat 11 52`, viewed at `binary64.numBits`. -/
+/-- The 64-bit pattern of a `PackedFloat 11 52`, viewed at `binary64.numBits`
+(`binary64.numBits` is definitionally `1 + 11 + 52`, so no cast is needed). -/
 def toBits64 (pf : PackedFloat 11 52) : BitVec Float.Model.Format.binary64.numBits :=
-  (pf.toBits).cast (by rw [binary64_numBits])
+  pf.toBits
 
 /-- A boolean sign bit as a `Float.Model` sign (`false ↦ positive`, matching IEEE). -/
 def signToModel (b : Bool) : UnpackedFloat.Sign :=
@@ -73,11 +74,36 @@ def toModelUnpacked (pf : PackedFloat 11 52) : UnpackedFloat :=
     .finite (signToModel pf.sign) (2 ^ 52 + pf.sig.toNat) ((pf.ex.toNat : Int) - 1075)
       (Nat.add_pos_left (Nat.two_pow_pos 52) _)
 
-/-- Core correspondence: the field interpretation equals the model's own `unpack`.
-(Validated empirically over many bit patterns; the `sorry` is the general proof.) -/
+/-- Core correspondence: the field interpretation equals the model's own `unpack`. -/
 theorem toModelUnpacked_eq_unpack (pf : PackedFloat 11 52) :
     toModelUnpacked pf = UnpackedFloat.unpack .binary64 (toBits64 pf) := by
-  sorry
+  -- The three field extractions recover `pf`'s components (pure BitVec facts).
+  have hs : UnpackedFloat.unpackSign (toBits64 pf) = BitVec.ofBool pf.sign := by
+    unfold toBits64 UnpackedFloat.unpackSign PackedFloat.toBits; bv_decide
+  have he : UnpackedFloat.unpackExponent (toBits64 pf) = pf.ex := by
+    unfold toBits64 UnpackedFloat.unpackExponent PackedFloat.toBits; bv_decide
+  have hm : UnpackedFloat.unpackMantissa (toBits64 pf) = pf.sig := by
+    unfold toBits64 UnpackedFloat.unpackMantissa PackedFloat.toBits; bv_decide
+  have hsign : UnpackedFloat.Sign.ofBitVec (BitVec.ofBool pf.sign) = signToModel pf.sign := by
+    cases pf.sign <;> rfl
+  have hbias : Float.Model.Format.binary64.exponentBias = 1023 := by decide
+  have hallones : BitVec.allOnes 11 = -1#11 := by decide
+  unfold UnpackedFloat.unpack toModelUnpacked
+  simp only [hs, he, hm, hsign]
+  simp only [PackedFloat.isNaN, PackedFloat.isInfinite, PackedFloat.isZero, hallones,
+    BitVec.zero_eq, beq_iff_eq, bne_iff_ne, Bool.and_eq_true, Bool.or_eq_true,
+    Nat.reduceEqDiff, decide_false, Bool.false_or, Bool.true_and, hbias]
+  by_cases hnan : pf.ex = -1#11
+  · by_cases hsig : pf.sig = 0#52 <;> simp [hnan, hsig]
+  · by_cases hz : pf.ex = 0#11
+    · by_cases hsig : pf.sig = 0#52 <;> simp [hnan, hz, hsig] <;> grind
+    · simp only [hnan, hz, false_and, and_false, ↓reduceIte, ↓reduceDIte,
+        UnpackedFloat.finite.injEq, true_and]
+      refine ⟨?_, ?_⟩
+      · rw [BitVec.toNat_append, BitVec.toNat_ofNat, Nat.shiftLeft_eq]
+        have h := Nat.two_pow_add_eq_or_of_lt pf.sig.isLt 1
+        grind
+      · grind
 
 /-! ## Part B (cont.) — the equivalence relation -/
 
