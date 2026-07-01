@@ -303,7 +303,8 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
     (rm : RoundingMode) (hrm : rm = .RNE) (a b : PackedFloat ein sin) :
     (Fp.SmtLibSemantics.SmtLibFunctions.mul (Fp.SmtLibSemanticsQ.smtLibRoundMethodQ ein sin) rm a b).EquivUptoNaN
     (PackedFloat.mul rm a b) := by
-  simp only [SmtLibSemantics.SmtLibFunctions.mul, SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq,
+  simp only [SmtLibSemantics.SmtLibFunctions.mul, SmtLibSemantics.smtLibRoundMethod.embed_eq,
+    SmtLibSemantics.smtLibRoundMethod.embed_eq, SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq,
     PackedFloat.toExtRat_eq_toExtRat', roundQ_eq]
   rw [PackedFloat.mul, EUnpackedFloat.mul]
   cases a using PackedFloat.kindCasesNaNInfZeroNum

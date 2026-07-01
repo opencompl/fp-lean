@@ -1642,10 +1642,10 @@ theorem smtLibLower_number_toRat_eq_self {e s : Nat}
   have hbval : b.toExtRat' = ExtRat.Number b.toRat := b.toExtRat'_eq_toRat_of hb
   have hlaw : SmtLibSemantics.IsLawfulLower (ExtRat.Number b.toRat) b := by
     constructor
-    · simp only [SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, PackedFloat.toExtRat_eq_toExtRat', hbval]
+    · simp only [SmtLibSemantics.smtLibRoundMethod.embed_eq, SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, PackedFloat.toExtRat_eq_toExtRat', hbval]
       exact ExtRat.ExtRat.le_refl
     · intro lower' hlower'
-      simp only [SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, PackedFloat.toExtRat_eq_toExtRat'] at hlower'
+      simp only [SmtLibSemantics.smtLibRoundMethod.embed_eq, SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, PackedFloat.toExtRat_eq_toExtRat'] at hlower'
       apply PackedFloat.le_of_toExtRat'_le_toExtRat' he hs _ _ hbnan (Or.inr (by grind))
       rw [hbval]
       exact hlower'
@@ -1653,7 +1653,7 @@ theorem smtLibLower_number_toRat_eq_self {e s : Nat}
       SmtLibSemantics.IsLawfulLower (ExtRat.Number b.toRat) pf → pf = b := by
     intro pf hpf
     obtain ⟨h1, h2⟩ := hpf
-    simp only [SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, PackedFloat.toExtRat_eq_toExtRat'] at h1 h2
+    simp only [SmtLibSemantics.smtLibRoundMethod.embed_eq, SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, PackedFloat.toExtRat_eq_toExtRat'] at h1 h2
     have hb_le_pf : b ≤ pf := h2 b (by rw [hbval]; exact ExtRat.ExtRat.le_refl)
     have hpf_le_b : pf ≤ b := by
       apply PackedFloat.le_of_toExtRat'_le_toExtRat' he hs _ _ hbnan (Or.inr (by grind))
@@ -1676,10 +1676,10 @@ theorem smtLibUpper_number_toRat_eq_self {e s : Nat}
   have hbval : b.toExtRat' = ExtRat.Number b.toRat := b.toExtRat'_eq_toRat_of hb
   have hlaw : SmtLibSemantics.IsLawfulUpper (ExtRat.Number b.toRat) b := by
     constructor
-    · simp only [SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, PackedFloat.toExtRat_eq_toExtRat', hbval]
+    · simp only [SmtLibSemantics.smtLibRoundMethod.embed_eq, SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, PackedFloat.toExtRat_eq_toExtRat', hbval]
       exact ExtRat.ExtRat.le_refl
     · intro upper' hupper'
-      simp only [SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, PackedFloat.toExtRat_eq_toExtRat'] at hupper'
+      simp only [SmtLibSemantics.smtLibRoundMethod.embed_eq, SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, PackedFloat.toExtRat_eq_toExtRat'] at hupper'
       have hnan' : ¬ upper'.isNaN := by
         intro hnan
         rw [PackedFloat.toExtRat'_eq_NaN_of_isNaN upper' hnan, ExtRat.ExtRat.le_NaN_iff] at hupper'
@@ -1691,7 +1691,7 @@ theorem smtLibUpper_number_toRat_eq_self {e s : Nat}
       SmtLibSemantics.IsLawfulUpper (ExtRat.Number b.toRat) pf → pf = b := by
     intro pf hpf
     obtain ⟨h1, h2⟩ := hpf
-    simp only [SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, PackedFloat.toExtRat_eq_toExtRat'] at h1 h2
+    simp only [SmtLibSemantics.smtLibRoundMethod.embed_eq, SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, PackedFloat.toExtRat_eq_toExtRat'] at h1 h2
     have hpfnan : ¬ pf.isNaN := by
       intro hnan
       rw [PackedFloat.toExtRat'_eq_NaN_of_isNaN pf hnan, ExtRat.ExtRat.le_NaN_iff] at h1
@@ -1719,7 +1719,7 @@ theorem lowerHalf_number_toRat {e s : Nat} (he : 0 < e) (hs : 0 < s)
       (ExtRat.Number b.toRat) := by
   rw [SmtLibSemantics.smtLibRoundMethod.lowerHalf_eq]
   obtain ⟨b', hb', hval⟩ := PackedFloat.exists_widen he hs b hb
-  simp only [SmtLibSemantics.smtLibV_lower_eq, SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq]
+  simp only [SmtLibSemantics.smtLibV_lower_eq, SmtLibSemantics.smtLibRoundMethod.embed_eq, SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq]
   rw [smtLibLower_number_toRat_eq_self he hs b hb]
   rw [show (ExtRat.Number b.toRat) = (ExtRat.Number b'.toRat) by rw [hval]]
   rw [smtLibLower_number_toRat_eq_self he (by omega) b' hb']
@@ -1842,7 +1842,7 @@ theorem add_eq_add {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
     (Fp.SmtLibSemantics.SmtLibFunctions.add (Fp.SmtLibSemanticsQ.smtLibRoundMethodQ ein sin) rm a b).EquivUptoNaN
       (PackedFloat.add rm a b) := by
   have he0 : 0 < ein := by grind
-  simp only [SmtLibSemantics.SmtLibFunctions.add, SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq,
+  simp only [SmtLibSemantics.SmtLibFunctions.add, SmtLibSemantics.smtLibRoundMethod.embed_eq, SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq,
     PackedFloat.toExtRat_eq_toExtRat', roundQ_eq]
   rw [PackedFloat.add, EUnpackedFloat.add]
   cases a using PackedFloat.kindCasesNaNInfZeroNum

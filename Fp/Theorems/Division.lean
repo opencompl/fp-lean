@@ -427,7 +427,7 @@ theorem div_eq_div {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
         (Fp.SmtLibSemanticsQ.smtLibRoundMethodQ ein sin) rm a b).EquivUptoNaN
       (PackedFloat.div rm a b) := by
   have he0 : 0 < ein := by omega
-  simp only [SmtLibSemantics.SmtLibFunctions.div, SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq,
+  simp only [SmtLibSemantics.SmtLibFunctions.div, SmtLibSemantics.smtLibRoundMethod.embed_eq, SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq,
     PackedFloat.toExtRat_eq_toExtRat', roundQ_eq, SmtLibSemantics.instExtendedRat.isZero,
     SmtLibSemantics.instExtendedRat.isNaN_eq]
   rw [PackedFloat.div, EUnpackedFloat.div]

@@ -54,7 +54,7 @@ theorem smtLibLower_lower_congr {e s : Nat} {q r : Rat}
   congr 1
   funext pf
   apply propext
-  simp only [SmtLibSemantics.IsLawfulLower, SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq]
+  simp only [SmtLibSemantics.IsLawfulLower, SmtLibSemantics.smtLibRoundMethod.embed_eq, SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq]
   constructor
   · rintro ⟨h1, h2⟩
     exact ⟨(h pf).1.mp h1, fun x' hx' => h2 x' ((h x').1.mpr hx')⟩
@@ -70,7 +70,7 @@ theorem smtLibUpper_upper_congr {e s : Nat} {q r : Rat}
   congr 1
   funext pf
   apply propext
-  simp only [SmtLibSemantics.IsLawfulUpper, SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq]
+  simp only [SmtLibSemantics.IsLawfulUpper, SmtLibSemantics.smtLibRoundMethod.embed_eq, SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq]
   constructor
   · rintro ⟨h1, h2⟩
     exact ⟨(h pf).2.mp h1, fun x' hx' => h2 x' ((h x').2.mpr hx')⟩
@@ -107,13 +107,13 @@ theorem round_congr_of_RoundEquiv {e s : Nat} {q r : Rat}
   have hlh : (SmtLibSemantics.smtLibRoundMethod e s SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number q) ↔
       (SmtLibSemantics.smtLibRoundMethod e s SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number r) := by
     rw [SmtLibSemantics.smtLibRoundMethod.lowerHalf_eq]
-    simp only [SmtLibSemantics.smtLibV_lower_eq, SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq]
+    simp only [SmtLibSemantics.smtLibV_lower_eq, SmtLibSemantics.smtLibRoundMethod.embed_eq, SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq]
     rw [smtLibLower_lower_congr h.side, hlowS]
   have htb : (SmtLibSemantics.smtLibRoundMethod e s SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).tieBreak (ExtRat.Number q) ↔
       (SmtLibSemantics.smtLibRoundMethod e s SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).tieBreak (ExtRat.Number r) := by
     rw [SmtLibSemantics.smtLibRoundMethod.tieBreak_eq]
     simp only [SmtLibSemantics.smtLibV_lower_eq, SmtLibSemantics.smtLibV_upper_eq,
-      SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq]
+      SmtLibSemantics.smtLibRoundMethod.embed_eq, SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq]
     rw [smtLibLower_lower_congr h.side, smtLibUpper_upper_congr h.side, hlowS, huppS]
   rcases rm
   case RNE =>
