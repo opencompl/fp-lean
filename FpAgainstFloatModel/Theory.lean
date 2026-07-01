@@ -66,4 +66,93 @@ theorem unpack_inj {b₁ b₂ : BitVec Float.Model.Format.binary64.numBits}
   split at h <;> split at h <;> split at h <;> split at h <;>
     grind [BitVec.eq_of_toNat_eq]
 
+/-! ## Pack / unpack round-trip on canonical values
+
+Every `Float.Model` operation is `pack (op unpack…)`, so relating `PackedFloat` and
+`Float.Model` requires knowing that `unpack (pack u) = u` for `u` in canonical form. -/
+
+open Float.Model.UnpackedFloat in
+/-- `unpackSign` recovers the sign bit written by `packComponents`. -/
+theorem unpackSign_packComponents {spec : Float.Model.Format} {sign e m} :
+    UnpackedFloat.unpackSign (UnpackedFloat.packComponents spec sign e m) = sign.toBitVec := by
+  apply BitVec.eq_of_getLsbD_eq; intro i
+  have h1 := spec.hm; have h2 := spec.he
+  simp only [UnpackedFloat.unpackSign, UnpackedFloat.packComponents, BitVec.extractLsb,
+    BitVec.getLsbD_cast, BitVec.getLsbD_append, BitVec.getLsbD_extractLsb']
+  grind
+
+/-- `Sign.ofBitVec` inverts `Sign.toBitVec`. -/
+theorem sign_roundtrip (s : UnpackedFloat.Sign) : UnpackedFloat.Sign.ofBitVec s.toBitVec = s := by
+  cases s <;> rfl
+
+/-- A model `UnpackedFloat` is in canonical (correctly-rounded `binary64`) form: finite values
+are either normal (significand in `[2^52, 2^53)`, exponent in range) or subnormal (significand
+`< 2^52`, exponent pinned at `-1074`). This is exactly the shape produced by `unpack`. -/
+def ModelCanonical : UnpackedFloat → Prop
+  | .notANumber => True
+  | .infinity _ => True
+  | .zero _ => True
+  | .finite _ m e _ =>
+      (2 ^ 52 ≤ m ∧ m < 2 ^ 53 ∧ -1074 ≤ e ∧ e ≤ 971) ∨ (m < 2 ^ 52 ∧ e = -1074)
+
+/-- Prepending the implicit leading `1` adds `2^52` to the significand's value. -/
+theorem toNat_one_append (x : BitVec 52) : (1#1 ++ x).toNat = 2 ^ 52 + x.toNat := by
+  rw [BitVec.toNat_append, BitVec.toNat_ofNat, Nat.shiftLeft_eq]
+  have h := Nat.two_pow_add_eq_or_of_lt x.isLt 1; grind
+
+/-- The pack/unpack round-trip: unpacking a canonical value's packing recovers it. This is the
+universal enabler — since `neg`/`abs`/`add`/`mul`/… are all `pack (op (unpack …))`. -/
+theorem unpack_pack (u : UnpackedFloat) (h : ModelCanonical u) :
+    UnpackedFloat.unpack .binary64 (UnpackedFloat.pack .binary64 u) = u := by
+  have hbias : Float.Model.Format.binary64.exponentBias = 1023 := by decide
+  have hmbwi : Float.Model.Format.binary64.mantissaBitsWithoutImplicit = 52 := by decide
+  have heb : Float.Model.Format.binary64.exponentBits = 11 := by decide
+  have hmb : Float.Model.Format.binary64.mantissaBits = 53 := by decide
+  cases u with
+  | notANumber =>
+    simp only [UnpackedFloat.pack, UnpackedFloat.packedNaN, UnpackedFloat.unpack,
+      Float.Model.UnpackedFloat.unpackExponent_packComponents, Float.Model.UnpackedFloat.unpackMantissa_packComponents, hmbwi,
+      show ((1#52 <<< (52 - 1) : BitVec 52) = 0#52) = False from by decide, reduceIte]
+  | infinity s =>
+    simp only [UnpackedFloat.pack, UnpackedFloat.packedInfinity, UnpackedFloat.unpack,
+      Float.Model.UnpackedFloat.unpackExponent_packComponents, Float.Model.UnpackedFloat.unpackMantissa_packComponents, unpackSign_packComponents,
+      sign_roundtrip, reduceIte]
+    rw [if_pos (by decide)]
+  | zero s =>
+    simp only [UnpackedFloat.pack, UnpackedFloat.packedZero, UnpackedFloat.unpack,
+      Float.Model.UnpackedFloat.unpackExponent_packComponents, Float.Model.UnpackedFloat.unpackMantissa_packComponents, unpackSign_packComponents,
+      sign_roundtrip]
+    rw [if_neg (by decide), if_pos (by decide), dif_pos (by decide)]
+  | finite s m e hm =>
+    rcases h with ⟨hm1, hm2, he1, he2⟩ | ⟨hm1, he⟩
+    · -- normal
+      have hlog : m.log2 + 1 = 53 := by
+        have : m.log2 = 52 := by rw [Nat.log2_eq_iff (by omega)]; omega
+        omega
+      simp only [UnpackedFloat.pack, hbias, hmbwi, heb, hmb]
+      rw [if_neg (by omega), if_pos hlog]
+      simp only [UnpackedFloat.unpack, Float.Model.UnpackedFloat.unpackExponent_packComponents, Float.Model.UnpackedFloat.unpackMantissa_packComponents,
+        unpackSign_packComponents, sign_roundtrip, hbias, hmbwi, BitVec.toNat_ofNat]
+      rw [if_neg (by rw [← BitVec.toNat_inj]; simp only [BitVec.toNat_ofNat, BitVec.toNat_neg]; omega),
+          if_neg (by rw [← BitVec.toNat_inj]; simp only [BitVec.toNat_ofNat]; omega),
+          UnpackedFloat.finite.injEq]
+      refine ⟨rfl, ?_, ?_⟩
+      · rw [toNat_one_append]; simp only [BitVec.toNat_ofNat]; omega
+      · omega
+    · -- subnormal
+      have hlog : ¬ (m.log2 + 1 = 53) := by
+        have : m.log2 < 52 := by rw [Nat.log2_lt (by omega)]; omega
+        omega
+      subst he
+      simp only [UnpackedFloat.pack, hbias, hmbwi, heb, hmb]
+      rw [if_neg (by omega), if_neg hlog]
+      simp only [UnpackedFloat.unpack, Float.Model.UnpackedFloat.unpackExponent_packComponents, Float.Model.UnpackedFloat.unpackMantissa_packComponents,
+        unpackSign_packComponents, sign_roundtrip, hbias, hmbwi, BitVec.toNat_ofNat]
+      rw [if_neg (by decide), if_pos (by decide),
+          dif_neg (by rw [← BitVec.toNat_inj]; simp only [BitVec.toNat_ofNat]; omega),
+          UnpackedFloat.finite.injEq]
+      refine ⟨rfl, ?_, ?_⟩
+      · omega
+      · omega
+
 end FpAgainstFloatModel
