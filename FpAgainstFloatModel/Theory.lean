@@ -155,4 +155,58 @@ theorem unpack_pack (u : UnpackedFloat) (h : ModelCanonical u) :
       · omega
       · omega
 
+/-- `unpack` always produces a canonical value. -/
+theorem ModelCanonical_unpack (b : BitVec Float.Model.Format.binary64.numBits) :
+    ModelCanonical (UnpackedFloat.unpack .binary64 b) := by
+  have hbias : Float.Model.Format.binary64.exponentBias = 1023 := by decide
+  have hmbwi : Float.Model.Format.binary64.mantissaBitsWithoutImplicit = 52 := by decide
+  have hml : (UnpackedFloat.unpackMantissa (spec := .binary64) b).toNat < 2 ^ 52 :=
+    (UnpackedFloat.unpackMantissa b).isLt
+  have hel : (UnpackedFloat.unpackExponent (spec := .binary64) b).toNat < 2 ^ 11 :=
+    (UnpackedFloat.unpackExponent b).isLt
+  simp only [UnpackedFloat.unpack, hbias, hmbwi]
+  split
+  · split <;> trivial
+  · rename_i hexpNeg1
+    split
+    · split
+      · trivial
+      · rename_i hexp0 hmnz
+        simp only [ModelCanonical]
+        refine Or.inr ⟨hml, ?_⟩
+        have : (UnpackedFloat.unpackExponent (spec := .binary64) b).toNat = 0 := by
+          rw [← BitVec.toNat_inj] at hexp0; simpa using hexp0
+        rw [this]; decide
+    · rename_i hexp0
+      simp only [ModelCanonical]
+      have hne1 : (UnpackedFloat.unpackExponent (spec := .binary64) b).toNat ≠ 2 ^ 11 - 1 := by
+        intro hc; apply hexpNeg1; rw [← BitVec.toNat_inj]
+        simp only [BitVec.toNat_neg, BitVec.toNat_ofNat]; omega
+      have hne0 : (UnpackedFloat.unpackExponent (spec := .binary64) b).toNat ≠ 0 := by
+        intro hc; apply hexp0; rw [← BitVec.toNat_inj]; simpa using hc
+      rw [toNat_one_append]
+      exact Or.inl ⟨by omega, by omega, by omega, by omega⟩
+
+/-- `neg` preserves canonicity. -/
+theorem ModelCanonical_neg (u : UnpackedFloat) (h : ModelCanonical u) : ModelCanonical u.neg := by
+  cases u <;> exact h
+
+/-- `abs` preserves canonicity. -/
+theorem ModelCanonical_abs (u : UnpackedFloat) (h : ModelCanonical u) : ModelCanonical u.abs := by
+  cases u <;> exact h
+
+/-- The model's `neg` acts on the unpacked value by `UnpackedFloat.neg`. -/
+theorem model_neg_unpack (fa : Float.Model) (hc : ModelCanonical fa.unpack) :
+    (Float.Model.neg fa).unpack = fa.unpack.neg := by
+  unfold Float.Model.neg Float.Model.unpack Float.Model.pack
+  simp only [UInt64.toBitVec_ofBitVec]
+  exact unpack_pack _ (ModelCanonical_neg _ hc)
+
+/-- The model's `abs` acts on the unpacked value by `UnpackedFloat.abs`. -/
+theorem model_abs_unpack (fa : Float.Model) (hc : ModelCanonical fa.unpack) :
+    (Float.Model.abs fa).unpack = fa.unpack.abs := by
+  unfold Float.Model.abs Float.Model.unpack Float.Model.pack
+  simp only [UInt64.toBitVec_ofBitVec]
+  exact unpack_pack _ (ModelCanonical_abs _ hc)
+
 end FpAgainstFloatModel

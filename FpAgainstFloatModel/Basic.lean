@@ -178,4 +178,46 @@ theorem pack_modelEquiv {euf : EUnpackedFloat (exponentWidth 11 52) (52 + 1)}
     (euf.pack : PackedFloat 11 52).ModelEquiv (Float.Model.pack u) := by
   sorry
 
+/-! ## Part D — sign-only operations (`neg`, `abs`)
+
+These reduce to `toModelUnpacked` commuting with the corresponding `UnpackedFloat` operation
+(a pure sign change), plus the model round-trip `model_neg_unpack`/`model_abs_unpack`. -/
+
+/-- `signToModel` turns boolean negation into `Sign` negation. -/
+theorem signToModel_not (b : Bool) : signToModel (!b) = -(signToModel b) := by
+  cases b <;> rfl
+
+/-- Negating a `PackedFloat` negates its model-unpacked value. -/
+theorem toModelUnpacked_neg (a : PackedFloat 11 52) :
+    toModelUnpacked (-a) = (toModelUnpacked a).neg := by
+  show toModelUnpacked (PackedFloat.neg a) = _
+  unfold toModelUnpacked
+  simp only [show (PackedFloat.neg a).isNaN = a.isNaN from rfl,
+    show (PackedFloat.neg a).isInfinite = a.isInfinite from rfl,
+    show (PackedFloat.neg a).isZero = a.isZero from rfl,
+    show (PackedFloat.neg a).ex = a.ex from rfl,
+    show (PackedFloat.neg a).sig = a.sig from rfl,
+    show (PackedFloat.neg a).sign = !a.sign from rfl, signToModel_not]
+  by_cases h1 : a.isNaN <;> simp only [h1] <;>
+    (try (by_cases h2 : a.isInfinite <;> simp only [h2] <;>
+      (try (by_cases h3 : a.isZero <;> simp only [h3] <;>
+        (try (by_cases h4 : a.ex = 0#11 <;> simp only [h4]))))))
+  all_goals rfl
+
+/-- Taking `abs` of a `PackedFloat` takes `abs` of its model-unpacked value. -/
+theorem toModelUnpacked_abs (a : PackedFloat 11 52) :
+    toModelUnpacked (a.abs) = (toModelUnpacked a).abs := by
+  unfold toModelUnpacked
+  simp only [show (PackedFloat.abs a).isNaN = a.isNaN from rfl,
+    show (PackedFloat.abs a).isInfinite = a.isInfinite from rfl,
+    show (PackedFloat.abs a).isZero = a.isZero from rfl,
+    show (PackedFloat.abs a).ex = a.ex from rfl,
+    show (PackedFloat.abs a).sig = a.sig from rfl,
+    show (PackedFloat.abs a).sign = false from rfl]
+  by_cases h1 : a.isNaN <;> simp only [h1] <;>
+    (try (by_cases h2 : a.isInfinite <;> simp only [h2] <;>
+      (try (by_cases h3 : a.isZero <;> simp only [h3] <;>
+        (try (by_cases h4 : a.ex = 0#11 <;> simp only [h4]))))))
+  all_goals rfl
+
 end FpAgainstFloatModel
