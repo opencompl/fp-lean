@@ -187,10 +187,30 @@ def UnpackedRel (euf : EUnpackedFloat (exponentWidth 11 52) (52 + 1))
       euf.isNumber ∧ signToModel euf.num.sign = s ∧
       DyadicEqNat euf.num.sig.toNat (euf.num.ex.toInt - 52) m e
 
-/-- `PackedFloat.unpack` agrees with the model's `unpack`, structurally. -/
+/-- `PackedFloat.unpack` agrees with the model's `unpack`, structurally.  The classification
+cases (NaN / infinity / zero) are discharged here; the finite case's dyadic value equality
+(`unpackNum_dyadicEq`) is the remaining leaf. -/
 theorem unpack_unpackRel (pf : PackedFloat 11 52) :
     UnpackedRel pf.unpack (UnpackedFloat.unpack .binary64 (toBits64 pf)) := by
-  sorry
+  rw [← toModelUnpacked_eq_unpack]
+  unfold toModelUnpacked
+  by_cases h1 : pf.isNaN
+  · -- NaN
+    simp only [h1, ↓reduceIte]
+    simp [PackedFloat.unpack, UnpackedRel, h1]
+  · by_cases h2 : pf.isInfinite
+    · -- infinity
+      simp only [h1, h2, ↓reduceIte]
+      simp [PackedFloat.unpack, UnpackedRel, h1, h2, EUnpackedFloat.mkInfinity,
+        EUnpackedFloat.isInfinite, EUnpackedFloat.isNaN]
+    · by_cases h3 : pf.isZero
+      · -- zero
+        simp only [h1, h2, h3, ↓reduceIte, ↓reduceDIte]
+        have hu : pf.unpack = EUnpackedFloat.mkZero pf.sign := by
+          simp only [PackedFloat.unpack, h1, h2, h3, cond_false, cond_true, Bool.false_eq_true]
+        rw [hu]; exact ⟨rfl, rfl⟩
+      · -- finite: the dyadic value equality is the remaining obligation
+        sorry
 
 /-- If the unpacked forms are structurally related, their packings are `ModelEquiv`. -/
 theorem pack_modelEquiv {euf : EUnpackedFloat (exponentWidth 11 52) (52 + 1)}
