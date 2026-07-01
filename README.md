@@ -40,3 +40,6 @@ _ [Kahan Floating Point Paranoia](https://people.math.sc.edu/Burkardt/c_src/para
 - [BTRW15: An Automatable Formal Semantics for IEEE 754](https://smt-lib.org/papers/BTRW15.pdf)
 - [2020-2021 Floating Point Course @ Cambridge](https://www.cl.cam.ac.uk/teaching/1011/FPComp/)
 - [Numerical Computing with IEEE Floating Point Arithmetic by Michael L. Overton.](https://dl.acm.org/doi/pdf/10.1145/103162.103163)
+- [FLoPS: IEEE-P3109 in Lean](https://arxiv.org/pdf/2602.15965)
+
+

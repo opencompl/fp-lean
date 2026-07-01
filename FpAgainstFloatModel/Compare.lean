@@ -1,4 +1,4 @@
-import Fp.Theorems.AgainstFloatModel.Basic
+import FpAgainstFloatModel.Basic
 
 /-! # Comparisons agree with `Float.Model.{le,lt,beq,compare}`.
 
@@ -6,7 +6,7 @@ The model's `le`/`lt`/`beq` are the IEEE partial order (`NaN` incomparable, `±0
 matching the project's SMT-LIB comparators with the `whenBothNaN := false` flag. All proofs
 relate the two comparison circuits on the unpacked forms — no rational comparison. -/
 
-namespace Fp.AgainstFloatModel
+namespace FpAgainstFloatModel
 
 variable {a b : PackedFloat 11 52} {fa fb : Float.Model}
 
@@ -34,4 +34,4 @@ theorem compare_agree (ha : a.ModelEquiv fa) (hb : b.ModelEquiv fb) :
     compareOpt a b = fa.compare fb := by
   sorry
 
-end Fp.AgainstFloatModel
+end FpAgainstFloatModel

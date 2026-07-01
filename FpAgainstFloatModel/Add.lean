@@ -1,8 +1,8 @@
-import Fp.Theorems.AgainstFloatModel.Basic
+import FpAgainstFloatModel.Basic
 
 /-! # `PackedFloat.add` agrees with `Float.Model.add` (round-to-nearest-even). -/
 
-namespace Fp.AgainstFloatModel
+namespace FpAgainstFloatModel
 
 variable {a b : PackedFloat 11 52} {fa fb : Float.Model}
 
@@ -13,4 +13,4 @@ theorem add_agree (ha : a.ModelEquiv fa) (hb : b.ModelEquiv fb) :
     (a + b).ModelEquiv (fa + fb) := by
   sorry
 
-end Fp.AgainstFloatModel
+end FpAgainstFloatModel

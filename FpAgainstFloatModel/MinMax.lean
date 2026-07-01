@@ -1,4 +1,4 @@
-import Fp.Theorems.AgainstFloatModel.Basic
+import FpAgainstFloatModel.Basic
 
 /-! # `min`/`max` agree with `Float.Model.{min,max}`.
 
@@ -7,7 +7,7 @@ project's `smtMin`/`smtMax`. NOTE: IEEE min/max on differing-signed zeros is und
 the `xOnDiffZeros` flag is fixed to `false` here and this is the point most likely to need a
 convention tweak. -/
 
-namespace Fp.AgainstFloatModel
+namespace FpAgainstFloatModel
 
 variable {a b : PackedFloat 11 52} {fa fb : Float.Model}
 
@@ -19,4 +19,4 @@ theorem max_agree (ha : a.ModelEquiv fa) (hb : b.ModelEquiv fb) :
     (PackedFloat.smtMax false a b).ModelEquiv (Max.max fa fb) := by
   sorry
 
-end Fp.AgainstFloatModel
+end FpAgainstFloatModel

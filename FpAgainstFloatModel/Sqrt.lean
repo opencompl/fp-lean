@@ -1,8 +1,8 @@
-import Fp.Theorems.AgainstFloatModel.Basic
+import FpAgainstFloatModel.Basic
 
 /-! # `PackedFloat.sqrt` agrees with `Float.Model.sqrt` (round-to-nearest-even). -/
 
-namespace Fp.AgainstFloatModel
+namespace FpAgainstFloatModel
 
 variable {a : PackedFloat 11 52} {fa : Float.Model}
 
@@ -12,4 +12,4 @@ theorem sqrt_agree (ha : a.ModelEquiv fa) :
     (sqrt a .RNE).ModelEquiv (fa.sqrt) := by
   sorry
 
-end Fp.AgainstFloatModel
+end FpAgainstFloatModel

@@ -23,7 +23,7 @@ structural relation `UnpackedRel` at the unpacked level (comparing sign / `toNat
 `toInt` exponent / classification — again no rationals) structures the operation proofs.
 
 This file holds the shared definitions and the foundational lemmas; each operation's
-agreement theorem lives in its own file under `Fp/Theorems/AgainstFloatModel/`.
+agreement theorem lives in its own file under `FpAgainstFloatModel/`.
 
 Proofs are scaffolded with `sorry`; every statement is fully typed. `toModelUnpacked` itself
 is `sorry`-free and is validated empirically against `Float.Model.unpack`.
@@ -31,7 +31,7 @@ is `sorry`-free and is validated empirically against `Float.Model.unpack`.
 
 open Float.Model (UnpackedFloat)
 
-namespace Fp.AgainstFloatModel
+namespace FpAgainstFloatModel
 
 /-! ## Part A — format / bit bridge -/
 
@@ -130,4 +130,4 @@ theorem pack_modelEquiv {euf : EUnpackedFloat (exponentWidth 11 52) (52 + 1)}
     (euf.pack : PackedFloat 11 52).ModelEquiv (Float.Model.pack u) := by
   sorry
 
-end Fp.AgainstFloatModel
+end FpAgainstFloatModel

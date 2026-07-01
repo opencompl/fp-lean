@@ -1,8 +1,8 @@
-import Fp.Theorems.AgainstFloatModel.Basic
+import FpAgainstFloatModel.Basic
 
 /-! # `PackedFloat.abs` agrees with `Float.Model.abs` (clears the sign bit). -/
 
-namespace Fp.AgainstFloatModel
+namespace FpAgainstFloatModel
 
 variable {a : PackedFloat 11 52} {fa : Float.Model}
 
@@ -10,4 +10,4 @@ variable {a : PackedFloat 11 52} {fa : Float.Model}
 theorem abs_agree (ha : a.ModelEquiv fa) : (a.abs).ModelEquiv (fa.abs) := by
   sorry
 
-end Fp.AgainstFloatModel
+end FpAgainstFloatModel
