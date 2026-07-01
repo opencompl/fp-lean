@@ -1,5 +1,4 @@
-import Fp
-import Init.Data.Float.Model.Float
+import FpAgainstFloatModel.Theory
 
 /-!
 # `PackedFloat` agrees with Lean's `Float.Model` — shared foundation
@@ -38,9 +37,10 @@ namespace FpAgainstFloatModel
 /-- `binary64` has exactly the `PackedFloat 11 52` bit width. -/
 theorem binary64_numBits : Float.Model.Format.binary64.numBits = 1 + 11 + 52 := rfl
 
-/-- The 64-bit pattern of a `PackedFloat 11 52`, viewed at `binary64.numBits`. -/
+/-- The 64-bit pattern of a `PackedFloat 11 52`, viewed at `binary64.numBits`
+(`binary64.numBits` is definitionally `1 + 11 + 52`, so no cast is needed). -/
 def toBits64 (pf : PackedFloat 11 52) : BitVec Float.Model.Format.binary64.numBits :=
-  (pf.toBits).cast (by rw [binary64_numBits])
+  pf.toBits
 
 /-- A boolean sign bit as a `Float.Model` sign (`false ↦ positive`, matching IEEE). -/
 def signToModel (b : Bool) : UnpackedFloat.Sign :=
@@ -73,11 +73,36 @@ def toModelUnpacked (pf : PackedFloat 11 52) : UnpackedFloat :=
     .finite (signToModel pf.sign) (2 ^ 52 + pf.sig.toNat) ((pf.ex.toNat : Int) - 1075)
       (Nat.add_pos_left (Nat.two_pow_pos 52) _)
 
-/-- Core correspondence: the field interpretation equals the model's own `unpack`.
-(Validated empirically over many bit patterns; the `sorry` is the general proof.) -/
+/-- Core correspondence: the field interpretation equals the model's own `unpack`. -/
 theorem toModelUnpacked_eq_unpack (pf : PackedFloat 11 52) :
     toModelUnpacked pf = UnpackedFloat.unpack .binary64 (toBits64 pf) := by
-  sorry
+  -- The three field extractions recover `pf`'s components (pure BitVec facts).
+  have hs : UnpackedFloat.unpackSign (toBits64 pf) = BitVec.ofBool pf.sign := by
+    unfold toBits64 UnpackedFloat.unpackSign PackedFloat.toBits; bv_decide
+  have he : UnpackedFloat.unpackExponent (toBits64 pf) = pf.ex := by
+    unfold toBits64 UnpackedFloat.unpackExponent PackedFloat.toBits; bv_decide
+  have hm : UnpackedFloat.unpackMantissa (toBits64 pf) = pf.sig := by
+    unfold toBits64 UnpackedFloat.unpackMantissa PackedFloat.toBits; bv_decide
+  have hsign : UnpackedFloat.Sign.ofBitVec (BitVec.ofBool pf.sign) = signToModel pf.sign := by
+    cases pf.sign <;> rfl
+  have hbias : Float.Model.Format.binary64.exponentBias = 1023 := by decide
+  have hallones : BitVec.allOnes 11 = -1#11 := by decide
+  unfold UnpackedFloat.unpack toModelUnpacked
+  simp only [hs, he, hm, hsign]
+  simp only [PackedFloat.isNaN, PackedFloat.isInfinite, PackedFloat.isZero, hallones,
+    BitVec.zero_eq, beq_iff_eq, bne_iff_ne, Bool.and_eq_true, Bool.or_eq_true,
+    Nat.reduceEqDiff, decide_false, Bool.false_or, Bool.true_and, hbias]
+  by_cases hnan : pf.ex = -1#11
+  · by_cases hsig : pf.sig = 0#52 <;> simp [hnan, hsig]
+  · by_cases hz : pf.ex = 0#11
+    · by_cases hsig : pf.sig = 0#52 <;> simp [hnan, hz, hsig] <;> grind
+    · simp only [hnan, hz, false_and, and_false, ↓reduceIte, ↓reduceDIte,
+        UnpackedFloat.finite.injEq, true_and]
+      refine ⟨?_, ?_⟩
+      · rw [BitVec.toNat_append, BitVec.toNat_ofNat, Nat.shiftLeft_eq]
+        have h := Nat.two_pow_add_eq_or_of_lt pf.sig.isLt 1
+        grind
+      · grind
 
 /-! ## Part B (cont.) — the equivalence relation -/
 
@@ -90,24 +115,68 @@ def _root_.PackedFloat.ModelEquiv (pf : PackedFloat 11 52) (fm : Float.Model) : 
 theorem modelEquiv_of_toBits_eq {pf : PackedFloat 11 52} {fm : Float.Model}
     (h : toBits64 pf = fm.toBits.toBitVec) : pf.ModelEquiv fm := Or.inl h
 
+/-- `toModelUnpacked` is `notANumber` exactly for `NaN` packed floats. -/
+theorem toModelUnpacked_isNaN (pf : PackedFloat 11 52) :
+    toModelUnpacked pf = .notANumber ↔ pf.isNaN := by
+  unfold toModelUnpacked
+  by_cases h : pf.isNaN <;> simp [h] <;>
+    (by_cases h2 : pf.isInfinite <;> simp [h2] <;>
+      (by_cases h3 : pf.isZero <;> simp [h3] <;>
+        (by_cases h4 : pf.ex = 0#11 <;> simp [h4])))
+
 /-- `ModelEquiv` characterized structurally: same classification, and matching unpacked value.
-(The "state equivalence" spelled out.) -/
+(The "state equivalence" spelled out.) Uses `unpack` injectivity off `NaN`. -/
 theorem modelEquiv_iff_unpack {pf : PackedFloat 11 52} {fm : Float.Model} :
     pf.ModelEquiv fm ↔ toModelUnpacked pf = fm.unpack := by
-  sorry
+  rw [toModelUnpacked_eq_unpack]
+  unfold PackedFloat.ModelEquiv
+  constructor
+  · rintro (heq | ⟨h1, h2⟩)
+    · rw [heq]; rfl
+    · have e1 : UnpackedFloat.unpack .binary64 (toBits64 pf) = .notANumber :=
+        (toModelUnpacked_eq_unpack pf) ▸ (toModelUnpacked_isNaN pf).mpr h1
+      have e2 : fm.unpack = .notANumber := (model_isNaN_iff_unpack fm).mp h2
+      rw [e1, e2]
+  · intro h
+    by_cases hn : UnpackedFloat.unpack .binary64 (toBits64 pf) = .notANumber
+    · right
+      exact ⟨(toModelUnpacked_isNaN pf).mp ((toModelUnpacked_eq_unpack pf).trans hn),
+             (model_isNaN_iff_unpack fm).mpr (h ▸ hn)⟩
+    · left; exact unpack_inj hn h
 
 /-- `ofBits` on both sides agree. -/
 theorem ofBits_modelEquiv (b : BitVec (1 + 11 + 52)) :
     (PackedFloat.ofBits 11 52 b).ModelEquiv (Float.Model.ofBits (UInt64.ofBitVec (b.cast (by decide)))) := by
-  sorry
+  rw [modelEquiv_iff_unpack, toModelUnpacked_eq_unpack]
+  unfold Float.Model.ofBits Float.Model.unpack Float.Model.pack
+  simp only [UInt64.toBitVec_ofBitVec]
+  rw [unpack_pack _ (ModelCanonical_unpack _)]
+  congr 1
+  have h0 : (PackedFloat.ofBits 11 52 b).toBits = b := by
+    apply BitVec.eq_of_getLsbD_eq; intro i
+    simp only [PackedFloat.toBits, PackedFloat.ofBits, BitVec.getLsbD_append,
+      BitVec.getLsbD_setWidth, BitVec.getLsbD_extractLsb', BitVec.getLsbD_ofBool, BitVec.msb]
+    grind
+  show (PackedFloat.ofBits 11 52 b).toBits = b.cast (by decide)
+  rw [h0]; exact BitVec.eq_of_toNat_eq rfl
 
 /-! ## Part C — structural relation at the unpacked level (no `Rat`), to structure proofs
 
-Relates the project's `EUnpackedFloat` to the model's inductive `UnpackedFloat` by
-classification + `toNat` significand + `toInt` exponent. -/
+Relates the project's `EUnpackedFloat` to the model's inductive `UnpackedFloat`.  The project
+keeps a *normalized* significand (leading bit set) even for subnormals, while the model's
+`unpack` leaves subnormals *denormalized*.  So the two `(mantissa, exponent)` pairs differ
+representationally but denote the same value.  We compare **by value**, `Rat`-free: two dyadic
+magnitudes `M₁·2^E₁`, `M₂·2^E₂` are equal iff, after shifting both up to their common floor
+exponent, the `Nat` products coincide (`DyadicEqNat`). -/
 
-/-- A project `EUnpackedFloat` and a model `UnpackedFloat` represent the same value/state,
-compared structurally (sign, `toNat` mantissa, `toInt` exponent) — no rational comparison. -/
+/-- `M₁·2^E₁ = M₂·2^E₂` as dyadic magnitudes, expressed with pure `Nat`/`Int` arithmetic by
+shifting both mantissas up to the shared floor exponent `min E₁ E₂`. -/
+def DyadicEqNat (M₁ : Nat) (E₁ : Int) (M₂ : Nat) (E₂ : Int) : Prop :=
+  M₁ * 2 ^ (E₁ - min E₁ E₂).toNat = M₂ * 2 ^ (E₂ - min E₁ E₂).toNat
+
+/-- A project `EUnpackedFloat` and a model `UnpackedFloat` represent the same value/state.
+Classification matches; the finite case compares sign and the dyadic **value** (no rationals,
+tolerant of the normal/subnormal normalization difference). -/
 def UnpackedRel (euf : EUnpackedFloat (exponentWidth 11 52) (52 + 1))
     (u : UnpackedFloat) : Prop :=
   match u with
@@ -116,18 +185,79 @@ def UnpackedRel (euf : EUnpackedFloat (exponentWidth 11 52) (52 + 1))
   | .zero s       => euf.isZero ∧ signToModel euf.num.sign = s
   | .finite s m e _ =>
       euf.isNumber ∧ signToModel euf.num.sign = s ∧
-      -- same normalized (mantissa, exponent), read via toNat/toInt (Rat-free)
-      euf.num.sig.toNat = m ∧ (euf.num.ex.toInt - 52 : Int) = e
+      DyadicEqNat euf.num.sig.toNat (euf.num.ex.toInt - 52) m e
 
-/-- `PackedFloat.unpack` agrees with the model's `unpack`, structurally. -/
+/-- `PackedFloat.unpack` agrees with the model's `unpack`, structurally.  The classification
+cases (NaN / infinity / zero) are discharged here; the finite case's dyadic value equality
+(`unpackNum_dyadicEq`) is the remaining leaf. -/
 theorem unpack_unpackRel (pf : PackedFloat 11 52) :
     UnpackedRel pf.unpack (UnpackedFloat.unpack .binary64 (toBits64 pf)) := by
-  sorry
+  rw [← toModelUnpacked_eq_unpack]
+  unfold toModelUnpacked
+  by_cases h1 : pf.isNaN
+  · -- NaN
+    simp only [h1, ↓reduceIte]
+    simp [PackedFloat.unpack, UnpackedRel, h1]
+  · by_cases h2 : pf.isInfinite
+    · -- infinity
+      simp only [h1, h2, ↓reduceIte]
+      simp [PackedFloat.unpack, UnpackedRel, h1, h2, EUnpackedFloat.mkInfinity,
+        EUnpackedFloat.isInfinite, EUnpackedFloat.isNaN]
+    · by_cases h3 : pf.isZero
+      · -- zero
+        simp only [h1, h2, h3, ↓reduceIte, ↓reduceDIte]
+        have hu : pf.unpack = EUnpackedFloat.mkZero pf.sign := by
+          simp only [PackedFloat.unpack, h1, h2, h3, cond_false, cond_true, Bool.false_eq_true]
+        rw [hu]; exact ⟨rfl, rfl⟩
+      · -- finite: the dyadic value equality is the remaining obligation
+        sorry
 
 /-- If the unpacked forms are structurally related, their packings are `ModelEquiv`. -/
 theorem pack_modelEquiv {euf : EUnpackedFloat (exponentWidth 11 52) (52 + 1)}
     {u : UnpackedFloat} (h : UnpackedRel euf u) :
     (euf.pack : PackedFloat 11 52).ModelEquiv (Float.Model.pack u) := by
   sorry
+
+/-! ## Part D — sign-only operations (`neg`, `abs`)
+
+These reduce to `toModelUnpacked` commuting with the corresponding `UnpackedFloat` operation
+(a pure sign change), plus the model round-trip `model_neg_unpack`/`model_abs_unpack`. -/
+
+/-- `signToModel` turns boolean negation into `Sign` negation. -/
+theorem signToModel_not (b : Bool) : signToModel (!b) = -(signToModel b) := by
+  cases b <;> rfl
+
+/-- Negating a `PackedFloat` negates its model-unpacked value. -/
+theorem toModelUnpacked_neg (a : PackedFloat 11 52) :
+    toModelUnpacked (-a) = (toModelUnpacked a).neg := by
+  show toModelUnpacked (PackedFloat.neg a) = _
+  unfold toModelUnpacked
+  simp only [show (PackedFloat.neg a).isNaN = a.isNaN from rfl,
+    show (PackedFloat.neg a).isInfinite = a.isInfinite from rfl,
+    show (PackedFloat.neg a).isZero = a.isZero from rfl,
+    show (PackedFloat.neg a).ex = a.ex from rfl,
+    show (PackedFloat.neg a).sig = a.sig from rfl,
+    show (PackedFloat.neg a).sign = !a.sign from rfl, signToModel_not]
+  by_cases h1 : a.isNaN <;> simp only [h1] <;>
+    (try (by_cases h2 : a.isInfinite <;> simp only [h2] <;>
+      (try (by_cases h3 : a.isZero <;> simp only [h3] <;>
+        (try (by_cases h4 : a.ex = 0#11 <;> simp only [h4]))))))
+  all_goals rfl
+
+/-- Taking `abs` of a `PackedFloat` takes `abs` of its model-unpacked value. -/
+theorem toModelUnpacked_abs (a : PackedFloat 11 52) :
+    toModelUnpacked (a.abs) = (toModelUnpacked a).abs := by
+  unfold toModelUnpacked
+  simp only [show (PackedFloat.abs a).isNaN = a.isNaN from rfl,
+    show (PackedFloat.abs a).isInfinite = a.isInfinite from rfl,
+    show (PackedFloat.abs a).isZero = a.isZero from rfl,
+    show (PackedFloat.abs a).ex = a.ex from rfl,
+    show (PackedFloat.abs a).sig = a.sig from rfl,
+    show (PackedFloat.abs a).sign = false from rfl]
+  by_cases h1 : a.isNaN <;> simp only [h1] <;>
+    (try (by_cases h2 : a.isInfinite <;> simp only [h2] <;>
+      (try (by_cases h3 : a.isZero <;> simp only [h3] <;>
+        (try (by_cases h4 : a.ex = 0#11 <;> simp only [h4]))))))
+  all_goals rfl
 
 end FpAgainstFloatModel
