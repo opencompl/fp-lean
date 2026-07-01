@@ -1,5 +1,6 @@
 import FpAgainstFloatModel.Theory
 import FpAgainstFloatModel.Basic
+import FpAgainstFloatModel.ExtRat
 import FpAgainstFloatModel.Add
 import FpAgainstFloatModel.Sub
 import FpAgainstFloatModel.Mul
