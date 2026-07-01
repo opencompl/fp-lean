@@ -1,11 +1,16 @@
 name = "fp-lean"
 version = "0.1.0"
-defaultTargets = ["Fp", "fp-lean", "Examples"]
+defaultTargets = ["Fp", "FpAgainstFloatModel", "fp-lean", "Examples"]
 moreLeanArgs = ["--tstack=1000000"]
 moreGlobalServerArgs = ["--tstack=1000000"]
 
 [[lean_lib]]
 name = "Fp"
+
+# A separate top-level library sitting *above* `Fp`: it imports the full `Fp` to prove that
+# `PackedFloat` agrees with Lean's `Float.Model` (only available on the Float-Model toolchain).
+[[lean_lib]]
+name = "FpAgainstFloatModel"
 
 [[lean_lib]]
 name = "Examples"
