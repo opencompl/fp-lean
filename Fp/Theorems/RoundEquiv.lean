@@ -189,9 +189,9 @@ theorem PackedFloat.abs_toRat_eq {e s} (pf : PackedFloat e s) :
   have hts : (pf.sign.toSign : Rat) = 1 ∨ (pf.sign.toSign : Rat) = -1 := by
     cases pf.sign <;> simp [Bool.toSign]
   rcases hts with h | h <;> rw [h]
-  · rw [Rat.one_mul]; unfold Rat.abs; rw [if_neg (by grind)]
+  · rw [Rat.one_mul]; simp only [Rat.abs_def_lt]; rw [if_neg (by grind)]
   · rw [show (-1:Rat) * pf.toRatSig = -(pf.toRatSig) by grind, Rat.abs_neg_eq]
-    unfold Rat.abs; rw [if_neg (by grind)]
+    simp only [Rat.abs_def_lt]; rw [if_neg (by grind)]
 
 theorem PackedFloat.abs_toRat_lt {e s} (pf : PackedFloat e s) :
     (pf.toRat).abs < 2 ^ (pf.toRatExp + 1) := by
@@ -231,23 +231,23 @@ theorem two_zpow_eq_natCast {e2 : Int} (h0 : 0 ≤ e2) :
 theorem one_le_abs_intCast (z : Int) (hz : z ≠ 0) : (1:Rat) ≤ (z:Rat).abs := by
   rcases (by grind : 0 < z ∨ z < 0) with h | h
   · have hr : (1:Rat) ≤ (z:Rat) := by exact_mod_cast (by grind : (1:Int) ≤ z)
-    unfold Rat.abs; rw [if_neg (by grind)]; exact hr
+    simp only [Rat.abs_def_lt]; rw [if_neg (by grind)]; exact hr
   · have hr : (1:Rat) ≤ ((-z : Int):Rat) := by exact_mod_cast (by grind : (1:Int) ≤ -z)
     have he : ((-z:Int):Rat) = -(z:Rat) := by push_cast; grind
     rw [he] at hr
-    unfold Rat.abs; rw [if_pos (by grind)]; exact hr
+    simp only [Rat.abs_def_lt]; rw [if_pos (by grind)]; exact hr
 
 theorem abs_intCast_eq (z : Int) : (z:Rat).abs = (z.natAbs : Rat) := by
   rcases (by grind : 0 ≤ z ∨ z < 0) with h | h
   · have h0 : (0:Rat) ≤ (z:Rat) := by exact_mod_cast h
     have hz : (z:Rat) = (z.natAbs : Rat) := by exact_mod_cast (Int.natAbs_of_nonneg h).symm
-    unfold Rat.abs; rw [if_neg (by grind), hz]
+    simp only [Rat.abs_def_lt]; rw [if_neg (by grind), hz]
   · have h0 : (z:Rat) < 0 := by exact_mod_cast h
     have hz : -(z:Rat) = (z.natAbs : Rat) := by
       have h2 := Int.ofNat_natAbs_of_nonpos (by grind : z ≤ 0)
       have : ((z.natAbs:Int):Rat) = ((-z:Int):Rat) := by exact_mod_cast h2
       push_cast at this; grind
-    unfold Rat.abs; rw [if_pos (by grind)]; rw [← hz]
+    simp only [Rat.abs_def_lt]; rw [if_pos (by grind)]; rw [← hz]
 
 theorem PackedFloat.core_bound {ep s' : Nat} (k n : Int) (q : Rat)
     (hn : ¬ 2 ∣ n) (hq : q = (n : Rat) * 2 ^ k) (hmag : 2 ^ (k + (s':Int) + 1) ≤ q.abs)
@@ -320,7 +320,7 @@ theorem PackedFloat.core_bound {ep s' : Nat} (k n : Int) (q : Rat)
     -- reverse triangle
     have htri : (n:Rat).abs - ((M:Rat) * 2 ^ (pf.toRatExp - (s':Int) - k)).abs
         ≤ ((n:Rat) - (M:Rat) * 2 ^ (pf.toRatExp - (s':Int) - k)).abs := by
-      unfold Rat.abs; split <;> split <;> split <;> grind
+      simp only [Rat.abs_def_lt]; split <;> split <;> split <;> grind
     grind
 
 
@@ -331,7 +331,7 @@ theorem side_iff_of_bounds (k : Int) (q r v : Rat)
     (hv : 2 ^ k ≤ (q - v).abs) (hrq : (r - q).abs < 2 ^ k) :
     (v ≤ q ↔ v ≤ r) ∧ (q ≤ v ↔ r ≤ v) := by
   have hpos : (0:Rat) < 2 ^ k := Rat.two_pow_pos _
-  unfold Rat.abs at hv hrq
+  simp only [Rat.abs_def_lt] at hv hrq
   split at hv <;> split at hrq <;> constructor <;> constructor <;> intro h <;> grind
 
 theorem PackedFloat.sameSide_of_core {ep s' : Nat} (he : 0 < ep) (hs : 0 < s')
@@ -408,9 +408,9 @@ theorem roundEquiv_of_stickyEquiv {ep sp eu su : Nat}
         Rat.two_pow_le_two_pow_of_le (by grind)
       grind
     refine ⟨?_, ?_, ?_, ?_, ?_⟩
-    · unfold Rat.abs at hrqq; split at hrqq <;> grind
-    · unfold Rat.abs at hrqq; split at hrqq <;> grind
-    · unfold Rat.abs at hrqq; split at hrqq <;> grind
+    · simp only [Rat.abs_def_lt] at hrqq; split at hrqq <;> grind
+    · simp only [Rat.abs_def_lt] at hrqq; split at hrqq <;> grind
+    · simp only [Rat.abs_def_lt] at hrqq; split at hrqq <;> grind
     · exact PackedFloat.sameSide_of_core (by grind) hs x.toExpInt n x.toRat r hodd hqn
         (hmagS sp (by grind)) hrq
     · exact PackedFloat.sameSide_of_core (by grind) (by grind) x.toExpInt n x.toRat r hodd hqn

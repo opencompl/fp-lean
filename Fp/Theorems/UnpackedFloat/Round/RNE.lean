@@ -533,7 +533,7 @@ theorem roundRNE_eq_zero_of_lt_minNormalExp
   -- Bounds on `r` from `|r| < minSub_{sp+1}`.
   have hbnd : r < (2 : Rat) ^ (minSubnormalExp ep sp - 1)
       ∧ -(2 : Rat) ^ (minSubnormalExp ep sp - 1) < r := by
-    unfold Rat.abs at hr; split at hr <;> grind
+    simp only [Rat.abs_def_lt] at hr; split at hr <;> grind
   have hrlt1 : r < (PackedFloat.minSubnormalNumber ep (sp + 1) false).toRat := by
     rw [hA]; exact hbnd.1
   have hrgt1 : -(PackedFloat.minSubnormalNumber ep (sp + 1) false).toRat < r := by

@@ -9,6 +9,11 @@ open Lean
 
 def Rat.ofNat (n : Nat) : Rat := Rat.ofInt (n : Int)
 
+/-- Core's `Rat.abs` is `if 0 ≤ a then a else -a`; this restates it in the
+`if a < 0 then -a else a` form that many proofs `unfold Rat.abs` used to rely on. -/
+theorem Rat.abs_def_lt (a : Rat) : a.abs = if a < 0 then -a else a := by
+  unfold Rat.abs; grind
+
 attribute [grind! .] Nat.two_pow_pos
 attribute [grind =, grind =_] Nat.pow_add
 

@@ -33,18 +33,20 @@ theorem StickyEquiv.ne_zero_of_ne_zero {k : Int} {q r : Rat}
 /-! ## `Rat.abs` helpers -/
 
 theorem Rat.abs_neg_eq (x : Rat) : (-x).abs = x.abs := by
-  unfold Rat.abs
+  simp only [Rat.abs_def_lt]
   split <;> split <;> grind
 
 theorem Rat.abs_mul_pos {x w : Rat} (hw : 0 < w) : (x * w).abs = x.abs * w := by
-  unfold Rat.abs
-  by_cases hx : 0 ≤ x
-  · have hxw : 0 ≤ x * w := Rat.mul_nonneg hx (Rat.le_of_lt hw)
-    rw [if_pos hx, if_pos hxw]
-  · have hxw : ¬ 0 ≤ x * w := by
+  simp only [Rat.abs_def_lt]
+  by_cases hx : x < 0
+  · have hxw : x * w < 0 := by
       have h : 0 ≤ (-x) * w := Rat.mul_nonneg (by grind) (Rat.le_of_lt hw)
       grind
-    rw [if_neg hx, if_neg hxw, Rat.neg_mul]
+    rw [if_pos hxw, if_pos hx, Rat.neg_mul]
+  · have hxw : ¬ x * w < 0 := by
+      have h : 0 ≤ x * w := Rat.mul_nonneg (by grind) (Rat.le_of_lt hw)
+      grind
+    rw [if_neg hxw, if_neg hx]
 
 theorem Rat.abs_div_pos {x w : Rat} (hw : 0 < w) : (x / w).abs = x.abs / w := by
   rw [Rat.div_def, Rat.div_def, Rat.abs_mul_pos (Rat.inv_pos.mpr hw)]
@@ -62,7 +64,7 @@ theorem Rat.abs_intSub_div_natCast_lt_one (A B Y : Nat) (hY : 0 < Y)
   have h2 : (-(((A:Int) - (B:Int)*(Y:Int)):Rat)) < (Y:Rat) := by
     have hz : (-((A:Int) - (B:Int)*(Y:Int)) : Int) < (Y:Int) := by grind
     exact_mod_cast hz
-  unfold Rat.abs
+  simp only [Rat.abs_def_lt]
   split <;> grind
 
 /-! ## `Nat`/`Rat` arithmetic helpers -/
