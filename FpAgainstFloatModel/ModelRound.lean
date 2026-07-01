@@ -18,6 +18,74 @@ open Float.Model.UnpackedFloat.ExtendedMantissa
 
 namespace FpAgainstFloatModel
 
+/-! ## Symbolic-width `BitVec` facts (for the generic pack/unpack round-trip over `Format`)
+
+These are the width-generic replacements for the `by decide` steps in the binary64
+`unpack_pack`, so the round-trip and round-agreement can be proven for any `Format` (any `e,s`),
+not just `binary64`. -/
+
+/-- `(-1 : BitVec e)` (all-ones) has `toNat = 2^e - 1`. -/
+theorem neg_one_toNat (e : Nat) : ((-1#e) : BitVec e).toNat = 2 ^ e - 1 := by
+  rw [show ((-1#e) : BitVec e) = BitVec.allOnes e from by simp [BitVec.neg_one_eq_allOnes],
+    BitVec.toNat_allOnes]
+
+/-- `1#s <<< (s-1)` (the packed-NaN top mantissa bit) has `toNat = 2^(s-1)`. -/
+theorem toNat_one_shiftLeft (s : Nat) (hs : 0 < s) :
+    ((1#s <<< (s-1)) : BitVec s).toNat = 2 ^ (s-1) := by
+  rw [BitVec.toNat_shiftLeft, BitVec.toNat_ofNat, Nat.shiftLeft_eq]
+  have h1 : (1 : Nat) % 2 ^ s = 1 := Nat.mod_eq_of_lt (Nat.one_lt_two_pow_iff.mpr (by omega))
+  rw [h1, Nat.one_mul, Nat.mod_eq_of_lt (Nat.pow_lt_pow_right (by omega) (by omega))]
+
+/-- `0#e = -1#e` is `False` (for `0 < e`) — zero exponent field is not all-ones. -/
+theorem zero_ne_neg_one (e : Nat) (he : 0 < e) : ((0#e : BitVec e) = -1#e) = False := by
+  rw [eq_iff_iff, iff_false, ← BitVec.toNat_inj, neg_one_toNat, BitVec.toNat_zero]
+  have := Nat.one_lt_two_pow_iff.mpr (show e ≠ 0 by omega); omega
+
+/-- `1#s <<< (s-1) = 0#s` is `False` (for `0 < s`) — the NaN mantissa is nonzero. -/
+theorem one_shiftLeft_ne_zero (s : Nat) (hs : 0 < s) :
+    ((1#s <<< (s-1) : BitVec s) = 0#s) = False := by
+  rw [eq_iff_iff, iff_false, ← BitVec.toNat_inj, toNat_one_shiftLeft s hs, BitVec.toNat_zero]
+  have := Nat.two_pow_pos (s-1); omega
+
+/-- The pack/unpack round-trip on the non-finite constructors, **generic over `Format`**
+(the base case of the generic `unpack_pack`; the finite case's exponent arithmetic is next). -/
+theorem unpack_pack_notANumber (spec : Float.Model.Format) :
+    Float.Model.UnpackedFloat.unpack spec (Float.Model.UnpackedFloat.pack spec .notANumber)
+      = .notANumber := by
+  simp [Float.Model.UnpackedFloat.pack, Float.Model.UnpackedFloat.packedNaN,
+    Float.Model.UnpackedFloat.unpack, Float.Model.UnpackedFloat.unpackExponent_packComponents,
+    Float.Model.UnpackedFloat.unpackMantissa_packComponents, one_shiftLeft_ne_zero _ spec.hm]
+
+theorem unpack_pack_infinity (spec : Float.Model.Format) (s : Float.Model.UnpackedFloat.Sign) :
+    Float.Model.UnpackedFloat.unpack spec (Float.Model.UnpackedFloat.pack spec (.infinity s))
+      = .infinity s := by
+  have he := spec.he
+  simp [Float.Model.UnpackedFloat.pack, Float.Model.UnpackedFloat.packedInfinity,
+    Float.Model.UnpackedFloat.unpack, Float.Model.UnpackedFloat.unpackExponent_packComponents,
+    Float.Model.UnpackedFloat.unpackMantissa_packComponents, unpackSign_packComponents,
+    ofBitVec_toBitVec]
+
+theorem unpack_pack_zero (spec : Float.Model.Format) (s : Float.Model.UnpackedFloat.Sign) :
+    Float.Model.UnpackedFloat.unpack spec (Float.Model.UnpackedFloat.pack spec (.zero s))
+      = .zero s := by
+  have he := spec.he
+  simp [Float.Model.UnpackedFloat.pack, Float.Model.UnpackedFloat.packedZero,
+    Float.Model.UnpackedFloat.unpack, Float.Model.UnpackedFloat.unpackExponent_packComponents,
+    Float.Model.UnpackedFloat.unpackMantissa_packComponents, unpackSign_packComponents,
+    ofBitVec_toBitVec, zero_ne_neg_one _ he]
+
+/-- A model finite value in canonical form for `spec` — **generic** (`2^s ≤ m < 2^(s+1)` normal,
+`m < 2^s ∧ exp = minExponent` subnormal). Supersedes the binary64 `ModelCanonical`. -/
+def ModelCanonicalFmt (spec : Float.Model.Format) : Float.Model.UnpackedFloat → Prop
+  | .notANumber => True
+  | .infinity _ => True
+  | .zero _ => True
+  | .finite _ m e' _ =>
+      (2 ^ spec.mantissaBitsWithoutImplicit ≤ m ∧ m < 2 ^ spec.mantissaBits ∧
+        spec.minExponent ≤ e' ∧
+        e' ≤ (2 ^ (spec.exponentBits - 1) : Int) - 1 - spec.mantissaBitsWithoutImplicit)
+      ∨ (m < 2 ^ spec.mantissaBitsWithoutImplicit ∧ e' = spec.minExponent)
+
 /-! ## H1 — the `k`-fold shift of the exact seed extracts mantissa / guard / sticky -/
 
 /-- Shifting the exact seed `⟨m,false,false⟩` right by `k` leaves `mantissa = m / 2^k`. -/
