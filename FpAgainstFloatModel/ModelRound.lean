@@ -15,6 +15,7 @@ model rounder to the project's `smtLibRound`.
 set_option maxHeartbeats 1000000
 open Float.Model.UnpackedFloat (ExtendedMantissa Accuracy)
 open Float.Model.UnpackedFloat.ExtendedMantissa
+open Float.Model (UnpackedFloat)
 
 namespace FpAgainstFloatModel
 
@@ -85,6 +86,94 @@ def ModelCanonicalFmt (spec : Float.Model.Format) : Float.Model.UnpackedFloat �
         spec.minExponent ≤ e' ∧
         e' ≤ (2 ^ (spec.exponentBits - 1) : Int) - 1 - spec.mantissaBitsWithoutImplicit)
       ∨ (m < 2 ^ spec.mantissaBitsWithoutImplicit ∧ e' = spec.minExponent)
+
+/-! ## Generic finite pack/unpack round-trip
+
+The finite case of the width-generic `unpack_pack`. Two `Nat`/`BitVec` helpers, then the
+round-trip on `.finite` values in canonical form (both normal and subnormal binades), and finally
+the assembled `unpack_pack_fmt` covering all four constructors. -/
+
+/-- `((2^k : Nat) : Int) = (2:Int)^k` — feeds `omega` (no `Nat.cast_pow` without Mathlib). -/
+theorem natCast_two_pow (k : Nat) : ((2^k : Nat) : Int) = (2:Int)^k := by simp
+
+/-- `(1#1 ++ x).toNat = 2^s + x.toNat` — the implicit-bit prepend, width-generic. -/
+theorem toNat_one_append_gen (s : Nat) (x : BitVec s) : (1#1 ++ x).toNat = 2 ^ s + x.toNat := by
+  rw [BitVec.toNat_append, BitVec.toNat_ofNat, Nat.shiftLeft_eq]
+  have h := Nat.two_pow_add_eq_or_of_lt x.isLt 1; grind
+
+/-- The pack/unpack round-trip on a `.finite` value in canonical form, **generic over `Format`**
+(needs `1 < exponentBits`, else a subnormal would overflow to `∞` at `e=1`). Normal and subnormal
+binades handled separately; the exponent recovery is phrased through `exponentBias` to keep the
+`2^(e-1)` term a single `omega` atom. -/
+theorem unpack_pack_finite (spec : Float.Model.Format) (hE2 : 1 < spec.exponentBits)
+    (s : Float.Model.UnpackedFloat.Sign)
+    (m : Nat) (e' : Int) (hm : 0 < m)
+    (h : ModelCanonicalFmt spec (.finite s m e' hm)) :
+    UnpackedFloat.unpack spec (UnpackedFloat.pack spec (.finite s m e' hm)) = .finite s m e' hm := by
+  have hE := spec.he
+  have hS := spec.hm
+  have hcP := natCast_two_pow (spec.exponentBits - 1)
+  have hcE := natCast_two_pow spec.exponentBits
+  have hp1 : (1:Nat) ≤ 2^(spec.exponentBits-1) := Nat.one_le_two_pow
+  have hpowN : 2 ^ spec.exponentBits = 2 ^ (spec.exponentBits - 1) * 2 := by rw [← Nat.pow_succ]; congr 1; omega
+  have hpowI : (2:Int) ^ spec.exponentBits = (2:Int) ^ (spec.exponentBits - 1) * 2 := by rw [← hcE, ← hcP, hpowN]; omega
+  have hbiasI : (spec.exponentBias : Int) = 2 ^ (spec.exponentBits - 1) - 1 := by unfold Float.Model.Format.exponentBias; omega
+  have hmb : spec.mantissaBits = spec.mantissaBitsWithoutImplicit + 1 := by show 1 + _ = _ + 1; omega
+  have hSpow : (2:Nat) ^ spec.mantissaBits = 2 ^ spec.mantissaBitsWithoutImplicit * 2 := by rw [hmb, Nat.pow_succ]
+  have hminI : spec.minExponent = 2 - 2 ^ (spec.exponentBits - 1) - (spec.mantissaBitsWithoutImplicit : Int) := by unfold Float.Model.Format.minExponent Float.Model.Format.mantissaBits; omega
+  have hminBiased : spec.minExponent = 1 - (spec.exponentBias:Int) - (spec.mantissaBitsWithoutImplicit:Int) := by rw [hminI, hbiasI]; omega
+  have h4 : 4 ≤ 2 ^ spec.exponentBits := by
+    rw [hpowN]; have : 2 ≤ 2 ^ (spec.exponentBits - 1) := Nat.one_lt_two_pow_iff.mpr (by omega); omega
+  simp only [ModelCanonicalFmt] at h
+  rcases h with ⟨hm1, hm2, he1, he2⟩ | ⟨hm1, he⟩
+  · rw [hminI] at he1; rw [hSpow] at hm2
+    have hbe_hi : (e' + (spec.exponentBias:Int) + (spec.mantissaBitsWithoutImplicit:Int)).toNat + 2 ≤ 2^spec.exponentBits := by rw [hbiasI]; omega
+    have hbe_lt : (e' + (spec.exponentBias:Int) + (spec.mantissaBitsWithoutImplicit:Int)).toNat < 2^spec.exponentBits := by omega
+    have hbe_ge : 0 < (e' + (spec.exponentBias:Int) + (spec.mantissaBitsWithoutImplicit:Int)).toNat := by rw [hbiasI]; omega
+    have hbe_val : ((e' + (spec.exponentBias:Int) + (spec.mantissaBitsWithoutImplicit:Int)).toNat : Int) = e' + spec.exponentBias + spec.mantissaBitsWithoutImplicit := Int.toNat_of_nonneg (by rw [hbiasI]; omega)
+    have hmmod : m % 2^spec.mantissaBitsWithoutImplicit = m - 2^spec.mantissaBitsWithoutImplicit := by rw [Nat.mod_eq_sub_mod hm1, Nat.mod_eq_of_lt (by omega)]
+    have hlog : m.log2 + 1 = spec.mantissaBits := by
+      rw [hmb]; have : m.log2 = spec.mantissaBitsWithoutImplicit := by rw [Nat.log2_eq_iff (by omega)]; omega
+      omega
+    simp only [UnpackedFloat.pack]
+    rw [if_neg (by omega), if_pos hlog]
+    simp only [UnpackedFloat.unpack, Float.Model.UnpackedFloat.unpackExponent_packComponents,
+      Float.Model.UnpackedFloat.unpackMantissa_packComponents, unpackSign_packComponents, ofBitVec_toBitVec]
+    rw [if_neg (by rw [← BitVec.toNat_inj, BitVec.toNat_ofNat, neg_one_toNat, Nat.mod_eq_of_lt hbe_lt]; omega),
+        if_neg (by rw [← BitVec.toNat_inj, BitVec.toNat_ofNat, BitVec.toNat_zero, Nat.mod_eq_of_lt hbe_lt]; omega),
+        UnpackedFloat.finite.injEq]
+    refine ⟨rfl, ?_, ?_⟩
+    · rw [toNat_one_append_gen, BitVec.toNat_ofNat, hmmod]; omega
+    · rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt hbe_lt, hbe_val]; omega
+  · rw [hminBiased] at he
+    have hmmod : m % 2^spec.mantissaBitsWithoutImplicit = m := Nat.mod_eq_of_lt hm1
+    have hbe0 : (e' + (spec.exponentBias:Int) + (spec.mantissaBitsWithoutImplicit:Int)).toNat + 1 < 2^spec.exponentBits := by rw [he]; omega
+    have hlog : ¬ (m.log2 + 1 = spec.mantissaBits) := by
+      rw [hmb]; have : m.log2 < spec.mantissaBitsWithoutImplicit := by rw [Nat.log2_lt (by omega)]; omega
+      omega
+    have hmpos : ¬ (BitVec.ofNat spec.mantissaBitsWithoutImplicit m = 0#spec.mantissaBitsWithoutImplicit) := by
+      rw [← BitVec.toNat_inj, BitVec.toNat_ofNat, BitVec.toNat_zero, hmmod]; omega
+    simp only [UnpackedFloat.pack]
+    rw [if_neg (by omega), if_neg hlog]
+    simp only [UnpackedFloat.unpack, Float.Model.UnpackedFloat.unpackExponent_packComponents,
+      Float.Model.UnpackedFloat.unpackMantissa_packComponents, unpackSign_packComponents, ofBitVec_toBitVec]
+    rw [if_neg (by rw [zero_ne_neg_one _ hE]; exact not_false)]
+    simp only [if_true]
+    rw [dif_neg hmpos, UnpackedFloat.finite.injEq]
+    refine ⟨rfl, ?_, ?_⟩
+    · rw [BitVec.toNat_ofNat, hmmod]
+    · rw [BitVec.toNat_zero]; omega
+
+/-- The pack/unpack round-trip, **generic over `Format`**, for any model float in canonical form
+(`ModelCanonicalFmt`). Assembles the four constructor cases; supersedes the binary64 `unpack_pack`. -/
+theorem unpack_pack_fmt (spec : Float.Model.Format) (hE2 : 1 < spec.exponentBits)
+    (u : Float.Model.UnpackedFloat) (h : ModelCanonicalFmt spec u) :
+    UnpackedFloat.unpack spec (UnpackedFloat.pack spec u) = u := by
+  cases u with
+  | notANumber => exact unpack_pack_notANumber spec
+  | infinity s => exact unpack_pack_infinity spec s
+  | zero s => exact unpack_pack_zero spec s
+  | finite s m e' hm => exact unpack_pack_finite spec hE2 s m e' hm h
 
 /-! ## H1 — the `k`-fold shift of the exact seed extracts mantissa / guard / sticky -/
 
