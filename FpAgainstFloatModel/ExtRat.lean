@@ -91,4 +91,33 @@ theorem toExtRat_eq_modelToExtRat_of_modelEquiv {a : PackedFloat 11 52} {fa : Fl
   rw [modelToExtRat_eq, ← (modelEquiv_iff_unpack.mp h)]
   exact (modelUnpackedToExtRat_toModelUnpacked a).symm
 
+/-- `modelToExtRat fa` equals the `toExtRat` of interpreting `fa`'s bits as a `PackedFloat`.
+The reverse-bridge anchor: it reduces `ExtRat`-equality to the project's own `toExtRat`
+determinism (`eq_of_toExtRat'_eq`). -/
+theorem modelToExtRat_eq_ofBits (fa : Float.Model) :
+    modelToExtRat fa
+      = (PackedFloat.ofBits 11 52 (fa.toBits.toBitVec.cast (by decide))).toExtRat := by
+  rw [← modelUnpackedToExtRat_toModelUnpacked, toModelUnpacked_eq_unpack, modelToExtRat_eq]
+  congr 1
+  unfold Float.Model.unpack toBits64
+  congr 1
+  have h0 : (PackedFloat.ofBits 11 52 (fa.toBits.toBitVec.cast (by decide))).toBits
+      = fa.toBits.toBitVec.cast (by decide) := by
+    apply BitVec.eq_of_getLsbD_eq; intro i
+    simp only [PackedFloat.toBits, PackedFloat.ofBits, BitVec.getLsbD_append,
+      BitVec.getLsbD_setWidth, BitVec.getLsbD_extractLsb', BitVec.getLsbD_ofBool, BitVec.msb,
+      BitVec.getLsbD_cast]
+    grind
+  rw [h0]; exact BitVec.eq_of_toNat_eq rfl
+
+/-- The model value is `.NaN` exactly for `NaN` floats. -/
+theorem modelUnpackedToExtRat_eq_NaN_iff (u : UnpackedFloat) :
+    modelUnpackedToExtRat u = .NaN ↔ u = .notANumber := by
+  cases u <;> simp [modelUnpackedToExtRat]
+
+/-- `modelToExtRat fa = .NaN ↔ fa.isNaN`. -/
+theorem modelToExtRat_eq_NaN_iff (fa : Float.Model) :
+    modelToExtRat fa = .NaN ↔ fa.isNaN := by
+  rw [modelToExtRat_eq, model_isNaN_iff_unpack, modelUnpackedToExtRat_eq_NaN_iff]
+
 end FpAgainstFloatModel
