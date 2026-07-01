@@ -162,11 +162,21 @@ theorem ofBits_modelEquiv (b : BitVec (1 + 11 + 52)) :
 
 /-! ## Part C — structural relation at the unpacked level (no `Rat`), to structure proofs
 
-Relates the project's `EUnpackedFloat` to the model's inductive `UnpackedFloat` by
-classification + `toNat` significand + `toInt` exponent. -/
+Relates the project's `EUnpackedFloat` to the model's inductive `UnpackedFloat`.  The project
+keeps a *normalized* significand (leading bit set) even for subnormals, while the model's
+`unpack` leaves subnormals *denormalized*.  So the two `(mantissa, exponent)` pairs differ
+representationally but denote the same value.  We compare **by value**, `Rat`-free: two dyadic
+magnitudes `M₁·2^E₁`, `M₂·2^E₂` are equal iff, after shifting both up to their common floor
+exponent, the `Nat` products coincide (`DyadicEqNat`). -/
 
-/-- A project `EUnpackedFloat` and a model `UnpackedFloat` represent the same value/state,
-compared structurally (sign, `toNat` mantissa, `toInt` exponent) — no rational comparison. -/
+/-- `M₁·2^E₁ = M₂·2^E₂` as dyadic magnitudes, expressed with pure `Nat`/`Int` arithmetic by
+shifting both mantissas up to the shared floor exponent `min E₁ E₂`. -/
+def DyadicEqNat (M₁ : Nat) (E₁ : Int) (M₂ : Nat) (E₂ : Int) : Prop :=
+  M₁ * 2 ^ (E₁ - min E₁ E₂).toNat = M₂ * 2 ^ (E₂ - min E₁ E₂).toNat
+
+/-- A project `EUnpackedFloat` and a model `UnpackedFloat` represent the same value/state.
+Classification matches; the finite case compares sign and the dyadic **value** (no rationals,
+tolerant of the normal/subnormal normalization difference). -/
 def UnpackedRel (euf : EUnpackedFloat (exponentWidth 11 52) (52 + 1))
     (u : UnpackedFloat) : Prop :=
   match u with
@@ -175,8 +185,7 @@ def UnpackedRel (euf : EUnpackedFloat (exponentWidth 11 52) (52 + 1))
   | .zero s       => euf.isZero ∧ signToModel euf.num.sign = s
   | .finite s m e _ =>
       euf.isNumber ∧ signToModel euf.num.sign = s ∧
-      -- same normalized (mantissa, exponent), read via toNat/toInt (Rat-free)
-      euf.num.sig.toNat = m ∧ (euf.num.ex.toInt - 52 : Int) = e
+      DyadicEqNat euf.num.sig.toNat (euf.num.ex.toInt - 52) m e
 
 /-- `PackedFloat.unpack` agrees with the model's `unpack`, structurally. -/
 theorem unpack_unpackRel (pf : PackedFloat 11 52) :
