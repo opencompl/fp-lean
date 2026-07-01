@@ -6,6 +6,10 @@ moreGlobalServerArgs = ["--tstack=1000000"]
 
 [[lean_lib]]
 name = "Fp"
+# `Fp` (root + transitive) plus the `AgainstFloatModel` umbrella, which sits *above* `Fp`
+# (it imports the full `Fp` to prove agreement with Lean's `Float.Model`) so cannot live
+# inside `Fp.Theorems` without a cyclic import.
+globs = ["Fp", "Fp.Theorems.AgainstFloatModel"]
 
 [[lean_lib]]
 name = "Examples"
