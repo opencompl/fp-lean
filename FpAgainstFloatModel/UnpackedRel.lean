@@ -19,7 +19,7 @@ namespace FpAgainstFloatModel
 /-! ## `DyadicEqNat` from a `Rat` value equality -/
 
 /-- Casting a `Nat` dyadic magnitude `M · 2^(E-m)` (with `m ≤ E`) into `Rat`. -/
-theorem cast_nat_pow (M : Nat) (E m : Int) (hEm : m ≤ E) :
+theorem natCast_mul_two_pow (M : Nat) (E m : Int) (hEm : m ≤ E) :
     ((M * 2 ^ (E - m).toNat : Nat) : Rat) = (M : Rat) * 2 ^ (E - m) := by
   push_cast
   rw [← Rat.zpow_natCast 2 (E - m).toNat, Int.toNat_of_nonneg (by omega)]
@@ -35,14 +35,14 @@ theorem DyadicEqNat.of_rat {M1 M2 : Nat} {E1 E2 : Int}
         show E2 - min E1 E2 = E2 + (-(min E1 E2)) from by omega,
         Rat.zpow_add (by decide : (2:Rat) ≠ 0), Rat.zpow_add (by decide : (2:Rat) ≠ 0)]
     grind
-  have e1 := cast_nat_pow M1 E1 (min E1 E2) hm1
-  have e2 := cast_nat_pow M2 E2 (min E1 E2) hm2
+  have e1 := natCast_mul_two_pow M1 E1 (min E1 E2) hm1
+  have e2 := natCast_mul_two_pow M2 E2 (min E1 E2) hm2
   have : ((M1 * 2 ^ (E1 - min E1 E2).toNat : Nat) : Rat)
       = ((M2 * 2 ^ (E2 - min E1 E2).toNat : Nat) : Rat) := by rw [e1, e2, keyR]
   exact_mod_cast this
 
 /-- Same signed value (with nonzero sign multiplier) ⇒ `DyadicEqNat` on the magnitudes. -/
-theorem dyadic_of_sign {s : Bool} {M1 M2 : Nat} {E1 E2 : Int} {v : Rat}
+theorem DyadicEqNat.of_toSign_mul {s : Bool} {M1 M2 : Nat} {E1 E2 : Int} {v : Rat}
     (hp : (s.toSign : Rat) * M1 * 2 ^ E1 = v) (hm : (s.toSign : Rat) * M2 * 2 ^ E2 = v) :
     DyadicEqNat M1 E1 M2 E2 := by
   apply DyadicEqNat.of_rat
@@ -111,11 +111,11 @@ theorem unpack_unpackRel (pf : PackedFloat 11 52) :
               not_false_eq_true, ↓reduceDIte, ↓reduceIte]
           rw [htm, hun]
           refine ⟨rfl, by rw [hsign], ?_⟩
-          apply dyadic_of_sign hproj
+          apply DyadicEqNat.of_toSign_mul hproj
           have hc := modelUnpackedToExtRat_toModelUnpacked pf
           rw [htm, PackedFloat.toExtRat_eq_toExtRat'] at hc
           simp only [modelUnpackedToExtRat, PackedFloat.toExtRat', h1, h2, h3, cond_false,
-            Bool.false_eq_true, ExtRat.Number.injEq, sign_cond] at hc
+            Bool.false_eq_true, ExtRat.Number.injEq, cond_signToModel_eq_toSign] at hc
           exact hc
         · -- normal
           have hpos : 0 < 2 ^ 52 + pf.sig.toNat := Nat.add_pos_left (Nat.two_pow_pos 52) _
@@ -127,11 +127,11 @@ theorem unpack_unpackRel (pf : PackedFloat 11 52) :
               not_false_eq_true, ↓reduceDIte, ↓reduceIte]
           rw [htm, hun]
           refine ⟨rfl, by rw [hsign], ?_⟩
-          apply dyadic_of_sign hproj
+          apply DyadicEqNat.of_toSign_mul hproj
           have hc := modelUnpackedToExtRat_toModelUnpacked pf
           rw [htm, PackedFloat.toExtRat_eq_toExtRat'] at hc
           simp only [modelUnpackedToExtRat, PackedFloat.toExtRat', h1, h2, h3, cond_false,
-            Bool.false_eq_true, ExtRat.Number.injEq, sign_cond] at hc
+            Bool.false_eq_true, ExtRat.Number.injEq, cond_signToModel_eq_toSign] at hc
           exact hc
 
 end FpAgainstFloatModel

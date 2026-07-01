@@ -188,7 +188,7 @@ def UnpackedRel (euf : EUnpackedFloat (exponentWidth 11 52) (52 + 1))
       DyadicEqNat euf.num.sig.toNat (euf.num.ex.toInt - 52) m e
 
 -- `PackedFloat.unpack` agrees with the model's `unpack` (`unpack_unpackRel`) is proven in
--- `FpAgainstFloatModel/RelationB.lean`, since its finite case routes through relation C.
+-- `FpAgainstFloatModel/UnpackedRel.lean`, since its finite case routes through relation C.
 
 /-- If the unpacked forms are structurally related, their packings are `ModelEquiv`. -/
 theorem pack_modelEquiv {euf : EUnpackedFloat (exponentWidth 11 52) (52 + 1)}

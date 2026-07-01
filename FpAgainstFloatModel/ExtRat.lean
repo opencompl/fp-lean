@@ -24,12 +24,12 @@ def modelUnpackedToExtRat : UnpackedFloat → ExtRat
 
 def modelToExtRat (fa : Float.Model) : ExtRat := modelUnpackedToExtRat fa.unpack
 
-theorem sign_div_pow_mul_zpow (a N : Rat) (k : Int) :
+theorem mul_div_two_pow_mul_zpow (a N : Rat) (k : Int) :
     a * (N / 2 ^ (52:Nat)) * 2 ^ k = a * N * 2 ^ (k - 52) := by
   rw [← Rat.zpow_natCast 2 52, ← Rat.zpow_div_zpow (by decide : (2:Rat) ≠ 0) k 52]
   grind
 
-theorem sign_cond (b : Bool) : (cond (signToModel b == .negative) (-1) 1 : Rat) = b.toSign := by
+theorem cond_signToModel_eq_toSign (b : Bool) : (cond (signToModel b == .negative) (-1) 1 : Rat) = b.toSign := by
   cases b <;> rfl
 
 theorem modelUnpackedToExtRat_toModelUnpacked (pf : PackedFloat 11 52) :
@@ -54,11 +54,11 @@ theorem modelUnpackedToExtRat_toModelUnpacked (pf : PackedFloat 11 52) :
           have hnorm : pf.isNorm = false := by simp [PackedFloat.isNorm, h4]
           simp only [h1, h2, h3, h4, ↓reduceIte, ↓reduceDIte, cond_false, cond_true,
             Bool.false_eq_true, modelUnpackedToExtRat]
-          rw [ExtRat.Number.injEq, PackedFloat.toRat, sign_cond, PackedFloat.toRatSig,
+          rw [ExtRat.Number.injEq, PackedFloat.toRat, cond_signToModel_eq_toSign, PackedFloat.toRatSig,
             PackedFloat.toRatExp, hnorm]
           simp only [Bool.false_eq_true, ↓reduceIte]
           rw [show ((0:Rat) + (pf.sig.toNat:Rat)/2^(52:Nat)) = (pf.sig.toNat:Rat)/2^(52:Nat) from by grind,
-            sign_div_pow_mul_zpow,
+            mul_div_two_pow_mul_zpow,
             show (-(↑(bias 11 - 1) : Int) - 52) = (-1074 : Int) from by decide]
         · -- normal
           have hao2 : pf.ex ≠ 2047#11 := by
@@ -66,11 +66,11 @@ theorem modelUnpackedToExtRat_toModelUnpacked (pf : PackedFloat 11 52) :
           have hnorm : pf.isNorm = true := by simp [PackedFloat.isNorm, hao2, h4]
           simp only [h1, h2, h3, h4, ↓reduceIte, ↓reduceDIte, cond_false, cond_true,
             Bool.false_eq_true, modelUnpackedToExtRat]
-          rw [ExtRat.Number.injEq, PackedFloat.toRat, sign_cond, PackedFloat.toRatSig,
+          rw [ExtRat.Number.injEq, PackedFloat.toRat, cond_signToModel_eq_toSign, PackedFloat.toRatSig,
             PackedFloat.toRatExp, hnorm]
           simp only [↓reduceIte]
           rw [show (1 + (pf.sig.toNat:Rat)/2^(52:Nat)) = ((2^52 + pf.sig.toNat : Nat):Rat)/2^(52:Nat) from by push_cast; grind,
-            sign_div_pow_mul_zpow,
+            mul_div_two_pow_mul_zpow,
             show ((↑pf.ex.toNat - ↑(bias 11) : Int) - 52) = (↑pf.ex.toNat - 1075 : Int) from by
               rw [show bias 11 = 1023 from by decide]; omega]
 
