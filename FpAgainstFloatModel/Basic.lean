@@ -1,5 +1,4 @@
-import Fp
-import Init.Data.Float.Model.Float
+import FpAgainstFloatModel.Theory
 
 /-!
 # `PackedFloat` agrees with Lean's `Float.Model` — shared foundation
@@ -116,11 +115,34 @@ def _root_.PackedFloat.ModelEquiv (pf : PackedFloat 11 52) (fm : Float.Model) : 
 theorem modelEquiv_of_toBits_eq {pf : PackedFloat 11 52} {fm : Float.Model}
     (h : toBits64 pf = fm.toBits.toBitVec) : pf.ModelEquiv fm := Or.inl h
 
+/-- `toModelUnpacked` is `notANumber` exactly for `NaN` packed floats. -/
+theorem toModelUnpacked_isNaN (pf : PackedFloat 11 52) :
+    toModelUnpacked pf = .notANumber ↔ pf.isNaN := by
+  unfold toModelUnpacked
+  by_cases h : pf.isNaN <;> simp [h] <;>
+    (by_cases h2 : pf.isInfinite <;> simp [h2] <;>
+      (by_cases h3 : pf.isZero <;> simp [h3] <;>
+        (by_cases h4 : pf.ex = 0#11 <;> simp [h4])))
+
 /-- `ModelEquiv` characterized structurally: same classification, and matching unpacked value.
-(The "state equivalence" spelled out.) -/
+(The "state equivalence" spelled out.) Uses `unpack` injectivity off `NaN`. -/
 theorem modelEquiv_iff_unpack {pf : PackedFloat 11 52} {fm : Float.Model} :
     pf.ModelEquiv fm ↔ toModelUnpacked pf = fm.unpack := by
-  sorry
+  rw [toModelUnpacked_eq_unpack]
+  unfold PackedFloat.ModelEquiv
+  constructor
+  · rintro (heq | ⟨h1, h2⟩)
+    · rw [heq]; rfl
+    · have e1 : UnpackedFloat.unpack .binary64 (toBits64 pf) = .notANumber :=
+        (toModelUnpacked_eq_unpack pf) ▸ (toModelUnpacked_isNaN pf).mpr h1
+      have e2 : fm.unpack = .notANumber := (model_isNaN_iff_unpack fm).mp h2
+      rw [e1, e2]
+  · intro h
+    by_cases hn : UnpackedFloat.unpack .binary64 (toBits64 pf) = .notANumber
+    · right
+      exact ⟨(toModelUnpacked_isNaN pf).mp ((toModelUnpacked_eq_unpack pf).trans hn),
+             (model_isNaN_iff_unpack fm).mpr (h ▸ hn)⟩
+    · left; exact unpack_inj hn h
 
 /-- `ofBits` on both sides agree. -/
 theorem ofBits_modelEquiv (b : BitVec (1 + 11 + 52)) :
