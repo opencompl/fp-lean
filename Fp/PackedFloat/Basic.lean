@@ -431,9 +431,6 @@ theorem zero_eq_allOnes_eq_decide (e : Nat) :
   · subst he
     simp
   · simp [show ¬ e = 0 by omega]
-    intros hcontra
-    have := BitVec.toInt_inj.mpr hcontra
-    grind
 
 @[simp, grind =]
 theorem allOnes_eq_zero_eq_decide (e : Nat) :
