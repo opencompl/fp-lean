@@ -1,7 +1,7 @@
 import Fp.Rounding
 import Fp.SmtLibSemantics
 import Fp.Comparison
-import Fp.Tests.PackedFloatEnumeration
+import FpExecutableTests.PackedFloatEnumeration
 
 namespace Fp
 open SmtLibSemantics

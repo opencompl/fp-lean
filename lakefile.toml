@@ -1,6 +1,6 @@
 name = "fp-lean"
 version = "0.1.0"
-defaultTargets = ["Fp", "FpAgainstFloatModel", "fp-lean", "Examples"]
+defaultTargets = ["Fp", "FpAgainstFloatModel", "FpExecutableTests", "fp-executable-test-runner", "Examples"]
 moreLeanArgs = ["--tstack=1000000"]
 moreGlobalServerArgs = ["--tstack=1000000"]
 
@@ -12,6 +12,13 @@ name = "Fp"
 [[lean_lib]]
 name = "FpAgainstFloatModel"
 
+# All executable-testing infrastructure: enumerators, the CSV golden-diff harness, the
+# rational/SMT-LIB test suites, and the format-generic differential test against
+# `Float.Model`. Keeps `Fp` a pure library. The `Float.Model` dependency (only available on
+# the Float-Model toolchain) enters here via `FpExecutableTests.AgainstFloatModel`.
+[[lean_lib]]
+name = "FpExecutableTests"
+
 [[lean_lib]]
 name = "Examples"
 # Only the `Examples` root module (and whatever it imports) is built. This keeps the heavy,
@@ -19,5 +26,5 @@ name = "Examples"
 globs = ["Examples"]
 
 [[lean_exe]]
-name = "fp-lean"
-root = "Main"
+name = "fp-executable-test-runner"
+root = "FpExecutableTests.Main"
