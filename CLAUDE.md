@@ -20,7 +20,7 @@ Lean toolchain: `leanprover/lean4:nightly-2026-01-14`. Dependencies: mathlib4 (v
 After building, run tests via the command-line executable:
 
 ```bash
-lake build && ./.lake/build/bin/fp-lean <test-name>
+lake build && ./.lake/build/bin/fp-executable-test-runner <test-name>
 ```
 
 Available test names:
@@ -30,6 +30,7 @@ Available test names:
 - `add`, `sub`, `mul`, `div`, `min`, `max`, `lt`, `neg`, `abs`, `sqrt`, `rem`, `roundToInt` — Individual operation tests
 - `fma_e5m2`, `fma_e3m4` — FMA tests (slow, ternary operation)
 - `roundCircuitAgainstSmtLib` — Rounding circuit vs SMT-LIB semantics
+- `floatModel_e5m2`, `floatModel_e3m4`, `floatModel_e5m10`, `floatModel_e8m23`, `floatModel_e11m52` — Format-generic differential test of `PackedFloat` ops against Lean's toolchain `Float.Model` (RNE only). FP8 formats default to exhaustive enumeration; larger formats require a sampling flag: `--random N SEED` or `--subdivided K` (e.g. `floatModel_e8m23 --random 5000 42`, `floatModel_e3m4 --subdivided 3`)
 
 ## Project Structure
 
@@ -55,7 +56,12 @@ Available test names:
 - `Fp/Tactics/` — Custom tactics (`Attributes.lean`, `Simps.lean`)
 - `Fp/Proofs/` — Correctness proofs per operation (Addition, Subtraction, Multiplication, Division, Negation, Basic, Grind)
 - `Fp/Theorems/` — Higher-level theorems (Packing, RemainderHomogeneous, ExtraTheorems, AgainstSMT)
-- `Fp/Tests/` — Exhaustive enumeration tests against FloatX/symfpu for bit-for-bit compatibility
+- `FpExecutableTests/` — Top-level executable-testing library (rooted by the `fp-executable-test-runner` executable at `FpExecutableTests/Main.lean`). Keeps `Fp` a pure library. Contains:
+  - `Harness.lean` — CSV golden-diff harness (`OpResult`, `ExitCode`, `PackedFloat.toBits'`, the `BitVec 8` op drivers) shared with the FloatX/symfpu path
+  - `PackedFloatEnumeration.lean`, `SmtLibSemanticsEnumerator.lean`, `ExhaustiveEnumerationRat.lean` — enumerators and the SMT-LIB / rational test suites
+  - `Sampling.lean` — `SampleStrategy` (exhaustive / random / subdivided critical-point sampling) over `PackedFloat` bit patterns
+  - `AgainstFloatModel.lean` — format-generic differential test against Lean's `Float.Model`
+- `FpAgainstFloatModel/` — Separate proof library: `PackedFloat 11 52` agrees with `Float.Model` (binary64)
 - `third-party/` — FloatX and symfpu reference implementations used for golden testing
 
 ## Key Conventions

@@ -27,25 +27,50 @@ jobs:
           test: false
 
       - name: Run FpMaxRel test
-        run: ./.lake/build/bin/fp-lean fpMaxRel
+        run: ./.lake/build/bin/fp-executable-test-runner fpMaxRel
 
       - name: Run FpMinRel test
-        run: ./.lake/build/bin/fp-lean fpMinRel
+        run: ./.lake/build/bin/fp-executable-test-runner fpMinRel
 
       - name: Run FpLtRel test
-        run: ./.lake/build/bin/fp-lean fpLtRel
+        run: ./.lake/build/bin/fp-executable-test-runner fpLtRel
 
       - name: Run FpIeeeEqRel test
-        run: ./.lake/build/bin/fp-lean fpIeeeEqRel
+        run: ./.lake/build/bin/fp-executable-test-runner fpIeeeEqRel
 
       - name: Run Rational Add test (xfail)
-        run: ./.lake/build/bin/fp-lean addRat --xfail
+        run: ./.lake/build/bin/fp-executable-test-runner addRat --xfail
 
       - name: Run Rational Mul test
-        run: ./.lake/build/bin/fp-lean mulRat
+        run: ./.lake/build/bin/fp-executable-test-runner mulRat
 
       - name: Run Rational Div test (xfail)
-        run: ./.lake/build/bin/fp-lean divRat --xfail
+        run: ./.lake/build/bin/fp-executable-test-runner divRat --xfail
 
       - name: Run Round Circuit against SMT-LIB test
-        run: ./.lake/build/bin/fp-lean roundCircuitAgainstSmtLib
+        run: ./.lake/build/bin/fp-executable-test-runner roundCircuitAgainstSmtLib
+
+  float-model-tests:
+    name: FloatModel Differential Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v4
+
+      - name: Build with lean-action
+        uses: leanprover/lean-action@v1
+        with:
+          use-mathlib-cache: false
+          use-github-cache: true
+          build: true
+          test: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      # Differentially test PackedFloat ops against Lean's `Float.Model` across formats.
+      # The script runs all configs concurrently and fails if any reports a mismatch.
+      # FP8 formats are exhaustive; larger formats are sampled (exhaustive is infeasible),
+      # with binary64 kept small so the whole set finishes well under 5 minutes.
+      - name: Run FloatModel differential tests (parallel)
+        run: uv run test/ci/run_float_model_tests.py

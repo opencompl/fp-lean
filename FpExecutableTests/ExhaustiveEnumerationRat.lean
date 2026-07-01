@@ -6,7 +6,7 @@ import Fp.Addition
 import Fp.Multiplication
 import Fp.Division
 import Fp.Sqrt
-import Fp.Tests.PackedFloatEnumeration
+import FpExecutableTests.PackedFloatEnumeration
 
 namespace Fp
 namespace ExhaustiveEnumerationRat
