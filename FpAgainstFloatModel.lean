@@ -11,6 +11,7 @@ import FpAgainstFloatModel.Abs
 import FpAgainstFloatModel.Sqrt
 import FpAgainstFloatModel.Compare
 import FpAgainstFloatModel.MinMax
+import FpAgainstFloatModel.Tests.MulAgree
 
 /-!
 # `PackedFloat` agrees with Lean's `Float.Model` (IEEE `binary64`)
