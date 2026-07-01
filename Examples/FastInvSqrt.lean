@@ -107,7 +107,7 @@ theorem finvsqrt_correct (x : PackedFloat 5 2)
       && PackedFloat.smtBle false (fabs ((finvsqrt x * finvsqrt x) * x)) hi) = true := by
   bv_decide
 
-/-- info: 'Example.finvsqrt_correct' depends on axioms: [propext, Classical.choice, Lean.ofReduceBool, Lean.trustCompiler, Quot.sound] -/
+/-- info: 'Example.finvsqrt_correct' depends on axioms: [propext, Classical.choice, Quot.sound, finvsqrt_correct._native.bv_decide.ax_1_5] -/
 #guard_msgs (whitespace := lax) in #print axioms finvsqrt_correct
 
 end Example

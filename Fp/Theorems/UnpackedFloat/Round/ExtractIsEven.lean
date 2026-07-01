@@ -18,7 +18,7 @@ theorem UnpackedFloat.blastExtractIsEven_eq_true_iff
   simp [UnpackedFloat.blastExtractIsEven]
   constructor
   · intros h
-    simp only at h
+    try simp only at h
     rw [BitVec.eq_iff_getLsbD_eq] at h
     simp only [BitVec.getLsbD_and, BitVec.getlsbD_oneHotBV, BitVec.getLsbD_zero, Bool.and_eq_false_imp, decide_eq_true_eq,
       decide_eq_false_iff_not] at h
@@ -29,7 +29,7 @@ theorem UnpackedFloat.blastExtractIsEven_eq_true_iff
     rw [UnpackedFloat.toNat_lsbIndex_eq hep hsp heu hsu x hdiffLower hdiffUpper hdiffNatLe] at h
     grind only
   · intros h
-    simp only at h
+    try simp only at h
     rw [BitVec.eq_iff_getLsbD_eq]
     intros i
     simp
@@ -50,7 +50,7 @@ theorem blastExtractIsEven_eq_not_getLsbD
     :
     x.blastExtractIsEven ep sp = !x.sig.getLsbD (su - (sp + 2) + (minNormalExp ep - x.ex.toInt).toNat + 1)  := by
   have := UnpackedFloat.blastExtractIsEven_eq_true_iff hep hsp heu hsu x hdiffLower hdiffUpper hdiffNatLe
-  grind only [#93deeaa3fa8dd789]
+  grind
 
 theorem getLsbD_eq_not_blastExtractIsEven
     (hep : 1 < ep) (hsp : 0 < sp)
@@ -63,7 +63,7 @@ theorem getLsbD_eq_not_blastExtractIsEven
     :
     x.sig.getLsbD (su - (sp + 2) + (minNormalExp ep - x.ex.toInt).toNat + 1) = !x.blastExtractIsEven ep sp := by
   have := UnpackedFloat.blastExtractIsEven_eq_true_iff hep hsp heu hsu x hdiffLower hdiffUpper hdiffNatLe
-  grind only [#ad239b3c63600307]
+  grind
 
 /--
 info: 'Fp.UnpackedFloat.blastExtractIsEven_eq_true_iff' depends on axioms: [propext, Classical.choice, Quot.sound]

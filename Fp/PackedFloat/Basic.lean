@@ -288,7 +288,7 @@ theorem EquivUptoNaN.of_eq (x y : PackedFloat e s) (h : x = y) : EquivUptoNaN x 
 
 theorem EquivUptoNaN_symm (x y : PackedFloat e s) : EquivUptoNaN x y ↔ EquivUptoNaN y x := by
   simp [EquivUptoNaN]
-  grind only [#10e0]
+  grind
 
 theorem EquivUptoNaN.refl (x : PackedFloat e s) : EquivUptoNaN x x :=
   EquivUptoNaN.of_eq x x rfl
@@ -680,7 +680,7 @@ theorem mul_two_pow_inj_aux (base0 base1 : Rat)
 instance {P : PackedFloat e s → Prop} [∀ (pf : PackedFloat e s), Decidable (P pf)] : Decidable (∀ (x : PackedFloat e s), P x) := by
   rcases decideProp (fun sign e s => P (PackedFloat.mk sign e s))
   case isFalse h => exact isFalse (by
-    grind only [#42c0]
+    grind
   )
   case isTrue h => exact isTrue (by
     intro x
@@ -698,8 +698,8 @@ instance {P : PackedFloat e s → Prop} [∀ (pf : PackedFloat e s), Decidable (
     simp at h ⊢
     intros x
     rcases x with ⟨rfl | rfl, e, s⟩
-    · grind only [#7a8e]
-    · grind only [#7e49]
+    · grind
+    · grind
   )
   case isTrue h => exact isTrue (by
     obtain ⟨sign, e, s, h⟩ := h

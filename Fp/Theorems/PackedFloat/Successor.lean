@@ -25,7 +25,7 @@ theorem successorAwayFromZero_eq_of_isInfinite (pf : PackedFloat e s)
   simp  [successorAwayFromZero, hInf]
   grind only [eq_getInfinity_iff_isInfinity, → eq_mkInfinity_of_isInfinite,
     → unpack_eq_NaN_of_isNaN, !unpack_getInfinity, !isInfinite_getInfinity,
-    !isInfinite_unpack_eq_isInfinite, #532a]
+    !isInfinite_unpack_eq_isInfinite ]
 
 
 @[simp]
@@ -75,8 +75,7 @@ theorem isNorm_successorAwayFromZero_exSucc
       · simp [he]; grind only [= BitVec.toNat_add, = BitVec.toNat_ofNat, = BitVec.toNat_one,
         usr BitVec.isLt, = BitVec.toNat_allOnes]
     · grind only [BitVec.toNat_inj, = BitVec.toNat_sub, BitVec.eq_allOnes_iff_toNat_eq,
-      = BitVec.toNat_ofNat, = BitVec.toNat_one, usr BitVec.isLt, = BitVec.toNat_allOnes,
-      #1a9affbe9de0fbf2, #7d3276f4fb79b018, #a7353b0b482378e0]
+      = BitVec.toNat_ofNat, = BitVec.toNat_one, usr BitVec.isLt, = BitVec.toNat_allOnes ]
   · intros hcontra
     have : x.ex.toNat < (2^e - 1) - 1 := by
       rw [BitVec.lt_def] at hex
@@ -169,7 +168,7 @@ theorem lt_allOnes_sub_one_of_ne_of_ne (x : BitVec e) (he : 0 < e)
           grind
         · simp
       have : x.toNat < 2^e := by grind only [usr BitVec.isLt]
-      grind only [!Nat.two_pow_pos, usr Nat.div_pow_of_pos, #1134]
+      grind only [!Nat.two_pow_pos, usr Nat.div_pow_of_pos]
     · grind only
   · simp
 

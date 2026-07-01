@@ -44,7 +44,7 @@ theorem beq_refl (uf : UnpackedFloat e s) : uf.beq uf := by
 
 theorem beq_symm (x y : UnpackedFloat e s) : x.beq y = y.beq x := by
   simp [UnpackedFloat.beq]
-  grind only [=> toRat'_ne_zero_iff_not_isZero, => toRat'_eq_zero_iff_isZero, #100b, #ba95, #cd35]
+  grind only [=> toRat'_ne_zero_iff_not_isZero, => toRat'_eq_zero_iff_isZero]
 
 @[bv_normalize]
 def bgeAux (xGEyOnDiffZeros : Bool) (x y : UnpackedFloat e s) : Bool :=

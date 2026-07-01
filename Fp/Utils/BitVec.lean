@@ -333,7 +333,7 @@ theorem toNat_shiftLeft_clz_eq_toNat (x : BitVec w) :
       have := BitVec.two_pow_sub_clz_le_toNat_of_ne_zero (x := x) (by grind only) (by grind only)
       have := BitVec.toNat_lt_two_pow_sub_clz (x := x) (w := w)
       have : x.clz.toNat < w := by
-        grind only [#2867]
+        grind
       rw [Nat.shiftLeft_eq]
       apply Nat.lt_of_lt_of_le (m := 2 ^ (w - x.clz.toNat) * (2 ^ x.clz.toNat))
       · apply Nat.mul_lt_mul_of_lt_of_le
@@ -630,11 +630,11 @@ theorem BitVec.ofInt_eq_zero_iff_of_width_1 :
     have := BitVec.toInt_inj.mpr h
     simp only [BitVec.toInt_ofInt, BitVec.toInt_zero] at this
     simp at this
-    grind only [#8803]
+    grind
   · intros h
     apply BitVec.eq_of_toInt_eq
     simp
-    grind only [#8803]
+    grind
 
 
 -- TODO: upstream
@@ -690,7 +690,7 @@ theorem BitVec.eq_iff_getLsbD_eq (a b : BitVec w) : a = b ↔
   · intros h
     ext i hi
     simp only [← BitVec.getLsbD_eq_getElem]
-    grind only [#0a30]
+    grind
 /--
 Zero extension to a smaller width does not change the value
 if the value fits in the smaller size.

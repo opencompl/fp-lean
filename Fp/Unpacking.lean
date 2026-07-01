@@ -197,7 +197,7 @@ theorem EUnpackedFloat.packNumber'.exPacked_ne_allOnes
       have hbias_num : (bias e : Int) = (2:Int) ^ (e - 1) - 1 := by
         simp only [bias]; push_cast [h1le]; grind only
       -- 2 * bias e = 2^e - 2 gives us h2e: 2^e = 2 * 2^(e-1)
-      simp at hrange
+      try simp at hrange
       have h2b : 2 * (bias e : Int) = (2:Int) ^ e - 2 := by
         have h := two_mul_bias_eq_twoPow_minus_two e ‹1 < e›
         have h4 : 2 ≤ 2 ^ e := by grind only

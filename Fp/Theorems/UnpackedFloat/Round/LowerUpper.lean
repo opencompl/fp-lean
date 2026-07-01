@@ -3246,7 +3246,7 @@ theorem upper_eq_lower_successorAwayFromZero_of_ne
       have hembed : SmtLibSemantics.RoundableEmbed.embed
           ((SmtLibSemantics.smtLibLower.lower (ExtRat.Number r) : PackedFloat e s).successorAwayFromZero)
             ≤ (ExtRat.Number r) := by
-        simp only [SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
+        simp only [SmtLibSemantics.smtLibRoundMethod.embed_eq, SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, PackedFloat.toExtRat_eq_toExtRat',
           PackedFloat.toExtRat'_eq_toRat_of hfinSucc]
         rw [ExtRat.ExtRat.num_le_num_iff]
         simp; grind

@@ -343,7 +343,7 @@ theorem blastIsLowerHalf_iff_lowerHalf_of_sign_false_wide
   have hpinL1 := smtLibLower_lower_toRat_eq_blastRoundTowardZero (sp := sp + 1)
     (by grind) (by omega) heu (by omega) x hxsign hxnorm hnotunder1 hnotover1
   rw [SmtLibSemantics.smtLibRoundMethod.lowerHalf_eq]
-  simp only [SmtLibSemantics.smtLibV_lower_eq, SmtLibSemantics.smtLibV_embed_eq,
+  simp only [SmtLibSemantics.smtLibV_lower_eq, SmtLibSemantics.smtLibRoundMethod.embed_eq, SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq,
     SmtLibSemantics.instExtendedRat.smtLibEq, PackedFloat.toExtRat_eq_toExtRat']
   rw [PackedFloat.toExtRat'_eq_toRat_of hfinL, PackedFloat.toExtRat'_eq_toRat_of hfinL1,
     ExtRat.Number.injEq, hpinL, hpinL1,
@@ -413,7 +413,7 @@ theorem blastIsLowerHalf_iff_lowerHalf_of_sign_true_wide
         ↔ (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number (-x).toRat') : PackedFloat ep sp).toRat
             = (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number (-x).toRat') : PackedFloat ep (sp + 1)).toRat := by
     rw [SmtLibSemantics.smtLibRoundMethod.lowerHalf_eq]
-    simp only [SmtLibSemantics.smtLibV_lower_eq, SmtLibSemantics.smtLibV_embed_eq, hlow, hlow1,
+    simp only [SmtLibSemantics.smtLibV_lower_eq, SmtLibSemantics.smtLibRoundMethod.embed_eq, SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, hlow, hlow1,
       SmtLibSemantics.instExtendedRat.smtLibEq]
     rw [PackedFloat.toExtRat_eq_toExtRat', PackedFloat.toExtRat_eq_toExtRat',
       PackedFloat.toExtRat'_eq_toRat_of (by rw [PackedFloat.isNormOrNonzeroSubnorm_neg]; exact hfinU),
@@ -487,7 +487,7 @@ theorem blastIsLowerHalf_iff_lowerHalf_of_sign_false_boundary
     rw [hsignL1] at hnn; grind
   -- assemble: both sides are `false`.
   rw [SmtLibSemantics.smtLibRoundMethod.lowerHalf_eq]
-  simp only [SmtLibSemantics.smtLibV_lower_eq, SmtLibSemantics.smtLibV_embed_eq, hlowsp,
+  simp only [SmtLibSemantics.smtLibV_lower_eq, SmtLibSemantics.smtLibRoundMethod.embed_eq, SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, hlowsp,
     SmtLibSemantics.instExtendedRat.smtLibEq]
   rw [show (PackedFloat.getZero ep sp false).toExtRat = ExtRat.Number 0 from by
       rw [PackedFloat.toExtRat_eq_toExtRat',
@@ -981,7 +981,7 @@ theorem smtLibLowerHalf_iff_blastExtractStickyBit_of_sign_true_boundary
         ↔ (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number (-x).toRat') : PackedFloat ep sp).toRat
             = (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number (-x).toRat') : PackedFloat ep (sp + 1)).toRat := by
     rw [SmtLibSemantics.smtLibRoundMethod.lowerHalf_eq]
-    simp only [SmtLibSemantics.smtLibV_lower_eq, SmtLibSemantics.smtLibV_embed_eq, hlow, hlow1,
+    simp only [SmtLibSemantics.smtLibV_lower_eq, SmtLibSemantics.smtLibRoundMethod.embed_eq, SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, hlow, hlow1,
       SmtLibSemantics.instExtendedRat.smtLibEq]
     rw [PackedFloat.toExtRat_eq_toExtRat', PackedFloat.toExtRat_eq_toExtRat',
       PackedFloat.toExtRat'_eq_toRat_of (by rw [PackedFloat.isNormOrNonzeroSubnorm_neg]; exact hfinU),
@@ -1091,7 +1091,7 @@ theorem smtLibLowerHalf_of_representable {ep sp : Nat} (he : 0 < ep) (hs : 0 < s
   have hb'nan : ¬ b'.isNaN := by simpa using PackedFloat.not_isNaN_of_isNormOrSubnorm hb'
   have hbzero : ¬ b.isZero := by simpa using PackedFloat.not_isZero_of_isNormOrSubnorm hb
   have hb'zero : ¬ b'.isZero := by simpa using PackedFloat.not_isZero_of_isNormOrSubnorm hb'
-  simp only [SmtLibSemantics.smtLibV_lower_eq, SmtLibSemantics.smtLibV_embed_eq]
+  simp only [SmtLibSemantics.smtLibV_lower_eq, SmtLibSemantics.smtLibRoundMethod.embed_eq, SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq]
   rw [smtLibLower_eq_self_of_eq_toExtRat_of_not_isNaN he hs b (ExtRat.Number b.toRat) hbnan hbzero
         (by rw [PackedFloat.toExtRat_eq_toExtRat', PackedFloat.toExtRat'_eq_toRat_of hb]),
       show ExtRat.Number b.toRat = ExtRat.Number b'.toRat from by rw [hbval],
@@ -1513,7 +1513,7 @@ theorem blastIsLowerHalf_edge_between_maxNormal {eu su ep sp : Nat} (he : 2 < ep
   have hlowerhalf_false :
       ¬ (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat') := by
     rw [SmtLibSemantics.smtLibRoundMethod.lowerHalf_eq]
-    simp only [SmtLibSemantics.smtLibV_lower_eq, SmtLibSemantics.smtLibV_embed_eq, hlowsp, hlowsp1,
+    simp only [SmtLibSemantics.smtLibV_lower_eq, SmtLibSemantics.smtLibRoundMethod.embed_eq, SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, hlowsp, hlowsp1,
       SmtLibSemantics.instExtendedRat.smtLibEq, PackedFloat.toExtRat_eq_toExtRat',
       PackedFloat.toExtRat'_getInfinity hs, PackedFloat.toExtRat'_eq_toRat_of hfinmax]
     grind
@@ -1555,7 +1555,7 @@ theorem blastIsLowerHalf_edge_above_maxNormal {eu su ep sp : Nat} (he : 2 < ep) 
   have hlowerhalf_true :
       (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat') := by
     rw [SmtLibSemantics.smtLibRoundMethod.lowerHalf_eq]
-    simp only [SmtLibSemantics.smtLibV_lower_eq, SmtLibSemantics.smtLibV_embed_eq, hlowsp, hlowsp1,
+    simp only [SmtLibSemantics.smtLibV_lower_eq, SmtLibSemantics.smtLibRoundMethod.embed_eq, SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, hlowsp, hlowsp1,
       SmtLibSemantics.instExtendedRat.smtLibEq, PackedFloat.toExtRat_eq_toExtRat', hinfsp, hinfsp1]
   -- `blastIsLowerHalf = true` (`|x| > maxNormal_{sp+1}`).
   have hblast_true : x.blastIsLowerHalf ep sp = true := by
@@ -1707,7 +1707,7 @@ theorem smtLibTieBreak_neg_eq {ep sp : Nat} (he : 0 < ep) (hs : 0 < sp) (r : Rat
         (ExtRat.Number r) := by
   rw [SmtLibSemantics.smtLibRoundMethod.tieBreak_eq]
   simp only [SmtLibSemantics.smtLibV_lower_eq, SmtLibSemantics.smtLibV_upper_eq,
-    SmtLibSemantics.smtLibV_embed_eq]
+    SmtLibSemantics.smtLibRoundMethod.embed_eq, SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq]
   rw [smtLibLower_eq_neg_smtLibUpper_neg ep sp he hs (ExtRat.Number (-r)) (by simp),
     smtLibLower_eq_neg_smtLibUpper_neg ep (sp + 1) he (by omega) (ExtRat.Number (-r)) (by simp),
     smtLibUpper_eq_neg_smtLibLower_neg ep sp he hs (ExtRat.Number (-r)) (by simp),
@@ -1761,7 +1761,7 @@ theorem tieBreak_iff_not_sticky_of_sign_false_wide
   -- unfold the tie predicate to `(lower_sp < lower_{sp+1}) ↔ (upper_{sp+1} < upper_sp)` (toRat level).
   rw [SmtLibSemantics.smtLibRoundMethod.tieBreak_eq]
   simp only [SmtLibSemantics.smtLibV_lower_eq, SmtLibSemantics.smtLibV_upper_eq,
-    SmtLibSemantics.smtLibV_embed_eq, PackedFloat.toExtRat_eq_toExtRat',
+    SmtLibSemantics.smtLibRoundMethod.embed_eq, SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, PackedFloat.toExtRat_eq_toExtRat',
     PackedFloat.toExtRat'_eq_toRat_of hfinLsp, PackedFloat.toExtRat'_eq_toRat_of hfinLsp1,
     PackedFloat.toExtRat'_eq_toRat_of hfinUsp, PackedFloat.toExtRat'_eq_toRat_of hfinUsp1,
     eq_iff_iff, ExtRat.Number_lt_Number_iff]
@@ -1882,7 +1882,7 @@ theorem tieBreak_iff_not_sticky_of_sign_false_edge
         (by rw [hlow1, toRat_maxNormalWiden]; exact h1.symm), hlow1]
     rw [SmtLibSemantics.smtLibRoundMethod.tieBreak_eq]
     simp only [SmtLibSemantics.smtLibV_lower_eq, SmtLibSemantics.smtLibV_upper_eq,
-      SmtLibSemantics.smtLibV_embed_eq, hmaxL, hlow1, hup0, hup1, PackedFloat.toExtRat_eq_toExtRat',
+      SmtLibSemantics.smtLibRoundMethod.embed_eq, SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, hmaxL, hlow1, hup0, hup1, PackedFloat.toExtRat_eq_toExtRat',
       PackedFloat.toExtRat'_eq_toRat_of hfinMaxN, PackedFloat.toExtRat'_eq_toRat_of hfinMW,
       eq_iff_iff, ExtRat.Number_lt_Number_iff, toRat_maxNormalWiden]
     grind
@@ -1898,7 +1898,7 @@ theorem tieBreak_iff_not_sticky_of_sign_false_edge
       have hup1 := smtLibUpper_succ_eq_maxNormalNumber_of_lt_of_le (by grind) hs x.toRat' hgt (by grind)
       rw [SmtLibSemantics.smtLibRoundMethod.tieBreak_eq]
       simp only [SmtLibSemantics.smtLibV_lower_eq, SmtLibSemantics.smtLibV_upper_eq,
-        SmtLibSemantics.smtLibV_embed_eq, hmaxL, hlow1, hupsp, hup1, hinfsp,
+        SmtLibSemantics.smtLibRoundMethod.embed_eq, SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, hmaxL, hlow1, hupsp, hup1, hinfsp,
         PackedFloat.toExtRat_eq_toExtRat', PackedFloat.toExtRat'_eq_toRat_of hfinMaxN,
         PackedFloat.toExtRat'_eq_toRat_of hfinMW, PackedFloat.toExtRat'_eq_toRat_of hfinMaxN1,
         eq_iff_iff, ExtRat.Number_lt_Number_iff, ExtRat.Number_lt_Infinity_false, toRat_maxNormalWiden]
@@ -1913,7 +1913,7 @@ theorem tieBreak_iff_not_sticky_of_sign_false_edge
         have hup1 := smtLibUpper_succ_eq_maxNormalNumber_of_lt_of_le (by grind) hs x.toRat' hgt (by grind)
         rw [SmtLibSemantics.smtLibRoundMethod.tieBreak_eq]
         simp only [SmtLibSemantics.smtLibV_lower_eq, SmtLibSemantics.smtLibV_upper_eq,
-          SmtLibSemantics.smtLibV_embed_eq, hmaxL, hlow1, hupsp, hup1, hinfsp,
+          SmtLibSemantics.smtLibRoundMethod.embed_eq, SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, hmaxL, hlow1, hupsp, hup1, hinfsp,
           PackedFloat.toExtRat_eq_toExtRat', PackedFloat.toExtRat'_eq_toRat_of hfinMaxN,
           PackedFloat.toExtRat'_eq_toRat_of hfinMaxN1,
           eq_iff_iff, ExtRat.Number_lt_Number_iff, ExtRat.Number_lt_Infinity_false]
@@ -1926,7 +1926,7 @@ theorem tieBreak_iff_not_sticky_of_sign_false_edge
           rw [PackedFloat.toExtRat_eq_toExtRat', PackedFloat.toExtRat'_getInfinity (by grind)]
         rw [SmtLibSemantics.smtLibRoundMethod.tieBreak_eq]
         simp only [SmtLibSemantics.smtLibV_lower_eq, SmtLibSemantics.smtLibV_upper_eq,
-          SmtLibSemantics.smtLibV_embed_eq, hmaxL, hlow1, hupsp, hup1, hinfsp, hinfsp1,
+          SmtLibSemantics.smtLibRoundMethod.embed_eq, SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq, hmaxL, hlow1, hupsp, hup1, hinfsp, hinfsp1,
           PackedFloat.toExtRat_eq_toExtRat', PackedFloat.toExtRat'_eq_toRat_of hfinMaxN,
           PackedFloat.toExtRat'_eq_toRat_of hfinMaxN1,
           eq_iff_iff, ExtRat.Number_lt_Number_iff, ExtRat.Number_lt_Infinity_false,
@@ -2031,7 +2031,7 @@ theorem tieBreak_iff_not_sticky_of_sign_false_boundary
   have hpos : (0 : Rat) < 2 ^ (x.ex.toInt) := Rat.two_pow_pos _
   rw [SmtLibSemantics.smtLibRoundMethod.tieBreak_eq]
   simp only [SmtLibSemantics.smtLibV_lower_eq, SmtLibSemantics.smtLibV_upper_eq,
-    SmtLibSemantics.smtLibV_embed_eq]
+    SmtLibSemantics.smtLibRoundMethod.embed_eq, SmtLibSemantics.smtLibV_embed_eq, SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq]
   rw [hlowsp, show (PackedFloat.getZero ep sp false).toExtRat = ExtRat.Number 0 from by
       rw [PackedFloat.toExtRat_eq_toExtRat',
         PackedFloat.toExtRat'_eq_zero_of_isZero _ (by simp [PackedFloat.isZero_getZero] <;> grind)]]

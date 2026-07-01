@@ -135,11 +135,7 @@ theorem le_trans
       · simp [hz] at hxy hyz
       · simp [hz] at hxy hyz
         grind (splits := 10)
-           only [BitVec.toNat_inj, #fde2d389667160e9, #54fdc8e31fc2dc1c, #bf4f9097212d569d,
-          #0ddaf51762ab63df, #8dc2e2b3e678dc39, #b28eea1a75158fe1, #71fd579644e57b0a,
-          #ca7289c2a156499b, #8f9092e537ef6258, #ef1611d882ec5869, #e781b8f11c51b17b,
-          #2d6d3bcdb3a3b35c, #31dd348e5c4aee2a, #a7908cd812b01724, #f811994cd6c34475,
-          #7d54ade5a8b64ca3, #b35f21abfee2096d]
+           only [BitVec.toNat_inj ]
 
 /--
 If `x = y = NaN`, then we can have `NaN₁ < NaN₂ `, since we have that `NaN₁ ≤ NaN₂`,
@@ -165,7 +161,7 @@ are comparable, but this does not imply that `x = y`.
 -/
 theorem eq_of_le_of_le_of_not_isNaN (x y : PackedFloat e s)
   (hxy : x ≤ y) (hyx : y ≤ x) (hnan : x.isNaN = false ∨ y.isNaN = false) :
-  x = y := by grind only [le_iff_eq_of_isNaN, le_antisymm_of_ne_NaN, #cc201580b0d91919]
+  x = y := by grind only [le_iff_eq_of_isNaN, le_antisymm_of_ne_NaN]
 
 @[simp, grind =]
 theorem lt_iff_ne_of_isNaN_of_isNaN (x y : PackedFloat e s)
@@ -303,7 +299,7 @@ theorem le_eq_of_sign_eq_false_of_sign_eq_false {x y : PackedFloat e s}
     (hysign : y.sign = false := by solve | simp | grind) :
     (x ≤ y) = ((x.ex.toNat < y.ex.toNat) ∨ (x.ex.toNat = y.ex.toNat ∧ x.sig.toNat ≤ y.sig.toNat)):= by
   rw [← PackedFloat.le_def, PackedFloat.le]
-  grind only [BitVec.toNat_inj, #71d0eef1ae01d63f]
+  grind only [BitVec.toNat_inj]
 
 @[simp, grind .]
 theorem le_eq_of_sign_eq_true_of_sign_eq_true {x y : PackedFloat e s}
@@ -313,7 +309,7 @@ theorem le_eq_of_sign_eq_true_of_sign_eq_true {x y : PackedFloat e s}
     (hysign : y.sign = true := by solve | simp | grind) :
     (x ≤ y) = ((y.ex.toNat < x.ex.toNat) ∨ (x.ex.toNat = y.ex.toNat ∧  y.sig.toNat ≤ x.sig.toNat)):= by
   rw [← PackedFloat.le_def, PackedFloat.le]
-  grind only [BitVec.toNat_inj, #388592556a470371]
+  grind only [BitVec.toNat_inj]
 
 /--
 Every number is less than +∞

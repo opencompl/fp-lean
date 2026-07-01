@@ -49,7 +49,7 @@ theorem UnpackedFloat.extractGuardBit_eq_getLsbD
     :
     x.blastExtractGuardBit ep sp =  x.sig.getLsbD (su - (sp + 2) + (minNormalExp ep - x.ex.toInt).toNat)  := by
   have := UnpackedFloat.blastExtractGuardBit_eq_true_iff hep hsp heu hsu x hdiffLower hdiffUpper hdiffNatLe
-  grind only [#65b0223044fbdd80]
+  grind
 
 /--
 info: 'Fp.UnpackedFloat.extractGuardBit_eq_getLsbD' depends on axioms: [propext, Classical.choice, Quot.sound]

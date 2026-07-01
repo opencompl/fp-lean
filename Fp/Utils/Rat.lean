@@ -7,10 +7,12 @@ import Fp.Grind
 open Lean
 
 
-/-- Absolute value of a rational number. -/
-def Rat.abs (r : Rat) : Rat := if r < 0 then -r else r
-
 def Rat.ofNat (n : Nat) : Rat := Rat.ofInt (n : Int)
+
+/-- Core's `Rat.abs` is `if 0 ≤ a then a else -a`; this restates it in the
+`if a < 0 then -a else a` form that many proofs `unfold Rat.abs` used to rely on. -/
+theorem Rat.abs_def_lt (a : Rat) : a.abs = if a < 0 then -a else a := by
+  unfold Rat.abs; grind
 
 attribute [grind! .] Nat.two_pow_pos
 attribute [grind =, grind =_] Nat.pow_add
@@ -147,7 +149,7 @@ theorem Rat.div_lt_div_self {a b c : Rat} (hc : 0 < c) :
 theorem Rat.add_le_iff_le {a b c : Rat} : a + c ≤ b + c ↔ a ≤ b := by
   grind
 
-  @[simp]
+@[simp]
 theorem Rat.add_le_iff_le' {a b c : Rat} : c + a ≤  c + b ↔ a ≤ b := by
   grind
 
@@ -778,9 +780,6 @@ theorem Rat.div_le_of_le_mul (a b c : Rat) (hc : 0 < c) (hle : a ≤ b * c) : a 
   · rw [show a * c⁻¹ * c = a by grind only]
     grind only
   · grind only
-@[simp]
-theorem Rat.add_lt_add_left {a b c : Rat} : c + a < c + b ↔ a < b := by
-  grind
 @[simp]
 theorem Rat.div_add_eq_div_add_div (a b c : Rat) : a / c + b / c = (a + b) / c := by
   grind

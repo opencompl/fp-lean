@@ -128,7 +128,7 @@ theorem UnpackedFloat.toRat'_isZero
     x.isZero = true ↔ x.toRat' = 0 := by
   simp [UnpackedFloat.isZero, UnpackedFloat.toRat_eq_toRat', UnpackedFloat.toRat']
   grind only [= BitVec.toNat_zero, = BitVec.ofNat_toNat, = BitVec.getElem_zero,
-    = BitVec.getElem_setWidth, = BitVec.getLsbD_eq_getElem, #a38c, #742d]
+    = BitVec.getElem_setWidth, = BitVec.getLsbD_eq_getElem ]
 
 @[simp]
 theorem toRat'_truncateFittingExponent_of_not_blastIsOverflowNonneg_of_not_blastIsEarlyUnderflowNonneg
