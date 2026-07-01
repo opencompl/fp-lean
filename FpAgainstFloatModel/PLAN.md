@@ -24,14 +24,18 @@ the bridges between them.
 - ✅ `modelEquiv_iff_unpack : a.ModelEquiv fa ↔ toModelUnpacked a = fa.unpack`
 - ✅ `modelEquiv_of_toBits_eq`, `ofBits_modelEquiv`, `toModelUnpacked_eq_unpack`.
 
-## Relation B — unpacked values equal  (`Basic.lean`)
+## Relation B — unpacked values equal  (`Basic.lean` def, `RelationB.lean` proof)
 `UnpackedRel` compares classification + sign + `DyadicEqNat` (value `M₁·2^E₁ = M₂·2^E₂`
 compared by shifting to the common floor exponent — pure `Nat`/`Int`, tolerant of the
 normal/subnormal normalization difference). **B is the relation that still sees the sign of
 zero**, so it is what fixes the ±0 gap that C cannot.
-- ✅ `unpack_unpackRel`: NaN / infinity / zero cases.
-- ☐ `unpack_unpackRel` finite case: `(cons true).toNat`, and the `clz`-shift value identity for
-  subnormals — reuse `Fp/Theorems/PackedFloat/Packing.lean`'s `cons`/`clz`/`toNat` machinery.
+- ✅ **`unpack_unpackRel` (all cases).** NaN/inf/zero are structural. The finite `DyadicEqNat`
+  is proven **via relation C** — sidestepping the `BitVec` exponent/`clz` arithmetic entirely:
+  both the project `unpackNum` and the model `finite s m e` have the same `Rat` value
+  (`unpackNum_toRat_eq_toRat` from `toExtRat_unpack_eq_toExtRat`; model value from C's
+  `modelUnpackedToExtRat_toModelUnpacked`), so cancelling the matching sign gives
+  `M₁·2^E₁ = M₂·2^E₂` and hence `DyadicEqNat` (`DyadicEqNat.of_rat` / `dyadic_of_sign`).
+  (Inherits the project's `BitVec.toNat_clz_cons` axiom transitively; no `sorry`.)
 
 ## Relation C — ExtRat values equal  (`ExtRat.lean`)  ← the clean route
 `modelToExtRat : Float.Model → ExtRat` (the model has no rational semantics of its own).
