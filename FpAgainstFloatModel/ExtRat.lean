@@ -128,6 +128,16 @@ relation B supplies). Off zero, the project's own `toExtRat` determinism closes 
 
 open PackedFloat
 
+/-- Equal *up to NaN* ⇒ equal `ExtRat` value (NaN collapses to `.NaN`). Reusable across the
+operation-agreement proofs to transfer the project's `EquivUptoNaN` op-correctness theorems
+(`Fp.mul_eq_mul`, …) to the `ExtRat` level. -/
+theorem _root_.EquivUptoNaN.toExtRat_eq {a b : PackedFloat 11 52} (h : EquivUptoNaN a b) :
+    a.toExtRat = b.toExtRat := by
+  rcases h with h | ⟨hna, hnb⟩
+  · rw [h]
+  · rw [PackedFloat.toExtRat_eq_toExtRat', PackedFloat.toExtRat_eq_toExtRat',
+      PackedFloat.toExtRat'_eq_NaN_of_isNaN _ hna, PackedFloat.toExtRat'_eq_NaN_of_isNaN _ hnb]
+
 /-- Interpret a `Float.Model`'s 64 bits as a `PackedFloat 11 52`. -/
 def modelBits (fa : Float.Model) : PackedFloat 11 52 :=
   PackedFloat.ofBits 11 52 (fa.toBits.toBitVec.cast (by decide))
