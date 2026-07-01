@@ -147,7 +147,18 @@ theorem modelEquiv_iff_unpack {pf : PackedFloat 11 52} {fm : Float.Model} :
 /-- `ofBits` on both sides agree. -/
 theorem ofBits_modelEquiv (b : BitVec (1 + 11 + 52)) :
     (PackedFloat.ofBits 11 52 b).ModelEquiv (Float.Model.ofBits (UInt64.ofBitVec (b.cast (by decide)))) := by
-  sorry
+  rw [modelEquiv_iff_unpack, toModelUnpacked_eq_unpack]
+  unfold Float.Model.ofBits Float.Model.unpack Float.Model.pack
+  simp only [UInt64.toBitVec_ofBitVec]
+  rw [unpack_pack _ (ModelCanonical_unpack _)]
+  congr 1
+  have h0 : (PackedFloat.ofBits 11 52 b).toBits = b := by
+    apply BitVec.eq_of_getLsbD_eq; intro i
+    simp only [PackedFloat.toBits, PackedFloat.ofBits, BitVec.getLsbD_append,
+      BitVec.getLsbD_setWidth, BitVec.getLsbD_extractLsb', BitVec.getLsbD_ofBool, BitVec.msb]
+    grind
+  show (PackedFloat.ofBits 11 52 b).toBits = b.cast (by decide)
+  rw [h0]; exact BitVec.eq_of_toNat_eq rfl
 
 /-! ## Part C — structural relation at the unpacked level (no `Rat`), to structure proofs
 
