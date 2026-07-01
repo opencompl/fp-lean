@@ -41,11 +41,11 @@ zero**, so it is what fixes the ±0 gap that C cannot.
 - ✅ forward bridge `toExtRat_eq_modelToExtRat_of_modelEquiv : A → C` (always holds).
 - ✅ reverse anchors `modelToExtRat_eq_ofBits` (reduces C to the project's own
   `eq_of_toExtRat'_eq` determinism) and `modelToExtRat_eq_NaN_iff`.
-- ☐ reverse bridge `C → A` for value-carrying floats: from `a.toExtRat = pfb.toExtRat`
-  (`pfb := ofBits fa.toBits`) and `¬isNaN ∧ ¬isZero`, apply `PackedFloat.eq_of_toExtRat'_eq`
-  to get `a = pfb`, hence the bits. Needs the small lemma `¬isNaN → toExtRat = Number 0 →
-  isZero` (derivable from the project's `toExtRat' ≤/< Number 0` iffs).
-- ☐ ±0 case: `ExtRat` identifies `+0`/`-0`; recover the sign bit via **relation B**.
+- ✅ **reverse bridge `modelEquiv_of_toExtRat_eq : C → A`** — NaN via `modelToExtRat_eq_NaN_iff`,
+  non-zero via `PackedFloat.eq_of_toExtRat'_eq` (`a = modelBits fa`), and the ±0 case via a
+  `hzsign : a.isZero → a.sign = (modelBits fa).sign` witness (which **relation B** supplies).
+- ✅ supporting: `isZero_of_toExtRat'_eq_zero` (`¬isNaN → toExtRat = Number 0 → isZero`, from
+  the project's `toExtRat' ≤/< Number 0` iffs), `modelBits`, `toBits64_modelBits`.
 
 ## Bridging to the operations (the payoff)
 Each arithmetic agreement `(a ∘ b).ModelEquiv (fa ∘ fb)` then goes:
