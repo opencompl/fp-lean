@@ -60,6 +60,34 @@ instance : Repr RoundingMode where
   | .RTP => "RTP"
   | .RTZ => "RTZ"
 
+/--
+`RoundingMode` is a finite enumeration, so universal quantifiers over it are
+decidable whenever the body is pointwise decidable. This (together with the
+analogous instances for `PackedFloat`, `Bool`, and `BitVec`) is what lets
+`decide`/`native_decide` solve quantified floating-point goals by exhaustive
+enumeration.
+-/
+instance instDecidableForallRoundingMode {P : RoundingMode → Prop} [DecidablePred P] :
+    Decidable (∀ (rm : RoundingMode), P rm) :=
+  decidable_of_iff (P .RNA ∧ P .RNE ∧ P .RTN ∧ P .RTP ∧ P .RTZ) <| by
+    constructor
+    · rintro ⟨h1, h2, h3, h4, h5⟩ rm; cases rm <;> assumption
+    · intro h; exact ⟨h _, h _, h _, h _, h _⟩
+
+/-- Existential quantifiers over `RoundingMode` are likewise decidable. -/
+instance instDecidableExistsRoundingMode {P : RoundingMode → Prop} [DecidablePred P] :
+    Decidable (∃ (rm : RoundingMode), P rm) :=
+  decidable_of_iff (P .RNA ∨ P .RNE ∨ P .RTN ∨ P .RTP ∨ P .RTZ) <| by
+    constructor
+    · rintro (h | h | h | h | h) <;> exact ⟨_, h⟩
+    · rintro ⟨rm, h⟩
+      cases rm
+      · exact .inl h
+      · exact .inr (.inl h)
+      · exact .inr (.inr (.inl h))
+      · exact .inr (.inr (.inr (.inl h)))
+      · exact .inr (.inr (.inr (.inr h)))
+
 /-- The dyadic number 'd' is representable with a floating point number with exponent 'e', mantissa 's'. -/
 def IsRepresentable (e : Nat) (s : Nat) (d : Dyadic) : Prop :=
   ∃ (f : PackedFloat e s),
