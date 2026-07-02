@@ -24,14 +24,18 @@ the bridges between them.
 - ✅ `modelEquiv_iff_unpack : a.ModelEquiv fa ↔ toModelUnpacked a = fa.unpack`
 - ✅ `modelEquiv_of_toBits_eq`, `ofBits_modelEquiv`, `toModelUnpacked_eq_unpack`.
 
-## Relation B — unpacked values equal  (`Basic.lean`)
+## Relation B — unpacked values equal  (`Basic.lean` def, `RelationB.lean` proof)
 `UnpackedRel` compares classification + sign + `DyadicEqNat` (value `M₁·2^E₁ = M₂·2^E₂`
 compared by shifting to the common floor exponent — pure `Nat`/`Int`, tolerant of the
 normal/subnormal normalization difference). **B is the relation that still sees the sign of
 zero**, so it is what fixes the ±0 gap that C cannot.
-- ✅ `unpack_unpackRel`: NaN / infinity / zero cases.
-- ☐ `unpack_unpackRel` finite case: `(cons true).toNat`, and the `clz`-shift value identity for
-  subnormals — reuse `Fp/Theorems/PackedFloat/Packing.lean`'s `cons`/`clz`/`toNat` machinery.
+- ✅ **`unpack_unpackRel` (all cases).** NaN/inf/zero are structural. The finite `DyadicEqNat`
+  is proven **via relation C** — sidestepping the `BitVec` exponent/`clz` arithmetic entirely:
+  both the project `unpackNum` and the model `finite s m e` have the same `Rat` value
+  (`unpackNum_toRat_eq_toRat` from `toExtRat_unpack_eq_toExtRat`; model value from C's
+  `modelUnpackedToExtRat_toModelUnpacked`), so cancelling the matching sign gives
+  `M₁·2^E₁ = M₂·2^E₂` and hence `DyadicEqNat` (`DyadicEqNat.of_rat` / `dyadic_of_sign`).
+  (Inherits the project's `BitVec.toNat_clz_cons` axiom transitively; no `sorry`.)
 
 ## Relation C — ExtRat values equal  (`ExtRat.lean`)  ← the clean route
 `modelToExtRat : Float.Model → ExtRat` (the model has no rational semantics of its own).
@@ -41,11 +45,11 @@ zero**, so it is what fixes the ±0 gap that C cannot.
 - ✅ forward bridge `toExtRat_eq_modelToExtRat_of_modelEquiv : A → C` (always holds).
 - ✅ reverse anchors `modelToExtRat_eq_ofBits` (reduces C to the project's own
   `eq_of_toExtRat'_eq` determinism) and `modelToExtRat_eq_NaN_iff`.
-- ☐ reverse bridge `C → A` for value-carrying floats: from `a.toExtRat = pfb.toExtRat`
-  (`pfb := ofBits fa.toBits`) and `¬isNaN ∧ ¬isZero`, apply `PackedFloat.eq_of_toExtRat'_eq`
-  to get `a = pfb`, hence the bits. Needs the small lemma `¬isNaN → toExtRat = Number 0 →
-  isZero` (derivable from the project's `toExtRat' ≤/< Number 0` iffs).
-- ☐ ±0 case: `ExtRat` identifies `+0`/`-0`; recover the sign bit via **relation B**.
+- ✅ **reverse bridge `modelEquiv_of_toExtRat_eq : C → A`** — NaN via `modelToExtRat_eq_NaN_iff`,
+  non-zero via `PackedFloat.eq_of_toExtRat'_eq` (`a = modelBits fa`), and the ±0 case via a
+  `hzsign : a.isZero → a.sign = (modelBits fa).sign` witness (which **relation B** supplies).
+- ✅ supporting: `isZero_of_toExtRat'_eq_zero` (`¬isNaN → toExtRat = Number 0 → isZero`, from
+  the project's `toExtRat' ≤/< Number 0` iffs), `modelBits`, `toBits64_modelBits`.
 
 ## Bridging to the operations (the payoff)
 Each arithmetic agreement `(a ∘ b).ModelEquiv (fa ∘ fb)` then goes:

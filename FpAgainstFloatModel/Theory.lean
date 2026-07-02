@@ -82,7 +82,7 @@ theorem unpackSign_packComponents {spec : Float.Model.Format} {sign e m} :
   grind
 
 /-- `Sign.ofBitVec` inverts `Sign.toBitVec`. -/
-theorem sign_roundtrip (s : UnpackedFloat.Sign) : UnpackedFloat.Sign.ofBitVec s.toBitVec = s := by
+theorem ofBitVec_toBitVec (s : UnpackedFloat.Sign) : UnpackedFloat.Sign.ofBitVec s.toBitVec = s := by
   cases s <;> rfl
 
 /-- A model `UnpackedFloat` is in canonical (correctly-rounded `binary64`) form: finite values
@@ -116,12 +116,12 @@ theorem unpack_pack (u : UnpackedFloat) (h : ModelCanonical u) :
   | infinity s =>
     simp only [UnpackedFloat.pack, UnpackedFloat.packedInfinity, UnpackedFloat.unpack,
       Float.Model.UnpackedFloat.unpackExponent_packComponents, Float.Model.UnpackedFloat.unpackMantissa_packComponents, unpackSign_packComponents,
-      sign_roundtrip, reduceIte]
+      ofBitVec_toBitVec, reduceIte]
     rw [if_pos (by decide)]
   | zero s =>
     simp only [UnpackedFloat.pack, UnpackedFloat.packedZero, UnpackedFloat.unpack,
       Float.Model.UnpackedFloat.unpackExponent_packComponents, Float.Model.UnpackedFloat.unpackMantissa_packComponents, unpackSign_packComponents,
-      sign_roundtrip]
+      ofBitVec_toBitVec]
     rw [if_neg (by decide), if_pos (by decide), dif_pos (by decide)]
   | finite s m e hm =>
     rcases h with ⟨hm1, hm2, he1, he2⟩ | ⟨hm1, he⟩
@@ -132,7 +132,7 @@ theorem unpack_pack (u : UnpackedFloat) (h : ModelCanonical u) :
       simp only [UnpackedFloat.pack, hbias, hmbwi, heb, hmb]
       rw [if_neg (by omega), if_pos hlog]
       simp only [UnpackedFloat.unpack, Float.Model.UnpackedFloat.unpackExponent_packComponents, Float.Model.UnpackedFloat.unpackMantissa_packComponents,
-        unpackSign_packComponents, sign_roundtrip, hbias, hmbwi, BitVec.toNat_ofNat]
+        unpackSign_packComponents, ofBitVec_toBitVec, hbias, hmbwi, BitVec.toNat_ofNat]
       rw [if_neg (by rw [← BitVec.toNat_inj]; simp only [BitVec.toNat_ofNat, BitVec.toNat_neg]; omega),
           if_neg (by rw [← BitVec.toNat_inj]; simp only [BitVec.toNat_ofNat]; omega),
           UnpackedFloat.finite.injEq]
@@ -147,7 +147,7 @@ theorem unpack_pack (u : UnpackedFloat) (h : ModelCanonical u) :
       simp only [UnpackedFloat.pack, hbias, hmbwi, heb, hmb]
       rw [if_neg (by omega), if_neg hlog]
       simp only [UnpackedFloat.unpack, Float.Model.UnpackedFloat.unpackExponent_packComponents, Float.Model.UnpackedFloat.unpackMantissa_packComponents,
-        unpackSign_packComponents, sign_roundtrip, hbias, hmbwi, BitVec.toNat_ofNat]
+        unpackSign_packComponents, ofBitVec_toBitVec, hbias, hmbwi, BitVec.toNat_ofNat]
       rw [if_neg (by decide), if_pos (by decide),
           dif_neg (by rw [← BitVec.toNat_inj]; simp only [BitVec.toNat_ofNat]; omega),
           UnpackedFloat.finite.injEq]
