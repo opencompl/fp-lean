@@ -226,7 +226,7 @@ def smtIsNeg (x : PackedFloat e s) : Bool :=
   !x.isNaN && x.sign
 
 def smtIsPos (x : PackedFloat e s) : Bool :=
-  !x.isNaN && x.sign
+  !x.isNaN && !x.sign
 
 
 @[simp]

@@ -1,6 +1,7 @@
 import Fp.Addition
 import Fp.Basic
 import Fp.Comparison
+import Fp.ConstFold
 import Fp.Division
 import Fp.FMA
 import Fp.Multiplication
