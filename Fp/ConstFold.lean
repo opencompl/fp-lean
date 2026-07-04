@@ -137,3 +137,6 @@ dsimproc [fp_normalize_consts] reducePackedFloatNeg (PackedFloat.neg _) :=
 
 dsimproc [fp_normalize_consts] reducePackedFloatAbs (PackedFloat.abs _) :=
   PackedFloat.reduceUnary ``PackedFloat.abs PackedFloat.abs
+
+-- The symbolic (non-literal) algebraic bitwuzla rewrites that are also folded
+-- into `fp_normalize_consts` live in `Fp/BitwuzlaRewrites.lean`.
