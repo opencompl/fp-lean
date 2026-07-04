@@ -595,4 +595,27 @@ theorem unpack_Canonical_of_IsCanonicalNan (he : 1 < e) (hs : 0 < s)
     pf.unpack.Canonical :=
   EUnpackedFloat.Canonical_unpack he hs pf
 
+/-- **The reverse-round-trip characterization.** `pf.unpack.pack = pf` iff `pf` has a canonical
+NaN. `∞`/zero canonicity is *automatic* — `isInfinite`/`isZero` already pin down every bit — so
+`IsCanonicalNan` is the whole condition; only NaN carries genuine payload freedom that `unpack`
+collapses. -/
+theorem unpack_pack_eq_self_iff (he : 1 < e) (hs : 0 < s) (pf : PackedFloat e s) :
+    pf.unpack.pack = pf ↔ pf.IsCanonicalNan := by
+  constructor
+  · intro h hnan
+    have h2 : pf.unpack.pack = PackedFloat.getNaN e s := by
+      rw [pf.unpack_eq_NaN_of_isNaN hnan, EUnpackedFloat.mkNaN_pack_eq_mkNaN]
+    exact h.symm.trans h2
+  · intro hcanon
+    rcases PackedFloat.unpack_pack_EquivUptoNaN he hs pf with heq | ⟨_, hnan⟩
+    · exact heq
+    · rw [pf.unpack_eq_NaN_of_isNaN hnan, EUnpackedFloat.mkNaN_pack_eq_mkNaN]
+      exact (hcanon hnan).symm
+
+/-- info: 'PackedFloat.unpack_pack_eq_self_iff' depends on axioms: [propext,
+ BitVec.toNat_clz_cons,
+ Classical.choice,
+ Quot.sound] -/
+#guard_msgs (whitespace := lax) in #print axioms unpack_pack_eq_self_iff
+
 end PackedFloat
