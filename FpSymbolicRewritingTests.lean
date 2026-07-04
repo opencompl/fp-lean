@@ -4,9 +4,17 @@ import FpSymbolicRewritingTests.ConstFold.AbsNeg
 import FpSymbolicRewritingTests.ConstFold.Add
 import FpSymbolicRewritingTests.ConstFold.Div
 import FpSymbolicRewritingTests.ConstFold.Fma
+import FpSymbolicRewritingTests.ConstFold.IsInfAbsNeg
+import FpSymbolicRewritingTests.ConstFold.IsNanAbsNeg
+import FpSymbolicRewritingTests.ConstFold.IsNormAbsNeg
+import FpSymbolicRewritingTests.ConstFold.IsSubnormAbsNeg
+import FpSymbolicRewritingTests.ConstFold.IsZeroAbsNeg
+import FpSymbolicRewritingTests.ConstFold.LtLeEq
+import FpSymbolicRewritingTests.ConstFold.MinMaxEq
 import FpSymbolicRewritingTests.ConstFold.Mod
 import FpSymbolicRewritingTests.ConstFold.Mul
 import FpSymbolicRewritingTests.ConstFold.Neg
+import FpSymbolicRewritingTests.ConstFold.NegNeg
 import FpSymbolicRewritingTests.ConstFold.Sub
 import FpSymbolicRewritingTests.Expand.Add
 import FpSymbolicRewritingTests.Expand.Div

@@ -1,5 +1,6 @@
 import Fp.Addition
 import Fp.Basic
+import Fp.BitwuzlaRewrites
 import Fp.Comparison
 import Fp.ConstFold
 import Fp.Division
