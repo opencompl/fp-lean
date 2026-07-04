@@ -123,6 +123,29 @@ def minAux (xOnDiffZeros : Bool) (x y : EUnpackedFloat e s) : EUnpackedFloat e s
 def maxAux (xOnDiffZeros : Bool) (x y : EUnpackedFloat e s) : EUnpackedFloat e s :=
   bif x.isNaN || bltAux xOnDiffZeros x y then y else x
 
+/-! ## SMT-LIB order comparisons on `EUnpackedFloat`
+
+These mirror the `PackedFloat` wrappers (`smtBlt`/`smtBle`/`smtBge`/`smtBgt`) and
+let the parser's ordered comparisons operate on the unpacked form so the inner
+op-output `pack` can cancel. See the `PackedFloat` namespace for the NaN-handling
+rationale (`whenBothNaN`). -/
+
+@[bv_normalize]
+def smtBlt (whenBothNaN : Bool) (x y : EUnpackedFloat e s) : Bool :=
+  bif x.isNaN && y.isNaN then whenBothNaN else bltAux false x y
+
+@[bv_normalize]
+def smtBle (whenBothNaN : Bool) (x y : EUnpackedFloat e s) : Bool :=
+  bif x.isNaN && y.isNaN then whenBothNaN else bleAux true x y
+
+@[bv_normalize]
+def smtBge (whenBothNaN : Bool) (x y : EUnpackedFloat e s) : Bool :=
+  bif x.isNaN && y.isNaN then whenBothNaN else bgeAux false x y
+
+@[bv_normalize]
+def smtBgt (whenBothNaN : Bool) (x y : EUnpackedFloat e s) : Bool :=
+  bif x.isNaN && y.isNaN then whenBothNaN else bgtAux true x y
+
 end EUnpackedFloat
 
 namespace PackedFloat
@@ -203,7 +226,7 @@ def smtIsNeg (x : PackedFloat e s) : Bool :=
   !x.isNaN && x.sign
 
 def smtIsPos (x : PackedFloat e s) : Bool :=
-  !x.isNaN && x.sign
+  !x.isNaN && !x.sign
 
 
 @[simp]

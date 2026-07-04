@@ -1,6 +1,6 @@
 name = "fp-lean"
 version = "0.1.0"
-defaultTargets = ["Fp", "FpAgainstFloatModel", "FpExecutableTests", "fp-executable-test-runner", "Examples"]
+defaultTargets = ["Fp", "FpAgainstFloatModel", "FpExecutableTests", "fp-executable-test-runner", "Examples", "FpSymbolicRewritingTests"]
 moreLeanArgs = ["--tstack=1000000"]
 moreGlobalServerArgs = ["--tstack=1000000"]
 
@@ -18,6 +18,10 @@ name = "FpAgainstFloatModel"
 # the Float-Model toolchain) enters here via `FpExecutableTests.AgainstFloatModel`.
 [[lean_lib]]
 name = "FpExecutableTests"
+
+# One module per staged FP rewrite; each fires exactly that rewrite via `simp only [<set>]`.
+[[lean_lib]]
+name = "FpSymbolicRewritingTests"
 
 [[lean_lib]]
 name = "Examples"

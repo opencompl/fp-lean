@@ -1,0 +1,33 @@
+name: Symbolic Rewriting Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  merge_group:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: FP symbolic rewriting simp tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v4
+
+      - name: Build with lean-action
+        uses: leanprover/lean-action@v1
+        with:
+          use-mathlib-cache: false
+          use-github-cache: true
+          build: true
+          test: false
+
+      # Each module under `FpSymbolicRewritingTests/` fires exactly one staged FP
+      # rewrite via `simp only [<set>]`; elaboration IS the test (`simp only` errors
+      # on no-progress if a rule stops firing), so a successful build is a pass.
+      - name: Build symbolic rewriting tests
+        run: lake build FpSymbolicRewritingTests
