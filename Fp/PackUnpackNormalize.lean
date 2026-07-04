@@ -7,6 +7,7 @@ import Fp.Division
 import Fp.Remainder
 import Fp.FMA
 import Fp.Comparison
+import Fp.Theorems.PackUnpackRoundTrip
 
 /-!
 # Staged pack/unpack normalization lemmas
@@ -20,14 +21,19 @@ operations (see `Fp/Tactics/Attributes.lean` for the simp attributes).
 * `@[fp_normalize_pack_unpack_eunpacked]` — cancel the intermediate round-trips
   `(EUnpackedFloat.op …).pack.unpack = EUnpackedFloat.op …`.
 
-## Soundness of the cancellation `axiom`s
+## The cancellation lemmas
 
-The cancellation facts are **true**: the output of every `EUnpackedFloat`
-operation is `EUnpackedFloat.Packable` (its numeric payload is normalized), and
-for such values `pack` and `unpack` are mutually inverse — this is exactly the
-identity documented at `Fp/Negation.lean` (`(uf.round m).pack.unpack = uf.round m`).
-They are stated as `axiom`s here as scaffolding, to be discharged in a follow-up
-using `EUnpackedFloat.Packable`. Because they are true, they do **not** make the
+For `add`/`sub`/`mul`/`div` (RNE) the cancellation is **proven** in
+`Fp/Theorems/PackUnpackRoundTrip.lean` and merely tagged into the simp set here.
+The identity requires the operands to be `EUnpackedFloat.Packable`: several ops
+(`add`/`sub`) have passthrough branches returning an input unchanged, so the
+round-trip only holds when that input is itself in the image of `pack`/`unpack`.
+`Packable` composes (every op output and every `pf.unpack` is `Packable`), so the
+cancellation fires at any nesting depth of a chained expression.
+
+`fma`/`mod` remain `axiom`s for now (`fma` has the same shape; `mod` uses
+`.toEUnpackedFloat` rather than a rounder and needs a separate "remainder is
+exactly representable ⇒ `Packable`" argument). They are true and do not make the
 environment inconsistent; `#print axioms` lists them until they are proven.
 -/
 
@@ -130,33 +136,20 @@ namespace EUnpackedFloat
 
 /-! ## Stage 3: cancel `(EUnpackedFloat.op …).pack.unpack = EUnpackedFloat.op …`
 
-TODO: discharge these `axiom`s using `EUnpackedFloat.Packable`. -/
+For `add`/`sub`/`mul`/`div` (RNE) the cancellations are the proven theorems from
+`Fp/Theorems/PackUnpackRoundTrip.lean`; here we only add them to the simp set. -/
 
-@[fp_normalize_pack_unpack_eunpacked]
-axiom add_pack_unpack {e s : Nat} (m : RoundingMode)
-    (a b : EUnpackedFloat (exponentWidth e s) (s + 1)) :
-    ((EUnpackedFloat.add m a b).pack).unpack = EUnpackedFloat.add m a b
+attribute [fp_normalize_pack_unpack_eunpacked]
+  add_pack_unpack sub_pack_unpack mul_pack_unpack div_pack_unpack
 
-@[fp_normalize_pack_unpack_eunpacked]
-axiom sub_pack_unpack {e s : Nat} (m : RoundingMode)
-    (a b : EUnpackedFloat (exponentWidth e s) (s + 1)) :
-    ((EUnpackedFloat.sub m a b).pack).unpack = EUnpackedFloat.sub m a b
-
-@[fp_normalize_pack_unpack_eunpacked]
-axiom mul_pack_unpack {e s : Nat} (m : RoundingMode)
-    (a b : EUnpackedFloat (exponentWidth e s) (s + 1)) :
-    ((EUnpackedFloat.mul m a b).pack).unpack = EUnpackedFloat.mul m a b
-
-@[fp_normalize_pack_unpack_eunpacked]
-axiom div_pack_unpack {e s : Nat} (m : RoundingMode)
-    (a b : EUnpackedFloat (exponentWidth e s) (s + 1)) :
-    ((EUnpackedFloat.div m a b).pack).unpack = EUnpackedFloat.div m a b
-
+/-- TODO: discharge like the ops above; `mod` uses `.toEUnpackedFloat` (no rounder), so its
+`Packable` argument is "the remainder is exactly representable" rather than a rounder lemma. -/
 @[fp_normalize_pack_unpack_eunpacked]
 axiom mod_pack_unpack {e s : Nat} (m : RoundingMode)
     (a b : EUnpackedFloat (exponentWidth e s) (s + 1)) :
     ((EUnpackedFloat.mod m a b).pack).unpack = EUnpackedFloat.mod m a b
 
+/-- TODO: discharge like the ops above (`fma` has passthrough branches like `add`). -/
 @[fp_normalize_pack_unpack_eunpacked]
 axiom fma_pack_unpack {e s : Nat} (m : RoundingMode)
     (a b c : EUnpackedFloat (exponentWidth e s) (s + 1)) :
