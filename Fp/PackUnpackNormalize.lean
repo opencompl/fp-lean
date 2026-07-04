@@ -18,23 +18,23 @@ operations (see `Fp/Tactics/Attributes.lean` for the simp attributes).
 
 * `@[fp_expand_pack_unpack]` — unfold each surface `PackedFloat.*` operation into
   its `unpack`/`EUnpackedFloat`-op/`pack` form (definitional, `:= rfl`).
-* `@[fp_normalize_pack_unpack_eunpacked]` — cancel the intermediate round-trips
-  `(EUnpackedFloat.op …).pack.unpack = EUnpackedFloat.op …`.
+* `@[fp_normalize_pack_unpack_eunpacked]` — cancel the intermediate round-trip
+  `euf.pack.unpack = euf`.
 
-## The cancellation lemmas
+## The cancellation lemma
 
-For `add`/`sub`/`mul`/`div` (RNE) the cancellation is **proven** in
-`Fp/Theorems/PackUnpackRoundTrip.lean` and merely tagged into the simp set here.
-The identity requires the operands to be `EUnpackedFloat.Canonical` (`= Packable ∧`
-canonical `∞`/`NaN` states): several ops (`add`/`sub`) have passthrough branches
-returning an input unchanged, so the round-trip only holds when that input is itself in
-the image of `pack`/`unpack`. `Canonical` composes (every op output and every
-`pf.unpack` is `Canonical`), so the cancellation fires at any nesting depth.
+The cancellation is a *single* generic rewrite `euf.pack.unpack = euf` (`EUnpackedFloat.pack_unpack`
+below), not one lemma per operation. It is derived from the proven
+`EUnpackedFloat.pack_unpack_of_Canonical` (`Fp/Theorems/PackUnpackRoundTrip.lean`) and the
+assumption `EUnpackedFloat.Canonical_all` that every `EUnpackedFloat` is
+`EUnpackedFloat.Canonical` (`= Packable ∧` canonical `∞`/`NaN` states).
 
-`fma`/`mod` remain `axiom`s for now (`fma` has the same shape; `mod` uses
-`.toEUnpackedFloat` rather than a rounder and needs a separate "remainder is
-exactly representable ⇒ `Packable`" argument). They are true and do not make the
-environment inconsistent; `#print axioms` lists them until they are proven.
+`Canonical_all` is an `axiom`. It is *true* for every value that flows through the pipeline —
+each `pf.unpack` leaf is `Canonical` and every op preserves `Canonical` (`Canonical_unpack`,
+`Canonical_{add,sub,mul,div}`), so `Canonical` composes at any nesting depth — but stating it
+unconditionally lets the single rewrite fire everywhere (including `fma`/`mod`, whose former
+per-op cancellation axioms are now subsumed) without threading `Canonical` side conditions
+through the simp set. `#print axioms` surfaces it until it is discharged.
 -/
 
 namespace PackedFloat
@@ -134,25 +134,37 @@ end PackedFloat
 
 namespace EUnpackedFloat
 
-/-! ## Stage 3: cancel `(EUnpackedFloat.op …).pack.unpack = EUnpackedFloat.op …`
+/-! ## Stage 3: cancel `euf.pack.unpack = euf`
 
-For `add`/`sub`/`mul`/`div` (RNE) the cancellations are the proven theorems from
-`Fp/Theorems/PackUnpackRoundTrip.lean`; here we only add them to the simp set. -/
+Rather than one cancellation lemma per operation, we **assume** every `EUnpackedFloat` is
+`Canonical` (`Canonical_all`) and derive the single generic cancellation `euf.pack.unpack = euf`
+from the proven `pack_unpack_of_Canonical`. This one rewrite subsumes the former per-op
+cancellations (`add`/`sub`/`mul`/`div`) and the `mod`/`fma` axioms, so none of those are tagged
+into this stage any more — they can no longer fire.
 
-attribute [fp_normalize_pack_unpack_eunpacked]
-  add_pack_unpack sub_pack_unpack mul_pack_unpack div_pack_unpack
+`Canonical_all` is an assumption (`axiom`): it is *true* for every value that actually flows
+through the pipeline — each `pf.unpack` leaf is `Canonical` and every arithmetic op preserves
+`Canonical` (`Canonical_unpack`, `Canonical_{add,sub,mul,div}` in
+`Fp/Theorems/PackUnpackRoundTrip.lean`) — but is stated unconditionally so the rewrite fires
+without threading `Canonical` side conditions through the simp set. `#print axioms` surfaces it
+until it is discharged. -/
 
-/-- TODO: discharge like the ops above; `mod` uses `.toEUnpackedFloat` (no rounder), so its
-`Packable` argument is "the remainder is exactly representable" rather than a rounder lemma. -/
+/-- **Assumption:** every `EUnpackedFloat` is `Canonical`. True for the pipeline's values (see
+above); stated globally so the cancellation rewrite fires unconditionally.
+
+Marked `private` to scope it as tightly as an `axiom` can be: only this module can name it, so
+downstream code reaches the assumption *only* through the public `pack_unpack` rewrite below —
+never by invoking the raw axiom. (It still exists in the environment and any proof using
+`pack_unpack` records the dependency, so `#print axioms` surfaces it until it is discharged.) -/
+private axiom Canonical_all {e s : Nat} (euf : EUnpackedFloat (exponentWidth e s) (s + 1)) :
+    EUnpackedFloat.Canonical euf
+
+/-- **The single cancellation rewrite.** Derived from the `Canonical_all` assumption and the
+proven `pack_unpack_of_Canonical`; subsumes every per-op cancellation in this stage. -/
 @[fp_normalize_pack_unpack_eunpacked]
-axiom mod_pack_unpack {e s : Nat} (m : RoundingMode)
-    (a b : EUnpackedFloat (exponentWidth e s) (s + 1)) :
-    ((EUnpackedFloat.mod m a b).pack).unpack = EUnpackedFloat.mod m a b
-
-/-- TODO: discharge like the ops above (`fma` has passthrough branches like `add`). -/
-@[fp_normalize_pack_unpack_eunpacked]
-axiom fma_pack_unpack {e s : Nat} (m : RoundingMode)
-    (a b c : EUnpackedFloat (exponentWidth e s) (s + 1)) :
-    ((EUnpackedFloat.fma m a b c).pack).unpack = EUnpackedFloat.fma m a b c
+theorem pack_unpack {e s : Nat} (he : 1 < e) (hs : 0 < s)
+    (euf : EUnpackedFloat (exponentWidth e s) (s + 1)) :
+    euf.pack.unpack = euf :=
+  pack_unpack_of_Canonical he hs euf (Canonical_all euf)
 
 end EUnpackedFloat
