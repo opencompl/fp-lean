@@ -5,6 +5,7 @@ import Fp.Division
 import Fp.FMA
 import Fp.Multiplication
 import Fp.Negation
+import Fp.PackUnpackNormalize
 import Fp.Remainder
 import Fp.Rounding
 import Fp.Sqrt
