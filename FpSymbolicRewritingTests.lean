@@ -1,4 +1,6 @@
 import FpSymbolicRewritingTests.ConstFold.Abs
+import FpSymbolicRewritingTests.ConstFold.AbsAbs
+import FpSymbolicRewritingTests.ConstFold.AbsNeg
 import FpSymbolicRewritingTests.ConstFold.Add
 import FpSymbolicRewritingTests.ConstFold.Div
 import FpSymbolicRewritingTests.ConstFold.Fma
@@ -34,7 +36,9 @@ import FpSymbolicRewritingTests.Cancel.Sub
 
 Regression tests for the staged FP pack/unpack-cancellation simp sets. Each module
 under this directory checks, via `simp only [<set>]`, that a single rewrite fires:
-- `ConstFold/*` — the `fp_normalize_consts` symbolic-evaluation dsimprocs;
+- `ConstFold/*` — the `fp_normalize_consts` set: literal symbolic-evaluation
+  dsimprocs, plus the folded-in symbolic bitwuzla algebraic rewrites (e.g.
+  `FP_ABS_ABS_NEG`: `abs (abs a) = abs a`, `abs (neg a) = abs a`);
 - `Expand/*`    — the `fp_expand_pack_unpack` op/comparison/predicate expansions;
 - `Cancel/*`    — the `fp_normalize_pack_unpack_eunpacked` round-trip cancellations.
 -/

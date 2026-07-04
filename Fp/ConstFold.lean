@@ -137,3 +137,29 @@ dsimproc [fp_normalize_consts] reducePackedFloatNeg (PackedFloat.neg _) :=
 
 dsimproc [fp_normalize_consts] reducePackedFloatAbs (PackedFloat.abs _) :=
   PackedFloat.reduceUnary ``PackedFloat.abs PackedFloat.abs
+
+/-! ## Bitwuzla rewrite `FP_ABS_ABS_NEG`: `abs (abs a) = abs a`, `abs (neg a) = abs a`.
+
+Symbolic (non-literal) algebraic simplifications folded into the
+`fp_normalize_consts` set. `PackedFloat`/`EUnpackedFloat` `abs`/`neg` are pure
+sign-bit updates with no NaN guard, so each instance holds definitionally. The
+LHS heads use the raw ops (`PackedFloat.neg`, not `-x`) so simp matches the
+surface form the symbolic rewriter and the regression tests produce. -/
+
+@[fp_normalize_consts]
+theorem PackedFloat.abs_abs_normalize (x : PackedFloat e s) :
+    PackedFloat.abs (PackedFloat.abs x) = PackedFloat.abs x := rfl
+
+@[fp_normalize_consts]
+theorem PackedFloat.abs_neg_normalize (x : PackedFloat e s) :
+    PackedFloat.abs (PackedFloat.neg x) = PackedFloat.abs x := rfl
+
+@[fp_normalize_consts]
+theorem EUnpackedFloat.abs_abs_normalize
+    (x : EUnpackedFloat (exponentWidth e s) (s + 1)) :
+    EUnpackedFloat.abs (EUnpackedFloat.abs x) = EUnpackedFloat.abs x := rfl
+
+@[fp_normalize_consts]
+theorem EUnpackedFloat.abs_neg_normalize
+    (x : EUnpackedFloat (exponentWidth e s) (s + 1)) :
+    EUnpackedFloat.abs (EUnpackedFloat.neg x) = EUnpackedFloat.abs x := rfl
