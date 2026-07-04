@@ -575,3 +575,24 @@ theorem Canonical_unpack (he : 1 < e) (hs : 0 < s) (pf : PackedFloat e s) :
 #guard_msgs (whitespace := lax) in #print axioms pack_unpack_eq_self_iff
 
 end EUnpackedFloat
+
+namespace PackedFloat
+
+variable {e s : Nat}
+
+/-- `pf` has a **canonical NaN**: if it is NaN at all, it is the canonical `getNaN`. -/
+def IsCanonicalNan (pf : PackedFloat e s) : Prop :=
+  pf.isNaN → pf = PackedFloat.getNaN e s
+
+/-- If `pf` has a canonical NaN then `pf.unpack` is `Canonical`.
+
+NOTE: the `IsCanonicalNan` hypothesis is not actually needed — `pf.unpack.Canonical` holds for
+*every* `pf` (`EUnpackedFloat.Canonical_unpack`), because `unpack` discards the NaN payload and
+always lands a canonical smart constructor. This weaker statement is provided as a convenience;
+prefer `EUnpackedFloat.Canonical_unpack` when no `IsCanonicalNan` fact is at hand. -/
+theorem unpack_Canonical_of_IsCanonicalNan (he : 1 < e) (hs : 0 < s)
+    (pf : PackedFloat e s) (_h : pf.IsCanonicalNan) :
+    pf.unpack.Canonical :=
+  EUnpackedFloat.Canonical_unpack he hs pf
+
+end PackedFloat
