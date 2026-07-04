@@ -131,10 +131,10 @@ theorem pack_unpack_of_Packable (he : 1 < e) (hs : 0 < s)
 /-! ## `SpecialCanon`: the ∞/NaN half of canonicity
 
 `SpecialCanon euf` says the non-`Number` states of `euf` are the canonical smart constructors.
-This is the *structural* half of `CanonState` (below); it is kept separate because it is closed
+This is the *structural* half of `Canonical` (below); it is kept separate because it is closed
 under the constructors, `cond`/`ite`, sign-negation (of non-`NaN` values), and `normalize` with
 **no** side conditions — whereas `Packable` does not compose through the pre-`normalize` blast
-intermediate. `CanonState := Packable ∧ SpecialCanon` bundles the two at the top level. -/
+intermediate. `Canonical := Packable ∧ SpecialCanon` bundles the two at the top level. -/
 
 /-- The non-`Number` states of `euf` are canonical (`mkInfinity`/`mkNaN`). -/
 def SpecialCanon (euf : EUnpackedFloat e s) : Prop :=
@@ -327,22 +327,22 @@ theorem blastSmtLibRound_pack_unpack (he : 2 < e) (hs : 0 < s)
     (SpecialCanon_blastSmtLibRound_RNE uf e s).2
     (SpecialCanon_blastSmtLibRound_RNE uf e s).1
 
-/-! ## `CanonState`: the single source of truth
+/-! ## `Canonical`: the single source of truth
 
-`CanonState euf` bundles the two independent obligations that characterize the `pack ∘ unpack`
+`Canonical euf` bundles the two independent obligations that characterize the `pack ∘ unpack`
 fixpoint: `euf.Packable` (the `Number` payload is normalized and exactly representable) and
 `SpecialCanon euf` (the `∞`/`NaN` states carry the canonical smart-constructor `num`). It is
 *exactly* the set of fixpoints — see `pack_unpack_eq_self_iff` below — and it composes: every
-`pf.unpack` is `CanonState`, and every arithmetic op maps `CanonState` inputs to a `CanonState`
+`pf.unpack` is `Canonical`, and every arithmetic op maps `Canonical` inputs to a `Canonical`
 output. -/
 
 /-- A value is **canonical** iff it is a fixpoint of `pack ∘ unpack` (`pack_unpack_eq_self_iff`). -/
-def CanonState (euf : EUnpackedFloat (exponentWidth e s) (s + 1)) : Prop :=
+def Canonical (euf : EUnpackedFloat (exponentWidth e s) (s + 1)) : Prop :=
   euf.Packable ∧ SpecialCanon euf
 
-/-- Sufficiency: a `CanonState` value round-trips. -/
-theorem pack_unpack_of_CanonState (he : 1 < e) (hs : 0 < s)
-    (euf : EUnpackedFloat (exponentWidth e s) (s + 1)) (h : CanonState euf) :
+/-- Sufficiency: a `Canonical` value round-trips. -/
+theorem pack_unpack_of_Canonical (he : 1 < e) (hs : 0 < s)
+    (euf : EUnpackedFloat (exponentWidth e s) (s + 1)) (h : Canonical euf) :
     euf.pack.unpack = euf :=
   pack_unpack_of_Packable he hs euf h.1 h.2.2 h.2.1
 
@@ -354,17 +354,17 @@ theorem SpecialCanon_mul (a b : EUnpackedFloat (exponentWidth e s) (s + 1)) :
   exact SpecialCanon.cond SpecialCanon_mkNaN (SpecialCanon.cond (SpecialCanon_mkInfinity _)
     (SpecialCanon.cond (SpecialCanon_mkZero _) (SpecialCanon_blastSmtLibRound_RNE _ _ _)))
 
-/-- `mul` preserves `CanonState`. -/
-theorem CanonState_mul (he : 2 < e) (hs : 0 < s)
-    {a b : EUnpackedFloat (exponentWidth e s) (s + 1)} (ha : CanonState a) (hb : CanonState b) :
-    CanonState (EUnpackedFloat.mul .RNE a b) :=
+/-- `mul` preserves `Canonical`. -/
+theorem Canonical_mul (he : 2 < e) (hs : 0 < s)
+    {a b : EUnpackedFloat (exponentWidth e s) (s + 1)} (ha : Canonical a) (hb : Canonical b) :
+    Canonical (EUnpackedFloat.mul .RNE a b) :=
   ⟨Packable_mul he hs ha.1 hb.1, SpecialCanon_mul a b⟩
 
 /-- **`mul` cancellation.** -/
 theorem mul_pack_unpack (he : 2 < e) (hs : 0 < s)
-    {a b : EUnpackedFloat (exponentWidth e s) (s + 1)} (ha : CanonState a) (hb : CanonState b) :
+    {a b : EUnpackedFloat (exponentWidth e s) (s + 1)} (ha : Canonical a) (hb : Canonical b) :
     (EUnpackedFloat.mul .RNE a b).pack.unpack = EUnpackedFloat.mul .RNE a b :=
-  pack_unpack_of_CanonState (by omega) hs _ (CanonState_mul he hs ha hb)
+  pack_unpack_of_Canonical (by omega) hs _ (Canonical_mul he hs ha hb)
 
 /-! ### `div` -/
 
@@ -404,17 +404,17 @@ theorem SpecialCanon_div (a b : EUnpackedFloat (exponentWidth e s) (s + 1)) :
   exact SpecialCanon.cond SpecialCanon_mkNaN (SpecialCanon.cond (SpecialCanon_mkInfinity _)
     (SpecialCanon.cond (SpecialCanon_mkZero _) (SpecialCanon_blastSmtLibRound_RNE _ _ _)))
 
-/-- `div` preserves `CanonState`. -/
-theorem CanonState_div (he : 2 < e) (hs : 0 < s)
-    {a b : EUnpackedFloat (exponentWidth e s) (s + 1)} (ha : CanonState a) (hb : CanonState b) :
-    CanonState (EUnpackedFloat.div .RNE a b) :=
+/-- `div` preserves `Canonical`. -/
+theorem Canonical_div (he : 2 < e) (hs : 0 < s)
+    {a b : EUnpackedFloat (exponentWidth e s) (s + 1)} (ha : Canonical a) (hb : Canonical b) :
+    Canonical (EUnpackedFloat.div .RNE a b) :=
   ⟨Packable_div he hs ha.1 hb.1, SpecialCanon_div a b⟩
 
 /-- **`div` cancellation.** -/
 theorem div_pack_unpack (he : 2 < e) (hs : 0 < s)
-    {a b : EUnpackedFloat (exponentWidth e s) (s + 1)} (ha : CanonState a) (hb : CanonState b) :
+    {a b : EUnpackedFloat (exponentWidth e s) (s + 1)} (ha : Canonical a) (hb : Canonical b) :
     (EUnpackedFloat.div .RNE a b).pack.unpack = EUnpackedFloat.div .RNE a b :=
-  pack_unpack_of_CanonState (by omega) hs _ (CanonState_div he hs ha hb)
+  pack_unpack_of_Canonical (by omega) hs _ (Canonical_div he hs ha hb)
 
 /-! ### `add` / `sub` -/
 
@@ -484,31 +484,31 @@ theorem Packable_add (he : 2 < e) (hs : 0 < s)
             exact Fp.UnpackedFloat.blastSmtLibRound_Packable_of_RNE (by grind) (by grind)
               (by omega) (by omega) _ hxnorm
 
-/-- `add` preserves `CanonState`. -/
-theorem CanonState_add (he : 2 < e) (hs : 0 < s)
-    {a b : EUnpackedFloat (exponentWidth e s) (s + 1)} (ha : CanonState a) (hb : CanonState b) :
-    CanonState (EUnpackedFloat.add .RNE a b) :=
+/-- `add` preserves `Canonical`. -/
+theorem Canonical_add (he : 2 < e) (hs : 0 < s)
+    {a b : EUnpackedFloat (exponentWidth e s) (s + 1)} (ha : Canonical a) (hb : Canonical b) :
+    Canonical (EUnpackedFloat.add .RNE a b) :=
   ⟨Packable_add he hs ha.1 hb.1, SpecialCanon_add a b⟩
 
 /-- **`add` cancellation.** -/
 theorem add_pack_unpack (he : 2 < e) (hs : 0 < s)
-    {a b : EUnpackedFloat (exponentWidth e s) (s + 1)} (ha : CanonState a) (hb : CanonState b) :
+    {a b : EUnpackedFloat (exponentWidth e s) (s + 1)} (ha : Canonical a) (hb : Canonical b) :
     (EUnpackedFloat.add .RNE a b).pack.unpack = EUnpackedFloat.add .RNE a b :=
-  pack_unpack_of_CanonState (by omega) hs _ (CanonState_add he hs ha hb)
+  pack_unpack_of_Canonical (by omega) hs _ (Canonical_add he hs ha hb)
 
-/-- `sub` preserves `CanonState` (`sub = add · (neg)`; `neg` preserves `Packable`, and the
+/-- `sub` preserves `Canonical` (`sub = add · (neg)`; `neg` preserves `Packable`, and the
 `add`-output's state is canonical unconditionally). -/
-theorem CanonState_sub (he : 2 < e) (hs : 0 < s)
-    {a b : EUnpackedFloat (exponentWidth e s) (s + 1)} (ha : CanonState a) (hb : CanonState b) :
-    CanonState (EUnpackedFloat.sub .RNE a b) := by
+theorem Canonical_sub (he : 2 < e) (hs : 0 < s)
+    {a b : EUnpackedFloat (exponentWidth e s) (s + 1)} (ha : Canonical a) (hb : Canonical b) :
+    Canonical (EUnpackedFloat.sub .RNE a b) := by
   unfold EUnpackedFloat.sub
   exact ⟨Packable_add he hs ha.1 (Fp.EUnpackedFloat.neg_Packable hb.1), SpecialCanon_add a b.neg⟩
 
 /-- **`sub` cancellation** (reduces to `add`). -/
 theorem sub_pack_unpack (he : 2 < e) (hs : 0 < s)
-    {a b : EUnpackedFloat (exponentWidth e s) (s + 1)} (ha : CanonState a) (hb : CanonState b) :
+    {a b : EUnpackedFloat (exponentWidth e s) (s + 1)} (ha : Canonical a) (hb : Canonical b) :
     (EUnpackedFloat.sub .RNE a b).pack.unpack = EUnpackedFloat.sub .RNE a b :=
-  pack_unpack_of_CanonState (by omega) hs _ (CanonState_sub he hs ha hb)
+  pack_unpack_of_Canonical (by omega) hs _ (Canonical_sub he hs ha hb)
 
 /-! ### `Packable` of a leaf `unpack` -/
 
@@ -535,26 +535,26 @@ theorem Packable_unpack (he : 1 < e) (hs : 0 < s) (pf : PackedFloat e s) :
 
 /-! ## The characterization and the `unpack` corollary -/
 
-/-- **Necessity.** A fixpoint of `pack ∘ unpack` is `CanonState`: it equals `euf.pack.unpack`,
+/-- **Necessity.** A fixpoint of `pack ∘ unpack` is `Canonical`: it equals `euf.pack.unpack`,
 which is always the `unpack` of a packed float (hence `Packable`, `Packable_unpack`) and always
 in canonical `∞`/`NaN` form (`unpack_pack_of_isInfinite` / `unpack_pack_of_isNaN`). -/
-theorem CanonState_of_pack_unpack (he : 1 < e) (hs : 0 < s)
+theorem Canonical_of_pack_unpack (he : 1 < e) (hs : 0 < s)
     (euf : EUnpackedFloat (exponentWidth e s) (s + 1)) (h : euf.pack.unpack = euf) :
-    CanonState euf := by
+    Canonical euf := by
   refine ⟨by rw [← h]; exact Packable_unpack he hs euf.pack, ⟨fun hinf => ?_, fun hnan => ?_⟩⟩
   · exact h.symm.trans (unpack_pack_of_isInfinite euf hinf hs)
   · exact h.symm.trans (unpack_pack_of_isNaN euf hnan)
 
-/-- **The characterization.** `euf` is a fixpoint of `pack ∘ unpack` iff it is `CanonState`. -/
+/-- **The characterization.** `euf` is a fixpoint of `pack ∘ unpack` iff it is `Canonical`. -/
 theorem pack_unpack_eq_self_iff (he : 1 < e) (hs : 0 < s)
     (euf : EUnpackedFloat (exponentWidth e s) (s + 1)) :
-    euf.pack.unpack = euf ↔ CanonState euf :=
-  ⟨CanonState_of_pack_unpack he hs euf, pack_unpack_of_CanonState he hs euf⟩
+    euf.pack.unpack = euf ↔ Canonical euf :=
+  ⟨Canonical_of_pack_unpack he hs euf, pack_unpack_of_Canonical he hs euf⟩
 
-/-- **Every `pf.unpack` is `CanonState`** — no hypothesis on `pf`. This is why chained ops cancel
-at any nesting depth: the leaves are `CanonState` and each op preserves `CanonState`. -/
-theorem CanonState_unpack (he : 1 < e) (hs : 0 < s) (pf : PackedFloat e s) :
-    CanonState pf.unpack := by
+/-- **Every `pf.unpack` is `Canonical`** — no hypothesis on `pf`. This is why chained ops cancel
+at any nesting depth: the leaves are `Canonical` and each op preserves `Canonical`. -/
+theorem Canonical_unpack (he : 1 < e) (hs : 0 < s) (pf : PackedFloat e s) :
+    Canonical pf.unpack := by
   refine ⟨Packable_unpack he hs pf, ?_⟩
   unfold PackedFloat.unpack
   by_cases hnan : pf.isNaN

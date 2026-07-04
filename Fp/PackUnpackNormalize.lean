@@ -25,11 +25,11 @@ operations (see `Fp/Tactics/Attributes.lean` for the simp attributes).
 
 For `add`/`sub`/`mul`/`div` (RNE) the cancellation is **proven** in
 `Fp/Theorems/PackUnpackRoundTrip.lean` and merely tagged into the simp set here.
-The identity requires the operands to be `EUnpackedFloat.CanonState` (`= Packable ∧`
+The identity requires the operands to be `EUnpackedFloat.Canonical` (`= Packable ∧`
 canonical `∞`/`NaN` states): several ops (`add`/`sub`) have passthrough branches
 returning an input unchanged, so the round-trip only holds when that input is itself in
-the image of `pack`/`unpack`. `CanonState` composes (every op output and every
-`pf.unpack` is `CanonState`), so the cancellation fires at any nesting depth.
+the image of `pack`/`unpack`. `Canonical` composes (every op output and every
+`pf.unpack` is `Canonical`), so the cancellation fires at any nesting depth.
 
 `fma`/`mod` remain `axiom`s for now (`fma` has the same shape; `mod` uses
 `.toEUnpackedFloat` rather than a rounder and needs a separate "remainder is
