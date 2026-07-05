@@ -569,7 +569,6 @@ theorem Canonical_unpack (he : 1 < e) (hs : 0 < s) (pf : PackedFloat e s) :
         exact SpecialCanon_mkNumber _
 
 /-- info: 'EUnpackedFloat.pack_unpack_eq_self_iff' depends on axioms: [propext,
- BitVec.toNat_clz_cons,
  Classical.choice,
  Quot.sound] -/
 #guard_msgs (whitespace := lax) in #print axioms pack_unpack_eq_self_iff
@@ -613,7 +612,6 @@ theorem unpack_pack_eq_self_iff (he : 1 < e) (hs : 0 < s) (pf : PackedFloat e s)
       exact (hcanon hnan).symm
 
 /-- info: 'PackedFloat.unpack_pack_eq_self_iff' depends on axioms: [propext,
- BitVec.toNat_clz_cons,
  Classical.choice,
  Quot.sound] -/
 #guard_msgs (whitespace := lax) in #print axioms unpack_pack_eq_self_iff
