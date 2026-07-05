@@ -31,7 +31,7 @@ def EUnpackedFloat.fma (m : RoundingMode) (x y z : EUnpackedFloat (exponentWidth
     z
   else bif z.isZero then
     (UnpackedFloat.mul x.num y.num) |>.blastSmtLibRound e s  m
-  else bif UnpackedFloat.structBeq (.mul x.num y.num) (z.num.neg.extendWidths (by omega) (by omega)) then
+  else bif UnpackedFloat.smtBeq (.mul x.num y.num) (z.num.neg.extendWidths (by omega) (by omega)) then
     -- None of `x`, `y`, `x * y`, and `z` is an exact `0`. However, `x * y + z` is
     -- *still* exactly `0`! We must follow addition rules for sign of `0` in that case.
     -- Since `UnpackedFloat.mul` always returns exact results and extending ex/sig widths

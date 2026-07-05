@@ -433,7 +433,7 @@ theorem SpecialCanon_add (a b : EUnpackedFloat (exponentWidth e s) (s + 1)) :
         a.isInfinite && !b.isInfinite || !a.isInfinite && b.isInfinite) = true
     · simp only [h2, cond_true]; exact SpecialCanon_mkInfinity _
     · simp only [Bool.not_eq_true] at h2; simp only [h2, cond_false]
-      by_cases h3 : (UnpackedFloat.structBeq a.num b.num.neg) = true
+      by_cases h3 : (UnpackedFloat.smtBeq a.num b.num.neg) = true
       · simp only [h3, cond_true]; exact SpecialCanon_mkZero _
       · simp only [Bool.not_eq_true] at h3; simp only [h3, cond_false]
         by_cases h4 : a.isZero = true
@@ -460,7 +460,7 @@ theorem Packable_add (he : 2 < e) (hs : 0 < s)
     · simp only [h2, cond_true]
       exact Fp.EUnpackedFloat.Packable_of_state_ne_Number (by simp [EUnpackedFloat.mkInfinity])
     · simp only [Bool.not_eq_true] at h2; simp only [h2, cond_false]
-      by_cases h3 : (UnpackedFloat.structBeq a.num b.num.neg) = true
+      by_cases h3 : (UnpackedFloat.smtBeq a.num b.num.neg) = true
       · simp only [h3, cond_true]; exact Fp.EUnpackedFloat.mkZero_Packable he1 hs _
       · simp only [Bool.not_eq_true] at h3; simp only [h3, cond_false]
         by_cases h4 : a.isZero = true
@@ -476,7 +476,7 @@ theorem Packable_add (he : 2 < e) (hs : 0 < s)
             have hmsba := msb_num_of_Packable_of_not_special ha hna hia h4
             have hmsbb := msb_num_of_Packable_of_not_special hb hnb hib h5
             have hsumne : a.num.toRat + b.num.toRat ≠ 0 :=
-              Fp.UnpackedFloat.toRat_add_toRat_ne_zero_of_not_structBeq_neg a.num b.num hmsba hmsbb
+              Fp.UnpackedFloat.toRat_add_toRat_ne_zero_of_not_smtBeq_neg a.num b.num hmsba hmsbb
                 (by simpa using h3)
             have hxnorm : (a.num.add b.num).normalize = a.num.add b.num :=
               UnpackedFloat.normalize_eq_self_of_msb_eq_true _
