@@ -4,6 +4,7 @@ import Fp.Theorems.PackedFloat.ToExtRat
 import Fp.Theorems.PackedFloat.Packing
 import Fp.Theorems.PackedFloat.Ordering
 import Fp.Theorems.PackedFloat.Comparison
+import Fp.Theorems.PackedFloat.Convert
 import Fp.Theorems.SmtLibSemanticsQ
 import Fp.Theorems.LowerUpperRound
 import Fp.Theorems.UnpackedFloat.Round
