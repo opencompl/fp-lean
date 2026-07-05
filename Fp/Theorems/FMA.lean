@@ -141,6 +141,88 @@ end UnpackedFloat
 
 namespace Fp
 
+/-- `Number r * Infinity s = Infinity (r.sign ^^ s)` for a nonzero, representable `r`. -/
+theorem number_mul_inf_eq {ein sin : Nat} {a : PackedFloat ein sin}
+    (ha : a.isNormOrNonzeroSubnorm) (s : Bool) :
+    ExtRat.Number a.toRat * ExtRat.Infinity s = ExtRat.Infinity (a.sign ^^ s) := by
+  have hne : a.toRat ≠ 0 := PackedFloat.toRat_ne_zero ha
+  rw [← ExtRat.mul_def]
+  unfold ExtRat.mul
+  simp only [hne, ↓reduceIte]
+  rw [PackedFloat.sign_iff_toRat_neg ha, Bool.xor_comm]
+
+/-- `Infinity s * Number r = Infinity (s ^^ r.sign)` for a nonzero, representable `r`. -/
+theorem inf_mul_number_eq {ein sin : Nat} {a : PackedFloat ein sin}
+    (ha : a.isNormOrNonzeroSubnorm) (s : Bool) :
+    ExtRat.Infinity s * ExtRat.Number a.toRat = ExtRat.Infinity (s ^^ a.sign) := by
+  have hne : a.toRat ≠ 0 := PackedFloat.toRat_ne_zero ha
+  rw [← ExtRat.mul_def]
+  unfold ExtRat.mul
+  simp only [hne, ↓reduceIte]
+  rw [PackedFloat.sign_iff_toRat_neg ha]
+
+open SmtLibSemantics in
+/-- Passthrough helper when the fma value is a genuine infinity `Infinity xy` (the product
+is infinite and the addend cannot cancel it, except an opposite-signed infinite addend which
+yields NaN). Used by the `infCase` special-value leaves. -/
+theorem fmaInfAddPassthrough {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ein)
+    (he0 : 0 < ein) (rm : RoundingMode) (hrm : rm = .RNE) (sgn xy : Bool) (c : PackedFloat ein sin) :
+    ((smtLibRoundMethod ein sin smtLibV smtLibV).round rm sgn
+        (ExtRat.Infinity xy + c.toExtRat')).EquivUptoNaN
+      ((bif c.unpack.isNaN || c.unpack.isInfinite && (xy != c.unpack.sign) then EUnpackedFloat.mkNaN
+        else EUnpackedFloat.mkInfinity (bif c.unpack.isInfinite then c.unpack.sign else xy)).pack) := by
+  cases c using PackedFloat.kindCasesNaNInfZeroNum
+  case nanCase hc =>
+    simp only [hc, PackedFloat.toExtRat'_eq_NaN_of_isNaN, PackedFloat.unpack_eq_NaN_of_isNaN,
+      EUnpackedFloat.isNaN_mkNaN, Bool.true_or, cond_true, EUnpackedFloat.mkNaN_pack_eq_mkNaN,
+      PackedFloat.EquivUptoNaN.of_mkNaN_iff]
+    rw [ExtRat.ExtRat.add_NaN]
+    exact isNaN_round_of_nan
+  case infCase signc =>
+    simp only [hsin, PackedFloat.isInfinite_getInfinity, decide_true, PackedFloat.unpack_getInfinity,
+      ↓reduceIte, PackedFloat.sign_getInfinity, EUnpackedFloat.isNaN_mkInfinity,
+      EUnpackedFloat.isInfinite_mkInfinity, EUnpackedFloat.sign_mkInfinity, Bool.false_or,
+      cond_true]
+    have hcinf : (PackedFloat.getInfinity ein sin signc).toExtRat' = ExtRat.Infinity signc :=
+      PackedFloat.toExtRat'_eq_Infinity_of_isInfinite _
+        (by simp [PackedFloat.isInfinite_getInfinity, hsin])
+    rw [hcinf]
+    by_cases hxy : xy = signc
+    · subst hxy
+      have hval : ExtRat.Infinity xy + ExtRat.Infinity xy = ExtRat.Infinity xy := by
+        rw [← ExtRat.ExtRat.add_def]; unfold ExtRat.add; grind [ExtRat]
+      simp only [hval, bne_self_eq_false, cond_false, EUnpackedFloat.mkInfinity_pack_eq_getInfinity]
+      apply PackedFloat.EquivUptoNaN.of_eq
+      simp [roundQ_eq_round_of_Infinity he0 hsin]
+    · have hval : ExtRat.Infinity xy + ExtRat.Infinity signc = ExtRat.NaN := by
+        rw [← ExtRat.ExtRat.add_def]; unfold ExtRat.add; grind [ExtRat]
+      have hbne : (xy != signc) = true := by grind
+      simp only [hval, hbne, Bool.and_self, Bool.true_and, cond_true,
+        EUnpackedFloat.mkNaN_pack_eq_mkNaN, PackedFloat.EquivUptoNaN.of_mkNaN_iff]
+      exact isNaN_round_of_nan
+  case zeroCase signc =>
+    simp only [PackedFloat.isZero_getZero, he0, PackedFloat.unpack_getZero, ↓reduceIte,
+      PackedFloat.sign_getZero, EUnpackedFloat.isNaN_mkZero, EUnpackedFloat.isInfinite_mkZero,
+      Bool.and_false, Bool.or_false, cond_false, EUnpackedFloat.mkInfinity_pack_eq_getInfinity]
+    have hc0 : (PackedFloat.getZero ein sin signc).toExtRat' = ExtRat.Number 0 :=
+      PackedFloat.toExtRat'_eq_zero_of_isZero _ (by simp [PackedFloat.isZero_getZero, he0])
+    have hval : ExtRat.Infinity xy + ExtRat.Number 0 = ExtRat.Infinity xy := by
+      rw [← ExtRat.ExtRat.add_def]; unfold ExtRat.add; grind [ExtRat]
+    rw [hc0, hval]
+    apply PackedFloat.EquivUptoNaN.of_eq
+    simp [roundQ_eq_round_of_Infinity he0 hsin]
+  case numCase hc =>
+    have hcz : c.unpackNum.isZero = false := PackedFloat.isZero_unpackNum_eq_false c hc
+    rw [c.toExtRat'_eq_toRat_of hc,
+      PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm hc]
+    simp only [EUnpackedFloat.isNaN_mkNumber, EUnpackedFloat.isInfinite_mkNumber,
+      Bool.and_false, Bool.or_false, cond_false, EUnpackedFloat.mkInfinity_pack_eq_getInfinity]
+    have hval : ExtRat.Infinity xy + ExtRat.Number c.toRat = ExtRat.Infinity xy := by
+      rw [← ExtRat.ExtRat.add_def]; unfold ExtRat.add; grind [ExtRat]
+    rw [hval]
+    apply PackedFloat.EquivUptoNaN.of_eq
+    simp [roundQ_eq_round_of_Infinity he0 hsin]
+
 open SmtLibSemantics in
 /-- Passthrough helper: when the fma value collapses to `Number 0 + c` (one factor is a
 zero, so the exact product is `0`), the circuit returns `z = c.unpack` (branching only on
@@ -272,7 +354,21 @@ theorem fma_eq_fma {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
         cond_true, EUnpackedFloat.mkNaN_pack_eq_mkNaN, PackedFloat.EquivUptoNaN.of_mkNaN_iff]
       rw [ExtRat.mul_NaN, ExtRat.ExtRat.NaN_add]
       exact isNaN_round_of_nan
-    case infCase signb => sorry
+    case infCase signb =>
+      have haz : a.unpackNum.isZero = false := PackedFloat.isZero_unpackNum_eq_false a ha
+      simp only [hsin, PackedFloat.isInfinite_getInfinity, decide_true, PackedFloat.unpack_getInfinity,
+        ↓reduceIte, EUnpackedFloat.isNaN_mkInfinity, EUnpackedFloat.isInfinite_mkInfinity,
+        EUnpackedFloat.sign_num_mkInfinity, EUnpackedFloat.isZero_mkInfinity,
+        EUnpackedFloat.isNaN_mkNumber, EUnpackedFloat.isInfinite_mkNumber,
+        EUnpackedFloat.isZero_mkNumber, EUnpackedFloat.num_mkNumber, haz,
+        PackedFloat.sign_unpackNormOrNonzeroSubnorm_eq_sign, Bool.or_self, Bool.false_and,
+        Bool.and_false, Bool.false_or, Bool.or_false, Bool.true_and, Bool.and_true, Bool.true_or,
+        Bool.false_eq_true, cond_false]
+      have hbinf : (PackedFloat.getInfinity ein sin signb).toExtRat' = ExtRat.Infinity signb :=
+        PackedFloat.toExtRat'_eq_Infinity_of_isInfinite _
+          (by simp [PackedFloat.isInfinite_getInfinity, hsin])
+      rw [hbinf, number_mul_inf_eq ha signb]
+      exact fmaInfAddPassthrough hsin he hep he0 rm hrm _ (a.sign ^^ signb) c
     case zeroCase signb =>
       have haz : a.unpackNum.isZero = false := PackedFloat.isZero_unpackNum_eq_false a ha
       simp only [PackedFloat.isZero_getZero, he0,
