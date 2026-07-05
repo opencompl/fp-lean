@@ -125,7 +125,7 @@ structure RoundableLower (X : Type) (R : Type) where
   lower : R → X
 
 /-- The default embedding of packed floats into the extended rationals. -/
-instance  : RoundableEmbed (PackedFloat e s) ExtRat where
+instance instPackedFloatExtRat : RoundableEmbed (PackedFloat e s) ExtRat where
   embed (x : PackedFloat e s) : ExtRat := x.toExtRat
 
 @[simp]
