@@ -233,11 +233,13 @@ theorem fpIsNaN_iff {e s : Nat} (v : RoundableEmbed (PackedFloat e s) ExtRat)
 /-! ## Main theorems -/
 
 /-- **BTRW15 §V.B.2, `min` relation.** `PackedFloat.smtMin` always produces a valid
-witness of the abstract `FpMinRel` for the embedding `v = ·.toExtRat`. -/
+witness of the abstract `FpMinRel` for the standard embedding `· .toExtRat`. -/
 theorem PackedFloat.smtMin_FpMinRel {e s : Nat} (he : 1 < e) (hs : 0 < s)
-    (v : RoundableEmbed (PackedFloat e s) ExtRat) (hv : ∀ x, v.embed x = x.toExtRat)
     (z : Bool) (f g : PackedFloat e s) :
-    FpMinRel v f g (PackedFloat.smtMin z f g) := by
+    FpMinRel instPackedFloatExtRat f g (PackedFloat.smtMin z f g) := by
+  let v : RoundableEmbed (PackedFloat e s) ExtRat := instPackedFloatExtRat
+  have hv : ∀ x : PackedFloat e s, v.embed x = x.toExtRat := fun _ => rfl
+  show FpMinRel v f g (PackedFloat.smtMin z f g)
   by_cases hf : f.isNaN
   · -- `f` is NaN: condition true, output is `g`.
     have hcond : (f.isNaN || PackedFloat.bgtAux z f g) = true := by rw [hf]; rfl
@@ -288,11 +290,13 @@ theorem PackedFloat.smtMin_FpMinRel {e s : Nat} (he : 1 < e) (hs : 0 < s)
             ⟨Or.inl ((fpLtRel_iff v hv f g).mpr hfg), (fpEqRel_iff v hv _ f).mpr hsel⟩
 
 /-- **BTRW15 §V.B.2, `max` relation.** `PackedFloat.smtMax` always produces a valid
-witness of the abstract `FpMaxRel` for the embedding `v = ·.toExtRat`. -/
+witness of the abstract `FpMaxRel` for the standard embedding `· .toExtRat`. -/
 theorem PackedFloat.smtMax_FpMaxRel {e s : Nat} (he : 1 < e) (hs : 0 < s)
-    (v : RoundableEmbed (PackedFloat e s) ExtRat) (hv : ∀ x, v.embed x = x.toExtRat)
     (z : Bool) (f g : PackedFloat e s) :
-    FpMaxRel v f g (PackedFloat.smtMax z f g) := by
+    FpMaxRel instPackedFloatExtRat f g (PackedFloat.smtMax z f g) := by
+  let v : RoundableEmbed (PackedFloat e s) ExtRat := instPackedFloatExtRat
+  have hv : ∀ x : PackedFloat e s, v.embed x = x.toExtRat := fun _ => rfl
+  show FpMaxRel v f g (PackedFloat.smtMax z f g)
   by_cases hf : f.isNaN
   · have hcond : (f.isNaN || PackedFloat.bltAux z f g) = true := by rw [hf]; rfl
     have hsel : (PackedFloat.smtMax z f g).toExtRat = g.toExtRat := by
