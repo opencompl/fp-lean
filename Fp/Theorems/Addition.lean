@@ -2103,7 +2103,7 @@ theorem add_eq_add {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
             (by omega) (by omega) (a.unpackNum.add b.unpackNum) _ _ hsumne hxnorm hsticky
 
 /--
-info: 'Fp.add_eq_add' depends on axioms: [propext, BitVec.toNat_clz_cons, Classical.choice, Quot.sound]
+info: 'Fp.add_eq_add' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs (whitespace := lax) in #print axioms add_eq_add
 

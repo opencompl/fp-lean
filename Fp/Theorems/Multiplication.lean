@@ -515,7 +515,7 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
         · exact hmsb
 
 /--
-info: 'Fp.mul_eq_mul' depends on axioms: [propext, BitVec.toNat_clz_cons, Classical.choice, Quot.sound]
+info: 'Fp.mul_eq_mul' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs (whitespace := lax) in #print axioms mul_eq_mul
 

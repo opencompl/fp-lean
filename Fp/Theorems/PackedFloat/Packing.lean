@@ -4,9 +4,56 @@ import Fp.Theorems.PackedFloat.ToExtRat
 import Fp.UnpackedFloat.packable
 import Fp.EUnpackedFloat.packable
 
+theorem toNat_clzAuxRec_cons_false (x : BitVec (w + 1))  :
+   ((BitVec.cons false x).clzAuxRec w).toNat = (x.clzAuxRec w).toNat + 1 := by
+  suffices h : ∀ n, n ≤ w →
+      ((BitVec.cons false x).clzAuxRec n).toNat = (x.clzAuxRec n).toNat + 1 from
+    h w (Nat.le_refl w)
+  -- bounds needed to eliminate the `% 2^_` from `toNat_ofNat`
+  have b1 : (w + 1) < 2 ^ (w + 1) := Nat.lt_two_pow_self
+  have b2 : (w + 2) < 2 ^ (w + 2) := Nat.lt_two_pow_self
+  intro n
+  induction n with
+  | zero =>
+    intro _
+    rw [BitVec.clzAuxRec_zero, BitVec.clzAuxRec_zero, BitVec.getLsbD_cons,
+      if_neg (show (0 : Nat) ≠ w + 1 by omega)]
+    rcases x.getLsbD 0 <;>
+      simp only [reduceIte, Bool.false_eq_true, BitVec.toNat_ofNat] <;>
+      rw [Nat.mod_eq_of_lt (by omega), Nat.mod_eq_of_lt (by omega)] <;> omega
+  | succ m ih =>
+    intro hm
+    rw [BitVec.clzAuxRec_succ, BitVec.clzAuxRec_succ, BitVec.getLsbD_cons,
+      if_neg (show m + 1 ≠ w + 1 by omega)]
+    rcases x.getLsbD (m + 1) with _ | _ <;>
+      simp only [reduceIte, Bool.false_eq_true]
+    · -- bit false: use induction hypothesis
+      simpa using ih (by omega)
+    · -- bit true: both sides are `ofNat` constants differing by 1
+      simp only [BitVec.toNat_ofNat]
+      rw [Nat.mod_eq_of_lt (by omega), Nat.mod_eq_of_lt (by omega)]
+      omega
+
+
+
 -- TODO: @Sid, help!
-axiom BitVec.toNat_clz_cons (b : Bool) (x : BitVec w)
-  : (BitVec.cons b x).clz.toNat = if b then 0 else x.clz.toNat + 1 -- := by
+theorem BitVec.toNat_clz_cons (b : Bool) (x : BitVec w)
+  : (BitVec.cons b x).clz.toNat = if b then 0 else x.clz.toNat + 1 := by
+ rcases w with rfl | w
+ · revert x b; decide
+ · rw [BitVec.clz]
+   simp
+   rw [BitVec.clzAuxRec_succ]
+   simp
+   rw [BitVec.getElem_cons]
+   simp
+   rcases b with rfl | rfl
+   · simp
+     rw [toNat_clzAuxRec_cons_false]
+     simp only [Nat.add_right_cancel_iff]
+     rw [BitVec.clz]
+     simp
+   · simp
 
 namespace UnpackedFloat
 
@@ -410,10 +457,7 @@ theorem toExtRat_unpack_eq_toExtRat {pf : PackedFloat e s}
 
 
 /--
-info: 'PackedFloat.toExtRat_unpack_eq_toExtRat' depends on axioms: [propext,
- BitVec.toNat_clz_cons,
- Classical.choice,
- Quot.sound]
+info: 'PackedFloat.toExtRat_unpack_eq_toExtRat' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in #print axioms toExtRat_unpack_eq_toExtRat
 
@@ -1067,10 +1111,7 @@ theorem PackedFloat.unpack_pack_eq_self_of_isNormOrNonzeroSubnorm
   apply PackedFloat.ext <;> grind
 
 /--
-info: 'PackedFloat.unpack_pack_eq_self_of_isNormOrNonzeroSubnorm' depends on axioms: [propext,
- BitVec.toNat_clz_cons,
- Classical.choice,
- Quot.sound]
+info: 'PackedFloat.unpack_pack_eq_self_of_isNormOrNonzeroSubnorm' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in #print axioms PackedFloat.unpack_pack_eq_self_of_isNormOrNonzeroSubnorm
 
@@ -1125,7 +1166,7 @@ theorem PackedFloat.unpack_pack_EquivUptoNaN {e s : Nat} (he : 1 < e) (hs : 0 < 
         exact pf.unpack_pack_eq_self_of_isNormOrNonzeroSubnorm he hs hpf
 
 /--
-info: 'PackedFloat.unpack_pack_EquivUptoNaN' depends on axioms: [propext, BitVec.toNat_clz_cons, Classical.choice, Quot.sound]
+info: 'PackedFloat.unpack_pack_EquivUptoNaN' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in #print axioms PackedFloat.unpack_pack_EquivUptoNaN
 

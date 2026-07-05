@@ -484,10 +484,9 @@ theorem smtBeq_iff_toExtRat_eq {e s : Nat} (a b : PackedFloat e s)
       simp only [EUnpackedFloat.num_mkNumber,
         UnpackedFloat.beq_iff_toRat_eq a.unpackNum b.unpackNum hams hbms, hra, hrb]
 
--- `smtBeq_iff_toExtRat_eq` is `sorry`-free: it rests only on the standard axioms
--- plus the project's `BitVec.toNat_clz_cons`.
+-- `smtBeq_iff_toExtRat_eq` is `sorry`-free: it rests only on the standard axioms.
 /--
-info: 'PackedFloat.smtBeq_iff_toExtRat_eq' depends on axioms: [propext, BitVec.toNat_clz_cons, Classical.choice, Quot.sound]
+info: 'PackedFloat.smtBeq_iff_toExtRat_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in #print axioms smtBeq_iff_toExtRat_eq
 
@@ -553,9 +552,9 @@ theorem smtBlt_iff_toExtRat_lt {e s : Nat} (wbn : Bool) (a b : PackedFloat e s)
     simp [ExtRat.num_lt_num_iff]
 
 -- `smtBlt_iff_toExtRat_lt` is `sorry`-free: like `smtBeq_iff_toExtRat_eq` it rests
--- only on the standard axioms plus the project's `BitVec.toNat_clz_cons`.
+-- only on the standard axioms.
 /--
-info: 'PackedFloat.smtBlt_iff_toExtRat_lt' depends on axioms: [propext, BitVec.toNat_clz_cons, Classical.choice, Quot.sound]
+info: 'PackedFloat.smtBlt_iff_toExtRat_lt' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in #print axioms smtBlt_iff_toExtRat_lt
 
@@ -632,24 +631,24 @@ theorem smtBge_iff_toExtRat_ge {e s : Nat} (wbn : Bool) (a b : PackedFloat e s)
 
 
 -- The four comparison relations are `sorry`-free: they rest only on the standard
--- axioms plus the project's `BitVec.toNat_clz_cons`.
+-- axioms.
 /--
-info: 'PackedFloat.smtBle_iff_toExtRat_le' depends on axioms: [propext, BitVec.toNat_clz_cons, Classical.choice, Quot.sound]
+info: 'PackedFloat.smtBle_iff_toExtRat_le' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in #print axioms smtBle_iff_toExtRat_le
 
 /--
-info: 'PackedFloat.smtBgt_iff_toExtRat_gt' depends on axioms: [propext, BitVec.toNat_clz_cons, Classical.choice, Quot.sound]
+info: 'PackedFloat.smtBgt_iff_toExtRat_gt' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in #print axioms smtBgt_iff_toExtRat_gt
 
 /--
-info: 'PackedFloat.smtBge_iff_toExtRat_ge' depends on axioms: [propext, BitVec.toNat_clz_cons, Classical.choice, Quot.sound]
+info: 'PackedFloat.smtBge_iff_toExtRat_ge' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in #print axioms smtBge_iff_toExtRat_ge
 
 /--
-info: 'PackedFloat.ieeeBeq_iff_toExtRat_eq' depends on axioms: [propext, BitVec.toNat_clz_cons, Classical.choice, Quot.sound]
+info: 'PackedFloat.ieeeBeq_iff_toExtRat_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in #print axioms ieeeBeq_iff_toExtRat_eq
 
