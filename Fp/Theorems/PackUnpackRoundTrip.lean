@@ -1,9 +1,11 @@
 import Fp.Theorems.PackedFloat.Packing
 import Fp.Theorems.UnpackedFloat.Round.RNE
+import Fp.Theorems.UnpackedFloat.Round.Widen
 import Fp.Theorems.Addition
 import Fp.Theorems.Multiplication
 import Fp.Theorems.Division
 import Fp.Subtraction
+import Fp.Convert
 
 /-!
 # `pack`/`unpack` round-trip on canonical / `Packable` `EUnpackedFloat`s
@@ -572,6 +574,55 @@ theorem Canonical_unpack (he : 1 < e) (hs : 0 < s) (pf : PackedFloat e s) :
  Classical.choice,
  Quot.sound] -/
 #guard_msgs (whitespace := lax) in #print axioms pack_unpack_eq_self_iff
+
+/-- **`setWidths` preserves `Canonical` under genuine format widening** (`e ≤ e'`, `s ≤ s'`).
+Companion to `Canonical_{add,mul,div,unpack}`: it lets the `to_fp` output round-trip through
+`pack`/`unpack` without the `Canonical_all` assumption. The widening hypotheses are essential —
+`exponentWidth e s ≤ exponentWidth e' s'` alone permits `e > e'`, where a large value overflows
+the target's `maxNormalExp`. -/
+theorem Canonical_setWidths {e s e' s' : Nat} (m : RoundingMode)
+    (he : 1 < e) (hs : 0 < s) (he' : 1 < e') (hs' : 0 < s')
+    (hee : e ≤ e') (hss : s ≤ s')
+    (euf : EUnpackedFloat (exponentWidth e s) (s + 1)) (hcanon : Canonical euf) :
+    Canonical (euf.setWidths m e' s') := by
+  rw [EUnpackedFloat.setWidths]
+  by_cases hnan : euf.isNaN = true
+  · simp only [hnan, cond_true]
+    exact ⟨Fp.EUnpackedFloat.mkNaN_Packable, SpecialCanon_mkNaN⟩
+  · have hnanF : euf.isNaN = false := by simpa using hnan
+    by_cases hinf : euf.isInfinite = true
+    · simp only [hnanF, hinf, cond_true, cond_false]
+      exact ⟨Fp.EUnpackedFloat.mkInfinity_Packable euf.sign, SpecialCanon_mkInfinity euf.sign⟩
+    · have hinfF : euf.isInfinite = false := by simpa using hinf
+      by_cases hzero : euf.isZero = true
+      · simp only [hnanF, hinfF, hzero, cond_true, cond_false]
+        exact ⟨Fp.EUnpackedFloat.mkZero_Packable he' hs' euf.sign, SpecialCanon_mkZero euf.sign⟩
+      · have hzeroF : euf.isZero = false := by simpa using hzero
+        have hguard : ((exponentWidth e s).ble (exponentWidth e' s') && s.ble s') = true := by
+          simp only [Bool.and_eq_true, Nat.ble_eq]
+          exact ⟨exponentWidth_le_of_le hee hss, hss⟩
+        simp only [hnanF, hinfF, hzeroF, hguard, cond_true, cond_false]
+        -- `euf` is a finite `Number`: `state = Number`, `num` normalized and nonzero.
+        have hstate : euf.state = State.Number := by
+          rcases hst : euf.state with _ | _ | _ <;>
+            simp_all [EUnpackedFloat.isNaN, EUnpackedFloat.isInfinite]
+        have hnumPack : euf.num.Packable := hcanon.1 hstate
+        have hnumNz : euf.num.sig ≠ 0#(s + 1) := by
+          intro h
+          simp [EUnpackedFloat.isZero, EUnpackedFloat.isNumber, hstate, UnpackedFloat.isZero,
+            h] at hzeroF
+        -- the promotion record equals `widen`, which is `Packable`; `SpecialCanon` is trivial
+        -- for a `Number`-state value.
+        have hrec : ({ euf with num := { euf.num with
+              ex := euf.num.ex.signExtend (exponentWidth e' s'),
+              sig := euf.num.sig.setWidth (s' + 1) <<< (s' - s) } } : EUnpackedFloat _ _)
+            = EUnpackedFloat.mkNumber (euf.num.widen (exponentWidth e' s') (s' + 1)) := by
+          rw [EUnpackedFloat.mkNumber, UnpackedFloat.widen,
+            show (s' + 1) - (s + 1) = s' - s from by omega, hstate]
+        rw [hrec]
+        exact ⟨Fp.EUnpackedFloat.mkNumber_Packable
+            (Fp.UnpackedFloat.Packable_widen hee hss euf.num hnumPack hnumNz),
+          SpecialCanon_mkNumber _⟩
 
 end EUnpackedFloat
 

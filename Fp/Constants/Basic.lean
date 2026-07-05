@@ -320,6 +320,25 @@ theorem self_lt_exponentWidth (e s : Nat) (he : 1 < e) (hs : 0 < s) :
     grind only
   grind only
 
+/-- `exponentWidth` is monotone in both arguments. -/
+theorem exponentWidth_le_of_le {e s e' s' : Nat} (he : e ≤ e') (hs : s ≤ s') :
+    exponentWidth e s ≤ exponentWidth e' s' := by
+  unfold exponentWidth
+  have hp : (2 : Nat) ^ (e - 1) ≤ 2 ^ (e' - 1) := Nat.pow_le_pow_right (by omega) (by omega)
+  exact Nat.add_le_add_right (Nat.log2_le_log2_of_le (by omega)) 2
+
+/-- `maxNormalExp` is monotone in the exponent width. -/
+theorem maxNormalExp_le_of_le {e e' : Nat} (he : e ≤ e') :
+    maxNormalExp e ≤ maxNormalExp e' := by
+  unfold maxNormalExp; exact_mod_cast bias_le_of_le he
+
+/-- `minNormalExp` is antitone in the exponent width (a wider format reaches smaller exponents). -/
+theorem minNormalExp_le_of_le {e e' : Nat} (he : e ≤ e') :
+    minNormalExp e' ≤ minNormalExp e := by
+  unfold minNormalExp
+  have := bias_le_of_le he
+  omega
+
 @[grind ., simp]
 theorem two_pow_e_lt_two_pow_exponentWidth (he : 1 < e) (hs : 0 < s) :
     2 ^ e < 2 ^ exponentWidth e s := by

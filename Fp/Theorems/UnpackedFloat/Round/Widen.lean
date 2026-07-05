@@ -222,8 +222,45 @@ theorem blastIsTieBreak_widen {ep sp eu su : Nat} (x : UnpackedFloat eu su) (eu'
     blastExtractStickyBit_widen x eu' su' hep hsp heu hsu heu' hsu' hwideu hwidesu
       hdiffLower hdiffUpper hdiffNatLe]
 
+/-- **Widening keeps a value `Packable`.** A normalized nonzero `(e, s)`-`Packable` significand
+widens to an `(e', s')`-`Packable` one when `e ≤ e'`, `s ≤ s'`. (Note this needs the genuine
+format widening `e ≤ e'`, not just `exponentWidth e s ≤ exponentWidth e' s'` — the latter would
+let a large value overflow the target's `maxNormalExp`.) -/
+theorem UnpackedFloat.Packable_widen {e s e' s' : Nat} (he : e ≤ e') (hs : s ≤ s')
+    (uf : UnpackedFloat (exponentWidth e s) (s + 1))
+    (hpack : uf.Packable) (hsig : uf.sig ≠ 0#(s + 1)) :
+    (uf.widen (exponentWidth e' s') (s' + 1)).Packable := by
+  obtain ⟨hnorm, hmax, hdisj⟩ := hpack
+  have heu : exponentWidth e s ≤ exponentWidth e' s' := exponentWidth_le_of_le he hs
+  have hsu : s + 1 ≤ s' + 1 := by omega
+  have hmsb : uf.sig.msb = true := (UnpackedFloat.normalize_eq_self_iff uf hsig).mp hnorm
+  have hexw : (uf.widen (exponentWidth e' s') (s' + 1)).ex.toInt = uf.ex.toInt :=
+    Fp.ex_toInt_widen uf _ _ heu
+  have hwsig : (uf.widen (exponentWidth e' s') (s' + 1)).sig.toNat
+      = uf.sig.toNat * 2 ^ ((s' + 1) - (s + 1)) := Fp.sig_toNat_widen uf _ _ hsu
+  have hk : (s' + 1) - (s + 1) = s' - s := by omega
+  refine ⟨Fp.normalize_widen uf _ _ hsu (by omega) hmsb, ?_, ?_⟩
+  · rw [hexw]; exact Int.le_trans hmax (maxNormalExp_le_of_le he)
+  · rw [hexw, hwsig, hk]
+    by_cases hmin : minNormalExp e' ≤ uf.ex.toInt
+    · exact Or.inl hmin
+    · refine Or.inr ?_
+      -- since `ex < minNormalExp e' ≤ minNormalExp e`, the source is subnormal (right disjunct)
+      have hminee : minNormalExp e' ≤ minNormalExp e := minNormalExp_le_of_le he
+      have hsrc : 2 ^ (minNormalExp e - uf.ex.toInt).toNat ∣ uf.sig.toNat := by
+        rcases hdisj with h | h
+        · omega
+        · exact h
+      have hBA : (minNormalExp e' - uf.ex.toInt).toNat ≤ (minNormalExp e - uf.ex.toInt).toNat := by
+        omega
+      rw [Nat.mul_comm]
+      exact Nat.dvd_mul_left_of_dvd (Nat.dvd_trans (Nat.pow_dvd_pow 2 hBA) hsrc) _
+
 /-- info: 'Fp.toRat'_widen' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms toRat'_widen
+
+/-- info: 'Fp.UnpackedFloat.Packable_widen' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in #print axioms UnpackedFloat.Packable_widen
 /-- info: 'Fp.blastExtractGuardBit_widen' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in #print axioms blastExtractGuardBit_widen
 /-- info: 'Fp.blastExtractStickyBit_widen' depends on axioms: [propext, Classical.choice, Quot.sound] -/
