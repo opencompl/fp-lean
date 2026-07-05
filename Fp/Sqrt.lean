@@ -54,6 +54,7 @@ def fixedPointSqrt (x : BitVec (n + 1)) : BitVec (n + 1) :=
   -- Iterate from bit n-2 down to bit 0
   fixedPointSqrt_iter (n - 1) xcomp working
 
+@[bv_normalize]
 def UnpackedFloat.sqrt (x : UnpackedFloat e s) :
     UnpackedFloat e ((s + 2)) :=
   let exponentEven : Bool := (x.ex.getLsbD 0 == false)
