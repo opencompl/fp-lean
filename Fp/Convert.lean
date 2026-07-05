@@ -2,6 +2,7 @@ import Fp.Basic
 import Fp.UnpackedRound
 
 set_option linter.unusedVariables false in
+@[bv_normalize]
 def UnpackedFloat.extendWidths (uf : UnpackedFloat e s) (he : e ≤ e') (hs : s ≤ s')
   : UnpackedFloat e' s' :=
   { uf with ex := uf.ex.signExtend _, sig := uf.sig.setWidth' hs <<< (s' - s) }
