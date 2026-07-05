@@ -14,3 +14,4 @@ import Fp.Theorems.Addition
 import Fp.Theorems.DivisionFixed
 import Fp.Theorems.Division
 import Fp.Theorems.FMA
+import Fp.Theorems.Sqrt
