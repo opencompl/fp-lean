@@ -68,10 +68,10 @@ The proof is assembled from the following layers (top to bottom):
    of a representable value are computed by `Classical.epsilon_elim` from
    uniqueness of lawful bounds (`IsLawfulLower`/`IsLawfulUpper`).
 
-5. `structBeq` detection of exact cancellation: the circuit returns a signed
+5. `smtBeq` detection of exact cancellation: the circuit returns a signed
    zero exactly when `x = -y` *structurally*; for normalized significands
    this is *equivalent* to `x.toRat + y.toRat = 0`
-   (`toRat_add_toRat_eq_zero_iff_structBeq_neg`), since the normalized
+   (`toRat_add_toRat_eq_zero_iff_smtBeq_neg`), since the normalized
    representation of a nonzero value is unique.
 
 ## Definition: sticky compression
@@ -318,13 +318,13 @@ theorem UnpackedFloat.msb_cond_normalize_of_sig_ne_zero {e s : Nat} (uf : Unpack
     simp [h]
   · simp [huf]
 
-/-- `structBeq` is sound for cancellation detection: if `x` is structurally the negation of `y`, the
+/-- `smtBeq` is sound for cancellation detection: if `x` is structurally the negation of `y`, the
 exact sum is zero. -/
-theorem UnpackedFloat.toRat_add_toRat_eq_zero_of_structBeq_neg
+theorem UnpackedFloat.toRat_add_toRat_eq_zero_of_smtBeq_neg
     {e s : Nat} (x y : UnpackedFloat e s)
-    (h : x.structBeq y.neg) : x.toRat + y.toRat = 0 := by
+    (h : x.smtBeq y.neg) : x.toRat + y.toRat = 0 := by
   have hx : x = y.neg := by
-    simp only [UnpackedFloat.structBeq, Bool.and_eq_true, beq_iff_eq] at h
+    simp only [UnpackedFloat.smtBeq, Bool.and_eq_true, beq_iff_eq] at h
     rcases x with ⟨xsign, xex, xsig⟩
     rcases y with ⟨ysign, yex, ysig⟩
     simp_all [UnpackedFloat.neg]
@@ -1152,8 +1152,8 @@ theorem UnpackedFloat.msb_add_eq_true {e s : Nat} (x y : UnpackedFloat e s)
     cases hbs : (UnpackedFloat.addBig x y).sign <;>
       cases hcs : (UnpackedFloat.addSmall x y).sign <;> simp_all
   have hzero : (UnpackedFloat.addBig x y).toRat + (UnpackedFloat.addSmall x y).toRat = 0 :=
-    UnpackedFloat.toRat_add_toRat_eq_zero_of_structBeq_neg _ _ (by
-      simp only [UnpackedFloat.structBeq, UnpackedFloat.neg, Bool.and_eq_true, beq_iff_eq]
+    UnpackedFloat.toRat_add_toRat_eq_zero_of_smtBeq_neg _ _ (by
+      simp only [UnpackedFloat.smtBeq, UnpackedFloat.neg, Bool.and_eq_true, beq_iff_eq]
       exact ⟨⟨hsignneq, hexeq2⟩, hsigeq⟩)
   exact hne (by rw [← UnpackedFloat.toRat_addBig_add_addSmall x y]; exact hzero)
 
@@ -1436,15 +1436,15 @@ theorem UnpackedFloat.eq_of_toRat_eq_toRat_of_msb {e s : Nat}
   exact ⟨hsign, hex, hsig⟩
 
 /--
-`structBeq` is complete for cancellation detection on normalized inputs:
+`smtBeq` is complete for cancellation detection on normalized inputs:
 if `x` is *not* structurally the negation of `y`, the exact sum is nonzero.
 Together with soundness this justifies the early-out `mkZero` branch of
 `EUnpackedFloat.add`: it fires *exactly* when the exact sum is zero.
 -/
-theorem UnpackedFloat.toRat_add_toRat_ne_zero_of_not_structBeq_neg
+theorem UnpackedFloat.toRat_add_toRat_ne_zero_of_not_smtBeq_neg
     {e s : Nat} (x y : UnpackedFloat e s)
     (hx : x.sig.msb = true) (hy : y.sig.msb = true)
-    (h : ¬ x.structBeq y.neg) : x.toRat + y.toRat ≠ 0 := by
+    (h : ¬ x.smtBeq y.neg) : x.toRat + y.toRat ≠ 0 := by
   intro hcontra
   apply h
   have hyneg : y.neg.sig.msb = true := by
@@ -1457,7 +1457,7 @@ theorem UnpackedFloat.toRat_add_toRat_ne_zero_of_not_structBeq_neg
     have h2 := UnpackedFloat.toRat_eq_toRat' (uf := x)
     grind
   have := UnpackedFloat.eq_of_toRat_eq_toRat_of_msb x y.neg hx hyneg this
-  simp [this, UnpackedFloat.structBeq]
+  simp [this, UnpackedFloat.smtBeq]
 
 /-! ## Layer 2: the rounding bridge -/
 
@@ -1771,12 +1771,12 @@ theorem round_number_toRat_eq_self {e s : Nat}
 
 /--
 Two structurally-distinguishable significands (one normalized, one zero)
-are never `structBeq`.  Used to discharge the exact-cancellation branch when
+are never `smtBeq`.  Used to discharge the exact-cancellation branch when
 one operand is zero and the other is a normalized number.
 -/
-theorem UnpackedFloat.structBeq_eq_false_of_msb_ne {e s : Nat} (x y : UnpackedFloat e s)
-    (h : x.sig.msb ≠ y.sig.msb) : x.structBeq y = false := by
-  grind [UnpackedFloat.structBeq]
+theorem UnpackedFloat.smtBeq_eq_false_of_msb_ne {e s : Nat} (x y : UnpackedFloat e s)
+    (h : x.sig.msb ≠ y.sig.msb) : x.smtBeq y = false := by
+  grind [UnpackedFloat.smtBeq]
 
 /-- Negation does not change the significand. -/
 @[simp]
@@ -1793,11 +1793,11 @@ theorem UnpackedFloat.sign_neg' {e s : Nat} (x : UnpackedFloat e s) :
 theorem EUnpackedFloat.num_mkZero {e s : Nat} (sign : Bool) :
     (EUnpackedFloat.mkZero sign : EUnpackedFloat e s).num = UnpackedFloat.mkZero sign := rfl
 
-/-- `structBeq` detects exactly the opposite-sign zero pairs. -/
-theorem UnpackedFloat.structBeq_mkZero_neg_mkZero {e s : Nat} (sa sb : Bool) :
-    (UnpackedFloat.mkZero (e := e) (s := s) sa).structBeq (UnpackedFloat.mkZero sb).neg =
+/-- `smtBeq` detects exactly the opposite-sign zero pairs. -/
+theorem UnpackedFloat.smtBeq_mkZero_neg_mkZero {e s : Nat} (sa sb : Bool) :
+    (UnpackedFloat.mkZero (e := e) (s := s) sa).smtBeq (UnpackedFloat.mkZero sb).neg =
       (sa == !sb) := by
-  simp [UnpackedFloat.structBeq, UnpackedFloat.mkZero, UnpackedFloat.neg]
+  simp [UnpackedFloat.smtBeq, UnpackedFloat.mkZero, UnpackedFloat.neg]
 
 /--
 The unpacked sum of two unpacked (norm/nonzero-subnorm) packed floats is a
@@ -1947,7 +1947,7 @@ theorem add_eq_add {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
       rw [show (0 : Rat) + 0 = 0 by grind]
       rw [round_eq_mkZero_of_mkZero he0]
       simp only [EUnpackedFloat.num_mkZero]
-      rw [UnpackedFloat.structBeq_mkZero_neg_mkZero]
+      rw [UnpackedFloat.smtBeq_mkZero_neg_mkZero]
       subst hrm
       by_cases hsign : signa = !signb
       · simp only [hsign, beq_self_eq_true, cond_true, EUnpackedFloat.mkZero_pack_eq_getZero]
@@ -1970,7 +1970,7 @@ theorem add_eq_add {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
       rw [ExtRat.ExtRat.add_Number]
       rw [show (0 : Rat) + b.toRat = b.toRat by grind]
       simp only [EUnpackedFloat.num_mkZero]
-      rw [UnpackedFloat.structBeq_eq_false_of_msb_ne _ _
+      rw [UnpackedFloat.smtBeq_eq_false_of_msb_ne _ _
         (by simp [PackedFloat.msb_unpackNum_eq_true hb, UnpackedFloat.mkZero])]
       simp only [cond_false]
       rw [round_number_toRat_eq_self he0 hsin rm _ b hb]
@@ -2020,7 +2020,7 @@ theorem add_eq_add {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
       rw [ExtRat.ExtRat.add_Number]
       rw [show a.toRat + 0 = a.toRat by grind]
       simp only [EUnpackedFloat.num_mkZero]
-      rw [UnpackedFloat.structBeq_eq_false_of_msb_ne _ _
+      rw [UnpackedFloat.smtBeq_eq_false_of_msb_ne _ _
         (by simp [PackedFloat.msb_unpackNum_eq_true ha, UnpackedFloat.mkZero])]
       simp only [cond_false]
       have hazero : a.unpackNum.isZero = false :=
@@ -2047,15 +2047,15 @@ theorem add_eq_add {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
       rw [ExtRat.ExtRat.add_Number]
       have hamsb := PackedFloat.msb_unpackNum_eq_true ha
       have hbmsb := PackedFloat.msb_unpackNum_eq_true hb
-      by_cases hcancel : a.unpackNum.structBeq b.unpackNum.neg
+      by_cases hcancel : a.unpackNum.smtBeq b.unpackNum.neg
       · -- Exact cancellation: the sum is exactly zero, both sides give a zero.
         have hsum0 : a.toRat + b.toRat = 0 := by
-          have h := UnpackedFloat.toRat_add_toRat_eq_zero_of_structBeq_neg _ _ hcancel
+          have h := UnpackedFloat.toRat_add_toRat_eq_zero_of_smtBeq_neg _ _ hcancel
           rwa [PackedFloat.unpackNum_toRat_eq_toRat ha,
             PackedFloat.unpackNum_toRat_eq_toRat hb] at h
         have hsigns : a.sign = !b.sign := by
           have hsign := hcancel
-          simp only [UnpackedFloat.structBeq, Bool.and_eq_true, beq_iff_eq] at hsign
+          simp only [UnpackedFloat.smtBeq, Bool.and_eq_true, beq_iff_eq] at hsign
           have h1 := PackedFloat.sign_unpackNormOrNonzeroSubnorm_eq_sign a
           have h2 := PackedFloat.sign_unpackNormOrNonzeroSubnorm_eq_sign b
           grind
@@ -2067,7 +2067,7 @@ theorem add_eq_add {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
         rfl
       · -- The interesting case: a genuine nonzero sum, rounded by the circuit.
         have hsumne : a.toRat + b.toRat ≠ 0 := by
-          have h := UnpackedFloat.toRat_add_toRat_ne_zero_of_not_structBeq_neg
+          have h := UnpackedFloat.toRat_add_toRat_ne_zero_of_not_smtBeq_neg
             a.unpackNum b.unpackNum hamsb hbmsb (by grind)
           rwa [PackedFloat.unpackNum_toRat_eq_toRat ha,
             PackedFloat.unpackNum_toRat_eq_toRat hb] at h

@@ -40,9 +40,9 @@ open Fp.SmtLibSemantics
 /-- For normalized (`sig.msb = true`) unpacked floats, the structural `beq`
 agrees with rational equality. Reverse direction uses
 `Fp.UnpackedFloat.eq_of_toRat_eq_toRat_of_msb`. -/
-theorem UnpackedFloat.beq_iff_toRat_eq {e s : Nat} (x y : UnpackedFloat e s)
+theorem UnpackedFloat.ieeeBeq_iff_toRat_eq {e s : Nat} (x y : UnpackedFloat e s)
     (hx : x.sig.msb = true) (hy : y.sig.msb = true) :
-    x.beq y = true ↔ x.toRat = y.toRat := by
+    x.ieeeBeq y = true ↔ x.toRat = y.toRat := by
   have hxz : x.isZero = false := by
     simp only [UnpackedFloat.isZero, beq_eq_false_iff_ne, ne_eq]
     intro h; rw [h, BitVec.msb_zero] at hx; exact Bool.noConfusion hx
@@ -51,18 +51,18 @@ theorem UnpackedFloat.beq_iff_toRat_eq {e s : Nat} (x y : UnpackedFloat e s)
     intro h; rw [h, BitVec.msb_zero] at hy; exact Bool.noConfusion hy
   constructor
   · intro h
-    simp only [UnpackedFloat.beq, hxz, hyz, Bool.and_false, Bool.false_or,
-      UnpackedFloat.structBeq, Bool.and_eq_true, beq_iff_eq] at h
+    simp only [UnpackedFloat.ieeeBeq, hxz, hyz, Bool.and_false, Bool.false_or,
+      UnpackedFloat.smtBeq, Bool.and_eq_true, beq_iff_eq] at h
     obtain ⟨⟨hsign, hex⟩, hsig⟩ := h
     cases x; cases y; simp_all
   · intro h
     have := Fp.UnpackedFloat.eq_of_toRat_eq_toRat_of_msb x y hx hy h
     subst this
-    simp [UnpackedFloat.beq]
+    simp [UnpackedFloat.ieeeBeq]
 
 /-- For normalized (`sig.msb = true`) unpacked floats, the structural strict
 comparison `bltAux false` agrees with rational order. This is the ordering
-analogue of `UnpackedFloat.beq_iff_toRat_eq`: the sign decides the easy
+analogue of `UnpackedFloat.ieeeBeq_iff_toRat_eq`: the sign decides the easy
 mixed-sign cases, and within a fixed sign the binade/significand lexicographic
 comparison matches the magnitude order via `Rat.mul_two_zpow_lt`. -/
 theorem UnpackedFloat.bltAux_false_eq_decide_toRat_lt {e s : Nat} (x y : UnpackedFloat e s)
@@ -446,7 +446,7 @@ theorem ieeeBeq_iff_toExtRat_eq {e s : Nat} (a b : PackedFloat e s)
         have h := PackedFloat.toExtRat'_eq_zero_of_isZero a haz; rw [ha'] at h; simpa using h
       have hbr : b.toRat = 0 := by
         have h := PackedFloat.toExtRat'_eq_zero_of_isZero b hbz; rw [hb'] at h; simpa using h
-      simp [hua, hub, har, hbr, EUnpackedFloat.mkZero, UnpackedFloat.beq, UnpackedFloat.mkZero,
+      simp [hua, hub, har, hbr, EUnpackedFloat.mkZero, UnpackedFloat.ieeeBeq, UnpackedFloat.mkZero,
         UnpackedFloat.isZero]
     · -- a zero, b nonzero finite: `0 ≠ b.toRat`, `beq` false
       have hbn : b.isNormOrNonzeroSubnorm := by grind [PackedFloat.isNormOrNonzeroSubnorm]
@@ -458,7 +458,7 @@ theorem ieeeBeq_iff_toExtRat_eq {e s : Nat} (a b : PackedFloat e s)
       have hbsig : b.unpackNum.sig ≠ 0#(s + 1) := by
         intro h; have := PackedFloat.msb_unpackNum_eq_true hbn; rw [h] at this; simp at this
       simp only [hua, hub, EUnpackedFloat.num_mkZero, EUnpackedFloat.num_mkNumber,
-        UnpackedFloat.beq, UnpackedFloat.structBeq, UnpackedFloat.mkZero, UnpackedFloat.isZero]
+        UnpackedFloat.ieeeBeq, UnpackedFloat.smtBeq, UnpackedFloat.mkZero, UnpackedFloat.isZero]
       grind
     · -- a nonzero finite, b zero: symmetric
       have han : a.isNormOrNonzeroSubnorm := by grind [PackedFloat.isNormOrNonzeroSubnorm]
@@ -470,9 +470,9 @@ theorem ieeeBeq_iff_toExtRat_eq {e s : Nat} (a b : PackedFloat e s)
       have hasig : a.unpackNum.sig ≠ 0#(s + 1) := by
         intro h; have := PackedFloat.msb_unpackNum_eq_true han; rw [h] at this; simp at this
       simp only [hua, hub, EUnpackedFloat.num_mkZero, EUnpackedFloat.num_mkNumber,
-        UnpackedFloat.beq, UnpackedFloat.structBeq, UnpackedFloat.mkZero, UnpackedFloat.isZero]
+        UnpackedFloat.ieeeBeq, UnpackedFloat.smtBeq, UnpackedFloat.mkZero, UnpackedFloat.isZero]
       grind
-    · -- both nonzero finite: `a.toRat = b.toRat`, matched by `beq` via `beq_iff_toRat_eq`
+    · -- both nonzero finite: `a.toRat = b.toRat`, matched by `beq` via `ieeeBeq_iff_toRat_eq`
       have han : a.isNormOrNonzeroSubnorm := by grind [PackedFloat.isNormOrNonzeroSubnorm]
       have hbn : b.isNormOrNonzeroSubnorm := by grind [PackedFloat.isNormOrNonzeroSubnorm]
       have hua : a.unpack = EUnpackedFloat.mkNumber a.unpackNum := PackedFloat.unpack_eq_unpackNum_of a han
@@ -483,7 +483,7 @@ theorem ieeeBeq_iff_toExtRat_eq {e s : Nat} (a b : PackedFloat e s)
       have hrb : b.unpackNum.toRat = b.toRat := PackedFloat.unpackNum_toRat_eq_toRat hbn
       rw [hua, hub]
       simp only [EUnpackedFloat.num_mkNumber,
-        UnpackedFloat.beq_iff_toRat_eq a.unpackNum b.unpackNum hams hbms, hra, hrb]
+        UnpackedFloat.ieeeBeq_iff_toRat_eq a.unpackNum b.unpackNum hams hbms, hra, hrb]
 
 -- `ieeeBeq_iff_toExtRat_eq` is `sorry`-free: it rests only on the standard axioms.
 /--

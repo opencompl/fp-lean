@@ -100,7 +100,7 @@ def EUnpackedFloat.add (m : RoundingMode) (x y : EUnpackedFloat (exponentWidth e
   else bif x.isInfinite && y.isInfinite && x.sign == y.sign ||
            x.isInfinite && !y.isInfinite || !x.isInfinite && y.isInfinite then
     .mkInfinity (bif x.isInfinite then x.sign else y.sign)
-  else bif UnpackedFloat.structBeq x.num y.num.neg then
+  else bif UnpackedFloat.smtBeq x.num y.num.neg then
     -- Sum is exactly `0`: follow the special sign rules for `0`.
     -- Even if both `x` and `y` are `0`, their signs are still different. So, we don't
     -- need to propegate the sign!
