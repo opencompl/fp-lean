@@ -182,8 +182,60 @@ theorem fma_eq_fma {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
           cond_true, EUnpackedFloat.mkNaN_pack_eq_mkNaN, PackedFloat.EquivUptoNaN.of_mkNaN_iff]
         rw [ExtRat.number_mul_number_eq, ExtRat.ExtRat.add_NaN]
         exact isNaN_round_of_nan
-      case infCase signc => sorry
-      case zeroCase signc => sorry
+      case infCase signc =>
+        simp only [hsin, PackedFloat.isInfinite_getInfinity, decide_true, ↓reduceIte,
+          PackedFloat.toExtRat'_eq_Infinity_of_isInfinite, PackedFloat.unpack_getInfinity,
+          PackedFloat.sign_getInfinity, EUnpackedFloat.isInfinite_mkInfinity,
+          EUnpackedFloat.isNaN_mkInfinity, EUnpackedFloat.isZero_mkInfinity,
+          EUnpackedFloat.isNaN_mkNumber, EUnpackedFloat.isInfinite_mkNumber,
+          EUnpackedFloat.isZero_mkNumber, EUnpackedFloat.sign_mkInfinity, EUnpackedFloat.num_mkNumber,
+          Bool.or_self, Bool.false_and, Bool.and_false, Bool.false_or, Bool.or_false, Bool.or_true,
+          Bool.and_true, cond_true, cond_false, EUnpackedFloat.mkInfinity_pack_eq_getInfinity]
+        rw [ExtRat.number_mul_number_eq]
+        have hval : ExtRat.Number (a.toRat * b.toRat) + ExtRat.Infinity signc
+            = ExtRat.Infinity signc := by
+          rw [← ExtRat.ExtRat.add_def]; unfold ExtRat.add; simp
+        rw [hval]
+        apply PackedFloat.EquivUptoNaN.of_eq
+        simp [roundQ_eq_round_of_Infinity he0 hsin]
+      case zeroCase signc =>
+        have haz : a.unpackNum.isZero = false := PackedFloat.isZero_unpackNum_eq_false a ha
+        have hbz : b.unpackNum.isZero = false := PackedFloat.isZero_unpackNum_eq_false b hb
+        simp only [PackedFloat.isZero_getZero, PackedFloat.toExtRat'_eq_zero_of_isZero,
+          PackedFloat.unpack_getZero, he0, ↓reduceIte,
+          PackedFloat.sign_getZero, EUnpackedFloat.isNaN_mkZero, EUnpackedFloat.isInfinite_mkZero,
+          EUnpackedFloat.isZero_mkZero, EUnpackedFloat.isNaN_mkNumber,
+          EUnpackedFloat.isInfinite_mkNumber, EUnpackedFloat.isZero_mkNumber,
+          EUnpackedFloat.num_mkNumber, haz, hbz, Bool.or_self, Bool.false_and, Bool.and_false,
+          Bool.false_or, Bool.or_false, Bool.false_eq_true, cond_false, cond_true]
+        have hv0 : (PackedFloat.getZero ein sin signc).toExtRat' = ExtRat.Number 0 :=
+          PackedFloat.toExtRat'_eq_zero_of_isZero _ (by simp [PackedFloat.isZero_getZero, he0])
+        rw [hv0, ExtRat.number_mul_number_eq, ExtRat.ExtRat.add_Number, Rat.add_zero]
+        have hmsb : (a.unpackNum.mul b.unpackNum).sig.msb = true :=
+          UnpackedFloat.msb_mul_eq_true_of_msb_eq_true
+            (PackedFloat.msb_unpackNum_eq_true ha) (PackedFloat.msb_unpackNum_eq_true hb)
+        have hxnorm : (a.unpackNum.mul b.unpackNum).normalize = a.unpackNum.mul b.unpackNum :=
+          UnpackedFloat.normalize_eq_self_of_msb_eq_true _ hmsb
+        have hmulrat : (a.unpackNum.mul b.unpackNum).toRat = a.toRat * b.toRat :=
+          UnpackedFloat.unpackNum_mul_unpackNum_toRat_eq_mul_toRat ha hb
+        have hne : a.toRat * b.toRat ≠ 0 :=
+          Rat.mul_ne_zero_iff.mpr ⟨PackedFloat.toRat_ne_zero ha, PackedFloat.toRat_ne_zero hb⟩
+        have hsticky : StickyEquiv ((a.unpackNum.mul b.unpackNum).toExpInt)
+            ((a.unpackNum.mul b.unpackNum).toRat) (a.toRat * b.toRat) := by
+          rw [hmulrat]; exact StickyEquiv.rfl
+        rw [PackedFloat.EquivUptoNaN_symm, EUnpackedFloat.pack_eq_pack']
+        subst hrm
+        refine EUnpackedFloat.pack'_EquivUptoNaN_of_Rel he hsin _ _ ?hrel ?hpack ?hpf
+        case hrel =>
+          exact UnpackedFloat.blastSmtLibRound_Rel_round_of_RNE_of_stickyEquiv he hep hsin
+            (eu := exponentWidth ein sin + 1) (su := 2 * (sin + 1)) (by omega) (by omega)
+            (a.unpackNum.mul b.unpackNum) _ _ hne hxnorm hsticky
+        case hpack =>
+          exact UnpackedFloat.blastSmtLibRound_Packable_of_RNE hep hsin (by omega) (by omega)
+            (a.unpackNum.mul b.unpackNum) hxnorm
+        case hpf =>
+          exact UnpackedFloat.blastSmtLibRound_finite_of_RNE_of_stickyEquiv he hep hsin
+            (by omega) (by omega) (a.unpackNum.mul b.unpackNum) _ _ hne hxnorm hsticky
       case numCase hc =>
         rw [PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm hc, c.toExtRat'_eq_toRat_of hc]
         rw [ExtRat.number_mul_number_eq, ExtRat.ExtRat.add_Number]
