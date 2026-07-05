@@ -1,0 +1,273 @@
+import Fp.FMA
+import Fp.Theorems.Addition
+import Fp.Theorems.Multiplication
+
+/-!
+# Correctness of `fma`
+
+`UnpackedFloat.fma x y z = add (mul x y) (z.extendWidths …)`.  The intermediate
+product `mul x y` is *exact* (`toRat_mul_eq_toRat_mul_toRat`), so the addition's
+sticky-error analysis applies to the true value `x·y + z`, and the single final
+`blastSmtLibRound` is covered by the shared rounding bridge.
+
+This file first establishes value/normalization lemmas for `UnpackedFloat.extendWidths`
+(which previously had no lemmas), then the fma sticky bound, then the top-level
+`fma_eq_fma`.
+-/
+
+open Fp
+
+namespace UnpackedFloat
+
+/-- Extending widths scales the significand by `2 ^ (s' - s)` (the left shift). -/
+theorem toNat_sig_extendWidths {e s e' s' : Nat} (uf : UnpackedFloat e s)
+    (he : e ≤ e') (hs : s ≤ s') :
+    (uf.extendWidths he hs).sig.toNat = uf.sig.toNat * 2 ^ (s' - s) := by
+  simp only [UnpackedFloat.extendWidths, BitVec.setWidth'_eq, BitVec.toNat_shiftLeft,
+    BitVec.toNat_setWidth]
+  have hlt : uf.sig.toNat < 2 ^ s := uf.sig.isLt
+  have h1 : uf.sig.toNat % 2 ^ s' = uf.sig.toNat := by
+    apply Nat.mod_eq_of_lt
+    exact Nat.lt_of_lt_of_le hlt (Nat.pow_le_pow_right (by omega) hs)
+  rw [h1, Nat.shiftLeft_eq]
+  apply Nat.mod_eq_of_lt
+  calc uf.sig.toNat * 2 ^ (s' - s) < 2 ^ s * 2 ^ (s' - s) :=
+        Nat.mul_lt_mul_of_pos_right hlt (Nat.two_pow_pos _)
+    _ = 2 ^ s' := by rw [← Nat.pow_add]; congr 1; omega
+
+/-- Extending widths preserves the exponent value. -/
+theorem toInt_ex_extendWidths {e s e' s' : Nat} (uf : UnpackedFloat e s)
+    (he : e ≤ e') (hs : s ≤ s') :
+    (uf.extendWidths he hs).ex.toInt = uf.ex.toInt := by
+  simp only [UnpackedFloat.extendWidths]
+  exact BitVec.toInt_signExtend_of_le he
+
+/-- Extending widths preserves the sign. -/
+@[simp] theorem sign_extendWidths {e s e' s' : Nat} (uf : UnpackedFloat e s)
+    (he : e ≤ e') (hs : s ≤ s') :
+    (uf.extendWidths he hs).sign = uf.sign := rfl
+
+/-- Extending widths preserves the value. -/
+theorem toRat_extendWidths {e s e' s' : Nat} (uf : UnpackedFloat e s)
+    (he : e ≤ e') (hs : s ≤ s') (hs0 : 0 < s) :
+    (uf.extendWidths he hs).toRat = uf.toRat := by
+  rw [toRat_eq_sign_sig_exp, toRat_eq_sign_sig_exp,
+    sign_extendWidths, toNat_sig_extendWidths uf he hs]
+  simp only [toExpInt, toInt_ex_extendWidths uf he hs]
+  push_cast
+  have key : (2 : Rat) ^ (s' - s) * (2 : Rat) ^ (-(((s' - 1 : Nat) : Int) - uf.ex.toInt))
+      = (2 : Rat) ^ (-(((s - 1 : Nat) : Int) - uf.ex.toInt)) := by
+    rw [show ((2 : Rat) ^ (s' - s)) = (2 : Rat) ^ (((s' - s : Nat)) : Int) from
+        (Rat.zpow_natCast 2 _).symm]
+    rw [← Rat.zpow_add (by decide)]
+    congr 1
+    omega
+  -- goal: sign * (↑sig * 2^(s'-s)) * 2^E' = sign * ↑sig * 2^E
+  grind
+
+/-- Extending widths preserves the significand's msb. -/
+theorem msb_extendWidths {e s e' s' : Nat} (uf : UnpackedFloat e s)
+    (he : e ≤ e') (hs : s ≤ s') (hs0 : 0 < s) :
+    (uf.extendWidths he hs).sig.msb = uf.sig.msb := by
+  rw [BitVec.msb_eq_decide, BitVec.msb_eq_decide, toNat_sig_extendWidths uf he hs]
+  congr 1
+  rw [show (2 ^ (s' - 1)) = 2 ^ (s - 1) * 2 ^ (s' - s) by rw [← Nat.pow_add]; congr 1; omega]
+  rw [Nat.mul_le_mul_right_iff (Nat.two_pow_pos _)]
+
+/-- Negation commutes with width extension (both only touch the sign / zero-extend). -/
+theorem neg_extendWidths {e s e' s' : Nat} (uf : UnpackedFloat e s)
+    (he : e ≤ e') (hs : s ≤ s') :
+    (uf.neg).extendWidths he hs = (uf.extendWidths he hs).neg := rfl
+
+/-- The fma circuit value is a sticky compression of the exact value `x·y + z`.
+The intermediate product is exact, so this is just the addition sticky bound applied
+to `(mul x y) + (extend z)`. -/
+theorem stickyEquiv_fma {e s : Nat} (x y z : UnpackedFloat e s)
+    (hs : 0 < s) (he : 0 < e)
+    (hes : 2 * s + 3 < 2 ^ (e + 2)) (hbnd : 2 * s + 1 ≤ 2 ^ e)
+    (hx : x.sig.msb = true) (hy : y.sig.msb = true) (hz : z.sig.msb = true)
+    (hne : x.toRat * y.toRat + z.toRat ≠ 0) :
+    StickyEquiv ((UnpackedFloat.fma x y z).toExpInt) ((UnpackedFloat.fma x y z).toRat)
+      (x.toRat * y.toRat + z.toRat) := by
+  simp only [UnpackedFloat.fma]
+  have hA : (x.mul y).toRat = x.toRat * y.toRat :=
+    UnpackedFloat.toRat_mul_eq_toRat_mul_toRat hs he
+  have hB : (z.extendWidths (e' := e + 1) (s' := 2 * s) (by omega) (by omega)).toRat = z.toRat :=
+    UnpackedFloat.toRat_extendWidths z (by omega) (by omega) hs
+  have hxmsb : (x.mul y).sig.msb = true :=
+    UnpackedFloat.msb_mul_eq_true_of_msb_eq_true hx hy
+  have hzmsb : (z.extendWidths (e' := e + 1) (s' := 2 * s) (by omega) (by omega)).sig.msb = true := by
+    rw [UnpackedFloat.msb_extendWidths z (by omega) (by omega) hs]; exact hz
+  have hmain := UnpackedFloat.stickyEquiv_add (x.mul y) (z.extendWidths (e' := e + 1) (s' := 2 * s) (by omega) (by omega))
+    (by omega) (by omega) hes hbnd hxmsb hzmsb (by rw [hA, hB]; exact hne)
+  rw [hA, hB] at hmain
+  exact hmain
+
+/-- fma sticky bound lifted to the unpacked numbers of packed inputs, with the
+exponent-range side-conditions discharged from `1 < e` / `2 < e`
+(mirrors `unpackNum_add_unpackNum_stickyEquiv`). -/
+theorem unpackNum_fma_stickyEquiv
+    {e s : Nat} {a b c : PackedFloat e s} (hs : 0 < s) (he : 1 < e) (hep : 2 < e)
+    (ha : a.isNormOrNonzeroSubnorm) (hb : b.isNormOrNonzeroSubnorm)
+    (hc : c.isNormOrNonzeroSubnorm)
+    (hne : a.toRat * b.toRat + c.toRat ≠ 0) :
+    StickyEquiv ((UnpackedFloat.fma a.unpackNum b.unpackNum c.unpackNum).toExpInt)
+      ((UnpackedFloat.fma a.unpackNum b.unpackNum c.unpackNum).toRat)
+      (a.toRat * b.toRat + c.toRat) := by
+  have hra := PackedFloat.unpackNum_toRat_eq_toRat (pf := a) ha
+  have hrb := PackedFloat.unpackNum_toRat_eq_toRat (pf := b) hb
+  have hrc := PackedFloat.unpackNum_toRat_eq_toRat (pf := c) hc
+  rw [← hra, ← hrb, ← hrc] at hne ⊢
+  have h2e : 2 ≤ 2 ^ (e - 1) := by
+    calc (2 : Nat) = 2 ^ 1 := rfl
+      _ ≤ 2 ^ (e - 1) := Nat.pow_le_pow_right (by omega) (by omega)
+  have hlog : 2 ^ (e - 1) + s - 1 < 2 ^ ((2 ^ (e - 1) + s - 1).log2 + 1) := Nat.lt_log2_self
+  have hew : exponentWidth e s = (2 ^ (e - 1) + s - 1).log2 + 2 := by rw [exponentWidth]
+  have hbnd' : 2 * (s + 1) + 1 ≤ 2 ^ (exponentWidth e s) := by
+    rw [hew, show (2 ^ (e - 1) + s - 1).log2 + 2 = ((2 ^ (e - 1) + s - 1).log2 + 1) + 1 by omega,
+      Nat.pow_succ]
+    omega
+  have hes' : 2 * (s + 1) + 3 < 2 ^ (exponentWidth e s + 2) := by
+    rw [hew, show (2 ^ (e - 1) + s - 1).log2 + 2 + 2 = ((2 ^ (e - 1) + s - 1).log2 + 1) + 3 by omega,
+      Nat.pow_add]
+    have h8 : (2 : Nat) ^ 3 = 8 := rfl
+    omega
+  exact stickyEquiv_fma a.unpackNum b.unpackNum c.unpackNum (by omega)
+    zero_lt_exponentWidth hes' hbnd'
+    (PackedFloat.msb_unpackNum_eq_true ha) (PackedFloat.msb_unpackNum_eq_true hb)
+    (PackedFloat.msb_unpackNum_eq_true hc) hne
+
+end UnpackedFloat
+
+namespace Fp
+
+set_option maxHeartbeats 1000000 in
+theorem fma_eq_fma {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ein)
+    (rm : RoundingMode) (hrm : rm = .RNE) (a b c : PackedFloat ein sin) :
+    (Fp.SmtLibSemantics.SmtLibFunctions.fma (Fp.SmtLibSemanticsQ.smtLibRoundMethodQ ein sin) rm a b c).EquivUptoNaN
+      (PackedFloat.fma rm a b c) := by
+  have he0 : 0 < ein := by grind
+  simp only [SmtLibSemantics.SmtLibFunctions.fma, SmtLibSemantics.SmtLibFunctions.fmaSign,
+    SmtLibSemantics.SmtLibFunctions.xorSign,
+    SmtLibSemantics.smtLibRoundMethod.embed_eq, SmtLibSemantics.smtLibV_embed_eq,
+    SmtLibSemantics.RoundableEmbed.embed_packedFloat_eq,
+    PackedFloat.toExtRat_eq_toExtRat', roundQ_eq]
+  rw [PackedFloat.fma, EUnpackedFloat.fma]
+  cases a using PackedFloat.kindCasesNaNInfZeroNum
+  case nanCase hnan =>
+    simp only [hnan, PackedFloat.toExtRat'_eq_NaN_of_isNaN, PackedFloat.unpack_eq_NaN_of_isNaN,
+      EUnpackedFloat.isNaN_mkNaN, Bool.true_or, cond_true, EUnpackedFloat.mkNaN_pack_eq_mkNaN,
+      PackedFloat.EquivUptoNaN.of_mkNaN_iff]
+    rw [ExtRat.NaN_mul, ExtRat.ExtRat.NaN_add]
+    exact isNaN_round_of_nan
+  case infCase signa => sorry
+  case zeroCase signa => sorry
+  case numCase ha =>
+    rw [PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm ha, a.toExtRat'_eq_toRat_of ha]
+    cases b using PackedFloat.kindCasesNaNInfZeroNum
+    case nanCase hb =>
+      simp only [hb, PackedFloat.toExtRat'_eq_NaN_of_isNaN, PackedFloat.unpack_eq_NaN_of_isNaN,
+        EUnpackedFloat.isNaN_mkNaN, EUnpackedFloat.isNaN_mkNumber, Bool.or_true, Bool.true_or,
+        cond_true, EUnpackedFloat.mkNaN_pack_eq_mkNaN, PackedFloat.EquivUptoNaN.of_mkNaN_iff]
+      rw [ExtRat.mul_NaN, ExtRat.ExtRat.NaN_add]
+      exact isNaN_round_of_nan
+    case infCase signb => sorry
+    case zeroCase signb => sorry
+    case numCase hb =>
+      rw [PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm hb, b.toExtRat'_eq_toRat_of hb]
+      cases c using PackedFloat.kindCasesNaNInfZeroNum
+      case nanCase hc =>
+        simp only [hc, PackedFloat.toExtRat'_eq_NaN_of_isNaN, PackedFloat.unpack_eq_NaN_of_isNaN,
+          EUnpackedFloat.isNaN_mkNaN, EUnpackedFloat.isNaN_mkNumber, Bool.or_true, Bool.true_or,
+          cond_true, EUnpackedFloat.mkNaN_pack_eq_mkNaN, PackedFloat.EquivUptoNaN.of_mkNaN_iff]
+        rw [ExtRat.number_mul_number_eq, ExtRat.ExtRat.add_NaN]
+        exact isNaN_round_of_nan
+      case infCase signc => sorry
+      case zeroCase signc => sorry
+      case numCase hc =>
+        rw [PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm hc, c.toExtRat'_eq_toRat_of hc]
+        rw [ExtRat.number_mul_number_eq, ExtRat.ExtRat.add_Number]
+        have hamsb := PackedFloat.msb_unpackNum_eq_true ha
+        have hbmsb := PackedFloat.msb_unpackNum_eq_true hb
+        have hcmsb := PackedFloat.msb_unpackNum_eq_true hc
+        have hABmsb : (a.unpackNum.mul b.unpackNum).sig.msb = true :=
+          UnpackedFloat.msb_mul_eq_true_of_msb_eq_true hamsb hbmsb
+        have hCextmsb : (c.unpackNum.extendWidths (e' := exponentWidth ein sin + 1)
+            (s' := 2 * (sin + 1)) (by omega) (by omega)).sig.msb = true := by
+          rw [UnpackedFloat.msb_extendWidths (e' := exponentWidth ein sin + 1)
+            (s' := 2 * (sin + 1)) c.unpackNum (by omega) (by omega) (by omega)]
+          exact hcmsb
+        -- exact value of the two `add` operands
+        have hAB : (a.unpackNum.mul b.unpackNum).toRat = a.toRat * b.toRat :=
+          UnpackedFloat.unpackNum_mul_unpackNum_toRat_eq_mul_toRat ha hb
+        have hCext : (c.unpackNum.extendWidths (e' := exponentWidth ein sin + 1)
+            (s' := 2 * (sin + 1)) (by omega) (by omega)).toRat = c.toRat := by
+          rw [UnpackedFloat.toRat_extendWidths (e' := exponentWidth ein sin + 1)
+            (s' := 2 * (sin + 1)) c.unpackNum (by omega) (by omega) (by omega)]
+          exact PackedFloat.unpackNum_toRat_eq_toRat hc
+        have haz : a.unpackNum.isZero = false := PackedFloat.isZero_unpackNum_eq_false a ha
+        have hbz : b.unpackNum.isZero = false := PackedFloat.isZero_unpackNum_eq_false b hb
+        have hcz : c.unpackNum.isZero = false := PackedFloat.isZero_unpackNum_eq_false c hc
+        -- simplify the special-value guards of the `bif` cascade (all false for numbers)
+        simp only [EUnpackedFloat.isNaN_mkNumber, EUnpackedFloat.isInfinite_mkNumber,
+          EUnpackedFloat.isZero_mkNumber, EUnpackedFloat.num_mkNumber, haz, hbz, hcz, Bool.or_self,
+          Bool.false_and, Bool.and_false, Bool.false_eq_true,
+          cond_false]
+        by_cases hcancel : (a.unpackNum.mul b.unpackNum).structBeq
+            ((c.unpackNum.neg).extendWidths (e' := exponentWidth ein sin + 1)
+              (s' := 2 * (sin + 1)) (by omega) (by omega))
+        · -- exact cancellation: `a*b + c = 0`
+          have hsum0 : a.toRat * b.toRat + c.toRat = 0 := by
+            have h := UnpackedFloat.toRat_add_toRat_eq_zero_of_structBeq_neg
+              (a.unpackNum.mul b.unpackNum)
+              (c.unpackNum.extendWidths (e' := exponentWidth ein sin + 1)
+                (s' := 2 * (sin + 1)) (by omega) (by omega))
+              (by rw [← UnpackedFloat.neg_extendWidths]; exact hcancel)
+            rw [hAB, hCext] at h
+            exact h
+          rw [hsum0, round_eq_mkZero_of_mkZero he0]
+          simp only [hcancel, cond_true, EUnpackedFloat.mkZero_pack_eq_getZero]
+          apply PackedFloat.EquivUptoNaN.of_eq
+          subst hrm
+          have hsg := hcancel
+          simp only [UnpackedFloat.structBeq, Bool.and_eq_true, beq_iff_eq,
+            UnpackedFloat.mul_sign, UnpackedFloat.sign_extendWidths, UnpackedFloat.neg] at hsg
+          have h1 := PackedFloat.sign_unpackNormOrNonzeroSubnorm_eq_sign a
+          have h2 := PackedFloat.sign_unpackNormOrNonzeroSubnorm_eq_sign b
+          have h3 := PackedFloat.sign_unpackNormOrNonzeroSubnorm_eq_sign c
+          grind
+        · -- genuine nonzero fma, rounded by the circuit
+          have hsumne : a.toRat * b.toRat + c.toRat ≠ 0 := by
+            have h := UnpackedFloat.toRat_add_toRat_ne_zero_of_not_structBeq_neg
+              (a.unpackNum.mul b.unpackNum)
+              (c.unpackNum.extendWidths (e' := exponentWidth ein sin + 1)
+                (s' := 2 * (sin + 1)) (by omega) (by omega))
+              hABmsb hCextmsb (by rw [← UnpackedFloat.neg_extendWidths]; exact hcancel)
+            rw [hAB, hCext] at h
+            exact h
+          have hfmamsb : (UnpackedFloat.fma a.unpackNum b.unpackNum c.unpackNum).sig.msb = true := by
+            simp only [UnpackedFloat.fma]
+            exact UnpackedFloat.msb_add_eq_true _ _ (by omega) hABmsb hCextmsb
+              (by rw [hAB, hCext]; exact hsumne)
+          have hxnorm : (UnpackedFloat.fma a.unpackNum b.unpackNum c.unpackNum).normalize
+              = UnpackedFloat.fma a.unpackNum b.unpackNum c.unpackNum :=
+            UnpackedFloat.normalize_eq_self_of_msb_eq_true _ hfmamsb
+          have hsticky := UnpackedFloat.unpackNum_fma_stickyEquiv hsin he hep ha hb hc hsumne
+          rw [Bool.not_eq_true] at hcancel
+          rw [hcancel, cond_false]
+          rw [PackedFloat.EquivUptoNaN_symm, EUnpackedFloat.pack_eq_pack']
+          subst hrm
+          refine EUnpackedFloat.pack'_EquivUptoNaN_of_Rel he hsin _ _ ?hrel ?hpack ?hpf
+          case hrel =>
+            exact UnpackedFloat.blastSmtLibRound_Rel_round_of_RNE_of_stickyEquiv he hep hsin
+              (eu := exponentWidth ein sin + 2) (su := 2 * (sin + 1) + 2) (by omega) (by omega)
+              (UnpackedFloat.fma a.unpackNum b.unpackNum c.unpackNum) _ _ hsumne hxnorm hsticky
+          case hpack =>
+            exact UnpackedFloat.blastSmtLibRound_Packable_of_RNE hep hsin (by omega) (by omega)
+              (UnpackedFloat.fma a.unpackNum b.unpackNum c.unpackNum) hxnorm
+          case hpf =>
+            exact UnpackedFloat.blastSmtLibRound_finite_of_RNE_of_stickyEquiv he hep hsin
+              (by omega) (by omega) (UnpackedFloat.fma a.unpackNum b.unpackNum c.unpackNum) _ _
+              hsumne hxnorm hsticky
+
+end Fp
