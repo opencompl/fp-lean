@@ -151,4 +151,109 @@ theorem UnpackedFloat.sqrt_bracket {e s : Nat} (hs : 0 < s) (x : UnpackedFloat e
         rw [hval, Nat.pow_succ]; omega
       simpa using hb
 
+/-- The unpacked square root faithfully represents `√(x.toRat)` via rational squared brackets:
+either it is exact (`q·q = x.toRat`), or `x.toRat` lies strictly between the squares of the two
+adjacent grid points around `q`.  This is the `StickyEquiv`-to-`√x` condition expressed rationally
+(without naming the irrational `√x`), the key input to the rounding bridge. -/
+theorem UnpackedFloat.sqrt_toRat_sq_bracket {e s : Nat} (hs : 0 < s) (he : 0 < e)
+    (x : UnpackedFloat e s) (hmsb : x.sig.msb = true) (hsign : x.sign = false) :
+    (UnpackedFloat.sqrt x).toRat * (UnpackedFloat.sqrt x).toRat = x.toRat ∨
+      (let d : Rat := 2 ^ ((x.ex.sshiftRight 1).toInt - ((s : Int) + 1));
+       ((UnpackedFloat.sqrt x).toRat - d) * ((UnpackedFloat.sqrt x).toRat - d) < x.toRat ∧
+       x.toRat < ((UnpackedFloat.sqrt x).toRat + d) * ((UnpackedFloat.sqrt x).toRat + d)) := by
+  obtain ⟨m, Xa, hXa, hle, hgt, hsgn, hex, hsig, hmsb2⟩ := sqrt_bracket hs x hmsb
+  have hne2 : (2 : Rat) ≠ 0 := by decide
+  have hkexp : (UnpackedFloat.sqrt x).toExpInt = (x.ex.sshiftRight 1).toInt - ((s : Int) + 1) := by
+    rw [UnpackedFloat.toExpInt, hex]
+    have : ((s + 2 - 1 : Nat) : Int) = (s : Int) + 1 := by push_cast; omega
+    rw [this]; omega
+  -- `q = ↑(2m+st)·R`, `R = 2^K`, `st = if m²=Xa then 0 else 1`
+  have hsqrat : (UnpackedFloat.sqrt x).toRat
+      = ((2 * m + (if m ^ 2 = Xa then 0 else 1) : Nat) : Rat)
+        * 2 ^ ((x.ex.sshiftRight 1).toInt - ((s : Int) + 1)) := by
+    rw [UnpackedFloat.toRat_eq_sign_sig_exp, hsgn, hsig, hkexp]; simp [Bool.toSign]
+  -- `x.toRat = ↑(4·Xa)·(R·R)`
+  have hRpos : (0 : Rat) < 2 ^ ((x.ex.sshiftRight 1).toInt - ((s : Int) + 1)) :=
+    Rat.two_pow_pos _
+  have hpar := two_mul_sshiftRight_toInt he x.ex
+  have hcs : ((2 ^ s : Nat) : Rat) = (2 : Rat) ^ (s : Int) := by
+    rw [Rat.zpow_natCast]; push_cast; grind
+  have hxe : x.toRat = (x.sig.toNat : Rat) * 2 ^ (x.ex.toInt - ((s - 1 : Nat) : Int)) := by
+    rw [UnpackedFloat.toRat_eq_sign_sig_exp, hsign, UnpackedFloat.toExpInt,
+      show -(((s - 1 : Nat) : Int) - x.ex.toInt) = x.ex.toInt - ((s - 1 : Nat) : Int) from by omega]
+    simp [Bool.toSign]
+  have hQ : x.toRat = ((4 * Xa : Nat) : Rat)
+      * (2 ^ ((x.ex.sshiftRight 1).toInt - ((s : Int) + 1))
+        * 2 ^ ((x.ex.sshiftRight 1).toInt - ((s : Int) + 1))) := by
+    rw [hxe]
+    by_cases hpe : x.ex.getLsbD 0 = false
+    · have hEp : 2 * (x.ex.sshiftRight 1).toInt = x.ex.toInt := by
+        simp only [hpe] at hpar; simpa using hpar
+      have ha : ((4 * Xa : Nat) : Rat) = 8 * (x.sig.toNat : Rat) * (2 : Rat) ^ (s : Int) := by
+        rw [hXa]; simp only [hpe, if_true]; push_cast; rw [← hcs]; push_cast; grind
+      have hpw : (8 : Rat) * (2 : Rat) ^ (s : Int)
+          * (2 ^ ((x.ex.sshiftRight 1).toInt - ((s : Int) + 1))
+            * 2 ^ ((x.ex.sshiftRight 1).toInt - ((s : Int) + 1)))
+          = 2 ^ (x.ex.toInt - ((s - 1 : Nat) : Int)) := by
+        rw [show (8 : Rat) = 2 ^ (3 : Int) from by decide, ← Rat.zpow_add hne2,
+          ← Rat.zpow_add hne2, ← Rat.zpow_add hne2]
+        congr 1; omega
+      rw [ha]; grind
+    · have hpe' : x.ex.getLsbD 0 = true := by cases h : x.ex.getLsbD 0 <;> simp_all
+      have hEp : 2 * (x.ex.sshiftRight 1).toInt = x.ex.toInt - 1 := by
+        simp only [hpe'] at hpar; simpa using hpar
+      have ha : ((4 * Xa : Nat) : Rat) = 16 * (x.sig.toNat : Rat) * (2 : Rat) ^ (s : Int) := by
+        rw [hXa]; simp only [hpe, hpe', if_false, Bool.true_eq_false]; push_cast
+        rw [← hcs]; push_cast; grind
+      have hpw : (16 : Rat) * (2 : Rat) ^ (s : Int)
+          * (2 ^ ((x.ex.sshiftRight 1).toInt - ((s : Int) + 1))
+            * 2 ^ ((x.ex.sshiftRight 1).toInt - ((s : Int) + 1)))
+          = 2 ^ (x.ex.toInt - ((s - 1 : Nat) : Int)) := by
+        rw [show (16 : Rat) = 2 ^ (4 : Int) from by decide, ← Rat.zpow_add hne2,
+          ← Rat.zpow_add hne2, ← Rat.zpow_add hne2]
+        congr 1; omega
+      rw [ha]; grind
+  -- assemble the sticky disjunction
+  simp only
+  have hRR : (2 : Rat) ^ ((x.ex.sshiftRight 1).toInt - ((s : Int) + 1))
+      * 2 ^ ((x.ex.sshiftRight 1).toInt - ((s : Int) + 1)) > 0 := Rat.mul_positive hRpos hRpos
+  by_cases hmx : m ^ 2 = Xa
+  · left
+    rw [hsqrat, hQ]
+    simp only [hmx, if_true]
+    have h4 : (4 * Xa : Nat) = (2 * m + 0) * (2 * m + 0) := by
+      have := Nat.pow_two m; grind
+    rw [h4]; push_cast; grind
+  · right
+    have hst : (if m ^ 2 = Xa then (0 : Nat) else 1) = 1 := by simp [hmx]
+    have hmlt : m ^ 2 < Xa := Nat.lt_of_le_of_ne hle hmx
+    refine ⟨?_, ?_⟩
+    · rw [hsqrat, hQ, hst]
+      have hexp1 : ((2 * m + 1 : Nat) : Rat) * 2 ^ ((x.ex.sshiftRight 1).toInt - ((s : Int) + 1))
+          - 2 ^ ((x.ex.sshiftRight 1).toInt - ((s : Int) + 1))
+          = ((2 * m : Nat) : Rat) * 2 ^ ((x.ex.sshiftRight 1).toInt - ((s : Int) + 1)) := by
+        push_cast; grind
+      rw [hexp1]
+      have hlt : ((2 * m : Nat) * (2 * m) : Nat) < (4 * Xa : Nat) := by
+        have := Nat.pow_two m; grind
+      have hltR : (((2 * m) * (2 * m) : Nat) : Rat) < ((4 * Xa : Nat) : Rat) := by exact_mod_cast hlt
+      have hkey := (Rat.mul_lt_mul_cancel_right_of_lt hRR).mpr hltR
+      have hcast : (((2 * m) * (2 * m) : Nat) : Rat) = ((2 * m : Nat) : Rat) * ((2 * m : Nat) : Rat) := by
+        push_cast; grind
+      grind
+    · rw [hsqrat, hQ, hst]
+      have hexp2 : ((2 * m + 1 : Nat) : Rat) * 2 ^ ((x.ex.sshiftRight 1).toInt - ((s : Int) + 1))
+          + 2 ^ ((x.ex.sshiftRight 1).toInt - ((s : Int) + 1))
+          = ((2 * m + 2 : Nat) : Rat) * 2 ^ ((x.ex.sshiftRight 1).toInt - ((s : Int) + 1)) := by
+        push_cast; grind
+      rw [hexp2]
+      have hgt2 : (4 * Xa : Nat) < ((2 * m + 2) * (2 * m + 2) : Nat) := by
+        have := Nat.pow_two (m + 1); grind
+      have hgtR : ((4 * Xa : Nat) : Rat) < (((2 * m + 2) * (2 * m + 2) : Nat) : Rat) := by
+        exact_mod_cast hgt2
+      have hkey := (Rat.mul_lt_mul_cancel_right_of_lt hRR).mpr hgtR
+      have hcast : (((2 * m + 2) * (2 * m + 2) : Nat) : Rat)
+          = ((2 * m + 2 : Nat) : Rat) * ((2 * m + 2 : Nat) : Rat) := by push_cast; grind
+      grind
+
 end Fp
