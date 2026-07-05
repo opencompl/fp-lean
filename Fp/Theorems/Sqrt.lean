@@ -257,3 +257,24 @@ theorem UnpackedFloat.sqrt_toRat_sq_bracket {e s : Nat} (hs : 0 < s) (he : 0 < e
       grind
 
 end Fp
+
+namespace Fp
+
+/-- Squaring is monotone on nonnegative rationals: `a ≤ b ↔ a*a ≤ b*b`.
+The rational engine behind the sqrt rounding bridge (`c ≤ √X ↔ c*c ≤ X`, never naming `√X`). -/
+theorem Rat.mul_self_le_iff_of_nonneg {a b : Rat} (ha : 0 ≤ a) (hb : 0 ≤ b) :
+    a * a ≤ b * b ↔ a ≤ b := by
+  constructor
+  · intro h
+    by_cases hab : a ≤ b
+    · exact hab
+    · have hba : b < a := by grind
+      have h1 : b * b ≤ b * a := by apply Rat.mul_le_mul_of_nonneg_left <;> grind
+      have h2 : b * a < a * a := by apply Rat.mul_lt_mul_of_pos_right <;> grind
+      grind
+  · intro h
+    have h1 : a * a ≤ b * a := by apply Rat.mul_le_mul_of_nonneg_right <;> grind
+    have h2 : b * a ≤ b * b := by apply Rat.mul_le_mul_of_nonneg_left <;> grind
+    grind
+
+end Fp
