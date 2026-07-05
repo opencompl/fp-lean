@@ -566,12 +566,12 @@ theorem fma_eq_fma {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
           EUnpackedFloat.isZero_mkNumber, EUnpackedFloat.num_mkNumber, haz, hbz, hcz, Bool.or_self,
           Bool.false_and, Bool.and_false, Bool.false_eq_true,
           cond_false]
-        by_cases hcancel : (a.unpackNum.mul b.unpackNum).structBeq
+        by_cases hcancel : (a.unpackNum.mul b.unpackNum).smtBeq
             ((c.unpackNum.neg).extendWidths (e' := exponentWidth ein sin + 1)
               (s' := 2 * (sin + 1)) (by omega) (by omega))
         · -- exact cancellation: `a*b + c = 0`
           have hsum0 : a.toRat * b.toRat + c.toRat = 0 := by
-            have h := UnpackedFloat.toRat_add_toRat_eq_zero_of_structBeq_neg
+            have h := UnpackedFloat.toRat_add_toRat_eq_zero_of_smtBeq_neg
               (a.unpackNum.mul b.unpackNum)
               (c.unpackNum.extendWidths (e' := exponentWidth ein sin + 1)
                 (s' := 2 * (sin + 1)) (by omega) (by omega))
@@ -583,7 +583,7 @@ theorem fma_eq_fma {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
           apply PackedFloat.EquivUptoNaN.of_eq
           subst hrm
           have hsg := hcancel
-          simp only [UnpackedFloat.structBeq, Bool.and_eq_true, beq_iff_eq,
+          simp only [UnpackedFloat.smtBeq, Bool.and_eq_true, beq_iff_eq,
             UnpackedFloat.mul_sign, UnpackedFloat.sign_extendWidths, UnpackedFloat.neg] at hsg
           have h1 := PackedFloat.sign_unpackNormOrNonzeroSubnorm_eq_sign a
           have h2 := PackedFloat.sign_unpackNormOrNonzeroSubnorm_eq_sign b
@@ -591,7 +591,7 @@ theorem fma_eq_fma {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
           grind
         · -- genuine nonzero fma, rounded by the circuit
           have hsumne : a.toRat * b.toRat + c.toRat ≠ 0 := by
-            have h := UnpackedFloat.toRat_add_toRat_ne_zero_of_not_structBeq_neg
+            have h := UnpackedFloat.toRat_add_toRat_ne_zero_of_not_smtBeq_neg
               (a.unpackNum.mul b.unpackNum)
               (c.unpackNum.extendWidths (e' := exponentWidth ein sin + 1)
                 (s' := 2 * (sin + 1)) (by omega) (by omega))
