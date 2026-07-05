@@ -403,19 +403,20 @@ theorem bleAux_true_eq_decide_toRat_le_of_finite {e s : Nat} (a b : PackedFloat 
     rw [UnpackedFloat.bleAux_true_eq_decide_toRat_le a.unpackNum b.unpackNum hams hbms, hra, hrb]
 
 /--
-**BTRW15 §V.B.2, `eq` relation.** For non-NaN `a, b`, the structural SMT
-equality `smtBeq` holds iff the embedded values are equal:
-`a.smtBeq b ↔ v(a) = v(b)` with `v = ·.toExtRat`.
+**BTRW15 §V.B.2, `fp.eq` relation (IEEE equality).** For non-NaN `a, b`, IEEE
+equality `ieeeBeq` holds iff the embedded values are equal (so +0 and -0 are
+IEEE-equal): `a.ieeeBeq b ↔ v(a) = v(b)` with `v = ·.toExtRat`. (SMT-LIB core
+`=`, `smtBeq`, is instead bit-exact and *distinguishes* signed zeros.)
 -/
-theorem smtBeq_iff_toExtRat_eq {e s : Nat} (a b : PackedFloat e s)
+theorem ieeeBeq_iff_toExtRat_eq {e s : Nat} (a b : PackedFloat e s)
     (ha : a.isNaN = false) (hb : b.isNaN = false) :
-    a.smtBeq b = true ↔ a.toExtRat = b.toExtRat := by
+    a.ieeeBeq b = true ↔ a.toExtRat = b.toExtRat := by
   -- `v(a) = v(a')` via the closed form of `toExtRat'`.
   rw [PackedFloat.toExtRat_eq_toExtRat', PackedFloat.toExtRat_eq_toExtRat']
-  -- Reduce `smtBeq` to a comparison of the classification + `unpack`'s sign/num.
-  simp only [PackedFloat.smtBeq, EUnpackedFloat.smtBeq, PackedFloat.isNaN_unpack_eq_isNaN,
-    PackedFloat.isInfinite_unpack_eq_isInfinite, ha, hb, Bool.false_and, Bool.false_or,
-    Bool.and_false]
+  -- Reduce `ieeeBeq` to a comparison of the classification + `unpack`'s sign/num.
+  simp only [PackedFloat.ieeeBeq, EUnpackedFloat.ieeeBeq, PackedFloat.isNaN_unpack_eq_isNaN,
+    PackedFloat.isInfinite_unpack_eq_isInfinite, ha, hb, Bool.not_false, Bool.true_and,
+    Bool.false_and, Bool.false_or, Bool.and_false]
   by_cases hai : a.isInfinite <;> by_cases hbi : b.isInfinite
   · -- both infinite: `Infinity a.sign = Infinity b.sign ↔ a.sign = b.sign`
     have hua : a.unpack = EUnpackedFloat.mkInfinity a.sign := by simp [PackedFloat.unpack, ha, hai]
@@ -484,25 +485,11 @@ theorem smtBeq_iff_toExtRat_eq {e s : Nat} (a b : PackedFloat e s)
       simp only [EUnpackedFloat.num_mkNumber,
         UnpackedFloat.beq_iff_toRat_eq a.unpackNum b.unpackNum hams hbms, hra, hrb]
 
--- `smtBeq_iff_toExtRat_eq` is `sorry`-free: it rests only on the standard axioms.
+-- `ieeeBeq_iff_toExtRat_eq` is `sorry`-free: it rests only on the standard axioms.
 /--
-info: 'PackedFloat.smtBeq_iff_toExtRat_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'PackedFloat.ieeeBeq_iff_toExtRat_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
-#guard_msgs in #print axioms smtBeq_iff_toExtRat_eq
-
-/--
-**BTRW15 §V.B.2, `eq` relation (IEEE equality).** For non-NaN `a, b`, IEEE
-equality coincides with `eq` (the two differ only at NaN):
-`a.ieeeBeq b ↔ v(a) = v(b)`.
--/
-theorem ieeeBeq_iff_toExtRat_eq {e s : Nat} (a b : PackedFloat e s)
-    (ha : a.isNaN = false) (hb : b.isNaN = false) :
-    a.ieeeBeq b = true ↔ a.toExtRat = b.toExtRat := by
-  have h : a.ieeeBeq b = a.smtBeq b := by
-    simp only [PackedFloat.ieeeBeq, PackedFloat.smtBeq, EUnpackedFloat.ieeeBeq,
-      EUnpackedFloat.smtBeq, PackedFloat.isNaN_unpack_eq_isNaN, ha, hb]
-    grind
-  rw [h]; exact PackedFloat.smtBeq_iff_toExtRat_eq a b ha hb
+#guard_msgs in #print axioms ieeeBeq_iff_toExtRat_eq
 
 /--
 **BTRW15 §V.B.2, `lt` relation.** For non-NaN `a, b` and any `whenBothNaN`
@@ -551,7 +538,7 @@ theorem smtBlt_iff_toExtRat_lt {e s : Nat} (wbn : Bool) (a b : PackedFloat e s)
         ha', hb']
     simp [ExtRat.num_lt_num_iff]
 
--- `smtBlt_iff_toExtRat_lt` is `sorry`-free: like `smtBeq_iff_toExtRat_eq` it rests
+-- `smtBlt_iff_toExtRat_lt` is `sorry`-free: like `ieeeBeq_iff_toExtRat_eq` it rests
 -- only on the standard axioms.
 /--
 info: 'PackedFloat.smtBlt_iff_toExtRat_lt' depends on axioms: [propext, Classical.choice, Quot.sound]
