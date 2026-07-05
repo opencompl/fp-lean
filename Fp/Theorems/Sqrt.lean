@@ -53,6 +53,24 @@ theorem reconstruct_toNat {W len : Nat} (v : BitVec W) (h : len + 1 = W) :
   rw [Nat.mul_comm (v.toNat / 2) 2, ← Nat.two_pow_add_eq_or_of_lt hdlt (v.toNat / 2)]
   omega
 
+/-- Arithmetic-shifting the exponent right by one halves it (floor); the dropped bit is the
+exponent's parity: `2 · ⌊E/2⌋ = E - (E mod 2)`. -/
+theorem two_mul_sshiftRight_toInt {w : Nat} (hw : 0 < w) (x : BitVec w) :
+    2 * (x.sshiftRight 1).toInt = x.toInt - (if x.getLsbD 0 then 1 else 0) := by
+  rw [BitVec.toInt_sshiftRight, Int.shiftRight_eq_div_pow]
+  have hn : (2 : Nat) ^ w = 2 * 2 ^ (w - 1) := by
+    obtain ⟨v, rfl⟩ : ∃ v, w = v + 1 := ⟨w - 1, by omega⟩
+    simp only [Nat.add_sub_cancel, Nat.pow_succ]; omega
+  have htn : x.toInt % 2 = (x.toNat : Int) % 2 := by
+    rw [BitVec.toInt_eq_toNat_cond]; split <;> omega
+  have hb : x.toInt % 2 = ((x.toNat % 2 : Nat) : Int) := by rw [htn]; exact_mod_cast rfl
+  have hpar : x.toInt % 2 = (if x.getLsbD 0 then 1 else 0) := by
+    rw [BitVec.getLsbD, Nat.testBit_zero]
+    have hm : x.toNat % 2 = 0 ∨ x.toNat % 2 = 1 := by omega
+    rcases hm with h | h <;> rw [hb, h] <;> simp
+  have h21 : (2 : Int) ^ 1 = 2 := rfl
+  omega
+
 /-- Value/bracket characterization of `UnpackedFloat.sqrt` on a normalized input.  `m = ⌊√Xa⌋`
 where `Xa` is the doubled-width aligned significand; the significand is `2m + sticky`. -/
 theorem UnpackedFloat.sqrt_bracket {e s : Nat} (hs : 0 < s) (x : UnpackedFloat e s)
