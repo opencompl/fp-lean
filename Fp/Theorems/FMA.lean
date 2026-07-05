@@ -161,6 +161,11 @@ theorem inf_mul_number_eq {ein sin : Nat} {a : PackedFloat ein sin}
   simp only [hne, ↓reduceIte]
   rw [PackedFloat.sign_iff_toRat_neg ha]
 
+/-- `Infinity s1 * Infinity s2 = Infinity (s1 ^^ s2)`. -/
+theorem inf_mul_inf_eq (s1 s2 : Bool) :
+    ExtRat.Infinity s1 * ExtRat.Infinity s2 = ExtRat.Infinity (s1 ^^ s2) := by
+  rw [← ExtRat.mul_def]; rfl
+
 open SmtLibSemantics in
 /-- Passthrough helper when the fma value is a genuine infinity `Infinity xy` (the product
 is infinite and the addend cannot cancel it, except an opposite-signed infinite addend which
@@ -298,7 +303,51 @@ theorem fma_eq_fma {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
       PackedFloat.EquivUptoNaN.of_mkNaN_iff]
     rw [ExtRat.NaN_mul, ExtRat.ExtRat.NaN_add]
     exact isNaN_round_of_nan
-  case infCase signa => sorry
+  case infCase signa =>
+    have hainf : (PackedFloat.getInfinity ein sin signa).toExtRat' = ExtRat.Infinity signa :=
+      PackedFloat.toExtRat'_eq_Infinity_of_isInfinite _
+        (by simp [PackedFloat.isInfinite_getInfinity, hsin])
+    simp only [hsin, PackedFloat.isInfinite_getInfinity, decide_true, PackedFloat.unpack_getInfinity,
+      ↓reduceIte, EUnpackedFloat.isNaN_mkInfinity, EUnpackedFloat.isInfinite_mkInfinity,
+      EUnpackedFloat.isZero_mkInfinity, EUnpackedFloat.sign_num_mkInfinity, Bool.false_or,
+      Bool.or_false, Bool.true_and, Bool.and_false, Bool.false_and, Bool.true_or, cond_false]
+    rw [hainf]
+    cases b using PackedFloat.kindCasesNaNInfZeroNum
+    case nanCase hb =>
+      simp only [hb, PackedFloat.toExtRat'_eq_NaN_of_isNaN, PackedFloat.unpack_eq_NaN_of_isNaN,
+        EUnpackedFloat.isNaN_mkNaN, Bool.true_or, Bool.or_true, cond_true,
+        EUnpackedFloat.mkNaN_pack_eq_mkNaN, PackedFloat.EquivUptoNaN.of_mkNaN_iff]
+      rw [ExtRat.mul_NaN, ExtRat.ExtRat.NaN_add]
+      exact isNaN_round_of_nan
+    case infCase signb =>
+      have hbinf : (PackedFloat.getInfinity ein sin signb).toExtRat' = ExtRat.Infinity signb :=
+        PackedFloat.toExtRat'_eq_Infinity_of_isInfinite _
+          (by simp [PackedFloat.isInfinite_getInfinity, hsin])
+      simp only [hsin, PackedFloat.isInfinite_getInfinity, decide_true,
+        PackedFloat.unpack_getInfinity, ↓reduceIte, EUnpackedFloat.isNaN_mkInfinity,
+        EUnpackedFloat.isInfinite_mkInfinity, EUnpackedFloat.sign_num_mkInfinity,
+        EUnpackedFloat.isZero_mkInfinity, Bool.false_or, Bool.or_false, Bool.and_false,
+        Bool.false_and, Bool.true_or, cond_false]
+      rw [hbinf, inf_mul_inf_eq]
+      exact fmaInfAddPassthrough hsin he hep he0 rm hrm _ (signa ^^ signb) c
+    case zeroCase signb =>
+      simp only [PackedFloat.isZero_getZero, he0, PackedFloat.unpack_getZero, ↓reduceIte,
+        EUnpackedFloat.isNaN_mkZero, EUnpackedFloat.isInfinite_mkZero, EUnpackedFloat.isZero_mkZero,
+        Bool.false_or, Bool.or_false, Bool.or_true, Bool.true_or, Bool.and_true, Bool.true_and,
+        cond_true, EUnpackedFloat.mkNaN_pack_eq_mkNaN, PackedFloat.EquivUptoNaN.of_mkNaN_iff]
+      have hb0 : (PackedFloat.getZero ein sin signb).toExtRat' = ExtRat.Number 0 :=
+        PackedFloat.toExtRat'_eq_zero_of_isZero _ (by simp [PackedFloat.isZero_getZero, he0])
+      rw [hb0, ExtRat.inf_mul_zero_eq, ExtRat.ExtRat.NaN_add]
+      exact isNaN_round_of_nan
+    case numCase hb =>
+      have hbz : b.unpackNum.isZero = false := PackedFloat.isZero_unpackNum_eq_false b hb
+      simp only [PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm hb,
+        EUnpackedFloat.isNaN_mkNumber, EUnpackedFloat.isInfinite_mkNumber,
+        EUnpackedFloat.isZero_mkNumber, EUnpackedFloat.num_mkNumber, hbz,
+        PackedFloat.sign_unpackNormOrNonzeroSubnorm_eq_sign, Bool.false_or, Bool.or_false,
+        Bool.and_false, Bool.false_and, Bool.true_or, Bool.and_true, cond_false]
+      rw [b.toExtRat'_eq_toRat_of hb, inf_mul_number_eq hb signa]
+      exact fmaInfAddPassthrough hsin he hep he0 rm hrm _ (signa ^^ b.sign) c
   case zeroCase signa =>
     simp only [PackedFloat.isZero_getZero, he0, PackedFloat.unpack_getZero, ↓reduceIte,
       PackedFloat.sign_getZero, EUnpackedFloat.isNaN_mkZero, EUnpackedFloat.isInfinite_mkZero,
@@ -573,5 +622,10 @@ theorem fma_eq_fma {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
             exact UnpackedFloat.blastSmtLibRound_finite_of_RNE_of_stickyEquiv he hep hsin
               (by omega) (by omega) (UnpackedFloat.fma a.unpackNum b.unpackNum c.unpackNum) _ _
               hsumne hxnorm hsticky
+
+/--
+info: 'Fp.fma_eq_fma' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs (whitespace := lax) in #print axioms fma_eq_fma
 
 end Fp
