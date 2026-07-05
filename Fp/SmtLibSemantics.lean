@@ -438,6 +438,13 @@ def subSign (rm : RoundingMode) (f g : PackedFloat e s) : Bool :=
 def xorSign (f g : PackedFloat e s) : Bool :=
   f.sign != g.sign
 
+/-- Zero-sign for `fma x y z`: the exact product `x * y` carries the sign
+`xorSign x y`, and an exactly-zero result of `(x*y) + z` follows the same
+addition rule as `addSign` applied to that product and `z`. -/
+def fmaSign (rm : RoundingMode) (x y z : PackedFloat e s) : Bool :=
+  let xy := xorSign x y
+  if rm = .RTN then xy || z.sign else xy && z.sign
+
 section Operations
 
 variable {e s : Nat} {R : Type} [inst : ExtendedNumber R] (roundMethod : RoundMethod (PackedFloat e s) R)
@@ -482,6 +489,13 @@ def div [Div R] (x y : PackedFloat e s) : PackedFloat e s :=
         PackedFloat.getInfinity e s sign
       else
         roundMethod.round rm sign z
+
+def fma [Mul R] (x y z : PackedFloat e s) : PackedFloat e s :=
+      -- The intermediate product `x * y` is kept exactly (no rounding), so the
+      -- exact value fed to the single final rounding is `x * y + z`.
+      let v := ((roundMethod.embed x) * (roundMethod.embed y)) + (roundMethod.embed z)
+      let sign : Bool := fmaSign rm x y z
+      roundMethod.round rm sign v
 
 end Operations
 

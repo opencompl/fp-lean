@@ -29,21 +29,26 @@ def bleAux (xLEyOnDiffZeros : Bool) (x y : UnpackedFloat e s) : Bool :=
     BitVec.slt x.ex y.ex ||
     x.ex == y.ex && BitVec.ule x.sig y.sig
 
+/-- `smtBeq` is **bit-exact** equality: it compares the sign, exponent, and
+significand fields verbatim. This is the SMT-LIB core `=` on numbers, so it
+*distinguishes* `+0` from `-0` (their signs differ). -/
 @[bv_normalize]
-def structBeq (x y : UnpackedFloat e s) : Bool :=
+def smtBeq (x y : UnpackedFloat e s) : Bool :=
   x.sign == y.sign && x.ex == y.ex && x.sig == y.sig
 
+/-- `ieeeBeq` is **IEEE `fp.eq`** (numeric) equality: identical to `smtBeq`
+except that all zeros are equal (the `isZero && isZero` clause), so `+0 == -0`. -/
 @[bv_normalize]
-def beq (x y : UnpackedFloat e s) : Bool :=
+def ieeeBeq (x y : UnpackedFloat e s) : Bool :=
   (x.isZero && y.isZero) ||
   (x.sign == y.sign && x.ex == y.ex && x.sig == y.sig)
 
 @[simp]
-theorem beq_refl (uf : UnpackedFloat e s) : uf.beq uf := by
-  simp [UnpackedFloat.beq]
+theorem ieeeBeq_refl (uf : UnpackedFloat e s) : uf.ieeeBeq uf := by
+  simp [UnpackedFloat.ieeeBeq]
 
-theorem beq_symm (x y : UnpackedFloat e s) : x.beq y = y.beq x := by
-  simp [UnpackedFloat.beq]
+theorem ieeeBeq_symm (x y : UnpackedFloat e s) : x.ieeeBeq y = y.ieeeBeq x := by
+  simp [UnpackedFloat.ieeeBeq]
   grind only [=> toRat'_ne_zero_iff_not_isZero, => toRat'_eq_zero_iff_isZero]
 
 @[bv_normalize]
@@ -86,26 +91,32 @@ def bleAux (xLEyOnDiffZeros : Bool) (x y : EUnpackedFloat e s) : Bool :=
   else
     UnpackedFloat.bleAux xLEyOnDiffZeros x.num y.num
 
+/-- `smtBeq` is SMT-LIB core `=`: all NaNs are equal, infinities are equal iff
+same-signed, and finite values compare **bit-exactly** via `UnpackedFloat.smtBeq`
+(so `+0 ≠ -0`). Contrast `ieeeBeq` below, which is IEEE `fp.eq` (`+0 == -0`). -/
 @[bv_normalize]
 def smtBeq (x y : EUnpackedFloat e s) : Bool :=
   x.isNaN && y.isNaN ||
   x.isInfinite && y.isInfinite && x.sign == y.sign ||
-  !x.isNaN && !y.isNaN && !x.isInfinite && !y.isInfinite && UnpackedFloat.beq x.num y.num
+  !x.isNaN && !y.isNaN && !x.isInfinite && !y.isInfinite && UnpackedFloat.smtBeq x.num y.num
 
 @[simp]
 theorem smtBeq_refl (euf : EUnpackedFloat e s) : euf.smtBeq euf := by
-  simp [EUnpackedFloat.smtBeq]
+  simp [EUnpackedFloat.smtBeq, UnpackedFloat.smtBeq]
   grind only
 
 @[bv_normalize]
 def smtBne (x y : EUnpackedFloat e s) : Bool :=
   !smtBeq x y
 
+/-- `ieeeBeq` is IEEE `fp.eq`: NaN is never equal (even to itself), infinities
+are equal iff same-signed, and finite values compare via `UnpackedFloat.ieeeBeq`
+(numeric equality, so `+0 == -0`). Contrast `smtBeq` above (SMT core `=`). -/
 @[bv_normalize]
 def ieeeBeq (x y : EUnpackedFloat e s) : Bool :=
   !x.isNaN && !y.isNaN &&
   (x.isInfinite && y.isInfinite && x.sign == y.sign ||
-   !x.isInfinite && !y.isInfinite && UnpackedFloat.beq x.num y.num)
+   !x.isInfinite && !y.isInfinite && UnpackedFloat.ieeeBeq x.num y.num)
 
 @[bv_normalize]
 def bgeAux (xGEyOnDiffZeros : Bool) (x y : EUnpackedFloat e s) : Bool :=

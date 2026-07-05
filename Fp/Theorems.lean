@@ -5,6 +5,7 @@ import Fp.Theorems.PackedFloat.Packing
 import Fp.Theorems.PackedFloat.Ordering
 import Fp.Theorems.PackedFloat.Comparison
 import Fp.Theorems.PackedFloat.Convert
+import Fp.Theorems.PackedFloat.MinMax
 import Fp.Theorems.SmtLibSemanticsQ
 import Fp.Theorems.LowerUpperRound
 import Fp.Theorems.UnpackedFloat.Round
@@ -12,3 +13,4 @@ import Fp.Theorems.Multiplication
 import Fp.Theorems.Addition
 import Fp.Theorems.DivisionFixed
 import Fp.Theorems.Division
+import Fp.Theorems.FMA
