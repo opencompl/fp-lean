@@ -141,6 +141,62 @@ end UnpackedFloat
 
 namespace Fp
 
+open SmtLibSemantics in
+/-- Passthrough helper: when the fma value collapses to `Number 0 + c` (one factor is a
+zero, so the exact product is `0`), the circuit returns `z = c.unpack` (branching only on
+`c`'s kind) and the spec rounds `c`'s value. Used by the `zeroCase` special-value leaves. -/
+theorem fmaZeroAddPassthrough {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ein)
+    (he0 : 0 < ein) (rm : RoundingMode) (hrm : rm = .RNE) (xy : Bool) (c : PackedFloat ein sin) :
+    ((smtLibRoundMethod ein sin smtLibV smtLibV).round rm
+        (if rm = .RTN then xy || c.sign else xy && c.sign) (ExtRat.Number 0 + c.toExtRat')).EquivUptoNaN
+      ((bif c.unpack.isNaN then EUnpackedFloat.mkNaN
+        else bif c.unpack.isInfinite then
+          EUnpackedFloat.mkInfinity (bif c.unpack.isInfinite then c.unpack.sign else xy)
+        else bif c.unpack.isZero then
+          EUnpackedFloat.mkZero (bif xy == c.unpack.sign then c.unpack.sign else rm == .RTN)
+        else c.unpack).pack) := by
+  cases c using PackedFloat.kindCasesNaNInfZeroNum
+  case nanCase hc =>
+    simp only [hc, PackedFloat.toExtRat'_eq_NaN_of_isNaN, PackedFloat.unpack_eq_NaN_of_isNaN,
+      EUnpackedFloat.isNaN_mkNaN, cond_true, EUnpackedFloat.mkNaN_pack_eq_mkNaN,
+      PackedFloat.EquivUptoNaN.of_mkNaN_iff]
+    rw [ExtRat.ExtRat.add_NaN]
+    exact isNaN_round_of_nan
+  case infCase signc =>
+    simp only [hsin, PackedFloat.isInfinite_getInfinity, decide_true,
+      PackedFloat.unpack_getInfinity, ↓reduceIte, PackedFloat.sign_getInfinity,
+      EUnpackedFloat.isNaN_mkInfinity, EUnpackedFloat.isInfinite_mkInfinity,
+      EUnpackedFloat.sign_mkInfinity, cond_true, EUnpackedFloat.mkInfinity_pack_eq_getInfinity]
+    have hvinf : (PackedFloat.getInfinity ein sin signc).toExtRat' = ExtRat.Infinity signc :=
+      PackedFloat.toExtRat'_eq_Infinity_of_isInfinite _
+        (by simp [PackedFloat.isInfinite_getInfinity, hsin])
+    have hval : ExtRat.Number 0 + ExtRat.Infinity signc = ExtRat.Infinity signc := by
+      rw [← ExtRat.ExtRat.add_def]; unfold ExtRat.add; grind [ExtRat]
+    rw [hvinf, hval]
+    apply PackedFloat.EquivUptoNaN.of_eq
+    simp [roundQ_eq_round_of_Infinity he0 hsin]
+  case zeroCase signc =>
+    simp only [PackedFloat.isZero_getZero, he0, PackedFloat.unpack_getZero, ↓reduceIte,
+      PackedFloat.sign_getZero, EUnpackedFloat.isNaN_mkZero, EUnpackedFloat.isInfinite_mkZero,
+      EUnpackedFloat.isZero_mkZero, cond_false, cond_true]
+    have hv0 : (PackedFloat.getZero ein sin signc).toExtRat' = ExtRat.Number 0 :=
+      PackedFloat.toExtRat'_eq_zero_of_isZero _ (by simp [PackedFloat.isZero_getZero, he0])
+    rw [hv0, ExtRat.ExtRat.add_Number, Rat.add_zero, round_eq_mkZero_of_mkZero he0,
+      EUnpackedFloat.mkZero_pack_eq_getZero]
+    apply PackedFloat.EquivUptoNaN.of_eq
+    subst hrm
+    grind
+  case numCase hc =>
+    have hcz : c.unpackNum.isZero = false := PackedFloat.isZero_unpackNum_eq_false c hc
+    rw [c.toExtRat'_eq_toRat_of hc, ExtRat.ExtRat.add_Number, Rat.zero_add,
+      round_number_toRat_eq_self he0 hsin rm _ c hc,
+      PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm hc]
+    simp only [EUnpackedFloat.isNaN_mkNumber, EUnpackedFloat.isInfinite_mkNumber,
+      EUnpackedFloat.isZero_mkNumber, hcz, Bool.false_eq_true, cond_false]
+    apply PackedFloat.EquivUptoNaN.of_eq
+    rw [← PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm hc]
+    exact (PackedFloat.unpack_pack_eq_self_of_isNormOrNonzeroSubnorm he hsin c hc).symm
+
 set_option maxHeartbeats 1000000 in
 theorem fma_eq_fma {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ein)
     (rm : RoundingMode) (hrm : rm = .RNE) (a b c : PackedFloat ein sin) :
@@ -161,7 +217,52 @@ theorem fma_eq_fma {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
     rw [ExtRat.NaN_mul, ExtRat.ExtRat.NaN_add]
     exact isNaN_round_of_nan
   case infCase signa => sorry
-  case zeroCase signa => sorry
+  case zeroCase signa =>
+    simp only [PackedFloat.isZero_getZero, he0, PackedFloat.unpack_getZero, ↓reduceIte,
+      PackedFloat.sign_getZero, EUnpackedFloat.isNaN_mkZero, EUnpackedFloat.isInfinite_mkZero,
+      EUnpackedFloat.isZero_mkZero, EUnpackedFloat.mkZero_num_sign,
+      Bool.false_or, Bool.or_false, Bool.true_and, Bool.and_false, Bool.false_and, Bool.true_or,
+      cond_false]
+    have ha0 : (PackedFloat.getZero ein sin signa).toExtRat' = ExtRat.Number 0 :=
+      PackedFloat.toExtRat'_eq_zero_of_isZero _ (by simp [PackedFloat.isZero_getZero, he0])
+    rw [ha0]
+    cases b using PackedFloat.kindCasesNaNInfZeroNum
+    case nanCase hb =>
+      simp only [hb, PackedFloat.toExtRat'_eq_NaN_of_isNaN, PackedFloat.unpack_eq_NaN_of_isNaN,
+        EUnpackedFloat.isNaN_mkNaN, Bool.true_or, Bool.or_true, cond_true,
+        EUnpackedFloat.mkNaN_pack_eq_mkNaN, PackedFloat.EquivUptoNaN.of_mkNaN_iff]
+      rw [ExtRat.mul_NaN, ExtRat.ExtRat.NaN_add]
+      exact isNaN_round_of_nan
+    case infCase signb =>
+      simp only [hsin, PackedFloat.isInfinite_getInfinity, decide_true, PackedFloat.unpack_getInfinity,
+        ↓reduceIte, EUnpackedFloat.isInfinite_mkInfinity, EUnpackedFloat.isNaN_mkInfinity,
+        Bool.and_true, Bool.or_true, Bool.true_or, cond_true, EUnpackedFloat.mkNaN_pack_eq_mkNaN,
+        PackedFloat.EquivUptoNaN.of_mkNaN_iff]
+      have hbinf : (PackedFloat.getInfinity ein sin signb).toExtRat' = ExtRat.Infinity signb :=
+        PackedFloat.toExtRat'_eq_Infinity_of_isInfinite _
+          (by simp [PackedFloat.isInfinite_getInfinity, hsin])
+      rw [hbinf, ExtRat.zero_mul_inf_eq, ExtRat.ExtRat.NaN_add]
+      exact isNaN_round_of_nan
+    case zeroCase signb =>
+      have hbz0 : (PackedFloat.getZero ein sin signb).toExtRat' = ExtRat.Number 0 :=
+        PackedFloat.toExtRat'_eq_zero_of_isZero _ (by simp [PackedFloat.isZero_getZero, he0])
+      simp only [PackedFloat.isZero_getZero, he0, PackedFloat.unpack_getZero, ↓reduceIte,
+        PackedFloat.sign_getZero, EUnpackedFloat.isNaN_mkZero, EUnpackedFloat.isInfinite_mkZero,
+        EUnpackedFloat.isZero_mkZero, EUnpackedFloat.mkZero_num_sign, Bool.or_self, Bool.false_and,
+        Bool.and_false, Bool.false_or, Bool.or_false, Bool.true_and, Bool.and_true,
+        Bool.false_eq_true, cond_false, cond_true]
+      rw [hbz0, ExtRat.number_mul_number_eq, Rat.mul_zero]
+      exact fmaZeroAddPassthrough hsin he hep he0 rm hrm (signa ^^ signb) c
+    case numCase hb =>
+      have hbz : b.unpackNum.isZero = false := PackedFloat.isZero_unpackNum_eq_false b hb
+      simp only [PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm hb,
+        EUnpackedFloat.isNaN_mkNumber, EUnpackedFloat.isInfinite_mkNumber,
+        EUnpackedFloat.isZero_mkNumber, EUnpackedFloat.num_mkNumber, hbz, Bool.or_self,
+        Bool.false_and, Bool.and_false, Bool.false_or, Bool.or_false, Bool.true_and, Bool.and_true,
+        Bool.false_eq_true, cond_false, cond_true,
+        PackedFloat.sign_unpackNormOrNonzeroSubnorm_eq_sign]
+      rw [b.toExtRat'_eq_toRat_of hb, ExtRat.number_mul_number_eq, Rat.zero_mul]
+      exact fmaZeroAddPassthrough hsin he hep he0 rm hrm (signa ^^ b.sign) c
   case numCase ha =>
     rw [PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm ha, a.toExtRat'_eq_toRat_of ha]
     cases b using PackedFloat.kindCasesNaNInfZeroNum
