@@ -90,11 +90,14 @@ def bleAux (xLEyOnDiffZeros : Bool) (x y : EUnpackedFloat e s) : Bool :=
 def smtBeq (x y : EUnpackedFloat e s) : Bool :=
   x.isNaN && y.isNaN ||
   x.isInfinite && y.isInfinite && x.sign == y.sign ||
-  !x.isNaN && !y.isNaN && !x.isInfinite && !y.isInfinite && UnpackedFloat.beq x.num y.num
+  -- SMT-LIB core `=` is bit-exact on finite values, so it distinguishes +0 from
+  -- -0 (unlike IEEE `fp.eq` / `ieeeBeq`). Use `structBeq` (which compares the
+  -- sign too), not `beq`, whose `isZero && isZero` clause collapses signed zeros.
+  !x.isNaN && !y.isNaN && !x.isInfinite && !y.isInfinite && UnpackedFloat.structBeq x.num y.num
 
 @[simp]
 theorem smtBeq_refl (euf : EUnpackedFloat e s) : euf.smtBeq euf := by
-  simp [EUnpackedFloat.smtBeq]
+  simp [EUnpackedFloat.smtBeq, UnpackedFloat.structBeq]
   grind only
 
 @[bv_normalize]
