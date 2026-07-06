@@ -17,3 +17,4 @@ import Fp.Theorems.Subtraction
 import Fp.Theorems.DivisionFixed
 import Fp.Theorems.Division
 import Fp.Theorems.FMA
+import Fp.Theorems.Sqrt
