@@ -233,9 +233,11 @@ def smtMin (xOnDiffZeros : Bool) (x y : PackedFloat e s) : PackedFloat e s :=
 def smtMax (xOnDiffZeros : Bool) (x y : PackedFloat e s) : PackedFloat e s :=
   maxAux xOnDiffZeros x y
 
+@[bv_normalize]
 def smtIsNeg (x : PackedFloat e s) : Bool :=
   !x.isNaN && x.sign
 
+@[bv_normalize]
 def smtIsPos (x : PackedFloat e s) : Bool :=
   !x.isNaN && !x.sign
 
