@@ -1775,7 +1775,7 @@ addition followed by SMT-LIB rounding) agrees with the bit-blasted
 
 set_option maxHeartbeats 1000000 in
 theorem add_eq_add {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ein)
-    (rm : RoundingMode) (hrm : rm = .RNE) (a b : PackedFloat ein sin) :
+    (rm : RoundingMode) (a b : PackedFloat ein sin) :
     (Fp.SmtLibSemantics.SmtLibFunctions.add (Fp.SmtLibSemanticsQ.smtLibRoundMethodQ ein sin) rm a b).EquivUptoNaN
       (PackedFloat.add rm a b) := by
   have he0 : 0 < ein := by grind
@@ -1885,18 +1885,15 @@ theorem add_eq_add {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
       rw [round_eq_mkZero_of_mkZero he0]
       simp only [EUnpackedFloat.num_mkZero]
       rw [UnpackedFloat.smtBeq_mkZero_neg_mkZero]
-      subst hrm
       by_cases hsign : signa = !signb
       · simp only [hsign, beq_self_eq_true, cond_true, EUnpackedFloat.mkZero_pack_eq_getZero]
         apply PackedFloat.EquivUptoNaN.of_eq
-        simp [SmtLibSemantics.SmtLibFunctions.addSign]
-        grind
+        cases rm <;> simp [SmtLibSemantics.SmtLibFunctions.addSign, hsign] <;> grind
       · have : (signa == !signb) = false := by grind
         simp only [this, cond_false, EUnpackedFloat.isZero_mkZero, cond_true,
           EUnpackedFloat.mkZero_pack_eq_getZero]
         apply PackedFloat.EquivUptoNaN.of_eq
-        simp [SmtLibSemantics.SmtLibFunctions.addSign]
-        grind
+        cases rm <;> simp [SmtLibSemantics.SmtLibFunctions.addSign] <;> grind
     case numCase hb =>
       rw [PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm hb,
         b.toExtRat'_eq_toRat_of hb]
@@ -1999,9 +1996,7 @@ theorem add_eq_add {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
         rw [hsum0, round_eq_mkZero_of_mkZero he0]
         simp only [hcancel, cond_true, EUnpackedFloat.mkZero_pack_eq_getZero]
         apply PackedFloat.EquivUptoNaN.of_eq
-        subst hrm
-        simp [SmtLibSemantics.SmtLibFunctions.addSign, hsigns]
-        rfl
+        cases rm <;> simp [SmtLibSemantics.SmtLibFunctions.addSign, hsigns] <;> grind
       · -- The interesting case: a genuine nonzero sum, rounded by the circuit.
         have hsumne : a.toRat + b.toRat ≠ 0 := by
           have h := UnpackedFloat.toRat_add_toRat_ne_zero_of_not_smtBeq_neg
@@ -2017,7 +2012,6 @@ theorem add_eq_add {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
           PackedFloat.isZero_unpackNum_eq_false b (by grind)
         simp only [hcancel, cond_false, EUnpackedFloat.isZero_mkNumber, hazero, hbzero]
         rw [PackedFloat.EquivUptoNaN_symm, EUnpackedFloat.pack_eq_pack']
-        subst hrm
         -- Mirror of the `div_eq_div` call site: the bit-blasted rounder output is `Packable`
         -- (normalized + in-range) and the SMT spec result is finite, both discharged by the
         -- `blastSmtLibRound` analogues of the lemmas used at sites 1/2.
@@ -2029,14 +2023,14 @@ theorem add_eq_add {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
           UnpackedFloat.unpackNum_add_unpackNum_stickyEquiv hsin he ha hb hsumne
         refine EUnpackedFloat.pack'_EquivUptoNaN_of_Rel he hsin _ _ ?hrel ?hpack ?hpf
         case hrel =>
-          exact UnpackedFloat.blastSmtLibRound_Rel_round_of_RNE_of_stickyEquiv he hep hsin
+          exact UnpackedFloat.blastSmtLibRound_Rel_round_of_stickyEquiv rm he hep hsin
             (eu := exponentWidth ein sin + 1) (su := sin + 1 + 2) (by omega) (by omega)
             (a.unpackNum.add b.unpackNum) _ _ hsumne hxnorm hsticky
         case hpack =>
-          exact UnpackedFloat.blastSmtLibRound_Packable_of_RNE hep hsin (by omega) (by omega)
+          exact UnpackedFloat.blastSmtLibRound_Packable rm hep hsin (by omega) (by omega)
             (a.unpackNum.add b.unpackNum) hxnorm
         case hpf =>
-          exact UnpackedFloat.blastSmtLibRound_finite_of_RNE_of_stickyEquiv he hep hsin
+          exact UnpackedFloat.blastSmtLibRound_finite_of_stickyEquiv rm he hep hsin
             (by omega) (by omega) (a.unpackNum.add b.unpackNum) _ _ hsumne hxnorm hsticky
 
 /--

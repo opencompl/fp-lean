@@ -171,7 +171,7 @@ open SmtLibSemantics in
 is infinite and the addend cannot cancel it, except an opposite-signed infinite addend which
 yields NaN). Used by the `infCase` special-value leaves. -/
 theorem fmaInfAddPassthrough {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ein)
-    (he0 : 0 < ein) (rm : RoundingMode) (hrm : rm = .RNE) (sgn xy : Bool) (c : PackedFloat ein sin) :
+    (he0 : 0 < ein) (rm : RoundingMode) (sgn xy : Bool) (c : PackedFloat ein sin) :
     ((smtLibRoundMethod ein sin smtLibV smtLibV).round rm sgn
         (ExtRat.Infinity xy + c.toExtRat')).EquivUptoNaN
       ((bif c.unpack.isNaN || c.unpack.isInfinite && (xy != c.unpack.sign) then EUnpackedFloat.mkNaN
@@ -233,7 +233,7 @@ open SmtLibSemantics in
 zero, so the exact product is `0`), the circuit returns `z = c.unpack` (branching only on
 `c`'s kind) and the spec rounds `c`'s value. Used by the `zeroCase` special-value leaves. -/
 theorem fmaZeroAddPassthrough {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ein)
-    (he0 : 0 < ein) (rm : RoundingMode) (hrm : rm = .RNE) (xy : Bool) (c : PackedFloat ein sin) :
+    (he0 : 0 < ein) (rm : RoundingMode) (xy : Bool) (c : PackedFloat ein sin) :
     ((smtLibRoundMethod ein sin smtLibV smtLibV).round rm
         (if rm = .RTN then xy || c.sign else xy && c.sign) (ExtRat.Number 0 + c.toExtRat')).EquivUptoNaN
       ((bif c.unpack.isNaN then EUnpackedFloat.mkNaN
@@ -271,8 +271,7 @@ theorem fmaZeroAddPassthrough {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (h
     rw [hv0, ExtRat.ExtRat.add_Number, Rat.add_zero, round_eq_mkZero_of_mkZero he0,
       EUnpackedFloat.mkZero_pack_eq_getZero]
     apply PackedFloat.EquivUptoNaN.of_eq
-    subst hrm
-    grind
+    cases rm <;> grind
   case numCase hc =>
     have hcz : c.unpackNum.isZero = false := PackedFloat.isZero_unpackNum_eq_false c hc
     rw [c.toExtRat'_eq_toRat_of hc, ExtRat.ExtRat.add_Number, Rat.zero_add,
@@ -286,7 +285,7 @@ theorem fmaZeroAddPassthrough {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (h
 
 set_option maxHeartbeats 1000000 in
 theorem fma_eq_fma {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ein)
-    (rm : RoundingMode) (hrm : rm = .RNE) (a b c : PackedFloat ein sin) :
+    (rm : RoundingMode) (a b c : PackedFloat ein sin) :
     (Fp.SmtLibSemantics.SmtLibFunctions.fma (Fp.SmtLibSemanticsQ.smtLibRoundMethodQ ein sin) rm a b c).EquivUptoNaN
       (PackedFloat.fma rm a b c) := by
   have he0 : 0 < ein := by grind
@@ -329,7 +328,7 @@ theorem fma_eq_fma {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
         EUnpackedFloat.isZero_mkInfinity, Bool.false_or, Bool.or_false, Bool.and_false,
         Bool.false_and, Bool.true_or, cond_false]
       rw [hbinf, inf_mul_inf_eq]
-      exact fmaInfAddPassthrough hsin he hep he0 rm hrm _ (signa ^^ signb) c
+      exact fmaInfAddPassthrough hsin he hep he0 rm _ (signa ^^ signb) c
     case zeroCase signb =>
       simp only [PackedFloat.isZero_getZero, he0, PackedFloat.unpack_getZero, ↓reduceIte,
         EUnpackedFloat.isNaN_mkZero, EUnpackedFloat.isInfinite_mkZero, EUnpackedFloat.isZero_mkZero,
@@ -347,7 +346,7 @@ theorem fma_eq_fma {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
         PackedFloat.sign_unpackNormOrNonzeroSubnorm_eq_sign, Bool.false_or, Bool.or_false,
         Bool.and_false, Bool.false_and, Bool.true_or, Bool.and_true, cond_false]
       rw [b.toExtRat'_eq_toRat_of hb, inf_mul_number_eq hb signa]
-      exact fmaInfAddPassthrough hsin he hep he0 rm hrm _ (signa ^^ b.sign) c
+      exact fmaInfAddPassthrough hsin he hep he0 rm _ (signa ^^ b.sign) c
   case zeroCase signa =>
     simp only [PackedFloat.isZero_getZero, he0, PackedFloat.unpack_getZero, ↓reduceIte,
       PackedFloat.sign_getZero, EUnpackedFloat.isNaN_mkZero, EUnpackedFloat.isInfinite_mkZero,
@@ -383,7 +382,7 @@ theorem fma_eq_fma {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
         Bool.and_false, Bool.false_or, Bool.or_false, Bool.true_and, Bool.and_true,
         Bool.false_eq_true, cond_false, cond_true]
       rw [hbz0, ExtRat.number_mul_number_eq, Rat.mul_zero]
-      exact fmaZeroAddPassthrough hsin he hep he0 rm hrm (signa ^^ signb) c
+      exact fmaZeroAddPassthrough hsin he hep he0 rm (signa ^^ signb) c
     case numCase hb =>
       have hbz : b.unpackNum.isZero = false := PackedFloat.isZero_unpackNum_eq_false b hb
       simp only [PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm hb,
@@ -393,7 +392,7 @@ theorem fma_eq_fma {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
         Bool.false_eq_true, cond_false, cond_true,
         PackedFloat.sign_unpackNormOrNonzeroSubnorm_eq_sign]
       rw [b.toExtRat'_eq_toRat_of hb, ExtRat.number_mul_number_eq, Rat.zero_mul]
-      exact fmaZeroAddPassthrough hsin he hep he0 rm hrm (signa ^^ b.sign) c
+      exact fmaZeroAddPassthrough hsin he hep he0 rm (signa ^^ b.sign) c
   case numCase ha =>
     rw [PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm ha, a.toExtRat'_eq_toRat_of ha]
     cases b using PackedFloat.kindCasesNaNInfZeroNum
@@ -417,7 +416,7 @@ theorem fma_eq_fma {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
         PackedFloat.toExtRat'_eq_Infinity_of_isInfinite _
           (by simp [PackedFloat.isInfinite_getInfinity, hsin])
       rw [hbinf, number_mul_inf_eq ha signb]
-      exact fmaInfAddPassthrough hsin he hep he0 rm hrm _ (a.sign ^^ signb) c
+      exact fmaInfAddPassthrough hsin he hep he0 rm _ (a.sign ^^ signb) c
     case zeroCase signb =>
       have haz : a.unpackNum.isZero = false := PackedFloat.isZero_unpackNum_eq_false a ha
       simp only [PackedFloat.isZero_getZero, he0,
@@ -461,9 +460,8 @@ theorem fma_eq_fma {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
         rw [hv0, ExtRat.ExtRat.add_Number, Rat.add_zero, round_eq_mkZero_of_mkZero he0,
           EUnpackedFloat.mkZero_pack_eq_getZero]
         apply PackedFloat.EquivUptoNaN.of_eq
-        subst hrm
         have h1 := PackedFloat.sign_unpackNormOrNonzeroSubnorm_eq_sign a
-        grind
+        cases rm <;> grind
       case numCase hc =>
         have hcz : c.unpackNum.isZero = false := PackedFloat.isZero_unpackNum_eq_false c hc
         rw [c.toExtRat'_eq_toRat_of hc, ExtRat.ExtRat.add_Number, Rat.zero_add,
@@ -525,17 +523,16 @@ theorem fma_eq_fma {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
             ((a.unpackNum.mul b.unpackNum).toRat) (a.toRat * b.toRat) := by
           rw [hmulrat]; exact StickyEquiv.rfl
         rw [PackedFloat.EquivUptoNaN_symm, EUnpackedFloat.pack_eq_pack']
-        subst hrm
         refine EUnpackedFloat.pack'_EquivUptoNaN_of_Rel he hsin _ _ ?hrel ?hpack ?hpf
         case hrel =>
-          exact UnpackedFloat.blastSmtLibRound_Rel_round_of_RNE_of_stickyEquiv he hep hsin
+          exact UnpackedFloat.blastSmtLibRound_Rel_round_of_stickyEquiv rm he hep hsin
             (eu := exponentWidth ein sin + 1) (su := 2 * (sin + 1)) (by omega) (by omega)
             (a.unpackNum.mul b.unpackNum) _ _ hne hxnorm hsticky
         case hpack =>
-          exact UnpackedFloat.blastSmtLibRound_Packable_of_RNE hep hsin (by omega) (by omega)
+          exact UnpackedFloat.blastSmtLibRound_Packable rm hep hsin (by omega) (by omega)
             (a.unpackNum.mul b.unpackNum) hxnorm
         case hpf =>
-          exact UnpackedFloat.blastSmtLibRound_finite_of_RNE_of_stickyEquiv he hep hsin
+          exact UnpackedFloat.blastSmtLibRound_finite_of_stickyEquiv rm he hep hsin
             (by omega) (by omega) (a.unpackNum.mul b.unpackNum) _ _ hne hxnorm hsticky
       case numCase hc =>
         rw [PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm hc, c.toExtRat'_eq_toRat_of hc]
@@ -581,14 +578,13 @@ theorem fma_eq_fma {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
           rw [hsum0, round_eq_mkZero_of_mkZero he0]
           simp only [hcancel, cond_true, EUnpackedFloat.mkZero_pack_eq_getZero]
           apply PackedFloat.EquivUptoNaN.of_eq
-          subst hrm
           have hsg := hcancel
           simp only [UnpackedFloat.smtBeq, Bool.and_eq_true, beq_iff_eq,
             UnpackedFloat.mul_sign, UnpackedFloat.sign_extendWidths, UnpackedFloat.neg] at hsg
           have h1 := PackedFloat.sign_unpackNormOrNonzeroSubnorm_eq_sign a
           have h2 := PackedFloat.sign_unpackNormOrNonzeroSubnorm_eq_sign b
           have h3 := PackedFloat.sign_unpackNormOrNonzeroSubnorm_eq_sign c
-          grind
+          cases rm <;> grind
         · -- genuine nonzero fma, rounded by the circuit
           have hsumne : a.toRat * b.toRat + c.toRat ≠ 0 := by
             have h := UnpackedFloat.toRat_add_toRat_ne_zero_of_not_smtBeq_neg
@@ -609,17 +605,16 @@ theorem fma_eq_fma {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
           rw [Bool.not_eq_true] at hcancel
           rw [hcancel, cond_false]
           rw [PackedFloat.EquivUptoNaN_symm, EUnpackedFloat.pack_eq_pack']
-          subst hrm
           refine EUnpackedFloat.pack'_EquivUptoNaN_of_Rel he hsin _ _ ?hrel ?hpack ?hpf
           case hrel =>
-            exact UnpackedFloat.blastSmtLibRound_Rel_round_of_RNE_of_stickyEquiv he hep hsin
+            exact UnpackedFloat.blastSmtLibRound_Rel_round_of_stickyEquiv rm he hep hsin
               (eu := exponentWidth ein sin + 2) (su := 2 * (sin + 1) + 2) (by omega) (by omega)
               (UnpackedFloat.fma a.unpackNum b.unpackNum c.unpackNum) _ _ hsumne hxnorm hsticky
           case hpack =>
-            exact UnpackedFloat.blastSmtLibRound_Packable_of_RNE hep hsin (by omega) (by omega)
+            exact UnpackedFloat.blastSmtLibRound_Packable rm hep hsin (by omega) (by omega)
               (UnpackedFloat.fma a.unpackNum b.unpackNum c.unpackNum) hxnorm
           case hpf =>
-            exact UnpackedFloat.blastSmtLibRound_finite_of_RNE_of_stickyEquiv he hep hsin
+            exact UnpackedFloat.blastSmtLibRound_finite_of_stickyEquiv rm he hep hsin
               (by omega) (by omega) (UnpackedFloat.fma a.unpackNum b.unpackNum c.unpackNum) _ _
               hsumne hxnorm hsticky
 

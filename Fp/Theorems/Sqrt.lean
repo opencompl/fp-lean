@@ -309,7 +309,7 @@ definitionally and the number leaf is discharged by the shared rounding bridge
 (`toExtRat_round_Rel_smtLibRound_of_RNE`) plus `pack'_EquivUptoNaN_of_Rel`.
 -/
 theorem sqrt_eq_sqrt {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ein)
-    (rm : RoundingMode) (hrm : rm = .RNE) (a : PackedFloat ein sin) :
+    (rm : RoundingMode) (a : PackedFloat ein sin) :
     (sqrtSpec rm a).EquivUptoNaN (_root_.sqrt a rm) := by
   rw [sqrtSpec, _root_.sqrt]
   by_cases h1 : a.isZero = true
@@ -328,7 +328,6 @@ theorem sqrt_eq_sqrt {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < 
             (by grind) (by grind) (by grind)
         rw [PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm ha,
           EUnpackedFloat.num_mkNumber, roundQ_eq]
-        subst hrm
         obtain ⟨m, Xa, -, -, -, hvsign, -, -, hvmsb⟩ :=
           UnpackedFloat.sqrt_bracket (by omega) a.unpackNum (PackedFloat.msb_unpackNum_eq_true ha)
         have hxnorm : (UnpackedFloat.sqrt a.unpackNum).normalize
@@ -337,7 +336,7 @@ theorem sqrt_eq_sqrt {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < 
         rw [PackedFloat.EquivUptoNaN_symm, EUnpackedFloat.pack_eq_pack']
         refine EUnpackedFloat.pack'_EquivUptoNaN_of_Rel (by grind) (by grind) _ _ ?hrel ?hpack ?hpf
         case hrel =>
-          apply UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
+          apply UnpackedFloat.toExtRat_round_Rel_smtLibRound rm
           · exact he
           · exact hep
           · exact hsin
@@ -347,10 +346,10 @@ theorem sqrt_eq_sqrt {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < 
           · rfl
           · exact hxnorm
         case hpack =>
-          exact UnpackedFloat.blastSmtLibRound_Packable_of_RNE hep hsin
+          exact UnpackedFloat.blastSmtLibRound_Packable rm hep hsin
             (Nat.le_refl _) (by omega) _ hxnorm
         case hpf =>
-          apply UnpackedFloat.blastSmtLibRound_finite_of_RNE
+          apply UnpackedFloat.blastSmtLibRound_finite rm
           · exact he
           · exact hep
           · exact hsin
