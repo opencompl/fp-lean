@@ -422,7 +422,7 @@ The bridge's width side conditions `exponentWidth ein sin ≤ eu` and
 -/
 set_option maxHeartbeats 1000000 in
 theorem div_eq_div {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ein)
-    (rm : RoundingMode) (hrm : rm = .RNE) (a b : PackedFloat ein sin) :
+    (rm : RoundingMode) (a b : PackedFloat ein sin) :
     (Fp.SmtLibSemantics.SmtLibFunctions.div
         (Fp.SmtLibSemanticsQ.smtLibRoundMethodQ ein sin) rm a b).EquivUptoNaN
       (PackedFloat.div rm a b) := by
@@ -696,7 +696,6 @@ theorem div_eq_div {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
       -- sticky bridge** `blastSmtLibRound_Rel_round_of_RNE_of_stickyEquiv` rather than
       -- the exact-rounding route. There is no cancellation sub-case: a quotient of
       -- nonzero finite numbers is always nonzero.
-      subst hrm
       have hbz : b.toRat ≠ 0 := b.toRat_ne_zero hb
       have haz : a.toRat ≠ 0 := a.toRat_ne_zero ha
       have hanz : ¬ a.isZero := by grind
@@ -739,14 +738,14 @@ theorem div_eq_div {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
         UnpackedFloat.unpackNum_div_unpackNum_stickyEquiv hsin ha hb
       refine EUnpackedFloat.pack'_EquivUptoNaN_of_Rel he hsin _ _ ?hrel ?hpack ?hpf
       case hrel =>
-        exact UnpackedFloat.blastSmtLibRound_Rel_round_of_RNE_of_stickyEquiv he hep hsin
+        exact UnpackedFloat.blastSmtLibRound_Rel_round_of_stickyEquiv rm he hep hsin
           (eu := exponentWidth ein sin + 1) (su := sin + 1 + 2) (by omega) (by omega)
           (a.unpackNum.div b.unpackNum) _ _ hqne hxnorm hsticky
       case hpack =>
-        exact UnpackedFloat.blastSmtLibRound_Packable_of_RNE hep hsin (by omega) (by omega)
+        exact UnpackedFloat.blastSmtLibRound_Packable rm hep hsin (by omega) (by omega)
           (a.unpackNum.div b.unpackNum) hxnorm
       case hpf =>
-        exact UnpackedFloat.blastSmtLibRound_finite_of_RNE_of_stickyEquiv he hep hsin
+        exact UnpackedFloat.blastSmtLibRound_finite_of_stickyEquiv rm he hep hsin
           (by omega) (by omega) (a.unpackNum.div b.unpackNum) _ _ hqne hxnorm hsticky
 
 /-- info: 'Fp.div_eq_div' depends on axioms: [propext, Classical.choice, Quot.sound] -/

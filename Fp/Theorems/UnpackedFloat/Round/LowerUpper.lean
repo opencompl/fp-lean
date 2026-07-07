@@ -2700,6 +2700,31 @@ theorem EUnpackedFloat.neg_Packable {e s : Nat} {euf : EUnpackedFloat (exponentW
   have := h hstate'
   simpa [EUnpackedFloat.neg] using UnpackedFloat.neg_Packable this
 
+/-- Sign-generic form of `maxNormal_Packable`: `Packable` is sign-independent (it constrains
+only `normalize`/`ex`/`sig`), so it holds for either sign. Needed by the directed rounding
+modes (`RTP`/`RTZ`), whose overflow special case emits `maxNormal` with a `true` sign. -/
+theorem UnpackedFloat.maxNormal_Packable_of_sign (he : 1 < ep) (hs : 0 < sp) (sign : Bool) :
+    (UnpackedFloat.maxNormal (exponentWidth ep sp) (sp + 1) ep sp sign).Packable := by
+  cases sign
+  · exact UnpackedFloat.maxNormal_Packable he hs
+  · have h : (UnpackedFloat.maxNormal (exponentWidth ep sp) (sp + 1) ep sp true)
+        = -(UnpackedFloat.maxNormal (exponentWidth ep sp) (sp + 1) ep sp false) := by
+      simp [UnpackedFloat.maxNormal, UnpackedFloat.neg_def, UnpackedFloat.neg]
+    rw [h]; exact UnpackedFloat.neg_Packable (UnpackedFloat.maxNormal_Packable he hs)
+
+/-- Sign-generic form of `minSubnormalForPackedFloat_Packable`. Needed by `RTN`, whose
+underflow special case emits `minSubnormalForPackedFloat` with a `true` sign. -/
+theorem UnpackedFloat.minSubnormalForPackedFloat_Packable_of_sign
+    (he : 1 < ep) (hs : 0 < sp) (sign : Bool) :
+    (UnpackedFloat.minSubnormalForPackedFloat (exponentWidth ep sp) (sp + 1) ep sp sign).Packable := by
+  cases sign
+  · exact UnpackedFloat.minSubnormalForPackedFloat_Packable he hs
+  · have h : (UnpackedFloat.minSubnormalForPackedFloat (exponentWidth ep sp) (sp + 1) ep sp true)
+        = -(UnpackedFloat.minSubnormalForPackedFloat (exponentWidth ep sp) (sp + 1) ep sp false) := by
+      simp [UnpackedFloat.minSubnormalForPackedFloat, UnpackedFloat.neg_def, UnpackedFloat.neg]
+    rw [h]
+    exact UnpackedFloat.neg_Packable (UnpackedFloat.minSubnormalForPackedFloat_Packable he hs)
+
 /-- L4: `blastRoundTowardZero` on a normalized, in-range nonnegative float (already at the
 packable exponent width) is `Packable`. -/
 theorem UnpackedFloat.blastRoundTowardZero_Packable

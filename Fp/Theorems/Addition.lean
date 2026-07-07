@@ -1,6 +1,7 @@
 import Fp.Addition
 import Fp.Theorems.Multiplication
 import Fp.Theorems.RoundEquiv
+import Fp.Theorems.RoundRNE
 
 /-!
 # Correctness of `PackedFloat.add` against the SMT-LIB semantics
@@ -1459,78 +1460,14 @@ theorem UnpackedFloat.toRat_add_toRat_ne_zero_of_not_smtBeq_neg
   have := UnpackedFloat.eq_of_toRat_eq_toRat_of_msb x y.neg hx hyneg this
   simp [this, UnpackedFloat.smtBeq]
 
-/-! ## Layer 2: the rounding bridge -/
+/-! ## Layer 2: the rounding bridge
 
-/--
-The bit-blasted rounder applied to the circuit result agrees with the
-SMT-LIB rounder applied to the *exact* value, provided the circuit result is
-a sticky compression of the exact value.  This generalizes
-`UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE` (which requires
-`r = x.toRat` on the nose, as is the case for multiplication).
--/
-theorem UnpackedFloat.blastSmtLibRound_Rel_round_of_RNE_of_stickyEquiv
-    {ep sp eu su : Nat}
-    (he : 1 < ep) (hep : 2 < ep) (hs : 0 < sp)
-    (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 3 ≤ su)
-    (x : UnpackedFloat eu su)
-    (sign : Bool) (r : Rat) (hrne : r ≠ 0)
-    (hxnorm : x.normalize = x)
-    (hr : StickyEquiv x.toExpInt x.toRat r) :
-    (x.blastSmtLibRound ep sp .RNE : EUnpackedFloat (exponentWidth ep sp) (sp + 1)).Rel
-      ((SmtLibSemantics.smtLibRoundMethod (R := ExtRat) ep sp
-          SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round .RNE sign (ExtRat.Number r)) := by
-  have hq : x.toRat ≠ 0 := hr.ne_zero_of_ne_zero hrne
-  have hmsb : x.sig.msb = true := by
-    have hsig : ¬ (x.sig = 0#su) := by
-      intro hcontra
-      apply hq
-      rw [UnpackedFloat.toRat_eq_toRat']
-      apply UnpackedFloat.toRat'_eq_zero_of_isZero
-      simp [UnpackedFloat.isZero, hcontra]
-    exact (UnpackedFloat.normalize_eq_self_iff x hsig).mp hxnorm
-  have hcongr := round_congr_of_RoundEquiv (e := ep) (s := sp) .RNE x.sign
-    (roundEquiv_of_stickyEquiv he hs hsu x hmsb hr) hq
-  rw [round_eq_round_of_ne_zero .RNE sign x.sign r hrne, ← hcongr]
-  exact UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE he hep hs heu (by omega)
-    x x.sign (Eq.refl _) x.toRat (Eq.refl _) hxnorm
-
-/--
-**Finiteness companion of `blastSmtLibRound_Rel_round_of_RNE_of_stickyEquiv`.**
-
-When the circuit is a finite `Number`, the SMT-LIB round of the exact value `r`
-is neither NaN nor infinite.  Since the rounder cannot distinguish `r` from the
-circuit's sticky-compressed value `x.toRat` (`roundEquiv_of_stickyEquiv`), the
-round of `r` equals the round of `x.toRat`, so this reduces to the exact-value
-finiteness lemma `blastSmtLibRound_finite_of_RNE`.
--/
-theorem UnpackedFloat.blastSmtLibRound_finite_of_RNE_of_stickyEquiv
-    {ep sp eu su : Nat}
-    (he : 1 < ep) (hep : 2 < ep) (hs : 0 < sp)
-    (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 3 ≤ su)
-    (x : UnpackedFloat eu su)
-    (sign : Bool) (r : Rat) (hrne : r ≠ 0)
-    (hxnorm : x.normalize = x)
-    (hr : StickyEquiv x.toExpInt x.toRat r) :
-    (x.blastSmtLibRound ep sp .RNE : EUnpackedFloat (exponentWidth ep sp) (sp + 1)).state = .Number →
-      ¬ ((SmtLibSemantics.smtLibRoundMethod (R := ExtRat) ep sp
-            SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round .RNE sign (ExtRat.Number r)).isNaN
-      ∧ ¬ ((SmtLibSemantics.smtLibRoundMethod (R := ExtRat) ep sp
-            SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round .RNE sign (ExtRat.Number r)).isInfinite := by
-  intro hstate
-  have hq : x.toRat ≠ 0 := hr.ne_zero_of_ne_zero hrne
-  have hmsb : x.sig.msb = true := by
-    have hsig : ¬ (x.sig = 0#su) := by
-      intro hcontra
-      apply hq
-      rw [UnpackedFloat.toRat_eq_toRat']
-      apply UnpackedFloat.toRat'_eq_zero_of_isZero
-      simp [UnpackedFloat.isZero, hcontra]
-    exact (UnpackedFloat.normalize_eq_self_iff x hsig).mp hxnorm
-  have hcongr := round_congr_of_RoundEquiv (e := ep) (s := sp) .RNE x.sign
-    (roundEquiv_of_stickyEquiv he hs hsu x hmsb hr) hq
-  rw [round_eq_round_of_ne_zero .RNE sign x.sign r hrne, ← hcongr]
-  exact UnpackedFloat.blastSmtLibRound_finite_of_RNE he hep hs heu (by omega)
-    x x.sign (Eq.refl _) x.toRat (Eq.refl _) hxnorm hmsb hstate
+The RNE sticky-compression bridge theorems
+(`UnpackedFloat.blastSmtLibRound_Rel_round_of_RNE_of_stickyEquiv` and its
+finiteness companion `..._finite_of_RNE_of_stickyEquiv`) were moved to
+`Fp/Theorems/RoundRNE.lean`, so that every rounding mode has one top-layer bridge
+file (`RoundRNE`, `RoundRNA`, `RoundRTN`, `RoundRTP`, `RoundRTZ`).  They remain in
+scope here via `import Fp.Theorems.RoundRNE`. -/
 
 /-! ## Layer 4: rounding is the identity on representable values -/
 
@@ -1838,7 +1775,7 @@ addition followed by SMT-LIB rounding) agrees with the bit-blasted
 
 set_option maxHeartbeats 1000000 in
 theorem add_eq_add {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ein)
-    (rm : RoundingMode) (hrm : rm = .RNE) (a b : PackedFloat ein sin) :
+    (rm : RoundingMode) (a b : PackedFloat ein sin) :
     (Fp.SmtLibSemantics.SmtLibFunctions.add (Fp.SmtLibSemanticsQ.smtLibRoundMethodQ ein sin) rm a b).EquivUptoNaN
       (PackedFloat.add rm a b) := by
   have he0 : 0 < ein := by grind
@@ -1948,18 +1885,15 @@ theorem add_eq_add {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
       rw [round_eq_mkZero_of_mkZero he0]
       simp only [EUnpackedFloat.num_mkZero]
       rw [UnpackedFloat.smtBeq_mkZero_neg_mkZero]
-      subst hrm
       by_cases hsign : signa = !signb
       · simp only [hsign, beq_self_eq_true, cond_true, EUnpackedFloat.mkZero_pack_eq_getZero]
         apply PackedFloat.EquivUptoNaN.of_eq
-        simp [SmtLibSemantics.SmtLibFunctions.addSign]
-        grind
+        cases rm <;> simp [SmtLibSemantics.SmtLibFunctions.addSign, hsign] <;> grind
       · have : (signa == !signb) = false := by grind
         simp only [this, cond_false, EUnpackedFloat.isZero_mkZero, cond_true,
           EUnpackedFloat.mkZero_pack_eq_getZero]
         apply PackedFloat.EquivUptoNaN.of_eq
-        simp [SmtLibSemantics.SmtLibFunctions.addSign]
-        grind
+        cases rm <;> simp [SmtLibSemantics.SmtLibFunctions.addSign] <;> grind
     case numCase hb =>
       rw [PackedFloat.unpack_eq_mkNumber_of_isNormOrNonzeroSubnorm hb,
         b.toExtRat'_eq_toRat_of hb]
@@ -2062,9 +1996,7 @@ theorem add_eq_add {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
         rw [hsum0, round_eq_mkZero_of_mkZero he0]
         simp only [hcancel, cond_true, EUnpackedFloat.mkZero_pack_eq_getZero]
         apply PackedFloat.EquivUptoNaN.of_eq
-        subst hrm
-        simp [SmtLibSemantics.SmtLibFunctions.addSign, hsigns]
-        rfl
+        cases rm <;> simp [SmtLibSemantics.SmtLibFunctions.addSign, hsigns] <;> grind
       · -- The interesting case: a genuine nonzero sum, rounded by the circuit.
         have hsumne : a.toRat + b.toRat ≠ 0 := by
           have h := UnpackedFloat.toRat_add_toRat_ne_zero_of_not_smtBeq_neg
@@ -2080,7 +2012,6 @@ theorem add_eq_add {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
           PackedFloat.isZero_unpackNum_eq_false b (by grind)
         simp only [hcancel, cond_false, EUnpackedFloat.isZero_mkNumber, hazero, hbzero]
         rw [PackedFloat.EquivUptoNaN_symm, EUnpackedFloat.pack_eq_pack']
-        subst hrm
         -- Mirror of the `div_eq_div` call site: the bit-blasted rounder output is `Packable`
         -- (normalized + in-range) and the SMT spec result is finite, both discharged by the
         -- `blastSmtLibRound` analogues of the lemmas used at sites 1/2.
@@ -2092,14 +2023,14 @@ theorem add_eq_add {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
           UnpackedFloat.unpackNum_add_unpackNum_stickyEquiv hsin he ha hb hsumne
         refine EUnpackedFloat.pack'_EquivUptoNaN_of_Rel he hsin _ _ ?hrel ?hpack ?hpf
         case hrel =>
-          exact UnpackedFloat.blastSmtLibRound_Rel_round_of_RNE_of_stickyEquiv he hep hsin
+          exact UnpackedFloat.blastSmtLibRound_Rel_round_of_stickyEquiv rm he hep hsin
             (eu := exponentWidth ein sin + 1) (su := sin + 1 + 2) (by omega) (by omega)
             (a.unpackNum.add b.unpackNum) _ _ hsumne hxnorm hsticky
         case hpack =>
-          exact UnpackedFloat.blastSmtLibRound_Packable_of_RNE hep hsin (by omega) (by omega)
+          exact UnpackedFloat.blastSmtLibRound_Packable rm hep hsin (by omega) (by omega)
             (a.unpackNum.add b.unpackNum) hxnorm
         case hpf =>
-          exact UnpackedFloat.blastSmtLibRound_finite_of_RNE_of_stickyEquiv he hep hsin
+          exact UnpackedFloat.blastSmtLibRound_finite_of_stickyEquiv rm he hep hsin
             (by omega) (by omega) (a.unpackNum.add b.unpackNum) _ _ hsumne hxnorm hsticky
 
 /--

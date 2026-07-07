@@ -11,6 +11,12 @@ import Fp.Theorems.PackedFloat.Classification
 import Fp.Theorems.SmtLibSemanticsQ
 import Fp.Theorems.LowerUpperRound
 import Fp.Theorems.UnpackedFloat.Round
+import Fp.Theorems.RoundRNE
+import Fp.Theorems.RoundRNA
+import Fp.Theorems.RoundRTN
+import Fp.Theorems.RoundRTP
+import Fp.Theorems.RoundRTZ
+import Fp.Theorems.AllRoundingModes
 import Fp.Theorems.Multiplication
 import Fp.Theorems.Addition
 import Fp.Theorems.Subtraction
