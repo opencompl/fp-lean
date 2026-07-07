@@ -729,4 +729,75 @@ theorem UnpackedFloat.blastSmtLibRound_finite_of_RNA_of_stickyEquiv
   exact UnpackedFloat.blastSmtLibRound_finite_of_RNA he hep hs heu (by omega)
     x x.sign (Eq.refl _) x.toRat (Eq.refl _) hxnorm hmsb hstate
 
+/-- The normalized RNA blast-rounder output is `Packable`: each branch is a
+`blastUpper`/`blastLower` (already a normalize fixed point, so `Packable`) or
+`mkNaN` (vacuous).  Mirror of `blastSmtLibRoundRNE_normalize_Packable`. -/
+theorem UnpackedFloat.blastSmtLibRoundRNA_normalize_Packable
+    (hep : 2 < ep) (hs : 0 < sp) (hsu : sp + 2 ≤ su)
+    (z : UnpackedFloat (exponentWidth ep sp) su) (hznorm : z.normalize = z)
+    (hnotEU : z.blastIsEarlyUnderflowNonneg ep sp = false)
+    (hnotEO : z.blastIsEarlyOverflowNonneg ep sp = false) :
+    (z.blastSmtLibRoundRNA ep sp).normalize.Packable := by
+  have heu : exponentWidth ep sp ≤ exponentWidth ep sp := Nat.le_refl _
+  have hU : (z.blastUpper ep sp).normalize.Packable := by
+    rw [UnpackedFloat.blastUpper_normalize_eq_self hep hs heu hsu z hznorm hnotEU hnotEO]
+    exact UnpackedFloat.blastUpper_Packable hep hs hsu z hznorm hnotEU hnotEO
+  have hL : (z.blastLower ep sp).normalize.Packable := by
+    rw [UnpackedFloat.blastLower_normalize_eq_self hep hs heu hsu z hznorm hnotEU hnotEO]
+    exact UnpackedFloat.blastLower_Packable hep hs hsu z hznorm hnotEU hnotEO
+  have hN : (EUnpackedFloat.mkNaN : EUnpackedFloat (exponentWidth ep sp) (sp + 1)).normalize.Packable := by
+    apply EUnpackedFloat.Packable_of_state_ne_Number
+    rw [EUnpackedFloat.state_normalize]; simp
+  unfold UnpackedFloat.blastSmtLibRoundRNA
+  split
+  · exact hU
+  · split
+    · exact hL
+    · split
+      · exact hU
+      · split
+        · exact hL
+        · exact hN
+
+/-- `blastSmtLibRound` (RNA) output is always `Packable`. -/
+theorem UnpackedFloat.blastSmtLibRound_Packable_of_RNA
+    (hep : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxnorm : x.normalize = x) :
+    (x.blastSmtLibRound ep sp .RNA).Packable := by
+  have he : 1 < ep := by grind
+  rw [UnpackedFloat.blastSmtLibRound]
+  by_cases hzero : x.isZero = true
+  · rw [if_pos hzero]
+    exact EUnpackedFloat.mkZero_Packable he hs x.sign
+  · rw [if_neg hzero]
+    by_cases hover : x.blastIsEarlyOverflowNonneg ep sp = true
+    · rw [if_pos hover]
+      exact EUnpackedFloat.Packable_of_state_ne_Number (by
+        simp [blastRounderSpecialCaseOverflow])
+    · rw [if_neg hover]
+      by_cases hunder : x.blastIsEarlyUnderflowNonneg ep sp = true
+      · rw [if_pos hunder]
+        rw [show blastRounderSpecialCaseUnderflow (tep := ep) (tsp := sp) .RNA x.sign
+            = EUnpackedFloat.mkZero x.sign from rfl]
+        exact EUnpackedFloat.mkZero_Packable he hs x.sign
+      · rw [if_neg hunder]
+        simp only [Bool.not_eq_true] at hover hunder
+        have htnorm := normalize_truncateFittingExponent_eq_self_of_normalize_eq_self
+          he hs heu hsu x (by simpa using hzero) hxnorm
+        have htover : (x.truncateFittingExponent ep sp).blastIsEarlyOverflowNonneg ep sp = false := by
+          rw [blastIsEarlyOverflowNonneg_truncateFittingExponent he hs heu x hover hunder]
+          exact hover
+        have htunder : (x.truncateFittingExponent ep sp).blastIsEarlyUnderflowNonneg ep sp = false := by
+          rw [UnpackedFloat.blastIsEarlyUnderflowNonneg_eq_decide he hs (Nat.le_refl _),
+            toInt_ex_truncateFittingExponent he hs heu x hover hunder,
+            ← UnpackedFloat.blastIsEarlyUnderflowNonneg_eq_decide he hs heu x]
+          exact hunder
+        show ((x.truncateFittingExponent ep sp).blastSmtLibRoundRNA ep sp).normalize.Packable
+        exact UnpackedFloat.blastSmtLibRoundRNA_normalize_Packable hep hs hsu
+          (x.truncateFittingExponent ep sp) htnorm htunder htover
+
+/-- info: 'Fp.UnpackedFloat.blastSmtLibRound_Packable_of_RNA' depends on axioms: [propext,
+  Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in #print axioms UnpackedFloat.blastSmtLibRound_Packable_of_RNA
+
 end Fp

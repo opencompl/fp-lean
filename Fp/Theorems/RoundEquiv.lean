@@ -1,5 +1,5 @@
 import Fp.Theorems.StickyEquiv
-import Fp.Theorems.Multiplication
+import Fp.Theorems.UnpackedFloat.Round
 
 /-!
 # `RoundEquiv` — sticky compressions are invisible to rounding

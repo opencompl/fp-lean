@@ -29,7 +29,7 @@ theorem mul_toExtRat_eq (a b : PackedFloat 11 52) :
     (a * b).toExtRat
       = (SmtLibFunctions.mul (Fp.SmtLibSemanticsQ.smtLibRoundMethodQ 11 52) .RNE a b).toExtRat :=
   (EquivUptoNaN.toExtRat_eq
-    (Fp.mul_eq_mul (sin := 52) (ein := 11) (by decide) (by decide) (by decide) .RNE rfl a b)).symm
+    (Fp.mul_eq_mul (sin := 52) (ein := 11) (by decide) (by decide) (by decide) .RNE a b)).symm
 
 /-- **Model round-agreement (remaining core).** Lean's `Float.Model.mul` value equals the
 project's SMT-LIB round of the same exact product. This is where the model's `roundWithAccuracy`

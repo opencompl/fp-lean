@@ -91,6 +91,22 @@ theorem UnpackedFloat.blastSmtLibRound_Rel_round_of_stickyEquiv
   | RTP => exact UnpackedFloat.blastSmtLibRound_Rel_round_of_RTP_of_stickyEquiv he hep hs heu hsu x sign r hrne hxnorm hr
   | RTZ => exact UnpackedFloat.blastSmtLibRound_Rel_round_of_RTZ_of_stickyEquiv he hep hs heu hsu x sign r hrne hxnorm hr
 
+/-- **Master `Packable` (all modes).** For every rounding `mode`, the bit-blasted
+rounder output on a normalized `x` is `Packable` (packs and unpacks back to itself).
+Dispatches to the mode-specific `blastSmtLibRound_Packable_of_*`. -/
+theorem UnpackedFloat.blastSmtLibRound_Packable
+    {ep sp eu su : Nat}
+    (mode : RoundingMode)
+    (hep : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxnorm : x.normalize = x) :
+    (x.blastSmtLibRound ep sp mode).Packable := by
+  cases mode with
+  | RNE => exact UnpackedFloat.blastSmtLibRound_Packable_of_RNE hep hs heu hsu x hxnorm
+  | RNA => exact UnpackedFloat.blastSmtLibRound_Packable_of_RNA hep hs heu hsu x hxnorm
+  | RTN => exact UnpackedFloat.blastSmtLibRound_Packable_of_RTN hep hs heu hsu x hxnorm
+  | RTP => exact UnpackedFloat.blastSmtLibRound_Packable_of_RTP hep hs heu hsu x hxnorm
+  | RTZ => exact UnpackedFloat.blastSmtLibRound_Packable_of_RTZ hep hs heu hsu x hxnorm
+
 /-- **Master finiteness companion of the sticky-compression bridge (all modes).** -/
 theorem UnpackedFloat.blastSmtLibRound_finite_of_stickyEquiv
     {ep sp eu su : Nat}
@@ -120,5 +136,9 @@ theorem UnpackedFloat.blastSmtLibRound_finite_of_stickyEquiv
 /-- info: 'Fp.UnpackedFloat.blastSmtLibRound_finite' depends on axioms: [propext,
   Classical.choice, Quot.sound] -/
 #guard_msgs (whitespace := lax) in #print axioms UnpackedFloat.blastSmtLibRound_finite
+
+/-- info: 'Fp.UnpackedFloat.blastSmtLibRound_Packable' depends on axioms: [propext,
+  Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in #print axioms UnpackedFloat.blastSmtLibRound_Packable
 
 end Fp

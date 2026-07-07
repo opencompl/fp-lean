@@ -1,5 +1,6 @@
 import Fp.Multiplication
 import Fp.Theorems.UnpackedFloat.Round
+import Fp.Theorems.AllRoundingModes
 
 
 /--
@@ -300,7 +301,7 @@ theorem UnpackedFloat.unpackNum_mul_unpackNum_toRat_eq_mul_toRat
 Example theorem we will prove, using our proof strategy of proving against the SMT-Lib semantics.
 -/
 theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ein)
-    (rm : RoundingMode) (hrm : rm = .RNE) (a b : PackedFloat ein sin) :
+    (rm : RoundingMode) (a b : PackedFloat ein sin) :
     (Fp.SmtLibSemantics.SmtLibFunctions.mul (Fp.SmtLibSemanticsQ.smtLibRoundMethodQ ein sin) rm a b).EquivUptoNaN
     (PackedFloat.mul rm a b) := by
   simp only [SmtLibSemantics.SmtLibFunctions.mul, SmtLibSemantics.smtLibRoundMethod.embed_eq,
@@ -478,7 +479,6 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
       simp only [this, hbz, Bool.false_eq_true, not_false_eq_true, cond_false]
       -- apply PackedFloat.EquivUptoNaN.of_eq
       rw [PackedFloat.EquivUptoNaN_symm]
-      subst hrm
       -- Rounder-output `Packable` + finiteness of the SMT spec result, discharging the two
       -- side conditions of `pack'_EquivUptoNaN_of_Rel` (the `blastSmtLibRound` analogue of
       -- `PackedFloat.unpackNum_packable`).
@@ -490,7 +490,7 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
         UnpackedFloat.normalize_eq_self_of_msb_eq_true _ hmsb
       refine EUnpackedFloat.pack'_EquivUptoNaN_of_Rel (by grind) (by grind) _ _ ?hrel ?hpack ?hpf
       case hrel =>
-        apply UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
+        apply UnpackedFloat.toExtRat_round_Rel_smtLibRound rm
         · grind only
         · grind only
         · grind only
@@ -500,10 +500,10 @@ theorem mul_eq_mul {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
         · rw [UnpackedFloat.unpackNum_mul_unpackNum_toRat_eq_mul_toRat]
         · exact hxnorm
       case hpack =>
-        exact UnpackedFloat.blastSmtLibRound_Packable_of_RNE (by grind) (by grind) (by grind)
+        exact UnpackedFloat.blastSmtLibRound_Packable rm (by grind) (by grind) (by grind)
           (by simp [Nat.mul_add]; grind only) _ hxnorm
       case hpf =>
-        apply UnpackedFloat.blastSmtLibRound_finite_of_RNE
+        apply UnpackedFloat.blastSmtLibRound_finite rm
         · grind only
         · grind only
         · grind only

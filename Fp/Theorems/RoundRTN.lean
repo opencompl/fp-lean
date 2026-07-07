@@ -338,4 +338,72 @@ theorem UnpackedFloat.blastSmtLibRound_finite_of_RTN_of_stickyEquiv
   exact UnpackedFloat.blastSmtLibRound_finite_of_RTN he hep hs heu (by omega)
     x x.sign (Eq.refl _) x.toRat (Eq.refl _) hxnorm hmsb hstate
 
+/-- The normalized RTN blast-rounder output is `Packable`: `blastSmtLibRoundRTN` is
+just `blastLower`, which is a normalize fixed point (so `Packable`). -/
+theorem UnpackedFloat.blastSmtLibRoundRTN_normalize_Packable
+    (hep : 2 < ep) (hs : 0 < sp) (hsu : sp + 2 ≤ su)
+    (z : UnpackedFloat (exponentWidth ep sp) su) (hznorm : z.normalize = z)
+    (hnotEU : z.blastIsEarlyUnderflowNonneg ep sp = false)
+    (hnotEO : z.blastIsEarlyOverflowNonneg ep sp = false) :
+    (z.blastSmtLibRoundRTN ep sp).normalize.Packable := by
+  have heu : exponentWidth ep sp ≤ exponentWidth ep sp := Nat.le_refl _
+  unfold UnpackedFloat.blastSmtLibRoundRTN
+  rw [UnpackedFloat.blastLower_normalize_eq_self hep hs heu hsu z hznorm hnotEU hnotEO]
+  exact UnpackedFloat.blastLower_Packable hep hs hsu z hznorm hnotEU hnotEO
+
+/-- `blastSmtLibRound` (RTN) output is always `Packable`. -/
+theorem UnpackedFloat.blastSmtLibRound_Packable_of_RTN
+    (hep : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (x : UnpackedFloat eu su) (hxnorm : x.normalize = x) :
+    (x.blastSmtLibRound ep sp .RTN).Packable := by
+  have he : 1 < ep := by grind
+  rw [UnpackedFloat.blastSmtLibRound]
+  by_cases hzero : x.isZero = true
+  · rw [if_pos hzero]
+    exact EUnpackedFloat.mkZero_Packable he hs x.sign
+  · rw [if_neg hzero]
+    by_cases hover : x.blastIsEarlyOverflowNonneg ep sp = true
+    · rw [if_pos hover]
+      by_cases hsign : x.sign = true
+      · exact EUnpackedFloat.Packable_of_state_ne_Number (by
+          simp [blastRounderSpecialCaseOverflow, hsign])
+      · simp only [Bool.not_eq_true] at hsign
+        rw [show blastRounderSpecialCaseOverflow (tep := ep) (tsp := sp) .RTN x.sign
+            = EUnpackedFloat.mkNumber (UnpackedFloat.maxNormal _ _ ep sp x.sign) by
+          simp [blastRounderSpecialCaseOverflow, hsign]]
+        exact EUnpackedFloat.mkNumber_Packable
+          (UnpackedFloat.maxNormal_Packable_of_sign he hs x.sign)
+    · rw [if_neg hover]
+      by_cases hunder : x.blastIsEarlyUnderflowNonneg ep sp = true
+      · rw [if_pos hunder]
+        by_cases hsign : x.sign = false
+        · rw [show blastRounderSpecialCaseUnderflow (tep := ep) (tsp := sp) .RTN x.sign
+              = EUnpackedFloat.mkZero x.sign by simp [blastRounderSpecialCaseUnderflow, hsign]]
+          exact EUnpackedFloat.mkZero_Packable he hs x.sign
+        · simp only [Bool.not_eq_false] at hsign
+          rw [show blastRounderSpecialCaseUnderflow (tep := ep) (tsp := sp) .RTN x.sign
+              = EUnpackedFloat.mkNumber (UnpackedFloat.minSubnormalForPackedFloat _ _ ep sp x.sign) by
+            simp [blastRounderSpecialCaseUnderflow, hsign]]
+          exact EUnpackedFloat.mkNumber_Packable
+            (UnpackedFloat.minSubnormalForPackedFloat_Packable_of_sign he hs x.sign)
+      · rw [if_neg hunder]
+        simp only [Bool.not_eq_true] at hover hunder
+        have htnorm := normalize_truncateFittingExponent_eq_self_of_normalize_eq_self
+          he hs heu hsu x (by simpa using hzero) hxnorm
+        have htover : (x.truncateFittingExponent ep sp).blastIsEarlyOverflowNonneg ep sp = false := by
+          rw [blastIsEarlyOverflowNonneg_truncateFittingExponent he hs heu x hover hunder]
+          exact hover
+        have htunder : (x.truncateFittingExponent ep sp).blastIsEarlyUnderflowNonneg ep sp = false := by
+          rw [UnpackedFloat.blastIsEarlyUnderflowNonneg_eq_decide he hs (Nat.le_refl _),
+            toInt_ex_truncateFittingExponent he hs heu x hover hunder,
+            ← UnpackedFloat.blastIsEarlyUnderflowNonneg_eq_decide he hs heu x]
+          exact hunder
+        show ((x.truncateFittingExponent ep sp).blastSmtLibRoundRTN ep sp).normalize.Packable
+        exact UnpackedFloat.blastSmtLibRoundRTN_normalize_Packable hep hs hsu
+          (x.truncateFittingExponent ep sp) htnorm htunder htover
+
+/-- info: 'Fp.UnpackedFloat.blastSmtLibRound_Packable_of_RTN' depends on axioms: [propext,
+  Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in #print axioms UnpackedFloat.blastSmtLibRound_Packable_of_RTN
+
 end Fp
