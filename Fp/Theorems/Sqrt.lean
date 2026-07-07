@@ -304,9 +304,9 @@ noncomputable def sqrtSpec (rm : RoundingMode) (a : PackedFloat e s) : PackedFlo
 
 /--
 The square-root circuit `Fp.sqrt` matches its SMT-LIB-style specification `sqrtSpec` (up to NaN
-payloads), for `RNE` rounding.  Mirrors `mul_eq_mul`/`div_eq_div`: special-value branches agree
-definitionally and the number leaf is discharged by the shared rounding bridge
-(`toExtRat_round_Rel_smtLibRound_of_RNE`) plus `pack'_EquivUptoNaN_of_Rel`.
+payloads), for every rounding mode.  Mirrors `mul_eq_mul`/`div_eq_div`: special-value branches
+agree definitionally and the number leaf is discharged by the shared mode-generic rounding bridge
+(`toExtRat_round_Rel_smtLibRound`) plus `pack'_EquivUptoNaN_of_Rel`.
 -/
 theorem sqrt_eq_sqrt {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ein)
     (rm : RoundingMode) (a : PackedFloat ein sin) :
