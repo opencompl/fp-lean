@@ -1,6 +1,7 @@
 import Fp.Rounding
 import Fp.SmtLibSemantics
 import Fp.Comparison
+import Fp.Theorems.LowerUpperRound.Functional
 import FpExecutableTests.PackedFloatEnumeration
 
 namespace Fp
@@ -8,49 +9,40 @@ open SmtLibSemantics
 
 namespace SmtLibSemanticsEnumerator
 
-def mkZero (sign : Bool) (e s : Nat) : PackedFloat e s :=
-  EUnpackedFloat.mkNumber (UnpackedFloat.mkZero sign) |>.pack
 /-
 This file defines a computable version of the SMT-LIB semantics,
 which is used for comparing results from SMT solvers with those from Lean's floating-point library.
+
+The computable lower/upper bounds are routed through the *proven* enumeration
+`Fp.lower` / `Fp.upper` (`Fp.Theorems.LowerUpperRound.Functional`), which are
+proven equal to the noncomputable SMT-LIB spec `smtLibLower` / `smtLibUpper`
+(see `Fp.smtLibLower_eq_lower` / `Fp.smtLibUpper_eq_upper`, both axiom-clean).
+So the runtime rounder here inherits that correctness guarantee.
 -/
 
-def lowerFromEmbedByEnumeration {e s}
-    (enum : PackedFloatEnumeration e s) :
-    RoundableLower (PackedFloat e s) ExtRat where
-  lower := fun (r : ExtRat) =>
-    match r with
-    | .NaN => PackedFloat.getNaN e s -- NaN is representable.
-    | .Infinity x => PackedFloat.getInfinity e s x -- infinity is representable.
-    | .Number r =>
-      -- for a number, if it is below the min number, return -inf
-      match enum.greatestLowerBound r with
-      | some (pf, rpf) =>
-        if rpf = 0
-        then mkZero false e s -- lower bound is +0 (footnote 5)
-        else pf
-      | none => PackedFloat.getInfinity _ _ true
+/--
+Computable SMT-LIB greatest lower bound, via the proven `Fp.lower`.
 
+`Fp.lower` requires `0 < e` and `0 < s`; every floating-point format we test
+satisfies this, so the `getNaN` fallback for the degenerate `e = 0` / `s = 0`
+widths is unreachable in practice.
+-/
+def lowerProven (e s : Nat) (r : ExtRat) : PackedFloat e s :=
+  if he : 0 < e then
+    if hs : 0 < s then Fp.lower e s he hs r
+    else PackedFloat.getNaN e s
+  else PackedFloat.getNaN e s
 
-def upperFromEmbedByEnumeration {e s}
-    (enum : PackedFloatEnumeration e s) :
-    RoundableUpper (PackedFloat e s) ExtRat where
-  upper := fun (r : ExtRat) =>
-    match r with
-    | .NaN => PackedFloat.getNaN e s -- NaN is representable.
-    | .Infinity x => .getInfinity e s x -- infinity is representable.
-    | .Number r =>
-      -- for a number, if it is above the max number, return +inf
-      match enum.leastUpperBound r with
-      | some (pf, rpf) =>
-          if rpf = 0
-          then mkZero true e s -- upper bound is -0 (footnote 5)
-          else pf
-      | none => PackedFloat.getInfinity _ _ false
+/-- Computable SMT-LIB least upper bound, via the proven `Fp.upper`. See `lowerProven`. -/
+def upperProven (e s : Nat) (r : ExtRat) : PackedFloat e s :=
+  if he : 0 < e then
+    if hs : 0 < s then Fp.upper e s he hs r
+    else PackedFloat.getNaN e s
+  else PackedFloat.getNaN e s
 
 def computableV : RoundableAdjunction (PackedFloat e s) ExtRat where
-  lower := lowerFromEmbedByEnumeration (PackedFloatEnumeration.mk e s) |>.lower
-  upper := upperFromEmbedByEnumeration (PackedFloatEnumeration.mk e s) |>.upper
+  lower := lowerProven e s
+  upper := upperProven e s
   embed := PackedFloat.toExtRat
 
 abbrev computableSmtLibRoundMethod (e s : Nat) :
