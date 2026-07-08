@@ -1,0 +1,31 @@
+name: SymFPU stress test
+on:
+  push:
+    branches:
+      - "main"
+  pull_request:
+  merge_group:
+
+permissions:
+  contents: read
+
+jobs:
+  stresstest:
+    name: SymFPU experimental branch stress test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v4
+
+      - name: Install C++ build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Run SymFPU experimental stress test
+        run: python3 third-party/symfpu-experimental/stresstest.py
