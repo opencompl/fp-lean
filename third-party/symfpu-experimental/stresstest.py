@@ -210,6 +210,10 @@ def main():
     ap.add_argument("--mmax", type=int, default=8)
     ap.add_argument("--no-baseline", action="store_true")
     ap.add_argument("--timeout", type=int, default=60)
+    ap.add_argument("--claims-only", action="store_true",
+                    help="skip the format sweep; run only the per-claim probes "
+                         "(E5M2, E4M3, E3M4) and print them. Fast path for CI; does "
+                         "not write the results files.")
     args = ap.parse_args()
 
     tmp = tempfile.mkdtemp(prefix="symfpu-stress-")
@@ -233,6 +237,19 @@ def main():
         else:
             log("  baseline build FAILED (continuing without cross-check):\n"
                 + msg[:800])
+
+    # Fast CI path: only the per-claim probes, which run independently of the
+    # format sweep, so the headline findings are still checked without the
+    # (much slower) full sweep.
+    if args.claims_only:
+        checks = claim_checks(exp_bin, base_bin if have_base else None)
+        log("")
+        log("== Claim checks (experimental | baseline) ==")
+        for c in checks:
+            log("  %-28s exp=%-32s base=%-32s %s"
+                % (c["claim"], c["exp"], c["base"], c["note"]))
+        shutil.rmtree(tmp, ignore_errors=True)
+        return
 
     formats = [(E, M) for E in range(args.emin, args.emax + 1)
                        for M in range(args.mmin, args.mmax + 1)]

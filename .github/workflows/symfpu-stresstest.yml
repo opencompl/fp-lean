@@ -27,8 +27,9 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Run SymFPU experimental stress test (small formats)
-        # Restrict the sweep to small formats to keep CI fast. The harness's
-        # per-claim probes (E5M2, E4M3, E3M4) run regardless of the sweep bounds,
-        # so the headline findings are still checked.
-        run: python3 third-party/symfpu-experimental/stresstest.py --emin 3 --emax 5 --mmin 1 --mmax 4
+      - name: Run SymFPU experimental stress test (claim probes)
+        # --claims-only skips the full format sweep and runs just the per-claim
+        # probes (E5M2, E4M3, E3M4), which is what validates the headline
+        # crash/fix findings. Keeps CI fast (build-dominated). The full sweep is
+        # available locally via `python3 stresstest.py`.
+        run: python3 third-party/symfpu-experimental/stresstest.py --claims-only

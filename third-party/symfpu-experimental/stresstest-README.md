@@ -12,7 +12,12 @@ paper tested).
 python3 stresstest.py                 # build both copies, sweep, write results
 python3 stresstest.py --no-baseline   # experimental only (skip the cross-check)
 python3 stresstest.py --emin 3 --emax 8 --mmin 1 --mmax 8
+python3 stresstest.py --claims-only   # fast: only the per-claim probes, no sweep (used by CI)
 ```
+
+`--claims-only` skips the format sweep and runs only the E5M2/E4M3/E3M4 probes (which
+validate the headline findings). It prints to the console and does not write the results
+files, so it is safe to run without clobbering the committed full-sweep output.
 
 Outputs, next to this file:
 
