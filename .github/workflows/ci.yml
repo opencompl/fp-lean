@@ -25,3 +25,10 @@ jobs:
           use-github-cache: true
           build: true
           test: false
+
+      # Each module under `FpSymbolicRewritingTests/` fires exactly one staged FP
+      # rewrite via `simp only [<set>]`; elaboration IS the test (`simp only` errors
+      # on no-progress if a rule stops firing), so a successful build is a pass.
+      - name: Build symbolic rewriting tests
+        run: lake build FpSymbolicRewritingTests
+
