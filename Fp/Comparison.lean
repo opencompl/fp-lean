@@ -225,13 +225,23 @@ def smtBge (whenBothNaN : Bool) (x y : PackedFloat e s) : Bool :=
 def smtBgt (whenBothNaN : Bool) (x y : PackedFloat e s) : Bool :=
   bif x.isNaN && y.isNaN then whenBothNaN else bgtAux true x y
 
+-- SMT-LIB leaves `fp.min`/`fp.max` on differing-signed zeros *unspecified*, and
+-- because congruence is over the *ordered* argument tuple — nothing forces
+-- `min(+0,-0) = min(-0,+0)` — the two orderings are **independent** choices. So we
+-- take TWO free tie-break booleans: `zpm` governs the `(+0, -0)` input tuple and
+-- `zmp` the `(-0, +0)` tuple (a single boolean spans only the "result = first
+-- arg / result = second arg" diagonal and misses the two same-sign-both-orders
+-- interpretations). The single-flag `minAux`/`maxAux` kernels read the flag only
+-- when the inputs are differing-signed zeros, and there the first operand's sign
+-- identifies the tuple (`x = +0 ⇒ zpm`, `x = -0 ⇒ zmp`), so we just route the
+-- right boolean down; everywhere else the flag is inert.
 @[bv_normalize]
-def smtMin (xOnDiffZeros : Bool) (x y : PackedFloat e s) : PackedFloat e s :=
-  minAux xOnDiffZeros x y
+def smtMin (zpm zmp : Bool) (x y : PackedFloat e s) : PackedFloat e s :=
+  minAux (bif x.sign then zmp else zpm) x y
 
 @[bv_normalize]
-def smtMax (xOnDiffZeros : Bool) (x y : PackedFloat e s) : PackedFloat e s :=
-  maxAux xOnDiffZeros x y
+def smtMax (zpm zmp : Bool) (x y : PackedFloat e s) : PackedFloat e s :=
+  maxAux (bif x.sign then zmp else zpm) x y
 
 @[bv_normalize]
 def smtIsNeg (x : PackedFloat e s) : Bool :=
