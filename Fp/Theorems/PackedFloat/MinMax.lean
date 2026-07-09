@@ -167,8 +167,8 @@ theorem bltAux_eq_decide_of_ne {e s : Nat} (z : Bool) (f g : PackedFloat e s)
 
 /-- `smtMin z f g` is one of `f`, `g` re-packed, chosen by
 `c := f.isNaN ∨ bgtAux z f g`. -/
-theorem smtMin_eq_cond {e s : Nat} (z : Bool) (f g : PackedFloat e s) :
-    PackedFloat.smtMin z f g
+theorem minAux_eq_cond {e s : Nat} (z : Bool) (f g : PackedFloat e s) :
+    PackedFloat.minAux z f g
       = (bif (f.isNaN || PackedFloat.bgtAux z f g) then g.unpack.pack else f.unpack.pack) := by
   have hc : (f.unpack.isNaN || EUnpackedFloat.bgtAux z f.unpack g.unpack)
       = (f.isNaN || PackedFloat.bgtAux z f g) := by
@@ -177,8 +177,8 @@ theorem smtMin_eq_cond {e s : Nat} (z : Bool) (f g : PackedFloat e s) :
   rw [EUnpackedFloat.minAux, hc]
   cases (f.isNaN || PackedFloat.bgtAux z f g) <;> rfl
 
-theorem smtMax_eq_cond {e s : Nat} (z : Bool) (f g : PackedFloat e s) :
-    PackedFloat.smtMax z f g
+theorem maxAux_eq_cond {e s : Nat} (z : Bool) (f g : PackedFloat e s) :
+    PackedFloat.maxAux z f g
       = (bif (f.isNaN || PackedFloat.bltAux z f g) then g.unpack.pack else f.unpack.pack) := by
   have hc : (f.unpack.isNaN || EUnpackedFloat.bltAux z f.unpack g.unpack)
       = (f.isNaN || PackedFloat.bltAux z f g) := by
@@ -188,18 +188,18 @@ theorem smtMax_eq_cond {e s : Nat} (z : Bool) (f g : PackedFloat e s) :
   cases (f.isNaN || PackedFloat.bltAux z f g) <;> rfl
 
 /-- The `ExtRat` value of `smtMin`, in terms of the selection boolean. -/
-theorem toExtRat_smtMin {e s : Nat} (he : 1 < e) (hs : 0 < s) (z : Bool) (f g : PackedFloat e s) :
-    (PackedFloat.smtMin z f g).toExtRat
+theorem toExtRat_minAux {e s : Nat} (he : 1 < e) (hs : 0 < s) (z : Bool) (f g : PackedFloat e s) :
+    (PackedFloat.minAux z f g).toExtRat
       = (bif (f.isNaN || PackedFloat.bgtAux z f g) then g.toExtRat else f.toExtRat) := by
-  rw [PackedFloat.smtMin_eq_cond]
+  rw [PackedFloat.minAux_eq_cond]
   cases (f.isNaN || PackedFloat.bgtAux z f g) <;>
     simp only [cond_true, cond_false] <;>
     exact PackedFloat.toExtRat_unpack_pack he hs _
 
-theorem toExtRat_smtMax {e s : Nat} (he : 1 < e) (hs : 0 < s) (z : Bool) (f g : PackedFloat e s) :
-    (PackedFloat.smtMax z f g).toExtRat
+theorem toExtRat_maxAux {e s : Nat} (he : 1 < e) (hs : 0 < s) (z : Bool) (f g : PackedFloat e s) :
+    (PackedFloat.maxAux z f g).toExtRat
       = (bif (f.isNaN || PackedFloat.bltAux z f g) then g.toExtRat else f.toExtRat) := by
-  rw [PackedFloat.smtMax_eq_cond]
+  rw [PackedFloat.maxAux_eq_cond]
   cases (f.isNaN || PackedFloat.bltAux z f g) <;>
     simp only [cond_true, cond_false] <;>
     exact PackedFloat.toExtRat_unpack_pack he hs _
@@ -234,17 +234,17 @@ theorem fpIsNaN_iff {e s : Nat} (v : RoundableEmbed (PackedFloat e s) ExtRat)
 
 /-- **BTRW15 §V.B.2, `min` relation.** `PackedFloat.smtMin` always produces a valid
 witness of the abstract `FpMinRel` for the standard embedding `· .toExtRat`. -/
-theorem PackedFloat.smtMin_FpMinRel {e s : Nat} (he : 1 < e) (hs : 0 < s)
+theorem PackedFloat.minAux_FpMinRel {e s : Nat} (he : 1 < e) (hs : 0 < s)
     (z : Bool) (f g : PackedFloat e s) :
-    FpMinRel instPackedFloatExtRat f g (PackedFloat.smtMin z f g) := by
+    FpMinRel instPackedFloatExtRat f g (PackedFloat.minAux z f g) := by
   let v : RoundableEmbed (PackedFloat e s) ExtRat := instPackedFloatExtRat
   have hv : ∀ x : PackedFloat e s, v.embed x = x.toExtRat := fun _ => rfl
-  show FpMinRel v f g (PackedFloat.smtMin z f g)
+  show FpMinRel v f g (PackedFloat.minAux z f g)
   by_cases hf : f.isNaN
   · -- `f` is NaN: condition true, output is `g`.
     have hcond : (f.isNaN || PackedFloat.bgtAux z f g) = true := by rw [hf]; rfl
-    have hsel : (PackedFloat.smtMin z f g).toExtRat = g.toExtRat := by
-      rw [PackedFloat.toExtRat_smtMin he hs, hcond]; simp only [cond_true, cond_false]
+    have hsel : (PackedFloat.minAux z f g).toExtRat = g.toExtRat := by
+      rw [PackedFloat.toExtRat_minAux he hs, hcond]; simp only [cond_true, cond_false]
     exact Or.inr (Or.inl ⟨Or.inr ((fpIsNaN_iff v hv f).mpr hf), (fpEqRel_iff v hv _ g).mpr hsel⟩)
   · have hfF : f.isNaN = false := by simpa using hf
     by_cases hg : g.isNaN
@@ -254,8 +254,8 @@ theorem PackedFloat.smtMin_FpMinRel {e s : Nat} (he : 1 < e) (hs : 0 < s)
         show EUnpackedFloat.bltAux (!z) g.unpack f.unpack = false
         unfold EUnpackedFloat.bltAux; simp only [hgn, Bool.true_or, cond_true]
       have hcond : (f.isNaN || PackedFloat.bgtAux z f g) = false := by rw [hfF, hbgt]; rfl
-      have hsel : (PackedFloat.smtMin z f g).toExtRat = f.toExtRat := by
-        rw [PackedFloat.toExtRat_smtMin he hs, hcond]; simp only [cond_true, cond_false]
+      have hsel : (PackedFloat.minAux z f g).toExtRat = f.toExtRat := by
+        rw [PackedFloat.toExtRat_minAux he hs, hcond]; simp only [cond_true, cond_false]
       exact Or.inl ⟨Or.inr ((fpIsNaN_iff v hv g).mpr hg), (fpEqRel_iff v hv _ f).mpr hsel⟩
     · -- both non-NaN
       have hgF : g.isNaN = false := by simpa using hg
@@ -263,22 +263,22 @@ theorem PackedFloat.smtMin_FpMinRel {e s : Nat} (he : 1 < e) (hs : 0 < s)
       · -- equal values: the eq disjunct holds regardless of the selection.
         refine Or.inr (Or.inr ⟨(fpEqRel_iff v hv f g).mpr heq, ?_⟩)
         cases hc : (f.isNaN || PackedFloat.bgtAux z f g)
-        · exact Or.inl ((fpEqRel_iff v hv _ f).mpr (by rw [PackedFloat.toExtRat_smtMin he hs, hc]; simp only [cond_true, cond_false]))
-        · exact Or.inr ((fpEqRel_iff v hv _ g).mpr (by rw [PackedFloat.toExtRat_smtMin he hs, hc]; simp only [cond_true, cond_false]))
+        · exact Or.inl ((fpEqRel_iff v hv _ f).mpr (by rw [PackedFloat.toExtRat_minAux he hs, hc]; simp only [cond_true, cond_false]))
+        · exact Or.inr ((fpEqRel_iff v hv _ g).mpr (by rw [PackedFloat.toExtRat_minAux he hs, hc]; simp only [cond_true, cond_false]))
       · -- differing values: `bgtAux` picks the strict order.
         have hbgt : PackedFloat.bgtAux z f g = decide (g.toExtRat < f.toExtRat) :=
           PackedFloat.bgtAux_eq_decide_of_ne z f g hfF hgF heq
         by_cases hlt : g.toExtRat < f.toExtRat
         · have hcond : (f.isNaN || PackedFloat.bgtAux z f g) = true := by
             rw [hfF, hbgt, Bool.false_or, decide_eq_true_eq]; exact hlt
-          have hsel : (PackedFloat.smtMin z f g).toExtRat = g.toExtRat := by
-            rw [PackedFloat.toExtRat_smtMin he hs, hcond]; simp only [cond_true, cond_false]
+          have hsel : (PackedFloat.minAux z f g).toExtRat = g.toExtRat := by
+            rw [PackedFloat.toExtRat_minAux he hs, hcond]; simp only [cond_true, cond_false]
           exact Or.inr (Or.inl
             ⟨Or.inl ((fpLtRel_iff v hv g f).mpr hlt), (fpEqRel_iff v hv _ g).mpr hsel⟩)
         · have hcond : (f.isNaN || PackedFloat.bgtAux z f g) = false := by
             rw [hfF, hbgt, Bool.false_or, decide_eq_false_iff_not]; exact hlt
-          have hsel : (PackedFloat.smtMin z f g).toExtRat = f.toExtRat := by
-            rw [PackedFloat.toExtRat_smtMin he hs, hcond]; simp only [cond_true, cond_false]
+          have hsel : (PackedFloat.minAux z f g).toExtRat = f.toExtRat := by
+            rw [PackedFloat.toExtRat_minAux he hs, hcond]; simp only [cond_true, cond_false]
           have hfg : f.toExtRat < g.toExtRat := by
             have hle : f.toExtRat ≤ g.toExtRat :=
               Classical.byContradiction fun hle =>
@@ -291,16 +291,16 @@ theorem PackedFloat.smtMin_FpMinRel {e s : Nat} (he : 1 < e) (hs : 0 < s)
 
 /-- **BTRW15 §V.B.2, `max` relation.** `PackedFloat.smtMax` always produces a valid
 witness of the abstract `FpMaxRel` for the standard embedding `· .toExtRat`. -/
-theorem PackedFloat.smtMax_FpMaxRel {e s : Nat} (he : 1 < e) (hs : 0 < s)
+theorem PackedFloat.maxAux_FpMaxRel {e s : Nat} (he : 1 < e) (hs : 0 < s)
     (z : Bool) (f g : PackedFloat e s) :
-    FpMaxRel instPackedFloatExtRat f g (PackedFloat.smtMax z f g) := by
+    FpMaxRel instPackedFloatExtRat f g (PackedFloat.maxAux z f g) := by
   let v : RoundableEmbed (PackedFloat e s) ExtRat := instPackedFloatExtRat
   have hv : ∀ x : PackedFloat e s, v.embed x = x.toExtRat := fun _ => rfl
-  show FpMaxRel v f g (PackedFloat.smtMax z f g)
+  show FpMaxRel v f g (PackedFloat.maxAux z f g)
   by_cases hf : f.isNaN
   · have hcond : (f.isNaN || PackedFloat.bltAux z f g) = true := by rw [hf]; rfl
-    have hsel : (PackedFloat.smtMax z f g).toExtRat = g.toExtRat := by
-      rw [PackedFloat.toExtRat_smtMax he hs, hcond]; simp only [cond_true, cond_false]
+    have hsel : (PackedFloat.maxAux z f g).toExtRat = g.toExtRat := by
+      rw [PackedFloat.toExtRat_maxAux he hs, hcond]; simp only [cond_true, cond_false]
     exact Or.inr (Or.inl ⟨Or.inr ((fpIsNaN_iff v hv f).mpr hf), (fpEqRel_iff v hv _ g).mpr hsel⟩)
   · have hfF : f.isNaN = false := by simpa using hf
     by_cases hg : g.isNaN
@@ -309,28 +309,28 @@ theorem PackedFloat.smtMax_FpMaxRel {e s : Nat} (he : 1 < e) (hs : 0 < s)
         show EUnpackedFloat.bltAux z f.unpack g.unpack = false
         unfold EUnpackedFloat.bltAux; simp only [hgn, Bool.or_true, cond_true]
       have hcond : (f.isNaN || PackedFloat.bltAux z f g) = false := by rw [hfF, hblt]; rfl
-      have hsel : (PackedFloat.smtMax z f g).toExtRat = f.toExtRat := by
-        rw [PackedFloat.toExtRat_smtMax he hs, hcond]; simp only [cond_true, cond_false]
+      have hsel : (PackedFloat.maxAux z f g).toExtRat = f.toExtRat := by
+        rw [PackedFloat.toExtRat_maxAux he hs, hcond]; simp only [cond_true, cond_false]
       exact Or.inl ⟨Or.inr ((fpIsNaN_iff v hv g).mpr hg), (fpEqRel_iff v hv _ f).mpr hsel⟩
     · have hgF : g.isNaN = false := by simpa using hg
       by_cases heq : f.toExtRat = g.toExtRat
       · refine Or.inr (Or.inr ⟨(fpEqRel_iff v hv f g).mpr heq, ?_⟩)
         cases hc : (f.isNaN || PackedFloat.bltAux z f g)
-        · exact Or.inl ((fpEqRel_iff v hv _ f).mpr (by rw [PackedFloat.toExtRat_smtMax he hs, hc]; simp only [cond_true, cond_false]))
-        · exact Or.inr ((fpEqRel_iff v hv _ g).mpr (by rw [PackedFloat.toExtRat_smtMax he hs, hc]; simp only [cond_true, cond_false]))
+        · exact Or.inl ((fpEqRel_iff v hv _ f).mpr (by rw [PackedFloat.toExtRat_maxAux he hs, hc]; simp only [cond_true, cond_false]))
+        · exact Or.inr ((fpEqRel_iff v hv _ g).mpr (by rw [PackedFloat.toExtRat_maxAux he hs, hc]; simp only [cond_true, cond_false]))
       · have hblt : PackedFloat.bltAux z f g = decide (f.toExtRat < g.toExtRat) :=
           PackedFloat.bltAux_eq_decide_of_ne z f g hfF hgF heq
         by_cases hlt : f.toExtRat < g.toExtRat
         · have hcond : (f.isNaN || PackedFloat.bltAux z f g) = true := by
             rw [hfF, hblt, Bool.false_or, decide_eq_true_eq]; exact hlt
-          have hsel : (PackedFloat.smtMax z f g).toExtRat = g.toExtRat := by
-            rw [PackedFloat.toExtRat_smtMax he hs, hcond]; simp only [cond_true, cond_false]
+          have hsel : (PackedFloat.maxAux z f g).toExtRat = g.toExtRat := by
+            rw [PackedFloat.toExtRat_maxAux he hs, hcond]; simp only [cond_true, cond_false]
           exact Or.inr (Or.inl
             ⟨Or.inl ((fpGtRel_iff v hv g f).mpr hlt), (fpEqRel_iff v hv _ g).mpr hsel⟩)
         · have hcond : (f.isNaN || PackedFloat.bltAux z f g) = false := by
             rw [hfF, hblt, Bool.false_or, decide_eq_false_iff_not]; exact hlt
-          have hsel : (PackedFloat.smtMax z f g).toExtRat = f.toExtRat := by
-            rw [PackedFloat.toExtRat_smtMax he hs, hcond]; simp only [cond_true, cond_false]
+          have hsel : (PackedFloat.maxAux z f g).toExtRat = f.toExtRat := by
+            rw [PackedFloat.toExtRat_maxAux he hs, hcond]; simp only [cond_true, cond_false]
           have hgf : g.toExtRat < f.toExtRat := by
             have hle : g.toExtRat ≤ f.toExtRat :=
               Classical.byContradiction fun hle =>
@@ -340,6 +340,35 @@ theorem PackedFloat.smtMax_FpMaxRel {e s : Nat} (he : 1 < e) (hs : 0 < s)
             exact ExtRat.lt_iff.mpr ⟨hle, fun h => heq h.symm⟩
           exact Or.inl
             ⟨Or.inl ((fpGtRel_iff v hv f g).mpr hgf), (fpEqRel_iff v hv _ f).mpr hsel⟩
+
+/-! ## Two-tuple (`zpm`/`zmp`) public correctness
+
+`smtMin`/`smtMax` take two independent tie-break booleans — `zpm` for the
+`(+0,-0)` input tuple, `zmp` for the `(-0,+0)` tuple — and route the one selected
+by the first operand's sign (`x = +0 ⇒ zpm`, `x = -0 ⇒ zmp`) into the single-flag
+`minAux`/`maxAux`. So each reduces to the generalized `minAux_FpMinRel` /
+`maxAux_FpMaxRel` at the selected flag, and `FpMinRel`/`FpMaxRel` (a disjunction
+admitting either operand) is satisfied for every choice of `zpm`, `zmp`. -/
+
+/-- **BTRW15 §V.B.2, `min` relation.** `PackedFloat.smtMin zpm zmp` always produces
+a valid witness of the abstract `FpMinRel` for the standard embedding `·.toExtRat`,
+for either independent tie-break choice. -/
+theorem PackedFloat.smtMin_FpMinRel {e s : Nat} (he : 1 < e) (hs : 0 < s)
+    (zpm zmp : Bool) (f g : PackedFloat e s) :
+    FpMinRel instPackedFloatExtRat f g (PackedFloat.smtMin zpm zmp f g) := by
+  show FpMinRel instPackedFloatExtRat f g
+    (PackedFloat.minAux (bif f.sign then zmp else zpm) f g)
+  exact PackedFloat.minAux_FpMinRel he hs _ f g
+
+/-- **BTRW15 §V.B.2, `max` relation.** `PackedFloat.smtMax zpm zmp` always produces
+a valid witness of the abstract `FpMaxRel` for the standard embedding `·.toExtRat`,
+for either independent tie-break choice. -/
+theorem PackedFloat.smtMax_FpMaxRel {e s : Nat} (he : 1 < e) (hs : 0 < s)
+    (zpm zmp : Bool) (f g : PackedFloat e s) :
+    FpMaxRel instPackedFloatExtRat f g (PackedFloat.smtMax zpm zmp f g) := by
+  show FpMaxRel instPackedFloatExtRat f g
+    (PackedFloat.maxAux (bif f.sign then zmp else zpm) f g)
+  exact PackedFloat.maxAux_FpMaxRel he hs _ f g
 
 -- Both min/max correctness theorems are `sorry`-free (standard axioms only).
 /--

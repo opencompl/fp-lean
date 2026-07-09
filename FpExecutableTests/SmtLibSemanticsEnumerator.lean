@@ -89,7 +89,8 @@ structure MinMaxTestResult (e s : Nat) where
   f : PackedFloat e s
   g : PackedFloat e s
   h : PackedFloat e s
-  xOnDiffZeros : Bool
+  zpm : Bool
+  zmp : Bool
   relationHolds : Bool
 
 /-- Summary of min/max test results. -/
@@ -118,7 +119,7 @@ def MinMaxTestSummary.toFormat (summary : MinMaxTestSummary e s)
       out := out ++ f!"    ... (truncated, {summary.failedRecords.size - nPrinted} more failed records)\n"
       break
     out := out ++
-      f!"    f: {reprStr record.f.toExtRat}, g: {reprStr record.g.toExtRat}, h: {reprStr record.h.toExtRat}, xOnDiffZeros: {record.xOnDiffZeros}\n"
+      f!"    f: {reprStr record.f.toExtRat}, g: {reprStr record.g.toExtRat}, h: {reprStr record.h.toExtRat}, zpm: {record.zpm}, zmp: {record.zmp}\n"
     nPrinted := nPrinted + 1
   return out
 
@@ -138,22 +139,23 @@ def testFpMaxRel (e s : Nat) : IO (MinMaxTestSummary e s) := do
   let allFloats := allPackedFloats e s
   for f in allFloats do
     for g in allFloats do
-      for xOnDiffZeros in [true, false] do
-        let h := PackedFloat.smtMax xOnDiffZeros f g
-        let v := computableVEmbed (e := e) (s := s)
-        let relationHolds := FpMaxRel v f g h
-        if relationHolds then
-          summary := { summary with successes := summary.successes + 1 }
-        else
-          let record : MinMaxTestResult e s := {
-            f := f, g := g, h := h,
-            xOnDiffZeros := xOnDiffZeros,
-            relationHolds := relationHolds
-          }
-          summary := { summary with
-            failures := summary.failures + 1,
-            failedRecords := summary.failedRecords.push record
-          }
+      for zpm in [true, false] do
+        for zmp in [true, false] do
+          let h := PackedFloat.smtMax zpm zmp f g
+          let v := computableVEmbed (e := e) (s := s)
+          let relationHolds := FpMaxRel v f g h
+          if relationHolds then
+            summary := { summary with successes := summary.successes + 1 }
+          else
+            let record : MinMaxTestResult e s := {
+              f := f, g := g, h := h,
+              zpm := zpm, zmp := zmp,
+              relationHolds := relationHolds
+            }
+            summary := { summary with
+              failures := summary.failures + 1,
+              failedRecords := summary.failedRecords.push record
+            }
   return summary
 
 /-- Test that `PackedFloat.smtMin` satisfies `FpMinRel`. -/
@@ -162,22 +164,23 @@ def testFpMinRel (e s : Nat) : IO (MinMaxTestSummary e s) := do
   let allFloats := allPackedFloats e s
   for f in allFloats do
     for g in allFloats do
-      for xOnDiffZeros in [true, false] do
-        let h := PackedFloat.smtMin xOnDiffZeros f g
-        let v := computableVEmbed (e := e) (s := s)
-        let relationHolds := FpMinRel v f g h
-        if relationHolds then
-          summary := { summary with successes := summary.successes + 1 }
-        else
-          let record : MinMaxTestResult e s := {
-            f := f, g := g, h := h,
-            xOnDiffZeros := xOnDiffZeros,
-            relationHolds := relationHolds
-          }
-          summary := { summary with
-            failures := summary.failures + 1,
-            failedRecords := summary.failedRecords.push record
-          }
+      for zpm in [true, false] do
+        for zmp in [true, false] do
+          let h := PackedFloat.smtMin zpm zmp f g
+          let v := computableVEmbed (e := e) (s := s)
+          let relationHolds := FpMinRel v f g h
+          if relationHolds then
+            summary := { summary with successes := summary.successes + 1 }
+          else
+            let record : MinMaxTestResult e s := {
+              f := f, g := g, h := h,
+              zpm := zpm, zmp := zmp,
+              relationHolds := relationHolds
+            }
+            summary := { summary with
+              failures := summary.failures + 1,
+              failedRecords := summary.failedRecords.push record
+            }
   return summary
 
 /-!
