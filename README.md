@@ -33,6 +33,13 @@ _ [Kahan Floating Point Paranoia](https://people.math.sc.edu/Burkardt/c_src/para
 - [An Automatable Formal Semantics for IEEE 754](https://smt-lib.org/papers/BTRW14.pdf)
 
 
+#### TODO
+
+- [ ] Finish proofs for everything
+- [ ] Remove Canonical_all axiom
+- [ ] Add support for more FP formats (OCP, P3109)
+- [ ] Bench better, setup namespace-bed benching.
+
 #### References
 
 - [IEEE 754-2008 spec](https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=4610935)
