@@ -358,7 +358,7 @@ theorem PackedFloat.neg_maxNormalNumber_false' {ep sp : Nat} :
 
 /-- The value of `maxNormalNumber` is strictly below `2 ^ (maxNormalExp + 1)`. -/
 theorem PackedFloat.toRat_maxNormalNumber_lt_two_pow
-    {ep sp : Nat} (hep : 2 < ep) (hs : 0 < sp) :
+    {ep sp : Nat} (hep : 1 < ep) (hs : 0 < sp) :
     (PackedFloat.maxNormalNumber ep sp false).toRat < (2 : Rat) ^ (maxNormalExp ep + 1) := by
   rw [PackedFloat.toRat, PackedFloat.toRatSig_maxNormalNumber ep sp hep,
     PackedFloat.toRatExp_maxNormalNumber ep sp hep]
@@ -384,7 +384,7 @@ theorem PackedFloat.toRat_maxNormalNumber_nonneg
 
 /-- The max normal value strictly increases with the significand width. -/
 theorem PackedFloat.toRat_maxNormalNumber_lt_toRat_maxNormalNumber_succ
-    {ep sp : Nat} (hep : 2 < ep) (hs : 0 < sp) :
+    {ep sp : Nat} (hep : 1 < ep) (hs : 0 < sp) :
     (PackedFloat.maxNormalNumber ep sp false).toRat
       < (PackedFloat.maxNormalNumber ep (sp + 1) false).toRat := by
   rw [PackedFloat.toRat, PackedFloat.toRat,
@@ -488,7 +488,7 @@ Proof: overflow forces `2^(maxNormalExp+1) ≤ x.toRat'` while
 then the greatest float `≤ x.toRat'` is `maxNormalNumber`
 (`lower_Number_eq_maxNormalNumber_of_toRat_le`), and `lower` is lawful. -/
 theorem isLawfulLower_Number_maxNormalNumber_of_overflowNonneg
-    (hep : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu)
+    (hep : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu)
     (x : UnpackedFloat eu su)
     (hxsign : x.sign = false) (hxnorm : x.normalize = x)
     (hover  : x.blastIsEarlyOverflowNonneg ep sp = true) :
@@ -536,7 +536,7 @@ theorem UnpackedFloat.toRat'_maxNormal_eq_toRat_maxNormalNumber
     {sign : Bool}
     (hsp : 0 < sp)
     (hsu : sp + 1 ≤ su)
-    (hep : 2 < ep)
+    (hep : 1 < ep)
     (heu : exponentWidth ep sp ≤ eu) :
     (UnpackedFloat.maxNormal eu su ep sp sign).toRat' (sp)
       = (PackedFloat.maxNormalNumber ep sp sign).toRat := by
@@ -590,7 +590,7 @@ info: 'Fp.UnpackedFloat.toRat'_maxNormal_eq_toRat_maxNormalNumber' depends on ax
 #guard_msgs in #print axioms UnpackedFloat.toRat'_maxNormal_eq_toRat_maxNormalNumber
 
 theorem UnpackedFloat.mkNumber_maxNormal_Rel_smtLibLower_of_overflow
-    (hep : 2 < ep)
+    (hep : 1 < ep)
     (hsp : 0 < sp)
     (x : UnpackedFloat eu su)
     (hsu : sp + 1 ≤ sm)
@@ -1966,7 +1966,7 @@ info: 'Fp.UnpackedFloat.exists_packedFloat_isLawfulLower_of_blastRoundTowardZero
 in-range normalized float. Obtained by pinning the keystone's witness `pf = lower` (uniqueness)
 and transferring its `isNormOrNonzeroSubnorm`. -/
 theorem UnpackedFloat.isNormOrNonzeroSubnorm_lower_of_in_range
-    (he : 2 < ep) (hsp : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (he : 1 < ep) (hsp : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
     (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
     (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
@@ -2110,7 +2110,7 @@ info: 'Fp.UnpackedFloat.ex_blastSuccessorAwayFromZeroNonnegAux_le_ex_add_one' de
 positive subnormal. (Via monotonicity: `next.ex < minSubnormalExp ⇒ x.ex < minSubnormalExp ⇒
 x.toRat' < 2^(x.ex+1) ≤ 2^minSubnormalExp = minSubnormal.toRat`.) -/
 theorem UnpackedFloat.toRat'_le_minSubnormalNumber_of_blastIsUnderflow_next
-    (he : 2 < ep) (hsp : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (he : 1 < ep) (hsp : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false)
     (hnotEarlyOver : x.blastIsEarlyOverflowNonneg ep sp = false)
     (hunder : (x.blastSuccessorAwayFromZeroNonnegAux ep sp).blastIsUnderflowNonneg ep sp = true) :
@@ -2169,7 +2169,7 @@ info: 'Fp.UnpackedFloat.toRat'_minSubnormalForPackedFloat_eq_toRat_minSubnormalN
 #print axioms UnpackedFloat.toRat'_minSubnormalForPackedFloat_eq_toRat_minSubnormalNumber
 
 /-- Closed form of `maxNormal.toRat`: `2^(maxNormalExp+1) - 2^(maxNormalExp - sp)`. -/
-theorem PackedFloat.toRat_maxNormalNumber_false_eq (ep sp : Nat) (he : 2 < ep) :
+theorem PackedFloat.toRat_maxNormalNumber_false_eq (ep sp : Nat) (he : 1 < ep) :
     (PackedFloat.maxNormalNumber ep sp false).toRat
       = 2 ^ (maxNormalExp ep + 1) - 2 ^ (maxNormalExp ep - (sp : Int)) := by
   rw [PackedFloat.toRat, PackedFloat.toRatSig_maxNormalNumber ep sp he,
@@ -2190,7 +2190,7 @@ info: 'Fp.PackedFloat.toRat_maxNormalNumber_false_eq' depends on axioms: [propex
 /-- A nonnegative width-`(sp+1)` float at exponent `maxNormalExp` is at most `maxNormal`
 (its significand fits in `sp+1` bits, so `toRat' = sig·2^(maxNormalExp-sp) ≤ maxNormal`). -/
 theorem UnpackedFloat.toRat'_le_maxNormalNumber_of_sign_false_of_ex_eq_maxNormalExp
-    (he : 2 < ep) (hsp : 0 < sp)
+    (he : 1 < ep) (hsp : 0 < sp)
     (uf : UnpackedFloat eu (sp + 1)) (hsign : uf.sign = false) (hex : uf.ex.toInt = maxNormalExp ep) :
     uf.toRat' ≤ (PackedFloat.maxNormalNumber ep sp false).toRat := by
   have hexp : uf.ex.toInt - (((sp + 1 : Nat) : Int) - 1) = maxNormalExp ep - (sp : Int) := by
@@ -2221,7 +2221,7 @@ info: 'Fp.UnpackedFloat.toRat'_le_maxNormalNumber_of_sign_false_of_ex_eq_maxNorm
 successor early-overflows. (The successor `> x > maxNormal`, but a non-overflowing successor
 would sit at exponent `maxNormalExp`, hence `≤ maxNormal` — contradiction.) -/
 theorem UnpackedFloat.blastIsEarlyOverflow_next_of_maxNormalNumber_lt
-    (he : 2 < ep) (hsp : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (he : 1 < ep) (hsp : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
     (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
     (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
@@ -2494,7 +2494,7 @@ theorem UnpackedFloat.blastLowerNonneg_normalize_eq_self
 successor significand's msb, which is given by the Stage-2 lemma away from the underflow boundary
 and by the carry lemma at the boundary (`x.under` forces `next` to carry into `minSubnormalExp`). -/
 theorem UnpackedFloat.blastUpperNonneg_normalize_eq_self
-    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
     (hnotEU : x.blastIsEarlyUnderflowNonneg ep sp = false)
     (hnotEO : x.blastIsEarlyOverflowNonneg ep sp = false) :
@@ -2549,7 +2549,7 @@ theorem UnpackedFloat.blastUpperNonneg_normalize_eq_self
 /-- `blastUpper` outputs are `normalize` fixed points (sign dispatch; the negative branch reuses
 `blastLowerNonneg` on `-x` via the neg/normalize commute). -/
 theorem UnpackedFloat.blastUpper_normalize_eq_self
-    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxnorm : x.normalize = x)
     (hnotEU : x.blastIsEarlyUnderflowNonneg ep sp = false)
     (hnotEO : x.blastIsEarlyOverflowNonneg ep sp = false) :
@@ -2568,7 +2568,7 @@ theorem UnpackedFloat.blastUpper_normalize_eq_self
 /-- `blastLower` outputs are `normalize` fixed points (sign dispatch; the negative branch reuses
 `blastUpperNonneg` on `-x` via the neg/normalize commute). -/
 theorem UnpackedFloat.blastLower_normalize_eq_self
-    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxnorm : x.normalize = x)
     (hnotEU : x.blastIsEarlyUnderflowNonneg ep sp = false)
     (hnotEO : x.blastIsEarlyOverflowNonneg ep sp = false) :
@@ -2588,7 +2588,7 @@ theorem UnpackedFloat.blastLower_normalize_eq_self
 /-- The early-underflow/overflow flags and normalization carry from `x` to `truncateFittingExponent x`
 (exponent value is invariant), so `(trunc x).blastUpper` is a `normalize` fixed point. -/
 theorem UnpackedFloat.blastUpper_truncateFittingExponent_normalize_eq_self
-    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hzero : ¬x.isZero) (hxnorm : x.normalize = x)
     (hnotEU : x.blastIsEarlyUnderflowNonneg ep sp = false)
     (hnotEO : x.blastIsEarlyOverflowNonneg ep sp = false) :
@@ -2607,7 +2607,7 @@ theorem UnpackedFloat.blastUpper_truncateFittingExponent_normalize_eq_self
 
 /-- Companion of `blastUpper_truncateFittingExponent_normalize_eq_self` for `blastLower`. -/
 theorem UnpackedFloat.blastLower_truncateFittingExponent_normalize_eq_self
-    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hzero : ¬x.isZero) (hxnorm : x.normalize = x)
     (hnotEU : x.blastIsEarlyUnderflowNonneg ep sp = false)
     (hnotEO : x.blastIsEarlyOverflowNonneg ep sp = false) :
@@ -2864,7 +2864,7 @@ theorem UnpackedFloat.blastSuccessorAwayFromZero_ex_toInt_eq
 /-- L5 (hard core): the auxiliary successor `blastSuccessorAwayFromZeroNonnegAux` of a normalized,
 in-range nonnegative float is `Packable`, provided its own output does not (early) over/underflow. -/
 theorem UnpackedFloat.blastSuccessorAwayFromZeroNonnegAux_Packable
-    (hep : 2 < ep) (hs : 0 < sp) (hsu : sp + 2 ≤ su)
+    (hep : 1 < ep) (hs : 0 < sp) (hsu : sp + 2 ≤ su)
     (y : UnpackedFloat (exponentWidth ep sp) su) (hysign : y.sign = false)
     (hynorm : y.normalize = y)
     (hnotEU : y.blastIsEarlyUnderflowNonneg ep sp = false)
@@ -3006,7 +3006,7 @@ theorem UnpackedFloat.blastLowerNonneg_Packable
 /-- `blastUpperNonneg` is `Packable` (zero → `-0`, underflow → `minSubnormal`,
 overflow → `∞` (vacuous), else the successor via L5). -/
 theorem UnpackedFloat.blastUpperNonneg_Packable
-    (hep : 2 < ep) (hs : 0 < sp) (hsu : sp + 2 ≤ su)
+    (hep : 1 < ep) (hs : 0 < sp) (hsu : sp + 2 ≤ su)
     (y : UnpackedFloat (exponentWidth ep sp) su) (hysign : y.sign = false) (hynorm : y.normalize = y)
     (hnotEU : y.blastIsEarlyUnderflowNonneg ep sp = false)
     (hnotEO : y.blastIsEarlyOverflowNonneg ep sp = false) :
@@ -3033,7 +3033,7 @@ theorem UnpackedFloat.blastUpperNonneg_Packable
 
 /-- L6: `blastUpper` is `Packable` (sign dispatch; negative arm reflects to `blastLowerNonneg`). -/
 theorem UnpackedFloat.blastUpper_Packable
-    (hep : 2 < ep) (hs : 0 < sp) (hsu : sp + 2 ≤ su)
+    (hep : 1 < ep) (hs : 0 < sp) (hsu : sp + 2 ≤ su)
     (y : UnpackedFloat (exponentWidth ep sp) su) (hynorm : y.normalize = y)
     (hnotEU : y.blastIsEarlyUnderflowNonneg ep sp = false)
     (hnotEO : y.blastIsEarlyOverflowNonneg ep sp = false) :
@@ -3053,7 +3053,7 @@ theorem UnpackedFloat.blastUpper_Packable
 
 /-- L7: `blastLower` is `Packable` (sign dispatch; negative arm reflects to `blastUpperNonneg`). -/
 theorem UnpackedFloat.blastLower_Packable
-    (hep : 2 < ep) (hs : 0 < sp) (hsu : sp + 2 ≤ su)
+    (hep : 1 < ep) (hs : 0 < sp) (hsu : sp + 2 ≤ su)
     (y : UnpackedFloat (exponentWidth ep sp) su) (hynorm : y.normalize = y)
     (hnotEU : y.blastIsEarlyUnderflowNonneg ep sp = false)
     (hnotEO : y.blastIsEarlyOverflowNonneg ep sp = false) :
@@ -3077,7 +3077,7 @@ theorem UnpackedFloat.blastLower_Packable
 `blastSuccessorAwayFromZero x = 2^(maxNormalExp+1)`, so `roundTZ = maxNormal` (= `next - ulp`),
 and `needsRounding` gives `roundTZ < x`. -/
 theorem UnpackedFloat.lt_toRat'_of_blastIsEarlyOverflow_next
-    (he : 2 < ep) (hsp : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (he : 1 < ep) (hsp : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false)
     (hnotEarlyOver : x.blastIsEarlyOverflowNonneg ep sp = false)
     (hover : (x.blastSuccessorAwayFromZeroNonnegAux ep sp).blastIsEarlyOverflowNonneg ep sp = true) :
@@ -3177,7 +3177,7 @@ theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower_normal
     float — without normalization, multiple unpacked representations share the
     same value and the bit-level "extract top sp+1 bits" step does not commute
     with `toRat'`. -/
-theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower (he : 2 < ep) (hsp : 0 < sp)
+theorem UnpackedFloat.blastLowerNonneg_Rel_smtLibLower (he : 1 < ep) (hsp : 0 < sp)
   (hsu : sp + 2 ≤ su) (heu : exponentWidth ep sp ≤ eu)
   (x : UnpackedFloat eu su)
   (hxsign : x.sign = false)
@@ -3335,7 +3335,7 @@ The crux connecting the bit-blasted circuit to the spec: the unpacked
 unpacked ulp `2^(x.ex - sp + shift)` matches the packed ulp `2^(-sp)·2^(lower.toRatExp)`
 because the keystone pins `lower.toRatExp = x.ex + shift`. -/
 theorem UnpackedFloat.blastSuccessorAwayFromZero_toRat'_eq_lower_successorAwayFromZero_toRat
-    (he : 2 < ep) (hsp : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (he : 1 < ep) (hsp : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
     (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
     (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
@@ -3383,7 +3383,7 @@ When `x` needs rounding, `blastSuccessorAwayFromZeroNonnegAux` returns
 `(lower (Number x.toRat')).successorAwayFromZero.toRat = (upper (Number x.toRat')).toRat`
 (step 4). The witness is `upper (Number x.toRat')` itself. -/
 theorem UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_normal_of_needsRounding
-    (he : 2 < ep) (hsp : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (he : 1 < ep) (hsp : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
     (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
     (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
@@ -3445,7 +3445,7 @@ info: 'Fp.UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_normal_of_needsRounding
 circuit's normal branch relates to `upper`. (Recovered onto this branch; PR #26 landed it on a
 non-main branch.) -/
 theorem UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_normal_of_not_needsRounding
-    (he : 2 < ep) (hsp : 0 < sp)
+    (he : 1 < ep) (hsp : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su)
     (hxsign : x.sign = false)
@@ -3535,7 +3535,7 @@ the successor never underflows so the underflow branch is dead; the overflow bra
 overflow connection + spec, and the normal branch routes to Case A / Case B. `hmaxL`
 (`lower ≠ maxNormal`) is the one residual obligation (discharged by a converse-overflow argument). -/
 theorem UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_in_range
-    (he : 2 < ep) (hsp : 0 < sp) (hsu : sp + 2 ≤ su) (heu : exponentWidth ep sp ≤ eu)
+    (he : 1 < ep) (hsp : 0 < sp) (hsu : sp + 2 ≤ su) (heu : exponentWidth ep sp ≤ eu)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
     (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
     (hnotunder : x.blastIsUnderflowNonneg ep sp = false) :
@@ -3619,7 +3619,7 @@ hence `upper x.toRat' = minSubnormalNumber`. The circuit rounds `x` up to `minSu
 either through its underflow branch (`minSubnormalForPackedFloat`) or through a carry into
 `minSubnormalExp` (the successor); both witnesses have value `minSubnormalNumber.toRat`. -/
 theorem UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_boundary
-    (he : 2 < ep) (hsp : 0 < sp) (hsu : sp + 2 ≤ su) (heu : exponentWidth ep sp ≤ eu)
+    (he : 1 < ep) (hsp : 0 < sp) (hsu : sp + 2 ≤ su) (heu : exponentWidth ep sp ≤ eu)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxmsb : x.sig.msb = true)
     (hunder : x.blastIsUnderflowNonneg ep sp = true) :
     (x.blastUpperNonneg ep sp).Rel
@@ -3724,7 +3724,7 @@ to `blastUpperNonneg_Rel_smtLibUpper_in_range` (`¬x.under`, the bulk) and
 sorry-free keystone; wiring it into the pipeline (and discharging the zero entry point) replaces
 the `blastUpperNonneg_Rel_smtLibUpper` stub below. -/
 theorem UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_of_msb
-    (he : 2 < ep) (hsp : 0 < sp) (hsu : sp + 2 ≤ su) (heu : exponentWidth ep sp ≤ eu)
+    (he : 1 < ep) (hsp : 0 < sp) (hsu : sp + 2 ≤ su) (heu : exponentWidth ep sp ≤ eu)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
     (hxmsb : x.sig.msb = true)
     (hnotEO : x.blastIsEarlyOverflowNonneg ep sp = false) :
@@ -3747,7 +3747,7 @@ info: 'Fp.UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper_of_msb' depends on axio
 does not early-overflow. The `isZero` short-circuit yields `-0` (`upper (Number 0) = getZero true`);
 the nonzero case derives `msb` from normalization and routes to `…_of_msb`. -/
 theorem UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper
-    (he : 2 < ep) (hsp : 0 < sp) (hsu : sp + 2 ≤ su) (heu : exponentWidth ep sp ≤ eu)
+    (he : 1 < ep) (hsp : 0 < sp) (hsu : sp + 2 ≤ su) (heu : exponentWidth ep sp ≤ eu)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
     (hnotEO : x.blastIsEarlyOverflowNonneg ep sp = false) :
     (x.blastUpperNonneg ep sp).Rel
@@ -3780,7 +3780,7 @@ info: 'Fp.UnpackedFloat.blastUpperNonneg_Rel_smtLibUpper' depends on axioms: [pr
 
 /-# `blastLower` matches `lower` -/
 
-theorem UnpackedFloat.blastLower_Rel_smtLibLower (hep : 2 < ep)
+theorem UnpackedFloat.blastLower_Rel_smtLibLower (hep : 1 < ep)
   (hsp : 0 < sp)
   (hsu : sp + 2 ≤ su)
   (heu : exponentWidth ep sp ≤ eu)
@@ -3819,7 +3819,7 @@ theorem UnpackedFloat.blastLower_Rel_smtLibLower (hep : 2 < ep)
 /-# `blastUpper` matches `upper` -/
 
 
-theorem UnpackedFloat.blastUpper_Rel_smtLibUpper (hep : 2 < ep) (hsp : 0 < sp)
+theorem UnpackedFloat.blastUpper_Rel_smtLibUpper (hep : 1 < ep) (hsp : 0 < sp)
     (hsu : sp + 2 ≤ su)
     (heu : exponentWidth ep sp ≤ eu)
     (x : UnpackedFloat eu su)

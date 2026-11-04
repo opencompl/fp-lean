@@ -12,7 +12,7 @@ the *stored significand* of the approximant, so value-level `Rel` is not enough;
 applies these to `x.truncateFittingExponent`, which is nonzero and normalized.) -/
 
 theorem blastIsEvenUpper_iff_smtLibIsEven_upper
-    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
     (hnotunder : x.blastIsEarlyUnderflowNonneg ep sp = false)
     (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
@@ -25,7 +25,7 @@ theorem blastIsEvenUpper_iff_smtLibIsEven_upper
   rw [heq]
 
 theorem blastIsEvenUpper_eq
-    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
     (hnotunder : x.blastIsEarlyUnderflowNonneg ep sp = false)
     (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
@@ -35,7 +35,7 @@ theorem blastIsEvenUpper_eq
   grind
 
 theorem blastIsEvenLower_iff_smtLibIsEven_lower
-    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
     (hnotunder : x.blastIsEarlyUnderflowNonneg ep sp = false)
     (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
@@ -48,7 +48,7 @@ theorem blastIsEvenLower_iff_smtLibIsEven_lower
   rw [heq]
 
 theorem blastIsEvenLower_eq
-    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
     (hnotunder : x.blastIsEarlyUnderflowNonneg ep sp = false)
     (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :

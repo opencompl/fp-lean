@@ -1774,7 +1774,7 @@ addition followed by SMT-LIB rounding) agrees with the bit-blasted
 -/
 
 set_option maxHeartbeats 1000000 in
-theorem add_eq_add {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ein)
+theorem add_eq_add {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein)
     (rm : RoundingMode) (a b : PackedFloat ein sin) :
     (Fp.SmtLibSemantics.SmtLibFunctions.add (Fp.SmtLibSemanticsQ.smtLibRoundMethodQ ein sin) rm a b).EquivUptoNaN
       (PackedFloat.add rm a b) := by
@@ -2023,14 +2023,14 @@ theorem add_eq_add {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
           UnpackedFloat.unpackNum_add_unpackNum_stickyEquiv hsin he ha hb hsumne
         refine EUnpackedFloat.pack'_EquivUptoNaN_of_Rel he hsin _ _ ?hrel ?hpack ?hpf
         case hrel =>
-          exact UnpackedFloat.blastSmtLibRound_Rel_round_of_stickyEquiv rm he hep hsin
+          exact UnpackedFloat.blastSmtLibRound_Rel_round_of_stickyEquiv rm he hsin
             (eu := exponentWidth ein sin + 1) (su := sin + 1 + 2) (by omega) (by omega)
             (a.unpackNum.add b.unpackNum) _ _ hsumne hxnorm hsticky
         case hpack =>
-          exact UnpackedFloat.blastSmtLibRound_Packable rm hep hsin (by omega) (by omega)
+          exact UnpackedFloat.blastSmtLibRound_Packable rm he hsin (by omega) (by omega)
             (a.unpackNum.add b.unpackNum) hxnorm
         case hpf =>
-          exact UnpackedFloat.blastSmtLibRound_finite_of_stickyEquiv rm he hep hsin
+          exact UnpackedFloat.blastSmtLibRound_finite_of_stickyEquiv rm he hsin
             (by omega) (by omega) (a.unpackNum.add b.unpackNum) _ _ hsumne hxnorm hsticky
 
 /--

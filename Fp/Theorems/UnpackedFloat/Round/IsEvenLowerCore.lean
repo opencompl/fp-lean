@@ -38,7 +38,7 @@ approximant is the packed round-toward-zero (witness), whose stored significand'
 `x.sig` bit `L = off + (su-(sp+1))`, matching the index `blastExtractIsEven` inspects. -/
 theorem isEven_smtLibLower_eq_blastExtractIsEven_of_sign_false
     {eu su ep sp : Nat}
-    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
     (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
     (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
@@ -92,7 +92,7 @@ when `x` needs rounding the upper is `successorAwayFromZero(lower)` (parity flip
 and its successor as hypotheses (discharged at the call site, as in `blastUpperNonneg_Rel_smtLibUpper`). -/
 theorem isEven_smtLibUpper_eq_of_sign_false
     {eu su ep sp : Nat}
-    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
     (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
     (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
@@ -176,7 +176,7 @@ for any sign. The negative case reduces to the nonnegative *upper* lemma on `-x`
 `lower r = -(upper (-r))` symmetry (`isEven` is negation-invariant, as are the blast predicates). -/
 theorem isEven_smtLibLower_eq_blastIsEvenLower
     {eu su ep sp : Nat}
-    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxnorm : x.normalize = x)
     (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
     (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
@@ -209,7 +209,7 @@ theorem isEven_smtLibLower_eq_blastIsEvenLower
 for any sign. The negative case reduces to the nonnegative *lower* lemma (CORE) on `-x`. -/
 theorem isEven_smtLibUpper_eq_blastIsEvenUpper
     {eu su ep sp : Nat}
-    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxnorm : x.normalize = x)
     (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
     (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :

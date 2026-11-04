@@ -288,7 +288,7 @@ theorem msb_num_of_Packable_of_not_special
     simpa [UnpackedFloat.isZero] using hz
   exact (UnpackedFloat.normalize_eq_self_iff a.num hsig).mp hnum.1
 
-theorem Packable_mul (he : 2 < e) (hs : 0 < s)
+theorem Packable_mul (he : 1 < e) (hs : 0 < s)
     {a b : EUnpackedFloat (exponentWidth e s) (s + 1)} (ha : a.Packable) (hb : b.Packable) :
     (EUnpackedFloat.mul .RNE a b).Packable := by
   have he1 : 1 < e := by omega
@@ -319,7 +319,7 @@ theorem Packable_mul (he : 2 < e) (hs : 0 < s)
           (by simp [Nat.mul_add]; grind only) _ hxnorm
 
 /-- **The RNE rounder output round-trips through `pack`/`unpack`.** -/
-theorem blastSmtLibRound_pack_unpack (he : 2 < e) (hs : 0 < s)
+theorem blastSmtLibRound_pack_unpack (he : 1 < e) (hs : 0 < s)
     (heu : exponentWidth e s ≤ eu) (hsu : s + 2 ≤ su)
     (uf : UnpackedFloat eu su) (hnorm : uf.normalize = uf) :
     (uf.blastSmtLibRound e s .RNE : EUnpackedFloat (exponentWidth e s) (s + 1)).pack.unpack
@@ -357,20 +357,20 @@ theorem SpecialCanon_mul (a b : EUnpackedFloat (exponentWidth e s) (s + 1)) :
     (SpecialCanon.cond (SpecialCanon_mkZero _) (SpecialCanon_blastSmtLibRound_RNE _ _ _)))
 
 /-- `mul` preserves `Canonical`. -/
-theorem Canonical_mul (he : 2 < e) (hs : 0 < s)
+theorem Canonical_mul (he : 1 < e) (hs : 0 < s)
     {a b : EUnpackedFloat (exponentWidth e s) (s + 1)} (ha : Canonical a) (hb : Canonical b) :
     Canonical (EUnpackedFloat.mul .RNE a b) :=
   ⟨Packable_mul he hs ha.1 hb.1, SpecialCanon_mul a b⟩
 
 /-- **`mul` cancellation.** -/
-theorem mul_pack_unpack (he : 2 < e) (hs : 0 < s)
+theorem mul_pack_unpack (he : 1 < e) (hs : 0 < s)
     {a b : EUnpackedFloat (exponentWidth e s) (s + 1)} (ha : Canonical a) (hb : Canonical b) :
     (EUnpackedFloat.mul .RNE a b).pack.unpack = EUnpackedFloat.mul .RNE a b :=
   pack_unpack_of_Canonical (by omega) hs _ (Canonical_mul he hs ha hb)
 
 /-! ### `div` -/
 
-theorem Packable_div (he : 2 < e) (hs : 0 < s)
+theorem Packable_div (he : 1 < e) (hs : 0 < s)
     {a b : EUnpackedFloat (exponentWidth e s) (s + 1)} (ha : a.Packable) (hb : b.Packable) :
     (EUnpackedFloat.div .RNE a b).Packable := by
   have he1 : 1 < e := by omega
@@ -407,13 +407,13 @@ theorem SpecialCanon_div (a b : EUnpackedFloat (exponentWidth e s) (s + 1)) :
     (SpecialCanon.cond (SpecialCanon_mkZero _) (SpecialCanon_blastSmtLibRound_RNE _ _ _)))
 
 /-- `div` preserves `Canonical`. -/
-theorem Canonical_div (he : 2 < e) (hs : 0 < s)
+theorem Canonical_div (he : 1 < e) (hs : 0 < s)
     {a b : EUnpackedFloat (exponentWidth e s) (s + 1)} (ha : Canonical a) (hb : Canonical b) :
     Canonical (EUnpackedFloat.div .RNE a b) :=
   ⟨Packable_div he hs ha.1 hb.1, SpecialCanon_div a b⟩
 
 /-- **`div` cancellation.** -/
-theorem div_pack_unpack (he : 2 < e) (hs : 0 < s)
+theorem div_pack_unpack (he : 1 < e) (hs : 0 < s)
     {a b : EUnpackedFloat (exponentWidth e s) (s + 1)} (ha : Canonical a) (hb : Canonical b) :
     (EUnpackedFloat.div .RNE a b).pack.unpack = EUnpackedFloat.div .RNE a b :=
   pack_unpack_of_Canonical (by omega) hs _ (Canonical_div he hs ha hb)
@@ -448,7 +448,7 @@ theorem SpecialCanon_add (a b : EUnpackedFloat (exponentWidth e s) (s + 1)) :
           · simp only [Bool.not_eq_true] at h5; simp only [h5, cond_false]
             exact SpecialCanon_blastSmtLibRound_RNE _ _ _
 
-theorem Packable_add (he : 2 < e) (hs : 0 < s)
+theorem Packable_add (he : 1 < e) (hs : 0 < s)
     {a b : EUnpackedFloat (exponentWidth e s) (s + 1)} (ha : a.Packable) (hb : b.Packable) :
     (EUnpackedFloat.add .RNE a b).Packable := by
   have he1 : 1 < e := by omega
@@ -487,27 +487,27 @@ theorem Packable_add (he : 2 < e) (hs : 0 < s)
               (by omega) (by omega) _ hxnorm
 
 /-- `add` preserves `Canonical`. -/
-theorem Canonical_add (he : 2 < e) (hs : 0 < s)
+theorem Canonical_add (he : 1 < e) (hs : 0 < s)
     {a b : EUnpackedFloat (exponentWidth e s) (s + 1)} (ha : Canonical a) (hb : Canonical b) :
     Canonical (EUnpackedFloat.add .RNE a b) :=
   ⟨Packable_add he hs ha.1 hb.1, SpecialCanon_add a b⟩
 
 /-- **`add` cancellation.** -/
-theorem add_pack_unpack (he : 2 < e) (hs : 0 < s)
+theorem add_pack_unpack (he : 1 < e) (hs : 0 < s)
     {a b : EUnpackedFloat (exponentWidth e s) (s + 1)} (ha : Canonical a) (hb : Canonical b) :
     (EUnpackedFloat.add .RNE a b).pack.unpack = EUnpackedFloat.add .RNE a b :=
   pack_unpack_of_Canonical (by omega) hs _ (Canonical_add he hs ha hb)
 
 /-- `sub` preserves `Canonical` (`sub = add · (neg)`; `neg` preserves `Packable`, and the
 `add`-output's state is canonical unconditionally). -/
-theorem Canonical_sub (he : 2 < e) (hs : 0 < s)
+theorem Canonical_sub (he : 1 < e) (hs : 0 < s)
     {a b : EUnpackedFloat (exponentWidth e s) (s + 1)} (ha : Canonical a) (hb : Canonical b) :
     Canonical (EUnpackedFloat.sub .RNE a b) := by
   unfold EUnpackedFloat.sub
   exact ⟨Packable_add he hs ha.1 (Fp.EUnpackedFloat.neg_Packable hb.1), SpecialCanon_add a b.neg⟩
 
 /-- **`sub` cancellation** (reduces to `add`). -/
-theorem sub_pack_unpack (he : 2 < e) (hs : 0 < s)
+theorem sub_pack_unpack (he : 1 < e) (hs : 0 < s)
     {a b : EUnpackedFloat (exponentWidth e s) (s + 1)} (ha : Canonical a) (hb : Canonical b) :
     (EUnpackedFloat.sub .RNE a b).pack.unpack = EUnpackedFloat.sub .RNE a b :=
   pack_unpack_of_Canonical (by omega) hs _ (Canonical_sub he hs ha hb)

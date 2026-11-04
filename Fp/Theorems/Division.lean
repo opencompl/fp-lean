@@ -421,7 +421,7 @@ The bridge's width side conditions `exponentWidth ein sin ≤ eu` and
 `(exponentWidth ein sin + 1, sin + 3)`.
 -/
 set_option maxHeartbeats 1000000 in
-theorem div_eq_div {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ein)
+theorem div_eq_div {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein)
     (rm : RoundingMode) (a b : PackedFloat ein sin) :
     (Fp.SmtLibSemantics.SmtLibFunctions.div
         (Fp.SmtLibSemanticsQ.smtLibRoundMethodQ ein sin) rm a b).EquivUptoNaN
@@ -738,14 +738,14 @@ theorem div_eq_div {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ei
         UnpackedFloat.unpackNum_div_unpackNum_stickyEquiv hsin ha hb
       refine EUnpackedFloat.pack'_EquivUptoNaN_of_Rel he hsin _ _ ?hrel ?hpack ?hpf
       case hrel =>
-        exact UnpackedFloat.blastSmtLibRound_Rel_round_of_stickyEquiv rm he hep hsin
+        exact UnpackedFloat.blastSmtLibRound_Rel_round_of_stickyEquiv rm he hsin
           (eu := exponentWidth ein sin + 1) (su := sin + 1 + 2) (by omega) (by omega)
           (a.unpackNum.div b.unpackNum) _ _ hqne hxnorm hsticky
       case hpack =>
-        exact UnpackedFloat.blastSmtLibRound_Packable rm hep hsin (by omega) (by omega)
+        exact UnpackedFloat.blastSmtLibRound_Packable rm he hsin (by omega) (by omega)
           (a.unpackNum.div b.unpackNum) hxnorm
       case hpf =>
-        exact UnpackedFloat.blastSmtLibRound_finite_of_stickyEquiv rm he hep hsin
+        exact UnpackedFloat.blastSmtLibRound_finite_of_stickyEquiv rm he hsin
           (by omega) (by omega) (a.unpackNum.div b.unpackNum) _ _ hqne hxnorm hsticky
 
 /-- info: 'Fp.div_eq_div' depends on axioms: [propext, Classical.choice, Quot.sound] -/

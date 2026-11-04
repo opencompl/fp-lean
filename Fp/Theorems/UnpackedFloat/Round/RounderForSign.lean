@@ -22,7 +22,7 @@ theorem UnpackedFloat.blastRounderForSign_of_sign_eq_false_eq
   simp [UnpackedFloat.blastRounderForSign, hsign]
 
 
-theorem UnpackedFloat.blastRounderForSign_Rel_rounderForSign_zero (he : 1 < ep) (hep : 2 < ep) (hs : 0 < sp)
+theorem UnpackedFloat.blastRounderForSign_Rel_rounderForSign_zero (he : 1 < ep) (hs : 0 < sp)
     (hsu : sp + 2 ≤ su) (heu : exponentWidth ep sp ≤ eu)
     (x : UnpackedFloat eu su)
     (hxnorm : x.normalize = x)
@@ -35,12 +35,12 @@ theorem UnpackedFloat.blastRounderForSign_Rel_rounderForSign_zero (he : 1 < ep) 
   by_cases hsign : x.sign
   · simp [hsign]
     rw [← UnpackedFloat.toRat'_eq_zero_of_isZero x hx0]
-    exact (UnpackedFloat.blastUpper_Rel_smtLibUpper hep hs hsu heu x hxnorm hnotEO)
+    exact (UnpackedFloat.blastUpper_Rel_smtLibUpper he hs hsu heu x hxnorm hnotEO)
   · simp [hsign]
     rw [UnpackedFloat.blastRounderForSign_of_sign_eq_false_eq x (by grind)]
     rw [← UnpackedFloat.toRat'_eq_zero_of_isZero x hx0]
     exact
-      (UnpackedFloat.blastLower_Rel_smtLibLower hep hs hsu heu x hxnorm hnotEO)
+      (UnpackedFloat.blastLower_Rel_smtLibLower he hs hsu heu x hxnorm hnotEO)
 
 /--
 info: 'Fp.UnpackedFloat.blastRounderForSign_Rel_rounderForSign_zero' depends on axioms: [propext,

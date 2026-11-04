@@ -47,7 +47,6 @@ private theorem toRat'_minSubnormalForPackedFloat_true_eq
 /-- **Exact-value RTN bridge.** Analogue of `toExtRat_round_Rel_smtLibRound_of_RNE`. -/
 theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RTN
     (he : 1 < ep)
-    (hep : 2 < ep)
     (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu)
     (hsu : sp + 2 ≤ su)
@@ -76,7 +75,7 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RTN
         UnpackedFloat.two_pow_maxNormalExp_succ_le_abs_toRat' he hs heu x hxnorm hzero hover
       have hsgn := UnpackedFloat.sign_eq_decide_toRat'_lt_zero x hx0
       have hmaxlt : (PackedFloat.maxNormalNumber ep sp false).toRat
-          < (2 : Rat) ^ (maxNormalExp ep + 1) := PackedFloat.toRat_maxNormalNumber_lt_two_pow hep hs
+          < (2 : Rat) ^ (maxNormalExp ep + 1) := PackedFloat.toRat_maxNormalNumber_lt_two_pow he hs
       have hflip : (PackedFloat.maxNormalNumber ep sp true).toRat
           = - (PackedFloat.maxNormalNumber ep sp false).toRat := by
         rw [← PackedFloat.neg_maxNormalNumber_false', PackedFloat.toRat_neg]
@@ -96,7 +95,7 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RTN
         · simp
         · simp only [EUnpackedFloat.num_mkNumber]
           apply UnpackedFloat.Rel_of_toRat_eq_toRat_and_sign
-          · exact UnpackedFloat.toRat'_maxNormal_eq_toRat_maxNormalNumber hs (by omega) hep (Nat.le_refl _)
+          · exact UnpackedFloat.toRat'_maxNormal_eq_toRat_maxNormalNumber hs (by omega) he (Nat.le_refl _)
           · simp [UnpackedFloat.maxNormal, PackedFloat.sign_maxNormalNumber]
       · -- negative overflow: circuit `mkInfinity true`, spec `lower = -∞`
         have hsignt : x.sign = true := by grind
@@ -167,15 +166,15 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RTN
         · -- main case: circuit `blastLower`, spec `lower`
           simp [hunder]
           simp only [UnpackedFloat.blastSmtLibRoundAux, UnpackedFloat.blastSmtLibRoundRTN]
-          rw [UnpackedFloat.blastLower_truncateFittingExponent_normalize_eq_self hep hs heu hsu x
+          rw [UnpackedFloat.blastLower_truncateFittingExponent_normalize_eq_self he hs heu hsu x
               hzero hxnorm (by simpa using hunder) (by simpa using hover)]
           rw [blastLower_truncateFittingExponent_Rel_eq_blastLower_Rel (by grind) (by grind)
               (by grind) (by grind) (by grind)]
-          exact UnpackedFloat.blastLower_Rel_smtLibLower hep hs hsu heu x hxnorm (by simpa using hover)
+          exact UnpackedFloat.blastLower_Rel_smtLibLower he hs hsu heu x hxnorm (by simpa using hover)
 
 /-- **Finiteness companion of `toExtRat_round_Rel_smtLibRound_of_RTN`.** -/
 theorem UnpackedFloat.blastSmtLibRound_finite_of_RTN
-    (he : 1 < ep) (hep : 2 < ep) (hs : 0 < sp)
+    (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su)
     (sign : Bool) (hsign : sign = x.sign)
@@ -201,7 +200,7 @@ theorem UnpackedFloat.blastSmtLibRound_finite_of_RTN
     have hmag : (2 : Rat) ^ (maxNormalExp ep + 1) ≤ (x.toRat').abs :=
       UnpackedFloat.two_pow_maxNormalExp_succ_le_abs_toRat' he hs heu x hxnorm (by simp [hzero]) hover
     have hmaxlt : (PackedFloat.maxNormalNumber ep sp false).toRat
-        < (2 : Rat) ^ (maxNormalExp ep + 1) := PackedFloat.toRat_maxNormalNumber_lt_two_pow hep hs
+        < (2 : Rat) ^ (maxNormalExp ep + 1) := PackedFloat.toRat_maxNormalNumber_lt_two_pow he hs
     by_cases hsign : x.sign = false
     · -- positive overflow: spec `lower = maxNormalNumber false`, finite.
       have hnneg : ¬ (x.toRat' < 0) := by rw [hsign] at hsgn; simpa using hsgn.symm
@@ -268,7 +267,7 @@ theorem UnpackedFloat.blastSmtLibRound_finite_of_RTN
       have hLnan : ¬ (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).isNaN := by
         simpa using not_isNaN_lower_of_ne_NaN ep sp (by grind) hs _ (by simp)
       have hLfin := UnpackedFloat.not_isInfinite_smtLibLower_of_blastLower_state_Number
-        hep hs hsu (Nat.le_refl _) (x.truncateFittingExponent ep sp) htnorm htmsb htover hstate
+        he hs hsu (Nat.le_refl _) (x.truncateFittingExponent ep sp) htnorm htmsb htover hstate
       rw [hztoRat] at hLfin
       exact ⟨hLnan, hLfin⟩
 
@@ -284,7 +283,7 @@ theorem UnpackedFloat.blastSmtLibRound_finite_of_RTN
 `UnpackedFloat.blastSmtLibRound_Rel_round_of_RNE_of_stickyEquiv`. -/
 theorem UnpackedFloat.blastSmtLibRound_Rel_round_of_RTN_of_stickyEquiv
     {ep sp eu su : Nat}
-    (he : 1 < ep) (hep : 2 < ep) (hs : 0 < sp)
+    (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 3 ≤ su)
     (x : UnpackedFloat eu su)
     (sign : Bool) (r : Rat) (hrne : r ≠ 0)
@@ -305,13 +304,13 @@ theorem UnpackedFloat.blastSmtLibRound_Rel_round_of_RTN_of_stickyEquiv
   have hcongr := round_congr_of_RoundEquiv (e := ep) (s := sp) .RTN x.sign
     (roundEquiv_of_stickyEquiv he hs hsu x hmsb hr) hq
   rw [round_eq_round_of_ne_zero .RTN sign x.sign r hrne, ← hcongr]
-  exact UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RTN he hep hs heu (by omega)
+  exact UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RTN he hs heu (by omega)
     x x.sign (Eq.refl _) x.toRat (Eq.refl _) hxnorm
 
 /-- **Finiteness companion of `blastSmtLibRound_Rel_round_of_RTN_of_stickyEquiv`.** -/
 theorem UnpackedFloat.blastSmtLibRound_finite_of_RTN_of_stickyEquiv
     {ep sp eu su : Nat}
-    (he : 1 < ep) (hep : 2 < ep) (hs : 0 < sp)
+    (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 3 ≤ su)
     (x : UnpackedFloat eu su)
     (sign : Bool) (r : Rat) (hrne : r ≠ 0)
@@ -335,13 +334,13 @@ theorem UnpackedFloat.blastSmtLibRound_finite_of_RTN_of_stickyEquiv
   have hcongr := round_congr_of_RoundEquiv (e := ep) (s := sp) .RTN x.sign
     (roundEquiv_of_stickyEquiv he hs hsu x hmsb hr) hq
   rw [round_eq_round_of_ne_zero .RTN sign x.sign r hrne, ← hcongr]
-  exact UnpackedFloat.blastSmtLibRound_finite_of_RTN he hep hs heu (by omega)
+  exact UnpackedFloat.blastSmtLibRound_finite_of_RTN he hs heu (by omega)
     x x.sign (Eq.refl _) x.toRat (Eq.refl _) hxnorm hmsb hstate
 
 /-- The normalized RTN blast-rounder output is `Packable`: `blastSmtLibRoundRTN` is
 just `blastLower`, which is a normalize fixed point (so `Packable`). -/
 theorem UnpackedFloat.blastSmtLibRoundRTN_normalize_Packable
-    (hep : 2 < ep) (hs : 0 < sp) (hsu : sp + 2 ≤ su)
+    (hep : 1 < ep) (hs : 0 < sp) (hsu : sp + 2 ≤ su)
     (z : UnpackedFloat (exponentWidth ep sp) su) (hznorm : z.normalize = z)
     (hnotEU : z.blastIsEarlyUnderflowNonneg ep sp = false)
     (hnotEO : z.blastIsEarlyOverflowNonneg ep sp = false) :
@@ -353,7 +352,7 @@ theorem UnpackedFloat.blastSmtLibRoundRTN_normalize_Packable
 
 /-- `blastSmtLibRound` (RTN) output is always `Packable`. -/
 theorem UnpackedFloat.blastSmtLibRound_Packable_of_RTN
-    (hep : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (hep : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxnorm : x.normalize = x) :
     (x.blastSmtLibRound ep sp .RTN).Packable := by
   have he : 1 < ep := by grind
