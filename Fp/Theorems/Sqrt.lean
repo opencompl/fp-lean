@@ -308,7 +308,7 @@ payloads), for every rounding mode.  Mirrors `mul_eq_mul`/`div_eq_div`: special-
 agree definitionally and the number leaf is discharged by the shared mode-generic rounding bridge
 (`toExtRat_round_Rel_smtLibRound`) plus `pack'_EquivUptoNaN_of_Rel`.
 -/
-theorem sqrt_eq_sqrt {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 1 < ein)
+theorem sqrt_eq_sqrt {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein)
     (rm : RoundingMode) (a : PackedFloat ein sin) :
     (sqrtSpec rm a).EquivUptoNaN (_root_.sqrt a rm) := by
   rw [sqrtSpec, _root_.sqrt]
@@ -338,7 +338,6 @@ theorem sqrt_eq_sqrt {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 1 < 
         case hrel =>
           apply UnpackedFloat.toExtRat_round_Rel_smtLibRound rm
           · exact he
-          · exact hep
           · exact hsin
           · exact Nat.le_refl _
           · omega
@@ -346,12 +345,11 @@ theorem sqrt_eq_sqrt {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 1 < 
           · rfl
           · exact hxnorm
         case hpack =>
-          exact UnpackedFloat.blastSmtLibRound_Packable rm hep hsin
+          exact UnpackedFloat.blastSmtLibRound_Packable rm he hsin
             (Nat.le_refl _) (by omega) _ hxnorm
         case hpf =>
           apply UnpackedFloat.blastSmtLibRound_finite rm
           · exact he
-          · exact hep
           · exact hsin
           · exact Nat.le_refl _
           · omega

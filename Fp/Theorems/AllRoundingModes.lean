@@ -30,7 +30,7 @@ Dispatches to the mode-specific `toExtRat_round_Rel_smtLibRound_of_*`. -/
 theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound
     {ep sp eu su : Nat}
     (mode : RoundingMode)
-    (he : 1 < ep) (hep : 1 < ep) (hs : 0 < sp)
+    (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su)
     (sign : Bool) (hsign : sign = x.sign)
@@ -40,18 +40,18 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound
       ((SmtLibSemantics.smtLibRoundMethod (R := ExtRat) ep sp
           SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round mode sign (ExtRat.Number r)) := by
   cases mode with
-  | RNE => exact UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE he hep hs heu hsu x sign hsign r hr hxnorm
-  | RNA => exact UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNA he hep hs heu hsu x sign hsign r hr hxnorm
-  | RTN => exact UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RTN he hep hs heu hsu x sign hsign r hr hxnorm
-  | RTP => exact UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RTP he hep hs heu hsu x sign hsign r hr hxnorm
-  | RTZ => exact UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RTZ he hep hs heu hsu x sign hsign r hr hxnorm
+  | RNE => exact UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE he hs heu hsu x sign hsign r hr hxnorm
+  | RNA => exact UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNA he hs heu hsu x sign hsign r hr hxnorm
+  | RTN => exact UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RTN he hs heu hsu x sign hsign r hr hxnorm
+  | RTP => exact UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RTP he hs heu hsu x sign hsign r hr hxnorm
+  | RTZ => exact UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RTZ he hs heu hsu x sign hsign r hr hxnorm
 
 /-- **Master finiteness companion (all modes).** When the circuit is a finite
 `Number`, the SMT-LIB round of the exact value is neither NaN nor infinite. -/
 theorem UnpackedFloat.blastSmtLibRound_finite
     {ep sp eu su : Nat}
     (mode : RoundingMode)
-    (he : 1 < ep) (hep : 1 < ep) (hs : 0 < sp)
+    (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su)
     (sign : Bool) (hsign : sign = x.sign)
@@ -64,18 +64,18 @@ theorem UnpackedFloat.blastSmtLibRound_finite
       ∧ ¬ ((SmtLibSemantics.smtLibRoundMethod (R := ExtRat) ep sp
             SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round mode sign (ExtRat.Number r)).isInfinite := by
   cases mode with
-  | RNE => exact UnpackedFloat.blastSmtLibRound_finite_of_RNE he hep hs heu hsu x sign hsign r hr hxnorm hmsb
-  | RNA => exact UnpackedFloat.blastSmtLibRound_finite_of_RNA he hep hs heu hsu x sign hsign r hr hxnorm hmsb
-  | RTN => exact UnpackedFloat.blastSmtLibRound_finite_of_RTN he hep hs heu hsu x sign hsign r hr hxnorm hmsb
-  | RTP => exact UnpackedFloat.blastSmtLibRound_finite_of_RTP he hep hs heu hsu x sign hsign r hr hxnorm hmsb
-  | RTZ => exact UnpackedFloat.blastSmtLibRound_finite_of_RTZ he hep hs heu hsu x sign hsign r hr hxnorm hmsb
+  | RNE => exact UnpackedFloat.blastSmtLibRound_finite_of_RNE he hs heu hsu x sign hsign r hr hxnorm hmsb
+  | RNA => exact UnpackedFloat.blastSmtLibRound_finite_of_RNA he hs heu hsu x sign hsign r hr hxnorm hmsb
+  | RTN => exact UnpackedFloat.blastSmtLibRound_finite_of_RTN he hs heu hsu x sign hsign r hr hxnorm hmsb
+  | RTP => exact UnpackedFloat.blastSmtLibRound_finite_of_RTP he hs heu hsu x sign hsign r hr hxnorm hmsb
+  | RTZ => exact UnpackedFloat.blastSmtLibRound_finite_of_RTZ he hs heu hsu x sign hsign r hr hxnorm hmsb
 
 /-- **Master sticky-compression bridge (all modes).** As the exact-value bridge,
 but `r` need only be a sticky compression of `x.toRat`. -/
 theorem UnpackedFloat.blastSmtLibRound_Rel_round_of_stickyEquiv
     {ep sp eu su : Nat}
     (mode : RoundingMode)
-    (he : 1 < ep) (hep : 1 < ep) (hs : 0 < sp)
+    (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 3 ≤ su)
     (x : UnpackedFloat eu su)
     (sign : Bool) (r : Rat) (hrne : r ≠ 0)
@@ -85,11 +85,11 @@ theorem UnpackedFloat.blastSmtLibRound_Rel_round_of_stickyEquiv
       ((SmtLibSemantics.smtLibRoundMethod (R := ExtRat) ep sp
           SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round mode sign (ExtRat.Number r)) := by
   cases mode with
-  | RNE => exact UnpackedFloat.blastSmtLibRound_Rel_round_of_RNE_of_stickyEquiv he hep hs heu hsu x sign r hrne hxnorm hr
-  | RNA => exact UnpackedFloat.blastSmtLibRound_Rel_round_of_RNA_of_stickyEquiv he hep hs heu hsu x sign r hrne hxnorm hr
-  | RTN => exact UnpackedFloat.blastSmtLibRound_Rel_round_of_RTN_of_stickyEquiv he hep hs heu hsu x sign r hrne hxnorm hr
-  | RTP => exact UnpackedFloat.blastSmtLibRound_Rel_round_of_RTP_of_stickyEquiv he hep hs heu hsu x sign r hrne hxnorm hr
-  | RTZ => exact UnpackedFloat.blastSmtLibRound_Rel_round_of_RTZ_of_stickyEquiv he hep hs heu hsu x sign r hrne hxnorm hr
+  | RNE => exact UnpackedFloat.blastSmtLibRound_Rel_round_of_RNE_of_stickyEquiv he hs heu hsu x sign r hrne hxnorm hr
+  | RNA => exact UnpackedFloat.blastSmtLibRound_Rel_round_of_RNA_of_stickyEquiv he hs heu hsu x sign r hrne hxnorm hr
+  | RTN => exact UnpackedFloat.blastSmtLibRound_Rel_round_of_RTN_of_stickyEquiv he hs heu hsu x sign r hrne hxnorm hr
+  | RTP => exact UnpackedFloat.blastSmtLibRound_Rel_round_of_RTP_of_stickyEquiv he hs heu hsu x sign r hrne hxnorm hr
+  | RTZ => exact UnpackedFloat.blastSmtLibRound_Rel_round_of_RTZ_of_stickyEquiv he hs heu hsu x sign r hrne hxnorm hr
 
 /-- **Master `Packable` (all modes).** For every rounding `mode`, the bit-blasted
 rounder output on a normalized `x` is `Packable` (packs and unpacks back to itself).
@@ -111,7 +111,7 @@ theorem UnpackedFloat.blastSmtLibRound_Packable
 theorem UnpackedFloat.blastSmtLibRound_finite_of_stickyEquiv
     {ep sp eu su : Nat}
     (mode : RoundingMode)
-    (he : 1 < ep) (hep : 1 < ep) (hs : 0 < sp)
+    (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 3 ≤ su)
     (x : UnpackedFloat eu su)
     (sign : Bool) (r : Rat) (hrne : r ≠ 0)
@@ -123,11 +123,11 @@ theorem UnpackedFloat.blastSmtLibRound_finite_of_stickyEquiv
       ∧ ¬ ((SmtLibSemantics.smtLibRoundMethod (R := ExtRat) ep sp
             SmtLibSemantics.smtLibV SmtLibSemantics.smtLibV).round mode sign (ExtRat.Number r)).isInfinite := by
   cases mode with
-  | RNE => exact UnpackedFloat.blastSmtLibRound_finite_of_RNE_of_stickyEquiv he hep hs heu hsu x sign r hrne hxnorm hr
-  | RNA => exact UnpackedFloat.blastSmtLibRound_finite_of_RNA_of_stickyEquiv he hep hs heu hsu x sign r hrne hxnorm hr
-  | RTN => exact UnpackedFloat.blastSmtLibRound_finite_of_RTN_of_stickyEquiv he hep hs heu hsu x sign r hrne hxnorm hr
-  | RTP => exact UnpackedFloat.blastSmtLibRound_finite_of_RTP_of_stickyEquiv he hep hs heu hsu x sign r hrne hxnorm hr
-  | RTZ => exact UnpackedFloat.blastSmtLibRound_finite_of_RTZ_of_stickyEquiv he hep hs heu hsu x sign r hrne hxnorm hr
+  | RNE => exact UnpackedFloat.blastSmtLibRound_finite_of_RNE_of_stickyEquiv he hs heu hsu x sign r hrne hxnorm hr
+  | RNA => exact UnpackedFloat.blastSmtLibRound_finite_of_RNA_of_stickyEquiv he hs heu hsu x sign r hrne hxnorm hr
+  | RTN => exact UnpackedFloat.blastSmtLibRound_finite_of_RTN_of_stickyEquiv he hs heu hsu x sign r hrne hxnorm hr
+  | RTP => exact UnpackedFloat.blastSmtLibRound_finite_of_RTP_of_stickyEquiv he hs heu hsu x sign r hrne hxnorm hr
+  | RTZ => exact UnpackedFloat.blastSmtLibRound_finite_of_RTZ_of_stickyEquiv he hs heu hsu x sign r hrne hxnorm hr
 
 /-- info: 'Fp.UnpackedFloat.toExtRat_round_Rel_smtLibRound' depends on axioms: [propext,
   Classical.choice, Quot.sound] -/

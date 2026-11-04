@@ -48,7 +48,6 @@ via `Rel`) with the SMT-LIB `RTP` rounder on the exact value `r = x.toRat`.
 Analogue of `UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE`. -/
 theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RTP
     (he : 1 < ep)
-    (hep : 1 < ep)
     (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu)
     (hsu : sp + 2 ≤ su)
@@ -77,7 +76,7 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RTP
         UnpackedFloat.two_pow_maxNormalExp_succ_le_abs_toRat' he hs heu x hxnorm hzero hover
       have hsgn := UnpackedFloat.sign_eq_decide_toRat'_lt_zero x hx0
       have hmaxlt : (PackedFloat.maxNormalNumber ep sp false).toRat
-          < (2 : Rat) ^ (maxNormalExp ep + 1) := PackedFloat.toRat_maxNormalNumber_lt_two_pow hep hs
+          < (2 : Rat) ^ (maxNormalExp ep + 1) := PackedFloat.toRat_maxNormalNumber_lt_two_pow he hs
       by_cases hsign : x.sign = false
       · -- positive overflow: circuit `mkInfinity`, spec `upper = +∞`
         have hnneg : ¬ (x.toRat' < 0) := by rw [hsign] at hsgn; simpa using hsgn.symm
@@ -110,7 +109,7 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RTP
         · simp
         · simp only [EUnpackedFloat.num_mkNumber]
           apply UnpackedFloat.Rel_of_toRat_eq_toRat_and_sign
-          · exact UnpackedFloat.toRat'_maxNormal_eq_toRat_maxNormalNumber hs (by omega) hep (Nat.le_refl _)
+          · exact UnpackedFloat.toRat'_maxNormal_eq_toRat_maxNormalNumber hs (by omega) he (Nat.le_refl _)
           · simp [UnpackedFloat.maxNormal, PackedFloat.sign_maxNormalNumber]
     · simp [hover]
       by_cases hx0 : x.toRat' = 0
@@ -167,17 +166,17 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RTP
         · -- main case: circuit `blastUpper`, spec `upper`
           simp [hunder]
           simp only [UnpackedFloat.blastSmtLibRoundAux, UnpackedFloat.blastSmtLibRoundRTP]
-          rw [UnpackedFloat.blastUpper_truncateFittingExponent_normalize_eq_self hep hs heu hsu x
+          rw [UnpackedFloat.blastUpper_truncateFittingExponent_normalize_eq_self he hs heu hsu x
               hzero hxnorm (by simpa using hunder) (by simpa using hover)]
           rw [blastUpper_truncateFittingExponent_Rel_eq_blastUpper_Rel (by grind) (by grind)
               (by grind) (by grind) (by grind)]
-          exact UnpackedFloat.blastUpper_Rel_smtLibUpper hep hs hsu heu x hxnorm (by simpa using hover)
+          exact UnpackedFloat.blastUpper_Rel_smtLibUpper he hs hsu heu x hxnorm (by simpa using hover)
 
 /-- **Finiteness companion of `toExtRat_round_Rel_smtLibRound_of_RTP`.**
 When the circuit is a finite `Number`, the SMT-LIB `RTP` round of the exact value
 is neither NaN nor infinite.  Analogue of `blastSmtLibRound_finite_of_RNE`. -/
 theorem UnpackedFloat.blastSmtLibRound_finite_of_RTP
-    (he : 1 < ep) (hep : 1 < ep) (hs : 0 < sp)
+    (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su)
     (sign : Bool) (hsign : sign = x.sign)
@@ -203,7 +202,7 @@ theorem UnpackedFloat.blastSmtLibRound_finite_of_RTP
     have hmag : (2 : Rat) ^ (maxNormalExp ep + 1) ≤ (x.toRat').abs :=
       UnpackedFloat.two_pow_maxNormalExp_succ_le_abs_toRat' he hs heu x hxnorm (by simp [hzero]) hover
     have hmaxlt : (PackedFloat.maxNormalNumber ep sp false).toRat
-        < (2 : Rat) ^ (maxNormalExp ep + 1) := PackedFloat.toRat_maxNormalNumber_lt_two_pow hep hs
+        < (2 : Rat) ^ (maxNormalExp ep + 1) := PackedFloat.toRat_maxNormalNumber_lt_two_pow he hs
     by_cases hsign : x.sign = false
     · -- positive overflow: circuit is `∞` (state `Infinity`), contradicting `state = Number`.
       simp [blastRounderSpecialCaseOverflow, hsign, EUnpackedFloat.mkInfinity] at hstate
@@ -272,7 +271,7 @@ theorem UnpackedFloat.blastSmtLibRound_finite_of_RTP
       have hUnan : ¬ (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp).isNaN := by
         simpa using not_isNaN_upper_of_ne_NaN ep sp (by grind) hs _ (by simp)
       have hUfin := UnpackedFloat.not_isInfinite_smtLibUpper_of_blastUpper_state_Number
-        hep hs hsu (Nat.le_refl _) (x.truncateFittingExponent ep sp) htnorm htmsb htover hstate
+        he hs hsu (Nat.le_refl _) (x.truncateFittingExponent ep sp) htnorm htmsb htover hstate
       rw [hztoRat] at hUfin
       exact ⟨hUnan, hUfin⟩
 
@@ -289,7 +288,7 @@ exact value `r` need only be a sticky compression of `x.toRat`.  Analogue of
 `UnpackedFloat.blastSmtLibRound_Rel_round_of_RNE_of_stickyEquiv`. -/
 theorem UnpackedFloat.blastSmtLibRound_Rel_round_of_RTP_of_stickyEquiv
     {ep sp eu su : Nat}
-    (he : 1 < ep) (hep : 1 < ep) (hs : 0 < sp)
+    (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 3 ≤ su)
     (x : UnpackedFloat eu su)
     (sign : Bool) (r : Rat) (hrne : r ≠ 0)
@@ -310,14 +309,14 @@ theorem UnpackedFloat.blastSmtLibRound_Rel_round_of_RTP_of_stickyEquiv
   have hcongr := round_congr_of_RoundEquiv (e := ep) (s := sp) .RTP x.sign
     (roundEquiv_of_stickyEquiv he hs hsu x hmsb hr) hq
   rw [round_eq_round_of_ne_zero .RTP sign x.sign r hrne, ← hcongr]
-  exact UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RTP he hep hs heu (by omega)
+  exact UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RTP he hs heu (by omega)
     x x.sign (Eq.refl _) x.toRat (Eq.refl _) hxnorm
 
 /-- **Finiteness companion of `blastSmtLibRound_Rel_round_of_RTP_of_stickyEquiv`.**
 Analogue of `blastSmtLibRound_finite_of_RNE_of_stickyEquiv`. -/
 theorem UnpackedFloat.blastSmtLibRound_finite_of_RTP_of_stickyEquiv
     {ep sp eu su : Nat}
-    (he : 1 < ep) (hep : 1 < ep) (hs : 0 < sp)
+    (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 3 ≤ su)
     (x : UnpackedFloat eu su)
     (sign : Bool) (r : Rat) (hrne : r ≠ 0)
@@ -341,7 +340,7 @@ theorem UnpackedFloat.blastSmtLibRound_finite_of_RTP_of_stickyEquiv
   have hcongr := round_congr_of_RoundEquiv (e := ep) (s := sp) .RTP x.sign
     (roundEquiv_of_stickyEquiv he hs hsu x hmsb hr) hq
   rw [round_eq_round_of_ne_zero .RTP sign x.sign r hrne, ← hcongr]
-  exact UnpackedFloat.blastSmtLibRound_finite_of_RTP he hep hs heu (by omega)
+  exact UnpackedFloat.blastSmtLibRound_finite_of_RTP he hs heu (by omega)
     x x.sign (Eq.refl _) x.toRat (Eq.refl _) hxnorm hmsb hstate
 
 /-- The normalized RTP blast-rounder output is `Packable`: `blastSmtLibRoundRTP` is

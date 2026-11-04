@@ -24,7 +24,6 @@ produces the infinity whose sign is the sign of the number.  Clone of
 -/
 private theorem roundRNA_eq_infinity_of_maxNormalExp_lt
   (he : 1 < ep)
-  (hep : 1 < ep)
   (hs : 0 < sp)
   (r : Rat)
   (hsign : sign = decide (r < 0))
@@ -42,12 +41,12 @@ private theorem roundRNA_eq_infinity_of_maxNormalExp_lt
   have hfinN := PackedFloat.isNormOrNonzeroSubnorm_maxNormalNumber' (e := ep) (s := sp) he false
   have hfinN1 := PackedFloat.isNormOrNonzeroSubnorm_maxNormalNumber' (e := ep) (s := sp + 1) he false
   have hmaxlt : (PackedFloat.maxNormalNumber ep sp false).toRat < 2 ^ (maxNormalExp ep + 1) :=
-    PackedFloat.toRat_maxNormalNumber_lt_two_pow hep hs
+    PackedFloat.toRat_maxNormalNumber_lt_two_pow he hs
   have hmaxlt1 : (PackedFloat.maxNormalNumber ep (sp + 1) false).toRat < 2 ^ (maxNormalExp ep + 1) :=
-    PackedFloat.toRat_maxNormalNumber_lt_two_pow hep hsp1
+    PackedFloat.toRat_maxNormalNumber_lt_two_pow he hsp1
   have hmono : (PackedFloat.maxNormalNumber ep sp false).toRat
       < (PackedFloat.maxNormalNumber ep (sp + 1) false).toRat :=
-    PackedFloat.toRat_maxNormalNumber_lt_toRat_maxNormalNumber_succ hep hs
+    PackedFloat.toRat_maxNormalNumber_lt_toRat_maxNormalNumber_succ he hs
   have hnotnan : ¬ (SmtLibSemantics.ExtendedNumber.isNaN (ExtRat.Number r)) := by
     simp
   have hnotzero : ¬ (SmtLibSemantics.ExtendedNumber.isZero (ExtRat.Number r)) := by
@@ -349,7 +348,6 @@ private theorem roundRNA_eq_of_ne_zero {eout sout : Nat} {sign : Bool}
 /-- **Exact-value RNA bridge.** Analogue of `toExtRat_round_Rel_smtLibRound_of_RNE`. -/
 theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNA
     (he : 1 < ep)
-    (hep : 1 < ep)
     (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu)
     (hsu : sp + 2 ≤ su)
@@ -381,7 +379,6 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNA
         · grind
         · simp
       · simp [he]
-      · simp [hep]
       · simp [hs]
       · exact UnpackedFloat.sign_eq_decide_toRat'_lt_zero x hx0
       · exact UnpackedFloat.two_pow_maxNormalExp_succ_le_abs_toRat' he hs heu x hxnorm hzero hover
@@ -418,22 +415,22 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNA
             he hs heu hoverF hunderF
         have closeU : (((x.truncateFittingExponent ep sp).blastUpper ep sp).normalize).Rel
             (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
-          rw [UnpackedFloat.blastUpper_truncateFittingExponent_normalize_eq_self hep hs heu hsu x
+          rw [UnpackedFloat.blastUpper_truncateFittingExponent_normalize_eq_self he hs heu hsu x
               hzero hxnorm hunderF hoverF,
             blastUpper_truncateFittingExponent_Rel_eq_blastUpper_Rel (by grind) (by grind) (by grind)
               hoverF hunderF]
-          exact UnpackedFloat.blastUpper_Rel_smtLibUpper hep hs hsu heu x hxnorm hoverF
+          exact UnpackedFloat.blastUpper_Rel_smtLibUpper he hs hsu heu x hxnorm hoverF
         have closeL : (((x.truncateFittingExponent ep sp).blastLower ep sp).normalize).Rel
             (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp) := by
-          rw [UnpackedFloat.blastLower_truncateFittingExponent_normalize_eq_self hep hs heu hsu x
+          rw [UnpackedFloat.blastLower_truncateFittingExponent_normalize_eq_self he hs heu hsu x
               hzero hxnorm hunderF hoverF,
             blastLower_truncateFittingExponent_Rel_eq_blastLower_Rel (by grind) (by grind) (by grind)
               hoverF hunderF]
-          exact UnpackedFloat.blastLower_Rel_smtLibLower hep hs hsu heu x hxnorm hoverF
+          exact UnpackedFloat.blastLower_Rel_smtLibLower he hs hsu heu x hxnorm hoverF
         rw [if_neg hx0]
         rw [UnpackedFloat.blastSmtLibRoundAux, UnpackedFloat.blastSmtLibRoundRNA,
           sign_truncateFittingExponent,
-          blastIsLowerHalf_eq hep hs (Nat.le_refl _) hsu (x.truncateFittingExponent ep sp)
+          blastIsLowerHalf_eq he hs (Nat.le_refl _) hsu (x.truncateFittingExponent ep sp)
             htnorm htmsb htunder htover, htoRat]
         rw [roundRNA_eq_of_ne_zero x.toRat' hx0]
         by_cases hsign : x.sign = false
@@ -458,7 +455,7 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNA
           have hneg : x.toRat' < 0 := by rw [hsignt] at hsgn; simpa using hsgn
           rw [if_neg (show ¬ (0 < x.toRat') by grind)]
           by_cases hnrd : (x.truncateFittingExponent ep sp).needsRounding ep sp = true
-          · rw [blastIsTieBreak_eq hep hs (Nat.le_refl _) hsu (x.truncateFittingExponent ep sp)
+          · rw [blastIsTieBreak_eq he hs (Nat.le_refl _) hsu (x.truncateFittingExponent ep sp)
                 htnorm htmsb htunder htover, hnrd, Bool.true_and, htoRat]
             by_cases hor : (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV
                 SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat')
@@ -499,7 +496,7 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNA
             have hnrd' : (x.truncateFittingExponent ep sp).needsRounding ep sp = false := by grind
             have hLHtrue : (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV
                 SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat') := by
-              have h1 := blastIsLowerHalf_eq hep hs (Nat.le_refl _) hsu (x.truncateFittingExponent ep sp)
+              have h1 := blastIsLowerHalf_eq he hs (Nat.le_refl _) hsu (x.truncateFittingExponent ep sp)
                 htnorm htmsb htunder htover
               rw [blastIsLowerHalf_eq_true_of_not_needsRounding _ hnrd', htoRat] at h1
               exact of_decide_eq_true h1.symm
@@ -511,7 +508,7 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNA
 
 /-- **Finiteness companion of `toExtRat_round_Rel_smtLibRound_of_RNA`.** -/
 theorem UnpackedFloat.blastSmtLibRound_finite_of_RNA
-    (he : 1 < ep) (hep : 1 < ep) (hs : 0 < sp)
+    (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su)
     (sign : Bool) (hsign : sign = x.sign)
@@ -574,18 +571,18 @@ theorem UnpackedFloat.blastSmtLibRound_finite_of_RNA
           ¬ (SmtLibSemantics.smtLibUpper.upper (ExtRat.Number x.toRat') : PackedFloat ep sp).isInfinite := by
         intro hsU
         have := UnpackedFloat.not_isInfinite_smtLibUpper_of_blastUpper_state_Number
-          hep hs hsu (Nat.le_refl _) (x.truncateFittingExponent ep sp) htnorm htmsb htover hsU
+          he hs hsu (Nat.le_refl _) (x.truncateFittingExponent ep sp) htnorm htmsb htover hsU
         rwa [htoRat] at this
       have hLfin : ((x.truncateFittingExponent ep sp).blastLower ep sp).state = State.Number →
           ¬ (SmtLibSemantics.smtLibLower.lower (ExtRat.Number x.toRat') : PackedFloat ep sp).isInfinite := by
         intro hsL
         have := UnpackedFloat.not_isInfinite_smtLibLower_of_blastLower_state_Number
-          hep hs hsu (Nat.le_refl _) (x.truncateFittingExponent ep sp) htnorm htmsb htover hsL
+          he hs hsu (Nat.le_refl _) (x.truncateFittingExponent ep sp) htnorm htmsb htover hsL
         rwa [htoRat] at this
       rw [roundRNA_eq_of_ne_zero x.toRat' hx0]
       simp only [UnpackedFloat.blastSmtLibRoundAux, UnpackedFloat.blastSmtLibRoundRNA,
         sign_truncateFittingExponent,
-        blastIsLowerHalf_eq hep hs (Nat.le_refl _) hsu (x.truncateFittingExponent ep sp)
+        blastIsLowerHalf_eq he hs (Nat.le_refl _) hsu (x.truncateFittingExponent ep sp)
           htnorm htmsb htunder htover, htoRat] at hstate
       by_cases hsign : x.sign = false
       · -- positive
@@ -611,7 +608,7 @@ theorem UnpackedFloat.blastSmtLibRound_finite_of_RNA
         have hneg : x.toRat' < 0 := by rw [hsignt] at hsgn; simpa using hsgn
         rw [if_neg (show ¬ (0 < x.toRat') by grind)]
         by_cases hnrd : (x.truncateFittingExponent ep sp).needsRounding ep sp = true
-        · rw [blastIsTieBreak_eq hep hs (Nat.le_refl _) hsu (x.truncateFittingExponent ep sp)
+        · rw [blastIsTieBreak_eq he hs (Nat.le_refl _) hsu (x.truncateFittingExponent ep sp)
               htnorm htmsb htunder htover, hnrd, Bool.true_and, htoRat] at hstate
           by_cases hor : (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV
               SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat')
@@ -652,7 +649,7 @@ theorem UnpackedFloat.blastSmtLibRound_finite_of_RNA
           have hnrd' : (x.truncateFittingExponent ep sp).needsRounding ep sp = false := by grind
           have hLHtrue : (SmtLibSemantics.smtLibRoundMethod ep sp SmtLibSemantics.smtLibV
               SmtLibSemantics.smtLibV).lowerHalf (ExtRat.Number x.toRat') := by
-            have h1 := blastIsLowerHalf_eq hep hs (Nat.le_refl _) hsu (x.truncateFittingExponent ep sp)
+            have h1 := blastIsLowerHalf_eq he hs (Nat.le_refl _) hsu (x.truncateFittingExponent ep sp)
               htnorm htmsb htunder htover
             rw [blastIsLowerHalf_eq_true_of_not_needsRounding _ hnrd', htoRat] at h1
             exact of_decide_eq_true h1.symm
@@ -675,7 +672,7 @@ theorem UnpackedFloat.blastSmtLibRound_finite_of_RNA
 `UnpackedFloat.blastSmtLibRound_Rel_round_of_RNE_of_stickyEquiv`. -/
 theorem UnpackedFloat.blastSmtLibRound_Rel_round_of_RNA_of_stickyEquiv
     {ep sp eu su : Nat}
-    (he : 1 < ep) (hep : 1 < ep) (hs : 0 < sp)
+    (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 3 ≤ su)
     (x : UnpackedFloat eu su)
     (sign : Bool) (r : Rat) (hrne : r ≠ 0)
@@ -696,13 +693,13 @@ theorem UnpackedFloat.blastSmtLibRound_Rel_round_of_RNA_of_stickyEquiv
   have hcongr := round_congr_of_RoundEquiv (e := ep) (s := sp) .RNA x.sign
     (roundEquiv_of_stickyEquiv he hs hsu x hmsb hr) hq
   rw [round_eq_round_of_ne_zero .RNA sign x.sign r hrne, ← hcongr]
-  exact UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNA he hep hs heu (by omega)
+  exact UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNA he hs heu (by omega)
     x x.sign (Eq.refl _) x.toRat (Eq.refl _) hxnorm
 
 /-- **Finiteness companion of `blastSmtLibRound_Rel_round_of_RNA_of_stickyEquiv`.** -/
 theorem UnpackedFloat.blastSmtLibRound_finite_of_RNA_of_stickyEquiv
     {ep sp eu su : Nat}
-    (he : 1 < ep) (hep : 1 < ep) (hs : 0 < sp)
+    (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 3 ≤ su)
     (x : UnpackedFloat eu su)
     (sign : Bool) (r : Rat) (hrne : r ≠ 0)
@@ -726,7 +723,7 @@ theorem UnpackedFloat.blastSmtLibRound_finite_of_RNA_of_stickyEquiv
   have hcongr := round_congr_of_RoundEquiv (e := ep) (s := sp) .RNA x.sign
     (roundEquiv_of_stickyEquiv he hs hsu x hmsb hr) hq
   rw [round_eq_round_of_ne_zero .RNA sign x.sign r hrne, ← hcongr]
-  exact UnpackedFloat.blastSmtLibRound_finite_of_RNA he hep hs heu (by omega)
+  exact UnpackedFloat.blastSmtLibRound_finite_of_RNA he hs heu (by omega)
     x x.sign (Eq.refl _) x.toRat (Eq.refl _) hxnorm hmsb hstate
 
 /-- The normalized RNA blast-rounder output is `Packable`: each branch is a
