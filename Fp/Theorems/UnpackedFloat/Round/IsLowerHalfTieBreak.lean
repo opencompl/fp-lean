@@ -79,7 +79,7 @@ theorem smtLibLower_lower_toRatExp_eq
 /-- **Lower bridge.** `lower_{sp+1}.toRat = lower_sp.toRat + (guard ? ulp_{sp+1} : 0)`, with
 `ulp_{sp+1} = 2^(x.ex − (sp+1) + off)` — from the round-toward-zero guard-bit add lemma + the pins. -/
 theorem smtLibLower_succ_toRat_eq_lower_add_guard_ulp
-    {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+    {eu su ep sp : Nat} (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep (sp + 1) ≤ eu) (hsu : sp + 3 ≤ su)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
     (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
@@ -115,7 +115,7 @@ when rounding is needed: `upper.toRat = lower.toRat + (needsRounding ? ulp : 0)`
 `ulp = 2^(-sp)·2^(lower.toRatExp)`. From `upper = lower` (representable) / `lower.successorAwayFromZero`
 (needs rounding) and `toRat_successorAwayFromZero_eq`. -/
 theorem smtLibUpper_toRat_eq_lower_add_ulp
-    {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+    {eu su ep sp : Nat} (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
     (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
@@ -177,7 +177,7 @@ theorem smtLibUpper_toRat_eq_lower_add_ulp
 `needsRounding_{sp+1}` rewritten to the `sp` sticky bit (`needsRounding_succ_eq_blastExtractStickyBit`):
 `upper_{sp+1}.toRat = lower_{sp+1}.toRat + (stickyBit_sp ? ulp_{sp+1} : 0)`. -/
 theorem smtLibUpper_succ_toRat_eq_lower_add_sticky_ulp
-    {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+    {eu su ep sp : Nat} (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep (sp + 1) ≤ eu) (hsu : sp + 3 ≤ su)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
     (hnotunder : x.blastIsUnderflowNonneg ep (sp + 1) = false)
@@ -201,7 +201,7 @@ theorem smtLibUpper_succ_toRat_eq_lower_add_sticky_ulp
 /-- The upper approximant is finite when the lower is in range and not `maxNormal` (so its successor
 doesn't overflow). -/
 theorem isNormOrNonzeroSubnorm_smtLibUpper_of_sign_false_of_ne_maxNormal
-    {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+    {eu su ep sp : Nat} (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
     (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
@@ -251,7 +251,7 @@ wide, both lowers ≠ maxNormal). From the two upper foundation lemmas + the low
 `u = 2^(x.ex-(sp+1)+off)`, `upper_sp − upper_{sp+1} = (needsRounding?2u:0) − (guard?u:0) − (sticky?u:0)`,
 which vanishes (with `u > 0`, `needsRounding = guard||sticky`) exactly when `guard = sticky`. -/
 theorem smtLibUpper_eq_iff_guard_eq_sticky
-    {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+    {eu su ep sp : Nat} (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep (sp + 1) ≤ eu) (hsu : sp + 3 ≤ su)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
     (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
@@ -310,7 +310,7 @@ theorem smtLibUpper_eq_iff_guard_eq_sticky
 /-- Nonnegative, in-range, and wide enough (`sp+1` precision fits): `blastIsLowerHalf = !guardBit`
 matches the SMT `lowerHalf` (= `lower_sp = lower_{sp+1}`) via the guard-bit bridge. -/
 theorem blastIsLowerHalf_iff_lowerHalf_of_sign_false_wide
-    {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+    {eu su ep sp : Nat} (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep (sp + 1) ≤ eu) (hsu : sp + 3 ≤ su)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
     (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
@@ -357,7 +357,7 @@ theorem blastIsLowerHalf_iff_lowerHalf_of_sign_false_wide
 `upper_sp(|x|) = upper_{sp+1}(|x|)`, which the upper bridge identifies with `guard == sticky` — exactly
 the (fixed) `blastIsLowerHalfNeg`. -/
 theorem blastIsLowerHalf_iff_lowerHalf_of_sign_true_wide
-    {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+    {eu su ep sp : Nat} (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep (sp + 1) ≤ eu) (hsu : sp + 3 ≤ su)
     (x : UnpackedFloat eu su) (hxsignt : x.sign = true) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
     (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
@@ -435,7 +435,7 @@ theorem blastIsLowerHalf_iff_lowerHalf_of_sign_true_wide
 `lower_sp = +0` but `lower_{sp+1} > 0` (x is in range at `sp+1`), so `lowerHalf = false`; and the guard
 bit is the (set) MSB, so `!guard = false`. Both sides are `false`. -/
 theorem blastIsLowerHalf_iff_lowerHalf_of_sign_false_boundary
-    {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+    {eu su ep sp : Nat} (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep (sp + 1) ≤ eu) (hsu : sp + 3 ≤ su)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
     (hunder : x.blastIsUnderflowNonneg ep sp = true)
@@ -506,7 +506,7 @@ value (`toRat'`), the predicate (`blastIsLowerHalf`), and all flags are invarian
 
 /-- The exponent-difference bounds for an in-range `x` (no underflow, no early overflow). -/
 theorem inRange_diff_facts {eu su ep sp : Nat}
-    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu)
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu)
     (x : UnpackedFloat eu su)
     (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
     (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
@@ -527,7 +527,7 @@ theorem inRange_diff_facts {eu su ep sp : Nat}
 /-- **Nonnegative, in-range, narrow.** Transfer of `blastIsLowerHalf_iff_lowerHalf_of_sign_false_wide`
 to a too-narrow `x` (only `sp+2 ≤ su`, `exponentWidth ep sp ≤ eu`) by widening to `eu'`, `su'`. -/
 theorem blastIsLowerHalf_iff_lowerHalf_of_sign_false_inRange
-    {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+    {eu su ep sp : Nat} (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (eu' su' : Nat) (hwideu : eu ≤ eu') (hwidesu : su ≤ su')
     (heu' : exponentWidth ep (sp + 1) ≤ eu') (hsu' : sp + 3 ≤ su')
@@ -554,7 +554,7 @@ theorem blastIsLowerHalf_iff_lowerHalf_of_sign_false_inRange
 /-- At the nonneg underflow boundary the guard bit is the (set) MSB, so `blastIsLowerHalf = !guard = false`.
 Width-generic: usable for `x` and its widening. -/
 theorem blastIsLowerHalf_eq_false_of_sign_false_boundary {eu su ep sp : Nat}
-    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hmsb : x.sig.msb = true)
     (hunder : x.blastIsUnderflowNonneg ep sp = true)
     (hnotearlyunder : x.blastIsEarlyUnderflowNonneg ep sp = false) :
@@ -568,7 +568,7 @@ theorem blastIsLowerHalf_eq_false_of_sign_false_boundary {eu su ep sp : Nat}
 /-- **Nonnegative, underflow boundary, narrow.** Transfer of the boundary leaf by widening; both sides
 are `false`. -/
 theorem blastIsLowerHalf_iff_lowerHalf_of_sign_false_boundary_narrow
-    {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+    {eu su ep sp : Nat} (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (eu' su' : Nat) (hwideu : eu ≤ eu') (hwidesu : su ≤ su')
     (heu' : exponentWidth ep (sp + 1) ≤ eu') (hsu' : sp + 3 ≤ su')
@@ -602,7 +602,7 @@ theorem blastIsLowerHalf_iff_lowerHalf_of_sign_false_boundary_narrow
 /-- **Negative, in-range, narrow, non-edge** (`lower ≠ maxNormal`). Transfer of the wide negative leaf
 by widening. The `lower ≠ maxNormal` conditions are value-level, so they hold verbatim for `x.widen`. -/
 theorem blastIsLowerHalf_iff_lowerHalf_of_sign_true_inRange
-    {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+    {eu su ep sp : Nat} (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (eu' su' : Nat) (hwideu : eu ≤ eu') (hwidesu : su ≤ su')
     (heu' : exponentWidth ep (sp + 1) ≤ eu') (hsu' : sp + 3 ≤ su')
@@ -641,7 +641,7 @@ theorem blastIsLowerHalf_iff_lowerHalf_of_sign_true_inRange
 /-- If `lower` at precision `sp` is not `maxNormal`, then neither is it at `sp+1` (more precision means a
 larger `maxNormal`, and `lower_{sp+1} = maxNormal_{sp+1}` would force `value ≥ maxNormal_sp`, hence
 `lower_sp = maxNormal_sp`). -/
-theorem lower_succ_ne_maxNormal_of_lower_ne_maxNormal {ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+theorem lower_succ_ne_maxNormal_of_lower_ne_maxNormal {ep sp : Nat} (he : 1 < ep) (hs : 0 < sp)
     (R : Rat)
     (hmaxL : (SmtLibSemantics.smtLibLower.lower (ExtRat.Number R) : PackedFloat ep sp)
       ≠ PackedFloat.maxNormalNumber ep sp false) :
@@ -680,7 +680,7 @@ theorem blastExtractStickyBit_eq_true_of_off_eq_succ_iff {eu su ep sp : Nat}
 /-- For `R ∈ [minSubnormal, successor(minSubnormal))`, the greatest float `≤ R` is `minSubnormal`
 (there is nothing representable strictly between consecutive subnormals). -/
 theorem lower_Number_eq_minSubnormalNumber_of_ge_of_lt_succ
-    {ep sp : Nat} (hep : 2 < ep) (hsp : 0 < sp) (R : Rat)
+    {ep sp : Nat} (hep : 1 < ep) (hsp : 0 < sp) (R : Rat)
     (hge : (PackedFloat.minSubnormalNumber ep sp false).toRat ≤ R)
     (hlt : R < 2 * (PackedFloat.minSubnormalNumber ep sp false).toRat) :
     (SmtLibSemantics.smtLibLower.lower (ExtRat.Number R) : PackedFloat ep sp)
@@ -851,7 +851,7 @@ theorem needsRounding_succ_eq_blastExtractStickyBit_of_off_eq_succ {eu su ep sp 
 `blastIsLowerHalf = (guard == sticky) = sticky`. Sign-independent exponent facts (derived for `x`
 directly, since `boundary_facts` itself needs `sign = false`). -/
 theorem blastIsLowerHalf_eq_blastExtractStickyBit_of_sign_true_boundary {eu su ep sp : Nat}
-    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxsignt : x.sign = true) (hmsb : x.sig.msb = true)
     (hunder : x.blastIsUnderflowNonneg ep sp = true)
     (hnotearlyunder : x.blastIsEarlyUnderflowNonneg ep sp = false) :
@@ -878,7 +878,7 @@ theorem blastIsLowerHalf_eq_blastExtractStickyBit_of_sign_true_boundary {eu su e
 while `upper_{sp+1}(|x|) = lower_{sp+1} + (needsRounding_{sp+1} ? ulp : 0) = 2^ex·(1 + sticky)` (lower pin
 + foundation + `needsRounding_{sp+1} = sticky`), so the two agree iff `sticky`. -/
 theorem smtLibLowerHalf_iff_blastExtractStickyBit_of_sign_true_boundary
-    {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+    {eu su ep sp : Nat} (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep (sp + 1) ≤ eu) (hsu : sp + 3 ≤ su)
     (x : UnpackedFloat eu su) (hxsignt : x.sign = true) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
     (hunder : x.blastIsUnderflowNonneg ep sp = true)
@@ -1038,7 +1038,7 @@ theorem blastExtractStickyBit_widen_boundary {ep sp eu su : Nat} (x : UnpackedFl
 /-- **Negative underflow boundary, narrow.** `blastIsLowerHalf = sticky` (circuit) and `lowerHalf = sticky`
 (via the wide leaf on the widening, since `lowerHalf` and `sticky` are both widening-invariant here). -/
 theorem blastIsLowerHalf_iff_smtLibLowerHalf_of_sign_true_boundary_narrow
-    {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+    {eu su ep sp : Nat} (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (eu' su' : Nat) (hwideu : eu ≤ eu') (hwidesu : su ≤ su')
     (heu' : exponentWidth ep (sp + 1) ≤ eu') (hsu' : sp + 3 ≤ su')
@@ -1118,7 +1118,7 @@ formalizing the `guard/sticky ↔ value` bridge requires new bit-level↔value m
 /-- **Range 1: `|x| = maxNormal_sp` (representable).** `x.toRat'` is exactly `maxNormal_sp(sign=true)`, so
 `lowerHalf` is vacuously true; and `needsRounding = false` (the round-toward-zero value is the lower
 approximant `= maxNormal = |x|`), so `blastIsLowerHalfNeg = (guard == sticky) = true`. -/
-theorem blastIsLowerHalf_edge_eq_maxNormal {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+theorem blastIsLowerHalf_edge_eq_maxNormal {eu su ep sp : Nat} (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su) (x : UnpackedFloat eu su)
     (hxsignt : x.sign = true) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
     (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
@@ -1330,7 +1330,7 @@ private theorem smtLibUpper_succ_eq_maxNormalNumber_of_lt_of_le {ep sp : Nat} (h
 /-- **Lemma B.** For `R ∈ [-maxNormal_{sp+1}, -maxNormal_sp)`, the SMT-LIB lower approximant at precision
 `sp+1` is `-maxNormal_{sp+1}` (`maxNormalNumber true`): `maxNormal_sp` is the immediate predecessor of
 `maxNormal_{sp+1}` at precision `sp+1`, so nothing representable lies strictly between them. -/
-theorem smtLibLower_succ_eq_maxNormalNumber_true_of_ge_of_lt {ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+theorem smtLibLower_succ_eq_maxNormalNumber_true_of_ge_of_lt {ep sp : Nat} (he : 1 < ep) (hs : 0 < sp)
     (R : Rat)
     (hge : (PackedFloat.maxNormalNumber ep (sp + 1) true).toRat ≤ R)
     (hlt : R < (PackedFloat.maxNormalNumber ep sp true).toRat) :
@@ -1351,7 +1351,7 @@ exceeds `maxNormal_sp` (and `lower_sp(|x|) = maxNormal_sp`), the circuit `blastI
 sticky)` is `true` exactly when `|x| > maxNormal_{sp+1}`. The guard bit fires iff `|x| ≥ maxNormal_{sp+1}`
 (`roundTZ_sp = roundTZ_{sp+1}` only when no carry) and the sticky bit fires iff `|x| ≠ maxNormal_{sp+1}`
 (`needsRounding_{sp+1}`, i.e. `roundTZ_{sp+1} ≠ |x|`); they agree (both `1`) only above `maxNormal_{sp+1}`. -/
-private theorem blastIsLowerHalf_edge_eq_decide_wide {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+private theorem blastIsLowerHalf_edge_eq_decide_wide {eu su ep sp : Nat} (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep (sp + 1) ≤ eu) (hsu : sp + 3 ≤ su) (x : UnpackedFloat eu su)
     (hxsignt : x.sign = true) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
     (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
@@ -1451,7 +1451,7 @@ private theorem blastIsLowerHalf_edge_eq_decide_wide {eu su ep sp : Nat} (he : 2
 
 /-- **Blast side of the overflow edge (narrow).** Transfer of the wide blast lemma by widening to
 `eu' = max eu (exponentWidth ep (sp+1))`, `su' = max su (sp+3)` (value and circuit are widen-invariant). -/
-private theorem blastIsLowerHalf_edge_eq_decide {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+private theorem blastIsLowerHalf_edge_eq_decide {eu su ep sp : Nat} (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su) (x : UnpackedFloat eu su)
     (hxsignt : x.sign = true) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
     (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
@@ -1486,7 +1486,7 @@ private theorem blastIsLowerHalf_edge_eq_decide {eu su ep sp : Nat} (he : 2 < ep
 /-- **Range 2: `maxNormal_sp < |x| ≤ maxNormal_{sp+1}`.** `lower_sp = -∞` (Lemma A) but `lower_{sp+1} =
 -maxNormal_{sp+1}` (Lemma B), so `lowerHalf = false`; and `blastIsLowerHalf = false` (`guard == sticky`
 with `guard = 1 ⟺ |x| = maxNormal_{sp+1}` and `sticky` flagging non-representability at `sp+1`). -/
-theorem blastIsLowerHalf_edge_between_maxNormal {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+theorem blastIsLowerHalf_edge_between_maxNormal {eu su ep sp : Nat} (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su) (x : UnpackedFloat eu su)
     (hxsignt : x.sign = true) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
     (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
@@ -1526,7 +1526,7 @@ theorem blastIsLowerHalf_edge_between_maxNormal {eu su ep sp : Nat} (he : 2 < ep
 /-- **Range 3: `maxNormal_{sp+1} < |x|`.** Both `lower_sp` and `lower_{sp+1}` are `-∞` (Lemma A at both
 precisions, since `x.toRat' < -maxNormal_{sp+1} < -maxNormal_sp`), so `lowerHalf = true`; and
 `blastIsLowerHalf = true` (`guard = sticky = 1`). -/
-theorem blastIsLowerHalf_edge_above_maxNormal {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+theorem blastIsLowerHalf_edge_above_maxNormal {eu su ep sp : Nat} (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su) (x : UnpackedFloat eu su)
     (hxsignt : x.sign = true) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
     (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
@@ -1569,7 +1569,7 @@ theorem blastIsLowerHalf_edge_above_maxNormal {eu su ep sp : Nat} (he : 2 < ep) 
 The `|x| < maxNormal_sp` case is impossible (`hmaxL` forces `lower = maxNormal ≤ |x|`); the other three
 ranges are the axioms above. -/
 theorem blastIsLowerHalf_iff_smtLibLowerHalf_of_sign_true_edge
-    {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+    {eu su ep sp : Nat} (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su) (x : UnpackedFloat eu su)
     (hxsignt : x.sign = true) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
     (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
@@ -1597,7 +1597,7 @@ theorem blastIsLowerHalf_iff_smtLibLowerHalf_of_sign_true_edge
 /-- **Negative, narrow (any range).** Dispatches the negative underflow boundary, the in-range
 non-edge case, and the `lower = maxNormal` overflow edge. -/
 theorem blastIsLowerHalf_iff_smtLibLowerHalf_of_sign_true
-    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxsignt : x.sign = true) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
     (hnotunder : x.blastIsEarlyUnderflowNonneg ep sp = false)
     (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
@@ -1630,7 +1630,7 @@ theorem blastIsLowerHalf_iff_smtLibLowerHalf_of_sign_true
 /-- **Nonnegative, narrow (any range).** Dispatches the underflow boundary vs the in-range case, widening
 to the `sp+1`-precision width that the bridge needs. -/
 theorem blastIsLowerHalf_iff_smtLibLowerHalf_of_sign_false
-    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
     (hnotunder : x.blastIsEarlyUnderflowNonneg ep sp = false)
     (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
@@ -1654,7 +1654,7 @@ theorems (so the RNE call site can supply them for `x.truncateFittingExponent`):
 input, no early over/underflow. The SMT `lowerHalf` compares the lower approximant at precisions `sp`
 and `sp+1`; the circuit's `!guardBit` matches via `blastRoundTowardZero_toRat'_eq_succ_iff_not_guardBit`. -/
 theorem blastIsLowerHalf_iff_smtLibLowerHalf
-    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
     (hnotunder : x.blastIsEarlyUnderflowNonneg ep sp = false)
     (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
@@ -1669,7 +1669,7 @@ theorem blastIsLowerHalf_iff_smtLibLowerHalf
       hnotunder hnotover
 
 theorem blastIsLowerHalf_eq
-    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
     (hnotunder : x.blastIsEarlyUnderflowNonneg ep sp = false)
     (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
@@ -1720,7 +1720,7 @@ theorem smtLibTieBreak_neg_eq {ep sp : Nat} (he : 0 < ep) (hs : 0 < sp) (r : Rat
 `(lower_sp < lower_{sp+1}) = (upper_{sp+1} < upper_sp)` reduces, via the lower/upper foundation lemmas,
 to `(guard) ↔ (guard ⊕ sticky)`, which is `¬sticky` (true even at representable, `guard=sticky=0`). -/
 theorem tieBreak_iff_not_sticky_of_sign_false_wide
-    {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+    {eu su ep sp : Nat} (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep (sp + 1) ≤ eu) (hsu : sp + 3 ≤ su)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
     (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
@@ -1815,7 +1815,7 @@ theorem smtLibUpper_eq_getInfinity_of_gt {ep sp : Nat} (he : 1 < ep) (hs : 0 < s
 the tie predicate is `true` exactly at the two representables `maxNormal_sp`, `maxNormal_{sp+1}` — which is
 exactly where `lower_{sp+1}.toRat = x.toRat'`, i.e. where the sticky bit is clear. -/
 theorem tieBreak_iff_not_sticky_of_sign_false_edge
-    {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+    {eu su ep sp : Nat} (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep (sp + 1) ≤ eu) (hsu : sp + 3 ≤ su)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
     (hnotunder : x.blastIsUnderflowNonneg ep sp = false)
@@ -1938,7 +1938,7 @@ theorem tieBreak_iff_not_sticky_of_sign_false_edge
 minSub_{sp+1} + (sticky ? minSub_{sp+1} : 0)`, so `tieBreak = (0 < 2^ex) = (2^ex·(1+sticky) < 2·2^ex)`
 which is `¬sticky`. -/
 theorem tieBreak_iff_not_sticky_of_sign_false_boundary
-    {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+    {eu su ep sp : Nat} (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep (sp + 1) ≤ eu) (hsu : sp + 3 ≤ su)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
     (hunder : x.blastIsUnderflowNonneg ep sp = true)
@@ -2084,7 +2084,7 @@ theorem decide_tieBreak_of_iff {b : Bool} {P : Prop} [Decidable P] (h : P ↔ (b
 
 /-- **Tie-break ⟺ ¬sticky (nonneg, wide), all in-range cases.** Dispatches the underflow boundary, the
 `lower = maxNormal` overflow edge, and the in-range non-edge case. -/
-theorem tieBreak_iff_not_sticky_of_sign_false_wide_all {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+theorem tieBreak_iff_not_sticky_of_sign_false_wide_all {eu su ep sp : Nat} (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep (sp + 1) ≤ eu) (hsu : sp + 3 ≤ su)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
     (hnotearlyunder : x.blastIsEarlyUnderflowNonneg ep sp = false)
@@ -2108,7 +2108,7 @@ theorem tieBreak_iff_not_sticky_of_sign_false_wide_all {eu su ep sp : Nat} (he :
 /-- **Nonnegative, narrow.** `blastIsTieBreak = needsRounding && decide(tieBreak)`. Dispatches the
 underflow boundary (where `guard = MSB = 1`, so `blastIsTieBreak = !sticky` directly) and the in-range/edge
 case (transferred from the wide result by widening). -/
-theorem blastIsTieBreak_eq_of_sign_false {eu su ep sp : Nat} (he : 2 < ep) (hs : 0 < sp)
+theorem blastIsTieBreak_eq_of_sign_false {eu su ep sp : Nat} (he : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
     (hnotearlyunder : x.blastIsEarlyUnderflowNonneg ep sp = false)
@@ -2168,7 +2168,7 @@ theorem blastIsTieBreak_eq_of_sign_false {eu su ep sp : Nat} (he : 2 < ep) (hs :
 vacuously `true` but the circuit `guard && !sticky` is `false`). `blastIsTieBreak` and `needsRounding`
 are sign-independent and `tieBreak` is sign-symmetric, so the negative case reduces to the nonnegative one. -/
 @[simp]
-theorem blastIsTieBreak_eq (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+theorem blastIsTieBreak_eq (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
     (hnotunder : x.blastIsEarlyUnderflowNonneg ep sp = false)
     (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :

@@ -110,7 +110,7 @@ theorem blastExtractGuardBit_eq_true_of_off_eq_succ_of_msb (hep : 1 < ep) (hsp :
 /-- Shared boundary setup: at `blastIsUnderflowNonneg ∧ ¬blastIsEarlyUnderflow`, the exponent is
 `minSubnormalExp − 1`, the shift is in range, and `0 < x.toRat' < minSubnormalNumber`. -/
 theorem boundary_facts {eu su ep sp : Nat}
-    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hmsb : x.sig.msb = true)
     (hunder : x.blastIsUnderflowNonneg ep sp = true)
     (hnotearlyunder : x.blastIsEarlyUnderflowNonneg ep sp = false) :
@@ -145,7 +145,7 @@ theorem boundary_facts {eu su ep sp : Nat}
 
 /-- Boundary case of the CORE (lower): `lower = +0` (even) and `blastExtractIsEven x = true`. -/
 theorem isEven_smtLibLower_eq_blastExtractIsEven_boundary_of_sign_false {eu su ep sp : Nat}
-    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hmsb : x.sig.msb = true)
     (hunder : x.blastIsUnderflowNonneg ep sp = true)
     (hnotearlyunder : x.blastIsEarlyUnderflowNonneg ep sp = false) :
@@ -168,7 +168,7 @@ theorem isEven_smtLibLower_eq_blastExtractIsEven_boundary_of_sign_false {eu su e
 /-- Boundary case of the upper lemma: `upper = minSubnormalNumber` (odd) and `needsRounding`, so
 `isEven(upper) = false = !blastExtractIsEven x`, matching the `bif needsRounding` arm. -/
 theorem isEven_smtLibUpper_eq_boundary_of_sign_false {eu su ep sp : Nat}
-    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hmsb : x.sig.msb = true)
     (hunder : x.blastIsUnderflowNonneg ep sp = true)
     (hnotearlyunder : x.blastIsEarlyUnderflowNonneg ep sp = false) :
@@ -198,7 +198,7 @@ call site). -/
 
 /-- `isEven(lower) = blastExtractIsEven x` for nonnegative `x` whether in range or at the boundary. -/
 theorem isEven_smtLibLower_eq_blastExtractIsEven_full_of_sign_false {eu su ep sp : Nat}
-    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
     (hmsb : x.sig.msb = true)
     (hnotearlyunder : x.blastIsEarlyUnderflowNonneg ep sp = false)
@@ -216,7 +216,7 @@ theorem isEven_smtLibLower_eq_blastExtractIsEven_full_of_sign_false {eu su ep sp
 /-- `isEven(upper) = bif needsRounding then !blastExtract else blastExtract` for nonnegative `x`,
 in range or at the boundary. -/
 theorem isEven_smtLibUpper_eq_full_of_sign_false {eu su ep sp : Nat}
-    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
     (hmsb : x.sig.msb = true)
     (hnotearlyunder : x.blastIsEarlyUnderflowNonneg ep sp = false)
@@ -233,7 +233,7 @@ theorem isEven_smtLibUpper_eq_full_of_sign_false {eu su ep sp : Nat}
 
 /-- Both-sign unifier (full): `isEven(lower) = blastIsEvenLower x`, in range or at the boundary. -/
 theorem isEven_smtLibLower_eq_blastIsEvenLower_full {eu su ep sp : Nat}
-    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
     (hnotearlyunder : x.blastIsEarlyUnderflowNonneg ep sp = false)
     (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :
@@ -262,7 +262,7 @@ theorem isEven_smtLibLower_eq_blastIsEvenLower_full {eu su ep sp : Nat}
 
 /-- Both-sign unifier (full): `isEven(upper) = blastIsEvenUpper x`, in range or at the boundary. -/
 theorem isEven_smtLibUpper_eq_blastIsEvenUpper_full {eu su ep sp : Nat}
-    (he : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (he : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxnorm : x.normalize = x) (hmsb : x.sig.msb = true)
     (hnotearlyunder : x.blastIsEarlyUnderflowNonneg ep sp = false)
     (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false) :

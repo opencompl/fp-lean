@@ -79,7 +79,7 @@ end PackedFloat
 namespace Fp
 
 set_option maxHeartbeats 1000000 in
-theorem sub_eq_sub {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ein)
+theorem sub_eq_sub {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 1 < ein)
     (rm : RoundingMode) (a b : PackedFloat ein sin) :
     (Fp.SmtLibSemantics.SmtLibFunctions.sub (Fp.SmtLibSemanticsQ.smtLibRoundMethodQ ein sin) rm a b).EquivUptoNaN
       (PackedFloat.sub rm a b) := by

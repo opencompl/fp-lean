@@ -22,7 +22,7 @@ theorem UnpackedFloat.blastRounderForSign_of_sign_eq_false_eq
   simp [UnpackedFloat.blastRounderForSign, hsign]
 
 
-theorem UnpackedFloat.blastRounderForSign_Rel_rounderForSign_zero (he : 1 < ep) (hep : 2 < ep) (hs : 0 < sp)
+theorem UnpackedFloat.blastRounderForSign_Rel_rounderForSign_zero (he : 1 < ep) (hep : 1 < ep) (hs : 0 < sp)
     (hsu : sp + 2 ≤ su) (heu : exponentWidth ep sp ≤ eu)
     (x : UnpackedFloat eu su)
     (hxnorm : x.normalize = x)

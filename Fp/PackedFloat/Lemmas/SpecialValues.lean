@@ -91,7 +91,7 @@ theorem toRatExp_minNormalNumber (e s : Nat) (he : 1 < e) (sign : Bool) :
 
 
 @[simp]
-theorem toRatSig_maxNormalNumber (e s : Nat) (he : 2 < e) (sign : Bool) :
+theorem toRatSig_maxNormalNumber (e s : Nat) (he : 1 < e) (sign : Bool) :
     (PackedFloat.maxNormalNumber e s sign).toRatSig = 2 - 2 ^ (- (s : Int)) := by
   rw [toRatSig]
   simp [isNorm_maxNormalNumber_eq_decide]
@@ -104,7 +104,7 @@ theorem toRatSig_maxNormalNumber (e s : Nat) (he : 2 < e) (sign : Bool) :
   grind only
 
 @[simp]
-theorem toRatExp_maxNormalNumber (e s : Nat) (he : 2 < e) (sign : Bool) :
+theorem toRatExp_maxNormalNumber (e s : Nat) (he : 1 < e) (sign : Bool) :
     (PackedFloat.maxNormalNumber e s sign).toRatExp = maxNormalExp e := by
   rw [toRatExp]
   rw [isNorm_maxNormalNumber_eq_decide]

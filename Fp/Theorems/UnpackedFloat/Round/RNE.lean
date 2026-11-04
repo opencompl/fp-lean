@@ -19,7 +19,7 @@ RNE returns `8`). The hypothesis was strengthened to
 -/
 theorem roundRNE_eq_infinity_of_maxNormalExp_lt
   (he : 1 < ep)
-  (hep : 2 < ep)
+  (hep : 1 < ep)
   (hs : 0 < sp)
   (r : Rat)
   (hsign : sign = decide (r < 0))
@@ -644,7 +644,7 @@ theorem roundRNE_eq_zero_of_lt_minNormalExp
 /-- The normalized RNE blast-rounder output is `Packable`: each branch is a `blastUpper`/
 `blastLower` (already a normalize fixed point, so `Packable` via L6/L7) or `mkNaN` (vacuous). -/
 theorem UnpackedFloat.blastSmtLibRoundRNE_normalize_Packable
-    (hep : 2 < ep) (hs : 0 < sp) (hsu : sp + 2 ≤ su)
+    (hep : 1 < ep) (hs : 0 < sp) (hsu : sp + 2 ≤ su)
     (z : UnpackedFloat (exponentWidth ep sp) su) (hznorm : z.normalize = z)
     (hnotEU : z.blastIsEarlyUnderflowNonneg ep sp = false)
     (hnotEO : z.blastIsEarlyOverflowNonneg ep sp = false) :
@@ -672,7 +672,7 @@ theorem UnpackedFloat.blastSmtLibRoundRNE_normalize_Packable
 
 /-- `blastSmtLibRound` (RNE) output is always `Packable`. -/
 theorem UnpackedFloat.blastSmtLibRound_Packable_of_RNE
-    (hep : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (hep : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxnorm : x.normalize = x) :
     (x.blastSmtLibRound ep sp .RNE).Packable := by
   have he : 1 < ep := by grind
@@ -719,7 +719,7 @@ TODO: Refactor proof to case split on x.isZero, and then derive that y.isZero fr
 -/
 theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE
     (he : 1 < ep)
-    (hep : 2 < ep)
+    (hep : 1 < ep)
     (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu)
     (hsu : sp + 2 ≤ su)
@@ -952,7 +952,7 @@ not *early*-overflow, if the bit-blasted upper rounder `blastUpperNonneg` is a f
 (`isNormOrNonzeroSubnorm`). Cloned from the `blastUpperNonneg_Rel_smtLibUpper_in_range`/`_boundary`
 keystones, using `state = Number` to exclude the overflow branch. -/
 theorem UnpackedFloat.isNormOrNonzeroSubnorm_smtLibUpper_of_blastUpperNonneg_state_Number
-    (he : 2 < ep) (hsp : 0 < sp) (hsu : sp + 2 ≤ su) (heu : exponentWidth ep sp ≤ eu)
+    (he : 1 < ep) (hsp : 0 < sp) (hsu : sp + 2 ≤ su) (heu : exponentWidth ep sp ≤ eu)
     (x : UnpackedFloat eu su) (hxsign : x.sign = false) (hxnorm : x.normalize = x)
     (hxmsb : x.sig.msb = true)
     (hnotover : x.blastIsEarlyOverflowNonneg ep sp = false)
@@ -1049,7 +1049,7 @@ circuit `blastLower` is a finite `Number`. For nonnegative `z`, round-toward-zer
 (finite unconditionally); for negative `z`, it reflects to `upper` of `-z`, finite by the upper
 keystone using the (neg-transported) circuit state. -/
 theorem UnpackedFloat.not_isInfinite_smtLibLower_of_blastLower_state_Number
-    (he : 2 < ep) (hsp : 0 < sp) (hsu : sp + 2 ≤ su) (heu : exponentWidth ep sp ≤ eu)
+    (he : 1 < ep) (hsp : 0 < sp) (hsu : sp + 2 ≤ su) (heu : exponentWidth ep sp ≤ eu)
     (z : UnpackedFloat eu su) (hznorm : z.normalize = z) (hzmsb : z.sig.msb = true)
     (hnotover : z.blastIsEarlyOverflowNonneg ep sp = false)
     (hst : (z.blastLower ep sp).state = State.Number) :
@@ -1100,7 +1100,7 @@ theorem UnpackedFloat.not_isInfinite_smtLibLower_of_blastLower_state_Number
 nonnegative is the away-direction handled by the upper keystone (needs circuit state); negative is
 toward-zero, reflected to `lower` of `-z` (finite unconditionally). -/
 theorem UnpackedFloat.not_isInfinite_smtLibUpper_of_blastUpper_state_Number
-    (he : 2 < ep) (hsp : 0 < sp) (hsu : sp + 2 ≤ su) (heu : exponentWidth ep sp ≤ eu)
+    (he : 1 < ep) (hsp : 0 < sp) (hsu : sp + 2 ≤ su) (heu : exponentWidth ep sp ≤ eu)
     (z : UnpackedFloat eu su) (hznorm : z.normalize = z) (hzmsb : z.sig.msb = true)
     (hnotover : z.blastIsEarlyOverflowNonneg ep sp = false)
     (hst : (z.blastUpper ep sp).state = State.Number) :
@@ -1154,7 +1154,7 @@ proof mirrors `toExtRat_round_Rel_smtLibRound_of_RNE`'s operational branch struc
 round result to a concrete finite value in each branch (`getZero`, `lower`, `upper`) and using the
 circuit `state = Number` to exclude late overflow and the unreachable `mkNaN` tie branch. -/
 theorem UnpackedFloat.blastSmtLibRound_finite_of_RNE
-    (he : 1 < ep) (hep : 2 < ep) (hs : 0 < sp)
+    (he : 1 < ep) (hep : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su)
     (sign : Bool) (hsign : sign = x.sign)

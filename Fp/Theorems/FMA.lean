@@ -107,7 +107,7 @@ theorem stickyEquiv_fma {e s : Nat} (x y z : UnpackedFloat e s)
 exponent-range side-conditions discharged from `1 < e` / `2 < e`
 (mirrors `unpackNum_add_unpackNum_stickyEquiv`). -/
 theorem unpackNum_fma_stickyEquiv
-    {e s : Nat} {a b c : PackedFloat e s} (hs : 0 < s) (he : 1 < e) (hep : 2 < e)
+    {e s : Nat} {a b c : PackedFloat e s} (hs : 0 < s) (he : 1 < e) (hep : 1 < e)
     (ha : a.isNormOrNonzeroSubnorm) (hb : b.isNormOrNonzeroSubnorm)
     (hc : c.isNormOrNonzeroSubnorm)
     (hne : a.toRat * b.toRat + c.toRat ≠ 0) :
@@ -170,7 +170,7 @@ open SmtLibSemantics in
 /-- Passthrough helper when the fma value is a genuine infinity `Infinity xy` (the product
 is infinite and the addend cannot cancel it, except an opposite-signed infinite addend which
 yields NaN). Used by the `infCase` special-value leaves. -/
-theorem fmaInfAddPassthrough {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ein)
+theorem fmaInfAddPassthrough {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 1 < ein)
     (he0 : 0 < ein) (rm : RoundingMode) (sgn xy : Bool) (c : PackedFloat ein sin) :
     ((smtLibRoundMethod ein sin smtLibV smtLibV).round rm sgn
         (ExtRat.Infinity xy + c.toExtRat')).EquivUptoNaN
@@ -232,7 +232,7 @@ open SmtLibSemantics in
 /-- Passthrough helper: when the fma value collapses to `Number 0 + c` (one factor is a
 zero, so the exact product is `0`), the circuit returns `z = c.unpack` (branching only on
 `c`'s kind) and the spec rounds `c`'s value. Used by the `zeroCase` special-value leaves. -/
-theorem fmaZeroAddPassthrough {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ein)
+theorem fmaZeroAddPassthrough {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 1 < ein)
     (he0 : 0 < ein) (rm : RoundingMode) (xy : Bool) (c : PackedFloat ein sin) :
     ((smtLibRoundMethod ein sin smtLibV smtLibV).round rm
         (if rm = .RTN then xy || c.sign else xy && c.sign) (ExtRat.Number 0 + c.toExtRat')).EquivUptoNaN
@@ -284,7 +284,7 @@ theorem fmaZeroAddPassthrough {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (h
     exact (PackedFloat.unpack_pack_eq_self_of_isNormOrNonzeroSubnorm he hsin c hc).symm
 
 set_option maxHeartbeats 1000000 in
-theorem fma_eq_fma {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ein)
+theorem fma_eq_fma {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 1 < ein)
     (rm : RoundingMode) (a b c : PackedFloat ein sin) :
     (Fp.SmtLibSemantics.SmtLibFunctions.fma (Fp.SmtLibSemanticsQ.smtLibRoundMethodQ ein sin) rm a b c).EquivUptoNaN
       (PackedFloat.fma rm a b c) := by

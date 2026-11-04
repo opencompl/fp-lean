@@ -47,7 +47,7 @@ private theorem toRat'_minSubnormalForPackedFloat_true_eq
 /-- **Exact-value RTN bridge.** Analogue of `toExtRat_round_Rel_smtLibRound_of_RNE`. -/
 theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RTN
     (he : 1 < ep)
-    (hep : 2 < ep)
+    (hep : 1 < ep)
     (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu)
     (hsu : sp + 2 ≤ su)
@@ -175,7 +175,7 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RTN
 
 /-- **Finiteness companion of `toExtRat_round_Rel_smtLibRound_of_RTN`.** -/
 theorem UnpackedFloat.blastSmtLibRound_finite_of_RTN
-    (he : 1 < ep) (hep : 2 < ep) (hs : 0 < sp)
+    (he : 1 < ep) (hep : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su)
     (sign : Bool) (hsign : sign = x.sign)
@@ -284,7 +284,7 @@ theorem UnpackedFloat.blastSmtLibRound_finite_of_RTN
 `UnpackedFloat.blastSmtLibRound_Rel_round_of_RNE_of_stickyEquiv`. -/
 theorem UnpackedFloat.blastSmtLibRound_Rel_round_of_RTN_of_stickyEquiv
     {ep sp eu su : Nat}
-    (he : 1 < ep) (hep : 2 < ep) (hs : 0 < sp)
+    (he : 1 < ep) (hep : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 3 ≤ su)
     (x : UnpackedFloat eu su)
     (sign : Bool) (r : Rat) (hrne : r ≠ 0)
@@ -311,7 +311,7 @@ theorem UnpackedFloat.blastSmtLibRound_Rel_round_of_RTN_of_stickyEquiv
 /-- **Finiteness companion of `blastSmtLibRound_Rel_round_of_RTN_of_stickyEquiv`.** -/
 theorem UnpackedFloat.blastSmtLibRound_finite_of_RTN_of_stickyEquiv
     {ep sp eu su : Nat}
-    (he : 1 < ep) (hep : 2 < ep) (hs : 0 < sp)
+    (he : 1 < ep) (hep : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 3 ≤ su)
     (x : UnpackedFloat eu su)
     (sign : Bool) (r : Rat) (hrne : r ≠ 0)
@@ -341,7 +341,7 @@ theorem UnpackedFloat.blastSmtLibRound_finite_of_RTN_of_stickyEquiv
 /-- The normalized RTN blast-rounder output is `Packable`: `blastSmtLibRoundRTN` is
 just `blastLower`, which is a normalize fixed point (so `Packable`). -/
 theorem UnpackedFloat.blastSmtLibRoundRTN_normalize_Packable
-    (hep : 2 < ep) (hs : 0 < sp) (hsu : sp + 2 ≤ su)
+    (hep : 1 < ep) (hs : 0 < sp) (hsu : sp + 2 ≤ su)
     (z : UnpackedFloat (exponentWidth ep sp) su) (hznorm : z.normalize = z)
     (hnotEU : z.blastIsEarlyUnderflowNonneg ep sp = false)
     (hnotEO : z.blastIsEarlyOverflowNonneg ep sp = false) :
@@ -353,7 +353,7 @@ theorem UnpackedFloat.blastSmtLibRoundRTN_normalize_Packable
 
 /-- `blastSmtLibRound` (RTN) output is always `Packable`. -/
 theorem UnpackedFloat.blastSmtLibRound_Packable_of_RTN
-    (hep : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (hep : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxnorm : x.normalize = x) :
     (x.blastSmtLibRound ep sp .RTN).Packable := by
   have he : 1 < ep := by grind

@@ -50,7 +50,7 @@ private theorem roundRTZ_eq_of_ne_zero {eout sout : Nat} {sign : Bool}
 /-- **Exact-value RTZ bridge.** Analogue of `toExtRat_round_Rel_smtLibRound_of_RNE`. -/
 theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RTZ
     (he : 1 < ep)
-    (hep : 2 < ep)
+    (hep : 1 < ep)
     (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu)
     (hsu : sp + 2 ≤ su)
@@ -185,7 +185,7 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RTZ
 
 /-- **Finiteness companion of `toExtRat_round_Rel_smtLibRound_of_RTZ`.** -/
 theorem UnpackedFloat.blastSmtLibRound_finite_of_RTZ
-    (he : 1 < ep) (hep : 2 < ep) (hs : 0 < sp)
+    (he : 1 < ep) (hep : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su)
     (sign : Bool) (hsign : sign = x.sign)
@@ -327,7 +327,7 @@ theorem UnpackedFloat.blastSmtLibRound_finite_of_RTZ
 `UnpackedFloat.blastSmtLibRound_Rel_round_of_RNE_of_stickyEquiv`. -/
 theorem UnpackedFloat.blastSmtLibRound_Rel_round_of_RTZ_of_stickyEquiv
     {ep sp eu su : Nat}
-    (he : 1 < ep) (hep : 2 < ep) (hs : 0 < sp)
+    (he : 1 < ep) (hep : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 3 ≤ su)
     (x : UnpackedFloat eu su)
     (sign : Bool) (r : Rat) (hrne : r ≠ 0)
@@ -354,7 +354,7 @@ theorem UnpackedFloat.blastSmtLibRound_Rel_round_of_RTZ_of_stickyEquiv
 /-- **Finiteness companion of `blastSmtLibRound_Rel_round_of_RTZ_of_stickyEquiv`.** -/
 theorem UnpackedFloat.blastSmtLibRound_finite_of_RTZ_of_stickyEquiv
     {ep sp eu su : Nat}
-    (he : 1 < ep) (hep : 2 < ep) (hs : 0 < sp)
+    (he : 1 < ep) (hep : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 3 ≤ su)
     (x : UnpackedFloat eu su)
     (sign : Bool) (r : Rat) (hrne : r ≠ 0)
@@ -385,7 +385,7 @@ theorem UnpackedFloat.blastSmtLibRound_finite_of_RTZ_of_stickyEquiv
 sign split between `blastUpper` and `blastLower`, both of which are normalize fixed
 points (so `Packable`). -/
 theorem UnpackedFloat.blastSmtLibRoundRTZ_normalize_Packable
-    (hep : 2 < ep) (hs : 0 < sp) (hsu : sp + 2 ≤ su)
+    (hep : 1 < ep) (hs : 0 < sp) (hsu : sp + 2 ≤ su)
     (z : UnpackedFloat (exponentWidth ep sp) su) (hznorm : z.normalize = z)
     (hnotEU : z.blastIsEarlyUnderflowNonneg ep sp = false)
     (hnotEO : z.blastIsEarlyOverflowNonneg ep sp = false) :
@@ -404,7 +404,7 @@ theorem UnpackedFloat.blastSmtLibRoundRTZ_normalize_Packable
 
 /-- `blastSmtLibRound` (RTZ) output is always `Packable`. -/
 theorem UnpackedFloat.blastSmtLibRound_Packable_of_RTZ
-    (hep : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (hep : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxnorm : x.normalize = x) :
     (x.blastSmtLibRound ep sp .RTZ).Packable := by
   have he : 1 < ep := by grind

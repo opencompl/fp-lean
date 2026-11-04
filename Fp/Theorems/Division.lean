@@ -421,7 +421,7 @@ The bridge's width side conditions `exponentWidth ein sin ≤ eu` and
 `(exponentWidth ein sin + 1, sin + 3)`.
 -/
 set_option maxHeartbeats 1000000 in
-theorem div_eq_div {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ein)
+theorem div_eq_div {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 1 < ein)
     (rm : RoundingMode) (a b : PackedFloat ein sin) :
     (Fp.SmtLibSemantics.SmtLibFunctions.div
         (Fp.SmtLibSemanticsQ.smtLibRoundMethodQ ein sin) rm a b).EquivUptoNaN

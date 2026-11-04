@@ -25,7 +25,7 @@ a sticky compression of the exact value.  This generalizes
 -/
 theorem UnpackedFloat.blastSmtLibRound_Rel_round_of_RNE_of_stickyEquiv
     {ep sp eu su : Nat}
-    (he : 1 < ep) (hep : 2 < ep) (hs : 0 < sp)
+    (he : 1 < ep) (hep : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 3 ≤ su)
     (x : UnpackedFloat eu su)
     (sign : Bool) (r : Rat) (hrne : r ≠ 0)
@@ -60,7 +60,7 @@ finiteness lemma `blastSmtLibRound_finite_of_RNE`.
 -/
 theorem UnpackedFloat.blastSmtLibRound_finite_of_RNE_of_stickyEquiv
     {ep sp eu su : Nat}
-    (he : 1 < ep) (hep : 2 < ep) (hs : 0 < sp)
+    (he : 1 < ep) (hep : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 3 ≤ su)
     (x : UnpackedFloat eu su)
     (sign : Bool) (r : Rat) (hrne : r ≠ 0)

@@ -1774,7 +1774,7 @@ addition followed by SMT-LIB rounding) agrees with the bit-blasted
 -/
 
 set_option maxHeartbeats 1000000 in
-theorem add_eq_add {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 2 < ein)
+theorem add_eq_add {ein sin : Nat} (hsin : 0 < sin) (he : 1 < ein) (hep : 1 < ein)
     (rm : RoundingMode) (a b : PackedFloat ein sin) :
     (Fp.SmtLibSemantics.SmtLibFunctions.add (Fp.SmtLibSemanticsQ.smtLibRoundMethodQ ein sin) rm a b).EquivUptoNaN
       (PackedFloat.add rm a b) := by

@@ -24,7 +24,7 @@ produces the infinity whose sign is the sign of the number.  Clone of
 -/
 private theorem roundRNA_eq_infinity_of_maxNormalExp_lt
   (he : 1 < ep)
-  (hep : 2 < ep)
+  (hep : 1 < ep)
   (hs : 0 < sp)
   (r : Rat)
   (hsign : sign = decide (r < 0))
@@ -349,7 +349,7 @@ private theorem roundRNA_eq_of_ne_zero {eout sout : Nat} {sign : Bool}
 /-- **Exact-value RNA bridge.** Analogue of `toExtRat_round_Rel_smtLibRound_of_RNE`. -/
 theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNA
     (he : 1 < ep)
-    (hep : 2 < ep)
+    (hep : 1 < ep)
     (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu)
     (hsu : sp + 2 ≤ su)
@@ -511,7 +511,7 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNA
 
 /-- **Finiteness companion of `toExtRat_round_Rel_smtLibRound_of_RNA`.** -/
 theorem UnpackedFloat.blastSmtLibRound_finite_of_RNA
-    (he : 1 < ep) (hep : 2 < ep) (hs : 0 < sp)
+    (he : 1 < ep) (hep : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su)
     (sign : Bool) (hsign : sign = x.sign)
@@ -675,7 +675,7 @@ theorem UnpackedFloat.blastSmtLibRound_finite_of_RNA
 `UnpackedFloat.blastSmtLibRound_Rel_round_of_RNE_of_stickyEquiv`. -/
 theorem UnpackedFloat.blastSmtLibRound_Rel_round_of_RNA_of_stickyEquiv
     {ep sp eu su : Nat}
-    (he : 1 < ep) (hep : 2 < ep) (hs : 0 < sp)
+    (he : 1 < ep) (hep : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 3 ≤ su)
     (x : UnpackedFloat eu su)
     (sign : Bool) (r : Rat) (hrne : r ≠ 0)
@@ -702,7 +702,7 @@ theorem UnpackedFloat.blastSmtLibRound_Rel_round_of_RNA_of_stickyEquiv
 /-- **Finiteness companion of `blastSmtLibRound_Rel_round_of_RNA_of_stickyEquiv`.** -/
 theorem UnpackedFloat.blastSmtLibRound_finite_of_RNA_of_stickyEquiv
     {ep sp eu su : Nat}
-    (he : 1 < ep) (hep : 2 < ep) (hs : 0 < sp)
+    (he : 1 < ep) (hep : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 3 ≤ su)
     (x : UnpackedFloat eu su)
     (sign : Bool) (r : Rat) (hrne : r ≠ 0)
@@ -733,7 +733,7 @@ theorem UnpackedFloat.blastSmtLibRound_finite_of_RNA_of_stickyEquiv
 `blastUpper`/`blastLower` (already a normalize fixed point, so `Packable`) or
 `mkNaN` (vacuous).  Mirror of `blastSmtLibRoundRNE_normalize_Packable`. -/
 theorem UnpackedFloat.blastSmtLibRoundRNA_normalize_Packable
-    (hep : 2 < ep) (hs : 0 < sp) (hsu : sp + 2 ≤ su)
+    (hep : 1 < ep) (hs : 0 < sp) (hsu : sp + 2 ≤ su)
     (z : UnpackedFloat (exponentWidth ep sp) su) (hznorm : z.normalize = z)
     (hnotEU : z.blastIsEarlyUnderflowNonneg ep sp = false)
     (hnotEO : z.blastIsEarlyOverflowNonneg ep sp = false) :
@@ -761,7 +761,7 @@ theorem UnpackedFloat.blastSmtLibRoundRNA_normalize_Packable
 
 /-- `blastSmtLibRound` (RNA) output is always `Packable`. -/
 theorem UnpackedFloat.blastSmtLibRound_Packable_of_RNA
-    (hep : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (hep : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxnorm : x.normalize = x) :
     (x.blastSmtLibRound ep sp .RNA).Packable := by
   have he : 1 < ep := by grind

@@ -30,7 +30,7 @@ Dispatches to the mode-specific `toExtRat_round_Rel_smtLibRound_of_*`. -/
 theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound
     {ep sp eu su : Nat}
     (mode : RoundingMode)
-    (he : 1 < ep) (hep : 2 < ep) (hs : 0 < sp)
+    (he : 1 < ep) (hep : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su)
     (sign : Bool) (hsign : sign = x.sign)
@@ -51,7 +51,7 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound
 theorem UnpackedFloat.blastSmtLibRound_finite
     {ep sp eu su : Nat}
     (mode : RoundingMode)
-    (he : 1 < ep) (hep : 2 < ep) (hs : 0 < sp)
+    (he : 1 < ep) (hep : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su)
     (sign : Bool) (hsign : sign = x.sign)
@@ -75,7 +75,7 @@ but `r` need only be a sticky compression of `x.toRat`. -/
 theorem UnpackedFloat.blastSmtLibRound_Rel_round_of_stickyEquiv
     {ep sp eu su : Nat}
     (mode : RoundingMode)
-    (he : 1 < ep) (hep : 2 < ep) (hs : 0 < sp)
+    (he : 1 < ep) (hep : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 3 ≤ su)
     (x : UnpackedFloat eu su)
     (sign : Bool) (r : Rat) (hrne : r ≠ 0)
@@ -97,7 +97,7 @@ Dispatches to the mode-specific `blastSmtLibRound_Packable_of_*`. -/
 theorem UnpackedFloat.blastSmtLibRound_Packable
     {ep sp eu su : Nat}
     (mode : RoundingMode)
-    (hep : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (hep : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxnorm : x.normalize = x) :
     (x.blastSmtLibRound ep sp mode).Packable := by
   cases mode with
@@ -111,7 +111,7 @@ theorem UnpackedFloat.blastSmtLibRound_Packable
 theorem UnpackedFloat.blastSmtLibRound_finite_of_stickyEquiv
     {ep sp eu su : Nat}
     (mode : RoundingMode)
-    (he : 1 < ep) (hep : 2 < ep) (hs : 0 < sp)
+    (he : 1 < ep) (hep : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 3 ≤ su)
     (x : UnpackedFloat eu su)
     (sign : Bool) (r : Rat) (hrne : r ≠ 0)

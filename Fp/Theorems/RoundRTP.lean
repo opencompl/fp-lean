@@ -48,7 +48,7 @@ via `Rel`) with the SMT-LIB `RTP` rounder on the exact value `r = x.toRat`.
 Analogue of `UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RNE`. -/
 theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RTP
     (he : 1 < ep)
-    (hep : 2 < ep)
+    (hep : 1 < ep)
     (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu)
     (hsu : sp + 2 ≤ su)
@@ -177,7 +177,7 @@ theorem UnpackedFloat.toExtRat_round_Rel_smtLibRound_of_RTP
 When the circuit is a finite `Number`, the SMT-LIB `RTP` round of the exact value
 is neither NaN nor infinite.  Analogue of `blastSmtLibRound_finite_of_RNE`. -/
 theorem UnpackedFloat.blastSmtLibRound_finite_of_RTP
-    (he : 1 < ep) (hep : 2 < ep) (hs : 0 < sp)
+    (he : 1 < ep) (hep : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su)
     (sign : Bool) (hsign : sign = x.sign)
@@ -289,7 +289,7 @@ exact value `r` need only be a sticky compression of `x.toRat`.  Analogue of
 `UnpackedFloat.blastSmtLibRound_Rel_round_of_RNE_of_stickyEquiv`. -/
 theorem UnpackedFloat.blastSmtLibRound_Rel_round_of_RTP_of_stickyEquiv
     {ep sp eu su : Nat}
-    (he : 1 < ep) (hep : 2 < ep) (hs : 0 < sp)
+    (he : 1 < ep) (hep : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 3 ≤ su)
     (x : UnpackedFloat eu su)
     (sign : Bool) (r : Rat) (hrne : r ≠ 0)
@@ -317,7 +317,7 @@ theorem UnpackedFloat.blastSmtLibRound_Rel_round_of_RTP_of_stickyEquiv
 Analogue of `blastSmtLibRound_finite_of_RNE_of_stickyEquiv`. -/
 theorem UnpackedFloat.blastSmtLibRound_finite_of_RTP_of_stickyEquiv
     {ep sp eu su : Nat}
-    (he : 1 < ep) (hep : 2 < ep) (hs : 0 < sp)
+    (he : 1 < ep) (hep : 1 < ep) (hs : 0 < sp)
     (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 3 ≤ su)
     (x : UnpackedFloat eu su)
     (sign : Bool) (r : Rat) (hrne : r ≠ 0)
@@ -347,7 +347,7 @@ theorem UnpackedFloat.blastSmtLibRound_finite_of_RTP_of_stickyEquiv
 /-- The normalized RTP blast-rounder output is `Packable`: `blastSmtLibRoundRTP` is
 just `blastUpper`, which is a normalize fixed point (so `Packable`). -/
 theorem UnpackedFloat.blastSmtLibRoundRTP_normalize_Packable
-    (hep : 2 < ep) (hs : 0 < sp) (hsu : sp + 2 ≤ su)
+    (hep : 1 < ep) (hs : 0 < sp) (hsu : sp + 2 ≤ su)
     (z : UnpackedFloat (exponentWidth ep sp) su) (hznorm : z.normalize = z)
     (hnotEU : z.blastIsEarlyUnderflowNonneg ep sp = false)
     (hnotEO : z.blastIsEarlyOverflowNonneg ep sp = false) :
@@ -359,7 +359,7 @@ theorem UnpackedFloat.blastSmtLibRoundRTP_normalize_Packable
 
 /-- `blastSmtLibRound` (RTP) output is always `Packable`. -/
 theorem UnpackedFloat.blastSmtLibRound_Packable_of_RTP
-    (hep : 2 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
+    (hep : 1 < ep) (hs : 0 < sp) (heu : exponentWidth ep sp ≤ eu) (hsu : sp + 2 ≤ su)
     (x : UnpackedFloat eu su) (hxnorm : x.normalize = x) :
     (x.blastSmtLibRound ep sp .RTP).Packable := by
   have he : 1 < ep := by grind
